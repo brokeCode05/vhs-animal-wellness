@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Appointments - VHS Admin</title>
+  <link rel="stylesheet" href="admin-style.css">
+  <link rel="stylesheet" href="../shared/vhs-ui.css">
+</head>
+<body>
+  <!-- Top Navbar -->
+  <nav class="top-navbar">
+    <button class="hamburger-menu" id="hamburgerMenu" aria-label="Toggle menu">
+      <span></span><span></span><span></span>
+    </button>
+    <div class="navbar-brand">
+      <img src="../image/vhs-assets/vhs-logo.png" alt="VHS Logo" class="navbar-logo">
+      <span class="brand-name">VHS Admin</span>
+    </div>
+  </nav>
+
+  <div class="main-wrapper">
+    <!-- Compact Sidebar -->
+    <aside class="sidebar">
+      <div class="sidebar-profile">
+        <div class="sidebar-avatar">👤</div>
+        <div class="sidebar-user-info">
+          <span class="sidebar-user-name">Admin User</span>
+          <span class="sidebar-user-role">Administrator</span>
+        </div>
+      </div>
+      <nav class="sidebar-nav">
+        <a href="index.html" class="nav-item">
+          <span class="icon">📊</span>
+          <span class="label">Dashboard</span>
+        </a>
+        <a href="accounts.html" class="nav-item">
+          <span class="icon">👥</span>
+          <span class="label">Accounts</span>
+        </a>
+        <a href="appointments.html" class="nav-item active">
+          <span class="icon">📅</span>
+          <span class="label">Appointments</span>
+        </a>
+        <a href="clients-pets.html" class="nav-item">
+          <span class="icon">🐾</span>
+          <span class="label">Clients & Pets</span>
+        </a>
+        <a href="website.html" class="nav-item">
+          <span class="icon">🌐</span>
+          <span class="label">Website</span>
+        </a>
+        <a href="#" class="nav-item nav-item-logout" id="logoutBtn">
+          <span class="icon">🚪</span>
+          <span class="label">Logout</span>
+        </a>
+      </nav>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main-content">
+      <div class="page-header">
+        <h1>Appointment Management</h1>
+        <p class="page-subtitle">Manage all clinic appointments</p>
+      </div>
+
+      <!-- Calendar View Section -->
+      <section class="content-section">
+        <div class="calendar-header">
+          <h2 class="section-title">Manage Appointments</h2>
+          <p class="page-subtitle">View and manage all clinic schedules.</p>
+          <div class="calendar-controls">
+            <div class="calendar-nav">
+              <button class="btn-small" onclick="previousMonth()">‹</button>
+              <button class="btn-secondary" onclick="goToToday()">Today</button>
+              <button class="btn-small" onclick="nextMonth()">›</button>
+            </div>
+            <h3 class="calendar-month" id="calendarMonth">January 2026</h3>
+            <div class="calendar-view-toggle">
+              <button class="btn-small active" data-view="month" onclick="setCalendarView('month')">Month</button>
+              <button class="btn-small" data-view="week" onclick="setCalendarView('week')">Week</button>
+              <button class="btn-small" data-view="day" onclick="setCalendarView('day')">Day</button>
+            </div>
+            <div class="calendar-actions">
+              <select class="form-select" id="statusFilter" onchange="filterAppointments()">
+                <option value="all">All Status</option>
+                <option value="pending">Pending</option>
+                <option value="scheduled">Scheduled</option>
+                <option value="completed">Completed</option>
+                <option value="canceled">Canceled</option>
+              </select>
+              <button class="btn-primary" onclick="addNewAppointment()">+ Add</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="calendar-container">
+          <!-- Legend -->
+          <div class="calendar-legend">
+            <span class="legend-item"><span class="legend-dot status-pending"></span>Pending</span>
+            <span class="legend-item"><span class="legend-dot status-scheduled"></span>Scheduled</span>
+            <span class="legend-item"><span class="legend-dot status-completed"></span>Completed</span>
+            <span class="legend-item"><span class="legend-dot status-canceled"></span>Canceled</span>
+          </div>
+          <div class="calendar-grid" id="calendarGrid" style="min-height:520px;">
+            <!-- Calendar renders here -->
+          </div>
+        </div>
+      </section>
+
+      <!-- All Appointments -->
+      <section class="content-section">
+        <div class="section-header">
+          <h2 class="section-title">All Appointments</h2>
+        </div>
+
+        <!-- Search & Filter -->
+        <div class="filter-bar">
+          <input type="date" class="form-input" style="width: auto;" id="filterDate">
+          <select class="form-select" style="width: auto;" id="filterStatus">
+            <option value="all">All Status</option>
+            <option value="pending">Pending</option>
+            <option value="scheduled">Scheduled</option>
+            <option value="completed">Completed</option>
+            <option value="canceled">Canceled</option>
+          </select>
+          <select class="form-select" style="width: auto;" id="filterType">
+            <option value="all">All Types</option>
+            <option value="guest">Guest</option>
+            <option value="registered">Registered</option>
+          </select>
+          <input type="search" class="search-input" placeholder="Search appointments..." id="searchAppointments">
+        </div>
+
+        <div class="table-wrapper">
+          <table class="compact-table">
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Date & Time</th>
+                <th>Owner</th>
+                <th>Pet</th>
+                <th>Service</th>
+                <th>Type</th>
+                <th>Status</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="allAppointmentsTable">
+              <tr><td colspan="8" style="text-align:center;color:#888;">No appointments yet.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script src="../shared/vhs-ui.js"></script>
+  <script src="admin-script.js"></script>
+</body>
+</html>

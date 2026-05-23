@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Clients - VHS Clerk</title>
+  <link rel="stylesheet" href="clerk-style.css">
+  <link rel="stylesheet" href="../shared/vhs-ui.css">
+</head>
+<body>
+  <nav class="top-navbar">
+    <button class="hamburger-menu" id="hamburgerMenu" aria-label="Toggle menu">
+      <span></span><span></span><span></span>
+    </button>
+    <div class="navbar-brand">
+      <img src="../image/vhs-assets/vhs-logo.png" alt="VHS Logo" class="navbar-logo">
+      <span class="brand-name">VHS Clerk</span>
+    </div>
+  </nav>
+
+  <div class="main-wrapper">
+    <aside class="sidebar">
+      <div class="sidebar-profile">
+        <div class="sidebar-avatar">🧑‍💼</div>
+        <div class="sidebar-user-info">
+          <span class="sidebar-user-name">Desk Clerk</span>
+          <span class="sidebar-user-role">Clerk</span>
+        </div>
+      </div>
+      <nav class="sidebar-nav">
+        <a href="index.html" class="nav-item"><span class="icon">📊</span><span class="label">Dashboard</span></a>
+        <a href="appointments.html" class="nav-item"><span class="icon">📅</span><span class="label">Appointments</span></a>
+        <a href="clients.html" class="nav-item active"><span class="icon">👥</span><span class="label">Clients</span></a>
+        <a href="clients-pets.html" class="nav-item"><span class="icon">🐾</span><span class="label">Clients & Pets</span></a>
+        <a href="#" class="nav-item nav-item-logout" id="logoutBtn"><span class="icon">🚪</span><span class="label">Logout</span></a>
+      </nav>
+    </aside>
+
+    <main class="main-content">
+      <div class="page-header">
+        <h1>Client Management</h1>
+        <p class="page-subtitle">View and manage registered clients</p>
+      </div>
+
+      <!-- Client List -->
+      <section class="content-section">
+        <div class="section-header">
+          <h2 class="section-title">Registered Clients</h2>
+        </div>
+        <div class="filter-bar">
+          <input type="search" class="search-input" placeholder="Search by name, email, or contact..." id="searchClients">
+          <select class="form-select" style="width:auto;" id="filterStatus">
+            <option value="all">All Status</option>
+            <option value="active">Active</option>
+            <option value="inactive">Inactive</option>
+          </select>
+        </div>
+        <div class="table-wrapper">
+          <table class="compact-table">
+            <thead>
+              <tr><th>ID</th><th>Name</th><th>Email</th><th>Contact</th><th>Pets</th><th>Total Visits</th><th>Status</th><th>Actions</th></tr>
+            </thead>
+            <tbody id="clientsTable">
+              <tr><td colspan="8" style="text-align:center;color:#888;">No clients yet.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script src="../shared/vhs-ui.js"></script>
+  <script src="clerk-script.js"></script>
+</body>
+</html>

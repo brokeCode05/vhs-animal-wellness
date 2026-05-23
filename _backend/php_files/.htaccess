@@ -1,0 +1,6 @@
+# Block direct browser access to all PHP files in this folder.
+# They are only meant to be called server-side via require/include or fetch().
+<FilesMatch "\.php$">
+    Order Allow,Deny
+    Deny from all
+</FilesMatch>

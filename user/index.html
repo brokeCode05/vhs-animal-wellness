@@ -1,0 +1,983 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>My Dashboard - VHS</title>
+    <link rel="stylesheet" href="user-style.css" />
+    <link rel="stylesheet" href="user-enhancements.css" />
+    <link rel="stylesheet" href="../shared/vhs-ui.css" />
+  </head>
+  <body>
+    <!-- TOP NAVBAR -->
+    <nav class="top-navbar">
+      <button
+        class="hamburger-menu"
+        id="hamburgerMenu"
+        aria-label="Toggle menu"
+      >
+        <span></span><span></span><span></span>
+      </button>
+      <div class="navbar-brand">
+        <img
+          src="../image/vhs-assets/vhs-logo.png"
+          alt="VHS Logo"
+          class="navbar-logo"
+        />
+        <span class="brand-name">VHS Portal</span>
+      </div>
+      <div class="navbar-right">
+        <span class="navbar-badge">My Account</span>
+      </div>
+    </nav>
+
+    <div class="main-wrapper">
+      <!-- SIDEBAR -->
+      <aside class="sidebar" id="sidebar">
+        <!-- Sidebar User Profile -->
+        <div class="sidebar-profile">
+          <div class="sidebar-avatar" id="sidebarAvatar">
+            <img
+              id="sidebarAvatarImg"
+              src=""
+              alt="Profile"
+              style="
+                display: none;
+                width: 100%;
+                height: 100%;
+                object-fit: cover;
+                border-radius: 50%;
+              "
+            />
+            <span id="sidebarAvatarEmoji">👤</span>
+          </div>
+          <div class="sidebar-user-info">
+            <span class="sidebar-user-name">—</span>
+            <span class="sidebar-user-role">Pet Owner</span>
+          </div>
+        </div>
+        <nav class="sidebar-nav">
+          <a
+            href="#"
+            class="nav-item active"
+            data-section="dashboard"
+            onclick="showSection('dashboard')"
+          >
+            <span class="icon">📊</span>
+            <span class="label">Dashboard</span>
+          </a>
+          <a
+            href="#"
+            class="nav-item"
+            data-section="appointments"
+            onclick="showSection('appointments')"
+          >
+            <span class="icon">📅</span>
+            <span class="label">My Appointments</span>
+            <span class="badge-count" id="apptBadge" style="display: none"
+              >0</span
+            >
+          </a>
+          <a
+            href="#"
+            class="nav-item"
+            data-section="pets"
+            onclick="showSection('pets')"
+          >
+            <span class="icon">🐾</span>
+            <span class="label">My Pets</span>
+          </a>
+          <a
+            href="#"
+            class="nav-item"
+            data-section="profile"
+            onclick="showSection('profile')"
+          >
+            <span class="icon">👤</span>
+            <span class="label">My Profile</span>
+          </a>
+          <a
+            href="#"
+            class="nav-item"
+            data-section="clinic"
+            onclick="showSection('clinic')"
+          >
+            <span class="icon">🏥</span>
+            <span class="label">Clinic Info</span>
+          </a>
+          <a
+            href="#"
+            class="nav-item"
+            data-section="services"
+            onclick="showSection('services')"
+          >
+            <span class="icon">💉</span>
+            <span class="label">Services</span>
+          </a>
+          <a href="#" class="nav-item nav-item-logout" id="logoutBtn">
+            <span class="icon">🚪</span>
+            <span class="label">Logout</span>
+          </a>
+        </nav>
+      </aside>
+
+      <!-- MAIN CONTENT -->
+      <main class="main-content">
+        <!-- ===== DASHBOARD OVERVIEW ===== -->
+        <section id="section-dashboard" class="page-section active">
+          <div class="page-header">
+            <h1>Welcome back, Maria! 👋</h1>
+            <p class="page-subtitle">
+              Here's a quick overview of your account.
+            </p>
+          </div>
+
+          <div class="stats-grid">
+            <div class="stat-card" onclick="showSection('appointments')">
+              <div class="stat-icon pending">📅</div>
+              <div class="stat-info">
+                <div class="stat-value" id="statUpcoming">0</div>
+                <div class="stat-label">Upcoming Appointments</div>
+              </div>
+            </div>
+            <div class="stat-card" onclick="showSection('pets')">
+              <div class="stat-icon purple">🐾</div>
+              <div class="stat-info">
+                <div class="stat-value" id="statPets">0</div>
+                <div class="stat-label">Registered Pets</div>
+              </div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-icon confirmed">✅</div>
+              <div class="stat-info">
+                <div class="stat-value" id="statCompleted">0</div>
+                <div class="stat-label">Completed Visits</div>
+              </div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-icon">🔔</div>
+              <div class="stat-info">
+                <div class="stat-value" id="statPending">0</div>
+                <div class="stat-label">Pending Confirmation</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Upcoming Appointments -->
+          <div class="content-section">
+            <div class="section-header">
+              <h2 class="section-title">Upcoming Appointments</h2>
+              <button class="btn-primary" onclick="openBookModal()">
+                + Book Appointment
+              </button>
+            </div>
+            <div class="table-wrapper">
+              <table class="compact-table">
+                <thead>
+                  <tr>
+                    <th>Pet</th>
+                    <th>Service</th>
+                    <th>Date & Time</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="dashApptBody">
+                  <tr class="empty-row">
+                    <td
+                      colspan="5"
+                      style="
+                        text-align: center;
+                        padding: 2rem;
+                        color: var(--text-muted, #888);
+                      "
+                    >
+                      No upcoming appointments. Book one to get started!
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- My Pets Quick View -->
+          <div class="content-section">
+            <div class="section-header">
+              <h2 class="section-title">My Pets</h2>
+              <button class="btn-secondary" onclick="showSection('pets')">
+                View All →
+              </button>
+            </div>
+            <div class="pets-grid" id="dashPetsGrid">
+              <p style="color: var(--text-muted, #888); padding: 1rem 0">
+                No pets registered yet. Add your first pet!
+              </p>
+            </div>
+          </div>
+        </section>
+
+        <!-- ===== MY APPOINTMENTS ===== -->
+        <section id="section-appointments" class="page-section">
+          <div class="page-header">
+            <h1>My Appointments</h1>
+            <p class="page-subtitle">
+              Manage and track all your pet appointments.
+            </p>
+          </div>
+
+          <div class="section-header" style="margin-bottom: 1.5rem">
+            <div class="filter-bar">
+              <input
+                type="search"
+                class="search-input"
+                placeholder="Search appointments..."
+                id="searchAppts"
+              />
+              <select class="form-select" id="filterApptStatus">
+                <option value="all">All Status</option>
+                <option value="pending">Pending</option>
+                <option value="scheduled">Scheduled</option>
+                <option value="completed">Completed</option>
+                <option value="canceled">Canceled</option>
+              </select>
+            </div>
+            <button class="btn-primary" onclick="openBookModal()">
+              + Book Appointment
+            </button>
+          </div>
+
+          <div class="content-section">
+            <div class="table-wrapper">
+              <table class="compact-table" id="apptTable">
+                <thead>
+                  <tr>
+                    <th>#</th>
+                    <th>Pet</th>
+                    <th>Service</th>
+                    <th>Date & Time</th>
+                    <th>Notes</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="apptTableBody">
+                  <tr class="empty-row">
+                    <td
+                      colspan="7"
+                      style="
+                        text-align: center;
+                        padding: 2rem;
+                        color: var(--text-muted, #888);
+                      "
+                    >
+                      No appointments found.
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- ===== MY PETS ===== -->
+        <section id="section-pets" class="page-section">
+          <div class="page-header">
+            <h1>My Pets</h1>
+            <p class="page-subtitle">View and manage your registered pets.</p>
+          </div>
+
+          <div class="section-header" style="margin-bottom: 1.5rem">
+            <span></span>
+            <button class="btn-primary" onclick="openAddPetModal()">
+              + Add New Pet
+            </button>
+          </div>
+
+          <div class="pets-full-grid" id="petsGrid">
+            <p style="color: var(--text-muted, #888); padding: 1rem 0">
+              No pets registered yet. Click "Add New Pet" to get started!
+            </p>
+          </div>
+        </section>
+
+        <!-- ===== MY PROFILE ===== -->
+        <section id="section-profile" class="page-section">
+          <div class="page-header">
+            <h1>My Profile</h1>
+            <p class="page-subtitle">Manage your account information.</p>
+          </div>
+
+          <div class="content-section profile-card">
+            <!-- Top-right Edit button -->
+            <div class="profile-card-header">
+              <span></span>
+              <button
+                class="btn-primary"
+                id="editProfileBtn"
+                onclick="toggleEditProfile()"
+              >
+                Edit Profile
+              </button>
+            </div>
+
+            <!-- Avatar -->
+            <div class="avatar-upload-wrap">
+              <div class="avatar-preview" id="avatarPreview">
+                <img
+                  id="avatarPreviewImg"
+                  src=""
+                  alt="Profile"
+                  style="
+                    display: none;
+                    width: 100%;
+                    height: 100%;
+                    object-fit: cover;
+                    border-radius: 50%;
+                  "
+                />
+                <span id="avatarPreviewEmoji">&#128100;</span>
+              </div>
+              <div
+                class="avatar-upload-actions"
+                id="avatarActions"
+                style="display: none"
+              >
+                <div class="btn-row">
+                  <label
+                    class="btn-primary"
+                    for="avatarInput"
+                    style="cursor: pointer; font-family: inherit"
+                    >Upload Photo</label
+                  >
+                  <input
+                    type="file"
+                    id="avatarInput"
+                    accept="image/*"
+                    style="display: none"
+                    onchange="handleAvatarUpload(event)"
+                  />
+                  <button class="btn-secondary" onclick="removeAvatar()">
+                    Remove
+                  </button>
+                </div>
+                <p class="avatar-hint">JPG, PNG or GIF &middot; Max 5MB</p>
+              </div>
+            </div>
+
+            <!-- Account Info -->
+            <div class="profile-fields">
+              <div class="form-row">
+                <div class="form-group">
+                  <label class="form-label">Last Name</label>
+                  <input
+                    type="text"
+                    class="form-input"
+                    id="profileLastName"
+                    value=""
+                    maxlength="50"
+                    disabled
+                  />
+                </div>
+                <div class="form-group">
+                  <label class="form-label">First Name</label>
+                  <input
+                    type="text"
+                    class="form-input"
+                    id="profileFirstName"
+                    value=""
+                    maxlength="50"
+                    disabled
+                  />
+                </div>
+              </div>
+              <div class="form-row">
+                <div class="form-group">
+                  <label class="form-label">Middle Name</label>
+                  <input
+                    type="text"
+                    class="form-input"
+                    id="profileMiddleName"
+                    value=""
+                    maxlength="50"
+                    disabled
+                  />
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Email Address</label>
+                  <input
+                    type="email"
+                    class="form-input"
+                    id="profileEmail"
+                    value=""
+                    disabled
+                  />
+                </div>
+              </div>
+              <div class="form-row">
+                <div class="form-group">
+                  <label class="form-label">Contact Number</label>
+                  <input
+                    type="tel"
+                    class="form-input"
+                    id="profilePhone"
+                    value=""
+                    maxlength="11"
+                    inputmode="numeric"
+                    disabled
+                  />
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Address</label>
+                  <input
+                    type="text"
+                    class="form-input"
+                    id="profileAddress"
+                    value=""
+                    disabled
+                  />
+                </div>
+              </div>
+            </div>
+
+            <!-- Change Password (shown in edit mode) -->
+            <div id="passwordSection" style="display: none">
+              <hr class="profile-divider" />
+              <h3 class="section-title" style="margin-bottom: 1rem">
+                Change Password
+              </h3>
+              <form id="passwordForm" onsubmit="changePassword(event)">
+                <div class="form-row">
+                  <div class="form-group">
+                    <label class="form-label">Current Password</label>
+                    <input
+                      type="password"
+                      class="form-input"
+                      id="currentPassword"
+                      placeholder="Enter current password"
+                    />
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">New Password</label>
+                    <input
+                      type="password"
+                      class="form-input"
+                      id="newPassword"
+                      placeholder="Enter new password"
+                    />
+                  </div>
+                </div>
+                <div class="form-row">
+                  <div class="form-group">
+                    <label class="form-label">Confirm New Password</label>
+                    <input
+                      type="password"
+                      class="form-input"
+                      id="confirmPassword"
+                      placeholder="Re-enter new password"
+                    />
+                  </div>
+                  <div class="form-group"></div>
+                </div>
+              </form>
+            </div>
+
+            <!-- Save / Cancel -->
+            <div class="form-actions hidden" id="profileFormActions">
+              <button type="button" class="btn-primary" onclick="saveProfile()">
+                Save Changes
+              </button>
+              <button
+                type="button"
+                class="btn-secondary"
+                onclick="cancelEditProfile()"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </section>
+
+        <!-- ===== CLINIC INFO ===== -->
+        <section id="section-clinic" class="page-section">
+          <div class="page-header">
+            <h1>Clinic Information</h1>
+            <p class="page-subtitle">
+              Everything you need to know about VHS Animal Wellness Center.
+            </p>
+          </div>
+
+          <div class="clinic-grid">
+            <div class="content-section">
+              <h2 class="section-title">📍 Contact & Location</h2>
+              <div class="clinic-info-list">
+                <div class="clinic-info-item">
+                  <span class="clinic-icon">📍</span>
+                  <div>
+                    <strong>Address</strong>
+                    <p>
+                      834 Aurora Blvd cor Driod St, Kaunlaran, Cubao, Quezon
+                      City, 1111
+                    </p>
+                  </div>
+                </div>
+                <div class="clinic-info-item">
+                  <span class="clinic-icon">📞</span>
+                  <div>
+                    <strong>Phone</strong>
+                    <p>0917 108 4174</p>
+                  </div>
+                </div>
+                <div class="clinic-info-item">
+                  <span class="clinic-icon">📧</span>
+                  <div>
+                    <strong>Email</strong>
+                    <p>vhs.animalwellness@gmail.com</p>
+                  </div>
+                </div>
+                <div class="clinic-info-item">
+                  <span class="clinic-icon">🌐</span>
+                  <div>
+                    <strong>Website</strong>
+                    <p>
+                      <a href="../index.html" target="_blank"
+                        >www.vhsclinic.com</a
+                      >
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="content-section">
+              <h2 class="section-title">🕐 Operating Hours</h2>
+              <div class="hours-table">
+                <div class="hours-row">
+                  <span>Monday – Thursday</span
+                  ><span class="hours-time">9:00 AM – 6:00 PM</span>
+                </div>
+                <div class="hours-row">
+                  <span>Friday – Sunday</span
+                  ><span class="hours-time">10:00 AM – 7:00 PM</span>
+                </div>
+                <div class="hours-row holiday">
+                  <span>Holidays</span
+                  ><span class="hours-time">By appointment only</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="content-section clinic-announcements">
+              <h2 class="section-title">📢 Announcements</h2>
+              <div class="announcement-list">
+                <div class="announcement-item">
+                  <span class="announcement-badge new">New</span>
+                  <div>
+                    <strong>Free Vaccination Drive</strong>
+                    <p>
+                      Join our free vaccination drive on March 15, 2026. Limited
+                      slots available.
+                    </p>
+                    <small>Posted: Mar 1, 2026</small>
+                  </div>
+                </div>
+                <div class="announcement-item">
+                  <span class="announcement-badge info">Info</span>
+                  <div>
+                    <strong>Holiday Schedule</strong>
+                    <p>
+                      We will be open on Holy Week with reduced hours. Please
+                      book in advance.
+                    </p>
+                    <small>Posted: Feb 25, 2026</small>
+                  </div>
+                </div>
+                <div class="announcement-item">
+                  <span class="announcement-badge info">Info</span>
+                  <div>
+                    <strong>New Grooming Packages</strong>
+                    <p>
+                      We've added new grooming packages for small and large
+                      breeds. Check our services!
+                    </p>
+                    <small>Posted: Feb 20, 2026</small>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ===== SERVICES ===== -->
+        <section id="section-services" class="page-section">
+          <div class="page-header">
+            <h1>Available Services</h1>
+            <p class="page-subtitle">
+              Browse all services offered at VHS Animal Wellness Center.
+            </p>
+          </div>
+          <div class="services-grid">
+            <div class="service-card-user">
+              <div class="service-icon-wrap">💉</div>
+              <h3>Vaccination</h3>
+              <p>
+                Core and non-core vaccines for dogs, cats, and other pets. Keeps
+                your pet protected from common diseases.
+              </p>
+              <button class="btn-primary" onclick="openBookModal()">
+                Book Now
+              </button>
+            </div>
+            <div class="service-card-user">
+              <div class="service-icon-wrap">✂️</div>
+              <h3>Grooming</h3>
+              <p>
+                Full grooming packages including bath, haircut, nail trimming,
+                and ear cleaning for all breeds.
+              </p>
+              <button class="btn-primary" onclick="openBookModal()">
+                Book Now
+              </button>
+            </div>
+            <div class="service-card-user">
+              <div class="service-icon-wrap">🩺</div>
+              <h3>Check-up / Consultation</h3>
+              <p>
+                Routine wellness exams and consultations with our licensed
+                veterinarians.
+              </p>
+              <button class="btn-primary" onclick="openBookModal()">
+                Book Now
+              </button>
+            </div>
+            <div class="service-card-user">
+              <div class="service-icon-wrap">🪱</div>
+              <h3>Deworming</h3>
+              <p>
+                Safe and effective deworming treatments for puppies, kittens,
+                and adult pets.
+              </p>
+              <button class="btn-primary" onclick="openBookModal()">
+                Book Now
+              </button>
+            </div>
+            <div class="service-card-user">
+              <div class="service-icon-wrap">🔬</div>
+              <h3>Laboratory Tests</h3>
+              <p>
+                Complete blood count, urinalysis, fecal exams, and other
+                diagnostic tests.
+              </p>
+              <button class="btn-primary" onclick="openBookModal()">
+                Book Now
+              </button>
+            </div>
+            <div class="service-card-user">
+              <div class="service-icon-wrap">🦷</div>
+              <h3>Dental Cleaning</h3>
+              <p>
+                Professional dental scaling and polishing to maintain your pet's
+                oral health.
+              </p>
+              <button class="btn-primary" onclick="openBookModal()">
+                Book Now
+              </button>
+            </div>
+            <div class="service-card-user">
+              <div class="service-icon-wrap">🏥</div>
+              <h3>Surgery</h3>
+              <p>
+                Soft tissue and orthopedic surgeries performed by experienced
+                veterinary surgeons.
+              </p>
+              <button class="btn-primary" onclick="openBookModal()">
+                Book Now
+              </button>
+            </div>
+            <div class="service-card-user">
+              <div class="service-icon-wrap">🛏️</div>
+              <h3>Boarding</h3>
+              <p>
+                Safe and comfortable overnight boarding for your pets while
+                you're away.
+              </p>
+              <button class="btn-primary" onclick="openBookModal()">
+                Book Now
+              </button>
+            </div>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <!-- ===== MODALS ===== -->
+
+    <!-- Book Appointment Modal -->
+    <div class="modal-overlay" id="bookModal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2 class="modal-title">Book Appointment</h2>
+          <button class="modal-close" onclick="closeModal('bookModal')">
+            &times;
+          </button>
+        </div>
+        <form id="bookForm" onsubmit="submitBooking(event)">
+          <div class="form-group">
+            <label class="form-label"
+              >Select Pet <span class="required">*</span></label
+            >
+            <select class="form-select" id="bookPetSelect" required>
+              <option value="">Choose a pet</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label"
+              >Service <span class="required">*</span></label
+            >
+            <select class="form-select" id="bookServiceSelect" required>
+              <option value="">Choose a service</option>
+              <option value="vaccination">Vaccination</option>
+              <option value="grooming">Grooming</option>
+              <option value="check-up/consultation">Check-up / Consultation</option>
+              <option value="deworming">Deworming</option>
+              <option value="laboratory tests">Laboratory Tests</option>
+              <option value="dental cleaning">Dental Cleaning</option>
+              <option value="surgery">Surgery</option>
+              <option value="boarding">Boarding</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Preferred Veterinarian</label>
+            <select class="form-select" id="bookVetSelect">
+              <option value="">Loading veterinarians...</option>
+            </select>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label"
+                >Preferred Date <span class="required">*</span></label
+              >
+              <input type="date" class="form-input" required />
+            </div>
+            <div class="form-group">
+              <label class="form-label"
+                >Preferred Time <span class="required">*</span></label
+              >
+              <select class="form-select" id="bookTimeSelect" required>
+                <option value="">Select time</option>
+                <option value="8:00 AM">8:00 AM</option>
+                <option value="9:00 AM">9:00 AM</option>
+                <option value="10:00 AM">10:00 AM</option>
+                <option value="11:00 AM">11:00 AM</option>
+                <option value="1:00 PM">1:00 PM</option>
+                <option value="2:00 PM">2:00 PM</option>
+                <option value="3:00 PM">3:00 PM</option>
+                <option value="4:00 PM">4:00 PM</option>
+                <option value="5:00 PM">5:00 PM</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Notes (optional)</label>
+            <textarea
+              class="form-textarea"
+              rows="3"
+              placeholder="Any special instructions or concerns..."
+            ></textarea>
+          </div>
+          <div class="form-actions">
+            <button type="submit" class="btn-primary">Submit Request</button>
+            <button
+              type="button"
+              class="btn-secondary"
+              onclick="closeModal('bookModal')"
+            >
+              Cancel
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Add / Edit Pet Modal -->
+    <div class="modal-overlay" id="petModal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2 class="modal-title" id="petModalTitle">Add New Pet</h2>
+          <button class="modal-close" onclick="closeModal('petModal')">
+            &times;
+          </button>
+        </div>
+        <form
+          id="petForm"
+          action="petDB.php"
+          method="POST"
+          onsubmit="submitPet(event)"
+        >
+          <div class="form-group">
+            <label class="form-label">Pet Photo</label>
+            <div
+              class="pet-photo-preview"
+              id="petPhotoPreview"
+              onclick="document.getElementById('petPhotoInput').click()"
+            >
+              <span class="upload-icon">📷</span>
+              <span>Click to upload photo</span>
+            </div>
+            <input
+              type="file"
+              id="petPhotoInput"
+              name="petPhoto"
+              accept="image/*"
+              style="display: none"
+              onchange="previewPetPhoto(this)"
+            />
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label"
+                >Pet Name <span class="required">*</span></label
+              >
+              <input
+                type="text"
+                class="form-input"
+                id="petName"
+                name="petName"
+                placeholder="e.g. Luna"
+                required
+              />
+            </div>
+            <div class="form-group">
+              <label class="form-label"
+                >Species <span class="required">*</span></label
+              >
+              <select
+                class="form-select"
+                id="petSpecies"
+                name="petSpecies"
+                required
+              >
+                <option value="">Select species</option>
+                <option value="Dog">Dog</option>
+                <option value="Cat">Cat</option>
+                <option value="Bird">Bird</option>
+                <option value="Rabbit">Rabbit</option>
+                <option value="Other">Other</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Breed</label>
+              <input
+                type="text"
+                class="form-input"
+                id="petBreed"
+                name="petBreed"
+                placeholder="e.g. Persian"
+              />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Age (years)</label>
+              <input
+                type="number"
+                class="form-input"
+                id="petAge"
+                name="petAge"
+                placeholder="e.g. 3"
+                min="0"
+              />
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Gender</label>
+              <select class="form-select" id="petGender" name="petGender">
+                <option value="">Select gender</option>
+                <option value="Male">Male</option>
+                <option value="Female">Female</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Weight (kg)</label>
+              <input
+                type="number"
+                class="form-input"
+                id="petWeight"
+                name="petWeight"
+                step="0.1"
+                placeholder="e.g. 4.5"
+                min="0"
+              />
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Medical Notes / Allergies</label>
+            <textarea
+              class="form-textarea"
+              id="petNotes"
+              name="petNote"
+              rows="3"
+              placeholder="e.g. Allergic to certain flea treatments..."
+            ></textarea>
+          </div>
+
+          <input type="hidden" id="petUserId" name="user_id" value="" />
+
+          <div class="form-actions">
+            <button type="submit" class="btn-primary">Save Pet</button>
+            <button
+              type="button"
+              class="btn-secondary"
+              onclick="closeModal('petModal')"
+            >
+              Cancel
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- View Appointment Modal -->
+    <div class="modal-overlay" id="viewApptModal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2 class="modal-title">Appointment Details</h2>
+          <button class="modal-close" onclick="closeModal('viewApptModal')">
+            &times;
+          </button>
+        </div>
+        <div id="apptDetails" class="detail-grid"></div>
+        <div class="form-actions" style="margin-top: 1.5rem">
+          <button class="btn-secondary" onclick="closeModal('viewApptModal')">
+            Close
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Confirm Modal (reusable) -->
+    <div class="confirm-modal-overlay" id="confirmModal">
+      <div class="confirm-modal">
+        <div class="confirm-icon" id="confirmIcon">⚠️</div>
+        <h3 class="confirm-title" id="confirmTitle">Confirm Action</h3>
+        <p class="confirm-message" id="confirmMessage">Are you sure?</p>
+        <div class="confirm-actions">
+          <button class="btn-confirm-ok" id="confirmOkBtn">Confirm</button>
+          <button class="btn-confirm-cancel" onclick="closeConfirm()">
+            Cancel
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Toast Container -->
+    <div class="toast-container" id="toastContainer"></div>
+
+    <script src="../shared/vhs-ui.js"></script>
+    <script src="user-script.js"></script>
+  </body>
+</html>

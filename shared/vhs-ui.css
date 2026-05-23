@@ -1,0 +1,303 @@
+/* ============================================
+   VHS SHARED UI — Enhanced Modals & Toasts
+   Used by: admin, clerk, user dashboards
+   ============================================ */
+
+/* ── TOAST CONTAINER ── */
+.toast-container {
+  position: fixed;
+  top: 1.25rem;
+  right: 1.25rem;
+  z-index: 99999;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  pointer-events: none;
+  max-width: 360px;
+  width: calc(100vw - 2.5rem);
+}
+
+/* ── TOAST ── */
+.toast {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 0.9rem 1rem;
+  border-radius: 0.875rem;
+  background: #ffffff;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.14), 0 2px 8px rgba(0,0,0,0.08);
+  border-left: 4px solid #6d4ab1;
+  pointer-events: all;
+  animation: toastSlideIn 0.35s cubic-bezier(0.34,1.56,0.64,1) both;
+  position: relative;
+  overflow: hidden;
+}
+
+.toast::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  opacity: 0.04;
+  border-radius: inherit;
+}
+
+.toast.success  { border-left-color: #10b981; }
+.toast.success::before  { background: #10b981; }
+.toast.error    { border-left-color: #ef4444; }
+.toast.error::before    { background: #ef4444; }
+.toast.warning  { border-left-color: #f59e0b; }
+.toast.warning::before  { background: #f59e0b; }
+.toast.info     { border-left-color: #3b82f6; }
+.toast.info::before     { background: #3b82f6; }
+
+.toast-icon-wrap {
+  width: 2rem;
+  height: 2rem;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1rem;
+  flex-shrink: 0;
+  margin-top: 0.05rem;
+}
+.toast.success .toast-icon-wrap { background: #d1fae5; }
+.toast.error   .toast-icon-wrap { background: #fee2e2; }
+.toast.warning .toast-icon-wrap { background: #fef3c7; }
+.toast.info    .toast-icon-wrap { background: #dbeafe; }
+
+.toast-body { flex: 1; min-width: 0; }
+.toast-title {
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 0.15rem;
+  color: #374151;
+}
+.toast.success .toast-title { color: #065f46; }
+.toast.error   .toast-title { color: #991b1b; }
+.toast.warning .toast-title { color: #92400e; }
+.toast.info    .toast-title { color: #1e40af; }
+
+.toast-message {
+  font-size: 0.875rem;
+  color: #4b5563;
+  line-height: 1.4;
+  word-break: break-word;
+}
+
+.toast-close {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #9ca3af;
+  font-size: 1.1rem;
+  line-height: 1;
+  padding: 0;
+  flex-shrink: 0;
+  transition: color 0.2s;
+  margin-top: 0.05rem;
+}
+.toast-close:hover { color: #374151; }
+
+/* Progress bar */
+.toast-progress {
+  position: absolute;
+  bottom: 0; left: 0;
+  height: 3px;
+  border-radius: 0 0 0.875rem 0.875rem;
+  animation: toastProgress 3.5s linear forwards;
+}
+.toast.success .toast-progress { background: #10b981; }
+.toast.error   .toast-progress { background: #ef4444; }
+.toast.warning .toast-progress { background: #f59e0b; }
+.toast.info    .toast-progress { background: #3b82f6; }
+
+@keyframes toastSlideIn {
+  from { opacity: 0; transform: translateX(110%) scale(0.9); }
+  to   { opacity: 1; transform: translateX(0) scale(1); }
+}
+@keyframes toastSlideOut {
+  to { opacity: 0; transform: translateX(110%) scale(0.9); }
+}
+@keyframes toastProgress {
+  from { width: 100%; }
+  to   { width: 0%; }
+}
+
+/* ── MODAL OVERLAY ── */
+.vhs-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 10, 40, 0.65);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  z-index: 9000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.25s ease;
+}
+.vhs-modal-overlay.show {
+  opacity: 1;
+  pointer-events: all;
+}
+
+/* ── MODAL BOX ── */
+.vhs-modal {
+  background: #ffffff;
+  border-radius: 1.25rem;
+  box-shadow: 0 24px 80px rgba(0,0,0,0.22), 0 4px 16px rgba(0,0,0,0.1);
+  width: 100%;
+  max-width: 420px;
+  transform: scale(0.88) translateY(20px);
+  transition: transform 0.3s cubic-bezier(0.34,1.56,0.64,1), opacity 0.25s ease;
+  opacity: 0;
+  overflow: hidden;
+}
+.vhs-modal-overlay.show .vhs-modal {
+  transform: scale(1) translateY(0);
+  opacity: 1;
+}
+
+/* Modal top accent bar */
+.vhs-modal-accent {
+  height: 5px;
+  width: 100%;
+}
+.vhs-modal-accent.confirm { background: linear-gradient(90deg, #f59e0b, #ffaa00); }
+.vhs-modal-accent.success { background: linear-gradient(90deg, #10b981, #34d399); }
+.vhs-modal-accent.error   { background: linear-gradient(90deg, #ef4444, #f87171); }
+.vhs-modal-accent.info    { background: linear-gradient(90deg, #3b82f6, #60a5fa); }
+.vhs-modal-accent.prompt  { background: linear-gradient(90deg, #6d4ab1, #8b5cf6); }
+.vhs-modal-accent.underwork { background: linear-gradient(90deg, #64748b, #94a3b8); }
+
+.vhs-modal-body {
+  padding: 1.75rem 1.75rem 1.5rem;
+  text-align: center;
+}
+
+.vhs-modal-icon-wrap {
+  width: 4rem;
+  height: 4rem;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.75rem;
+  margin: 0 auto 1rem;
+}
+.vhs-modal-accent.confirm ~ .vhs-modal-body .vhs-modal-icon-wrap { background: #fef3c7; }
+.vhs-modal-accent.success ~ .vhs-modal-body .vhs-modal-icon-wrap { background: #d1fae5; }
+.vhs-modal-accent.error   ~ .vhs-modal-body .vhs-modal-icon-wrap { background: #fee2e2; }
+.vhs-modal-accent.info    ~ .vhs-modal-body .vhs-modal-icon-wrap { background: #dbeafe; }
+.vhs-modal-accent.prompt  ~ .vhs-modal-body .vhs-modal-icon-wrap { background: #ede9fe; }
+.vhs-modal-accent.underwork ~ .vhs-modal-body .vhs-modal-icon-wrap { background: #f1f5f9; }
+
+.vhs-modal-title {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #111827;
+  margin-bottom: 0.5rem;
+}
+.vhs-modal-message {
+  font-size: 0.9rem;
+  color: #6b7280;
+  line-height: 1.55;
+  margin-bottom: 0;
+}
+
+/* Prompt input */
+.vhs-modal-input {
+  width: 100%;
+  padding: 0.65rem 0.9rem;
+  border: 1.5px solid #e5e7eb;
+  border-radius: 0.625rem;
+  font-size: 0.9rem;
+  font-family: inherit;
+  color: #111827;
+  background: #f9fafb;
+  margin-top: 1rem;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  outline: none;
+}
+.vhs-modal-input:focus {
+  border-color: #6d4ab1;
+  box-shadow: 0 0 0 3px rgba(109,74,177,0.12);
+  background: #fff;
+}
+
+/* Modal footer */
+.vhs-modal-footer {
+  display: flex;
+  gap: 0.75rem;
+  padding: 0 1.75rem 1.5rem;
+  justify-content: center;
+}
+
+.vhs-btn {
+  flex: 1;
+  padding: 0.65rem 1.25rem;
+  border-radius: 0.625rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  border: none;
+  transition: all 0.2s;
+  max-width: 160px;
+}
+.vhs-btn-primary {
+  background: linear-gradient(135deg, #6d4ab1, #8b5cf6);
+  color: #fff;
+  box-shadow: 0 4px 12px rgba(109,74,177,0.3);
+}
+.vhs-btn-primary:hover { transform: translateY(-1px); box-shadow: 0 6px 16px rgba(109,74,177,0.4); }
+.vhs-btn-primary:active { transform: translateY(0); }
+
+.vhs-btn-confirm {
+  background: linear-gradient(135deg, #f59e0b, #ffaa00);
+  color: #fff;
+  box-shadow: 0 4px 12px rgba(245,158,11,0.3);
+}
+.vhs-btn-confirm:hover { transform: translateY(-1px); box-shadow: 0 6px 16px rgba(245,158,11,0.4); }
+
+.vhs-btn-danger {
+  background: linear-gradient(135deg, #ef4444, #f87171);
+  color: #fff;
+  box-shadow: 0 4px 12px rgba(239,68,68,0.3);
+}
+.vhs-btn-danger:hover { transform: translateY(-1px); }
+
+.vhs-btn-ghost {
+  background: #f3f4f6;
+  color: #6b7280;
+  border: 1.5px solid #e5e7eb;
+}
+.vhs-btn-ghost:hover { background: #e5e7eb; color: #374151; }
+
+/* Under work badge */
+.underwork-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  background: linear-gradient(135deg, #f1f5f9, #e2e8f0);
+  color: #64748b;
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 0.3rem 0.7rem;
+  border-radius: 2rem;
+  border: 1px dashed #cbd5e1;
+  letter-spacing: 0.03em;
+}
+
+@media (max-width: 480px) {
+  .toast-container { top: 0.75rem; right: 0.75rem; left: 0.75rem; max-width: none; width: auto; }
+  .vhs-modal { border-radius: 1rem; }
+  .vhs-modal-footer { flex-direction: column; }
+  .vhs-btn { max-width: none; }
+}

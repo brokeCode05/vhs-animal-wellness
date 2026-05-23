@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Clients & Pets - VHS Admin</title>
+  <link rel="stylesheet" href="admin-style.css">
+  <link rel="stylesheet" href="../shared/vhs-ui.css">
+</head>
+<body>
+  <!-- Top Navbar -->
+  <nav class="top-navbar">
+    <button class="hamburger-menu" id="hamburgerMenu" aria-label="Toggle menu">
+      <span></span><span></span><span></span>
+    </button>
+    <div class="navbar-brand">
+      <img src="../image/vhs-assets/vhs-logo.png" alt="VHS Logo" class="navbar-logo">
+      <span class="brand-name">VHS Admin</span>
+    </div>
+  </nav>
+
+  <div class="main-wrapper">
+    <!-- Compact Sidebar -->
+    <aside class="sidebar">
+      <div class="sidebar-profile">
+        <div class="sidebar-avatar">👤</div>
+        <div class="sidebar-user-info">
+          <span class="sidebar-user-name">Admin User</span>
+          <span class="sidebar-user-role">Administrator</span>
+        </div>
+      </div>
+      <nav class="sidebar-nav">
+        <a href="index.html" class="nav-item">
+          <span class="icon">📊</span>
+          <span class="label">Dashboard</span>
+        </a>
+        <a href="accounts.html" class="nav-item">
+          <span class="icon">👥</span>
+          <span class="label">Accounts</span>
+          <span class="badge-count" style="display:none">0</span>
+        </a>
+        <a href="appointments.html" class="nav-item">
+          <span class="icon">📅</span>
+          <span class="label">Appointments</span>
+          <span class="badge-count" style="display:none">0</span>
+        </a>
+        <a href="clients-pets.html" class="nav-item active">
+          <span class="icon">🐾</span>
+          <span class="label">Clients & Pets</span>
+        </a>
+        <a href="website.html" class="nav-item">
+          <span class="icon">🌐</span>
+          <span class="label">Website</span>
+        </a>
+        <a href="#" class="nav-item nav-item-logout" id="logoutBtn">
+          <span class="icon">🚪</span>
+          <span class="label">Logout</span>
+        </a>
+      </nav>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main-content">
+      <div class="page-header">
+        <h1>Clients & Pets Management</h1>
+        <p class="page-subtitle">View and manage pet owners and their pets</p>
+      </div>
+
+      <!-- Tab Navigation -->
+      <div class="tab-nav">
+        <button class="tab-btn active" data-tab="clients">Pet Owners</button>
+        <button class="tab-btn" data-tab="pets">All Pets</button>
+      </div>
+
+      <!-- Clients Tab -->
+      <div id="clients-tab" class="tab-content active">
+        <section class="content-section">
+          <div class="section-header">
+            <h2 class="section-title">Registered Pet Owners</h2>
+            <button class="btn-primary" onclick="addNewOwner()">+ Add Owner</button>
+          </div>
+
+          <!-- Search & Filter -->
+          <div class="filter-bar">
+            <input type="search" class="search-input" placeholder="Search by name, email, or contact..." id="searchClients">
+            <select class="form-select" style="width: auto;" id="filterClientStatus">
+              <option value="all">All Status</option>
+              <option value="active">Active</option>
+              <option value="inactive">Inactive</option>
+            </select>
+          </div>
+
+          <div class="table-wrapper">
+            <table class="compact-table">
+              <thead>
+                <tr>
+                  <th>ID</th>
+                  <th>Owner Name</th>
+                  <th>Email</th>
+                  <th>Contact</th>
+                  <th>Address</th>
+                  <th>Pets</th>
+                  <th>Registered</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="clientsTable">
+                <tr><td colspan="8" style="text-align:center;color:#888;">No registered clients yet.</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+      </div>
+
+      <!-- Pets Tab -->
+      <div id="pets-tab" class="tab-content">
+        <section class="content-section">
+          <div class="section-header">
+            <h2 class="section-title">All Registered Pets</h2>
+            <button class="btn-primary" onclick="addNewPet()">+ Register Pet</button>
+          </div>
+
+          <!-- Search & Filter -->
+          <div class="filter-bar">
+            <input type="search" class="search-input" placeholder="Search by pet name or owner..." id="searchPets">
+            <select class="form-select" style="width: auto;" id="filterPetType">
+              <option value="all">All Types</option>
+              <option value="dog">Dog</option>
+              <option value="cat">Cat</option>
+              <option value="bird">Bird</option>
+              <option value="rabbit">Rabbit</option>
+              <option value="other">Other</option>
+            </select>
+          </div>
+
+          <div class="table-wrapper">
+            <table class="compact-table">
+              <thead>
+                <tr>
+                  <th>Pet ID</th>
+                  <th>Pet Name</th>
+                  <th>Type</th>
+                  <th>Breed</th>
+                  <th>Age</th>
+                  <th>Sex</th>
+                  <th>Owner</th>
+                  <th>Last Visit</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="petsTable">
+                <tr><td colspan="9" style="text-align:center;color:#888;">No pets registered yet.</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+      </div>
+    </main>
+  </div>
+
+  <!-- Owner Profile Modal -->
+  <div class="modal-overlay" id="ownerProfileModal">
+    <div class="modal-content" style="max-width: 900px;">
+      <div class="modal-header">
+        <h2 class="modal-title">Owner Profile</h2>
+        <button class="modal-close" onclick="closeOwnerProfile()">&times;</button>
+      </div>
+      
+      <div id="ownerProfileContent">
+        <!-- Owner Information -->
+        <div class="detail-grid">
+          <div class="detail-item">
+            <div class="detail-label">Full Name</div>
+            <div class="detail-value" id="ownerName">—</div>
+          </div>
+          <div class="detail-item">
+            <div class="detail-label">Email</div>
+            <div class="detail-value" id="ownerEmail">—</div>
+          </div>
+          <div class="detail-item">
+            <div class="detail-label">Contact Number</div>
+            <div class="detail-value" id="ownerPhone">—</div>
+          </div>
+          <div class="detail-item">
+            <div class="detail-label">Date of Birth</div>
+            <div class="detail-value" id="ownerDob">—</div>
+          </div>
+          <div class="detail-item" style="grid-column: 1 / -1;">
+            <div class="detail-label">Address</div>
+            <div class="detail-value" id="ownerAddress">—</div>
+          </div>
+          <div class="detail-item">
+            <div class="detail-label">Registration Date</div>
+            <div class="detail-value" id="ownerRegDate">—</div>
+          </div>
+          <div class="detail-item">
+            <div class="detail-label">Total Visits</div>
+            <div class="detail-value" id="ownerVisits">—</div>
+          </div>
+        </div>
+
+        <!-- Owner's Pets -->
+        <h3 class="section-title mt-2">Registered Pets</h3>
+        <div class="table-wrapper">
+          <table class="compact-table">
+            <thead>
+              <tr>
+                <th>Pet Name</th>
+                <th>Type</th>
+                <th>Breed</th>
+                <th>Age</th>
+                <th>Last Visit</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="ownerPetsTable">
+              <tr><td colspan="6" style="text-align:center;color:#888;">No pets registered.</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Appointment History -->
+        <h3 class="section-title mt-2">Appointment History</h3>
+        <div class="table-wrapper">
+          <table class="compact-table">
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Pet</th>
+                <th>Service</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody id="ownerAppointmentsTable">
+              <tr><td colspan="4" style="text-align:center;color:#888;">No appointments yet.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Pet Profile Modal -->
+  <div class="modal-overlay" id="petProfileModal">
+    <div class="modal-content" style="max-width: 900px;">
+      <div class="modal-header">
+        <h2 class="modal-title">Pet Profile</h2>
+        <button class="modal-close" onclick="closePetProfile()">&times;</button>
+      </div>
+      
+      <div id="petProfileContent">
+        <!-- Pet Information -->
+        <div class="detail-grid">
+          <div class="detail-item">
+            <div class="detail-label">Pet Name</div>
+            <div class="detail-value" id="petName">—</div>
+          </div>
+          <div class="detail-item">
+            <div class="detail-label">Type</div>
+            <div class="detail-value" id="petType">Cat</div>
+          </div>
+          <div class="detail-item">
+            <div class="detail-label">Breed</div>
+            <div class="detail-value" id="petBreed">Persian</div>
+          </div>
+          <div class="detail-item">
+            <div class="detail-label">Age</div>
+            <div class="detail-value" id="petAge">3 years</div>
+          </div>
+          <div class="detail-item">
+            <div class="detail-label">Sex</div>
+            <div class="detail-value" id="petSex">Female</div>
+          </div>
+          <div class="detail-item">
+            <div class="detail-label">Owner</div>
+            <div class="detail-value" id="petOwner">—</div>
+          </div>
+        </div>
+
+        <!-- Medical History -->
+        <h3 class="section-title mt-2">Medical History</h3>
+        <div class="content-section">
+          <p id="petMedicalHistory">No records yet.</p>
+        </div>
+
+        <!-- Vaccination Records -->
+        <h3 class="section-title mt-2">Vaccination Records</h3>
+        <div class="table-wrapper">
+          <table class="compact-table">
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Vaccine</th>
+                <th>Next Due</th>
+                <th>Administered By</th>
+              </tr>
+            </thead>
+            <tbody id="petVaccinationTable">
+              <tr><td colspan="4" style="text-align:center;color:#888;">No vaccination records.</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Past Appointments -->
+        <h3 class="section-title mt-2">Past Appointments</h3>
+        <div class="table-wrapper">
+          <table class="compact-table">
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Service</th>
+                <th>Veterinarian</th>
+                <th>Notes</th>
+              </tr>
+            </thead>
+            <tbody id="petAppointmentsTable">
+              <tr><td colspan="4" style="text-align:center;color:#888;">No appointments yet.</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Treatment Records -->
+        <h3 class="section-title mt-2">Treatment Records</h3>
+        <div class="table-wrapper">
+          <table class="compact-table">
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Treatment</th>
+                <th>Diagnosis</th>
+                <th>Medication</th>
+              </tr>
+            </thead>
+            <tbody id="petTreatmentTable">
+              <tr><td colspan="4" style="text-align:center;color:#888;">No treatment records.</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Medical Documents -->
+        <h3 class="section-title mt-2">Medical Documents</h3>
+        <div class="content-section">
+          <button class="btn-secondary" onclick="uploadDocument()">📄 Upload Document</button>
+          <div id="petDocuments" class="mt-2">
+            <p class="text-muted">No documents uploaded yet.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="../shared/vhs-ui.js"></script>
+  <script src="admin-script.js"></script>
+  <script>
+  var PHP = '/VHS-MAY--main/vhs_main/php_files';
+
+  function fmtDate(str) {
+    if (!str) return '—';
+    return new Date(str).toLocaleDateString('en-US', { year:'numeric', month:'short', day:'numeric' });
+  }
+
+  function loadClients() {
+    var tbody = document.getElementById('clientsTable');
+    if (!tbody) return;
+    fetch(PHP + '/get_users.php?status=approved')
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        tbody.innerHTML = data.length ? data.map(function(u, i) {
+          return '<tr data-id="' + u.id + '">' +
+            '<td>#C' + String(i+1).padStart(3,'0') + '</td>' +
+            '<td>' + u.fullName + '</td>' +
+            '<td>' + u.email + '</td>' +
+            '<td>' + (u.phone || '—') + '</td>' +
+            '<td>' + (u.address || '—') + '</td>' +
+            '<td>—</td>' +
+            '<td>' + fmtDate(u.created_at) + '</td>' +
+            '<td>' +
+              '<button class="btn-small" onclick="viewOwnerProfile(' + u.id + ')">View Profile</button>' +
+              '<button class="btn-small" onclick="editOwner(' + u.id + ')">Edit</button>' +
+            '</td></tr>';
+        }).join('')
+        : '<tr><td colspan="8" style="text-align:center;color:#888;">No registered clients yet.</td></tr>';
+      })
+      .catch(function() {
+        tbody.innerHTML = '<tr><td colspan="8" style="color:red;text-align:center;">Failed to load clients.</td></tr>';
+      });
+  }
+
+  function loadPets() {
+    var tbody = document.getElementById('petsTable');
+    if (!tbody) return;
+    tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;color:#888;">Loading...</td></tr>';
+    fetch(PHP + '/get_pets.php')
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        tbody.innerHTML = data.length ? data.map(function(p, i) {
+          return '<tr data-id="' + p.id + '">' +
+            '<td>#P' + String(i+1).padStart(3,'0') + '</td>' +
+            '<td>' + p.name + '</td>' +
+            '<td>' + (p.type || '—') + '</td>' +
+            '<td>' + (p.breed || '—') + '</td>' +
+            '<td>' + (p.age || '—') + '</td>' +
+            '<td>—</td>' +
+            '<td>' + (p.ownerName || '—') + '</td>' +
+            '<td>—</td>' +
+            '<td>' +
+              '<button class="btn-small" onclick="viewPetProfile(' + p.id + ')">View Profile</button>' +
+              '<button class="btn-small" onclick="editPet(' + p.id + ')">Edit</button>' +
+            '</td></tr>';
+        }).join('')
+        : '<tr><td colspan="9" style="text-align:center;color:#888;">No pets registered yet.</td></tr>';
+      })
+      .catch(function() {
+        tbody.innerHTML = '<tr><td colspan="9" style="color:red;text-align:center;">Failed to load pets.</td></tr>';
+      });
+  }
+
+  document.addEventListener('DOMContentLoaded', function() {
+    loadClients();
+    loadPets();
+
+    // Reload data when switching tabs
+    document.querySelectorAll('.tab-btn').forEach(function(btn) {
+      btn.addEventListener('click', function() {
+        var tab = btn.getAttribute('data-tab');
+        if (tab === 'pets') loadPets();
+        if (tab === 'clients') loadClients();
+      });
+    });
+  });
+  </script>
+</body>
+</html>

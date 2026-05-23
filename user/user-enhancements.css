@@ -1,0 +1,276 @@
+/* ============================================
+   VHS USER PORTAL — UI ENHANCEMENTS
+   Extra polish on top of user-style.css
+   ============================================ */
+
+/* === BACKGROUND === */
+body {
+  background: #f5f0ff;
+  background-image:
+    radial-gradient(circle at 15% 15%, rgba(109,74,177,0.06) 0%, transparent 50%),
+    radial-gradient(circle at 85% 85%, rgba(255,170,0,0.04) 0%, transparent 50%);
+}
+
+/* === SIDEBAR UPGRADE === */
+.sidebar {
+  background: linear-gradient(180deg, #ffffff 0%, #fafbff 100%);
+  border-right: 1px solid rgba(109,74,177,0.1);
+  box-shadow: 4px 0 24px rgba(109,74,177,0.08);
+}
+
+.sidebar-profile {
+  background: linear-gradient(135deg, rgba(109,74,177,0.1) 0%, rgba(109,74,177,0.06) 100%);
+  border: 1px solid rgba(109,74,177,0.18);
+  box-shadow: 0 2px 12px rgba(109,74,177,0.08);
+}
+
+.sidebar-avatar {
+  background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%);
+  box-shadow: 0 4px 12px rgba(109,74,177,0.35);
+  border: 2px solid rgba(255,255,255,0.3);
+}
+
+.sidebar .nav-item {
+  border-radius: 0.625rem;
+  margin: 0 0.25rem;
+}
+
+.sidebar .nav-item:hover {
+  background: linear-gradient(135deg, rgba(109,74,177,0.07) 0%, rgba(109,74,177,0.12) 100%);
+  transform: translateX(6px);
+}
+
+.sidebar .nav-item.active {
+  background: linear-gradient(135deg, rgba(109,74,177,0.14) 0%, rgba(109,74,177,0.2) 100%);
+  box-shadow: 0 4px 14px rgba(109,74,177,0.18);
+}
+
+.sidebar .nav-item.active::before {
+  background: linear-gradient(180deg, var(--primary-light), var(--secondary));
+  width: 3px;
+}
+
+/* === STAT CARDS === */
+.stat-card {
+  border: none;
+  border-radius: 1rem;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+  position: relative;
+  overflow: hidden;
+}
+
+.stat-card::after {
+  content: '';
+  position: absolute;
+  bottom: -20px; right: -20px;
+  width: 80px; height: 80px;
+  border-radius: 50%;
+  background: rgba(109,74,177,0.04);
+  pointer-events: none;
+}
+
+.stat-card:hover {
+  box-shadow: 0 8px 28px rgba(109,74,177,0.16);
+  transform: translateY(-5px);
+}
+
+.stat-icon {
+  border-radius: 0.875rem;
+  border: none;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+}
+
+.stat-value {
+  font-size: 2.25rem;
+  font-weight: 800;
+  background: linear-gradient(135deg, var(--text-dark), #4a5568);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* === CONTENT SECTION === */
+.content-section {
+  border: none;
+  border-radius: 1rem;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.05);
+  position: relative;
+  overflow: hidden;
+}
+
+.content-section::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, var(--primary), var(--primary-light), var(--secondary));
+  opacity: 0;
+  transition: opacity var(--transition);
+}
+
+.content-section:hover::before {
+  opacity: 1;
+}
+
+/* === PAGE HEADER === */
+.page-header {
+  padding: 1.5rem 2rem;
+  background: white;
+  border-radius: 1rem;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.05);
+  margin-bottom: 1.75rem;
+  border-left: 4px solid var(--primary);
+  position: relative;
+  overflow: hidden;
+}
+
+.page-header::after {
+  content: '';
+  position: absolute;
+  right: -30px; top: -30px;
+  width: 120px; height: 120px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(109,74,177,0.06) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+.page-header h1 {
+  font-size: 1.875rem;
+}
+
+/* === TABLE UPGRADE === */
+.table-wrapper {
+  border: none;
+  border-radius: 0.875rem;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+  overflow: hidden;
+}
+
+.compact-table thead {
+  background: linear-gradient(135deg, #f8f7ff 0%, #f0eeff 100%);
+}
+
+.compact-table th {
+  color: var(--primary-dark);
+  border-bottom: 2px solid rgba(109,74,177,0.12);
+  font-size: 0.75rem;
+}
+
+.compact-table tbody tr:hover {
+  background: linear-gradient(135deg, #fafbff 0%, #f5f3ff 100%);
+}
+
+/* === FORM INPUTS === */
+.form-input,
+.form-select,
+.form-textarea {
+  border: 1.5px solid #e8eaf0;
+  border-radius: 0.625rem;
+  background: #fafbff;
+}
+
+.form-input:focus,
+.form-select:focus,
+.form-textarea:focus {
+  background: white;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(109,74,177,0.12);
+}
+
+/* === SECTION TITLE === */
+.section-title {
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.section-title::before {
+  content: '';
+  display: inline-block;
+  width: 4px;
+  height: 1.1em;
+  background: linear-gradient(180deg, var(--primary), var(--secondary));
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+
+/* === PET CARDS === */
+.pet-full-card {
+  border: none;
+  border-radius: 1rem;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.07);
+  transition: all var(--transition);
+  overflow: hidden;
+  position: relative;
+}
+
+.pet-full-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, var(--primary), var(--secondary));
+}
+
+.pet-full-card:hover {
+  box-shadow: 0 8px 28px rgba(109,74,177,0.15);
+  transform: translateY(-3px);
+}
+
+/* === SERVICE CARDS === */
+.service-card-user {
+  border: none;
+  border-radius: 1rem;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.06);
+  transition: all var(--transition);
+}
+
+.service-card-user:hover {
+  box-shadow: 0 10px 32px rgba(109,74,177,0.18);
+  transform: translateY(-5px);
+  border: none;
+}
+
+/* === MODAL UPGRADE === */
+.modal-content {
+  border-radius: 1.25rem;
+  box-shadow: 0 30px 80px rgba(0,0,0,0.2);
+  border-top: 4px solid var(--primary);
+}
+
+/* === BADGE COUNT === */
+.badge-count {
+  background: linear-gradient(135deg, var(--secondary), #e69500);
+  box-shadow: 0 2px 8px rgba(255,170,0,0.4);
+  font-size: 0.7rem;
+  padding: 0.2rem 0.55rem;
+}
+
+/* === LOGOUT ITEM === */
+.nav-item-logout {
+  border-top: 1px solid rgba(239,68,68,0.1);
+  margin-top: 0.5rem;
+  padding-top: 0.5rem;
+}
+
+/* === ANNOUNCEMENT ITEMS === */
+.announcement-item {
+  border-radius: 0.75rem;
+  transition: all var(--transition);
+}
+
+.announcement-item:hover {
+  transform: translateX(4px);
+  box-shadow: 0 4px 12px rgba(109,74,177,0.1);
+}
+
+/* === HOURS TABLE === */
+.hours-row {
+  border-radius: 0.5rem;
+  transition: background var(--transition);
+}
+
+.hours-row:hover {
+  background: rgba(109,74,177,0.04);
+}

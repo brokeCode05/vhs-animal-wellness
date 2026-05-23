@@ -1,0 +1,230 @@
+/* ============================================
+   VHS CLERK DASHBOARD - STYLESHEET
+   Extends admin design with teal clerk accent
+   ============================================ */
+@import url('../admin/admin-style.css');
+@import url('../admin/admin-enhancements.css');
+
+/* Clerk color palette — teal identity */
+:root {
+  --primary:        #0d9488;   /* teal-600  */
+  --primary-dark:   #0f766e;   /* teal-700  */
+  --primary-light:  #14b8a6;   /* teal-500  */
+  --secondary:      #ffaa00;   /* gold — unchanged */
+  --secondary-dark: #f59e0b;
+}
+
+/* ── NAVBAR ── */
+.top-navbar {
+  background: linear-gradient(135deg, #042f2e 0%, #0f766e 45%, #0d9488 100%);
+  box-shadow: 0 4px 24px rgba(13,148,136,0.45), 0 1px 0 rgba(255,255,255,0.07) inset;
+}
+
+.top-navbar::after {
+  background: linear-gradient(90deg, transparent, rgba(255,170,0,0.85), rgba(255,255,255,0.55), transparent);
+}
+
+.top-navbar::before {
+  background: radial-gradient(circle, rgba(20,184,166,0.14) 0%, transparent 70%);
+}
+
+/* ── SIDEBAR ── */
+.sidebar {
+  background: linear-gradient(180deg, #ffffff 0%, #f0fdfb 100%);
+  border-right: 1px solid rgba(13,148,136,0.1);
+  box-shadow: 4px 0 24px rgba(13,148,136,0.08);
+}
+
+.sidebar-profile {
+  background: linear-gradient(135deg, rgba(13,148,136,0.09) 0%, rgba(13,148,136,0.05) 100%);
+  border: 1px solid rgba(13,148,136,0.16);
+  box-shadow: 0 2px 12px rgba(13,148,136,0.07);
+}
+
+.sidebar-avatar {
+  background: linear-gradient(135deg, #0d9488 0%, #14b8a6 100%);
+  box-shadow: 0 4px 14px rgba(13,148,136,0.4);
+  border: 2px solid rgba(255,255,255,0.3);
+}
+
+.sidebar-user-role {
+  color: #0d9488;
+}
+
+.sidebar .nav-item:hover {
+  background: linear-gradient(135deg, rgba(13,148,136,0.07) 0%, rgba(13,148,136,0.12) 100%);
+  color: #0d9488;
+}
+
+.sidebar .nav-item.active {
+  background: linear-gradient(135deg, rgba(13,148,136,0.12) 0%, rgba(13,148,136,0.18) 100%);
+  color: #0d9488;
+  box-shadow: 0 4px 14px rgba(13,148,136,0.16);
+}
+
+.sidebar .nav-item.active::before {
+  background: linear-gradient(180deg, #14b8a6, #ffaa00);
+}
+
+.sidebar::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, #0d9488, #14b8a6);
+}
+
+/* ── PAGE HEADER ── */
+.page-header {
+  border-left: 4px solid #0d9488;
+}
+
+.page-header h1 {
+  background: linear-gradient(135deg, #0d9488 0%, #0f766e 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.page-header::after {
+  background: radial-gradient(circle, rgba(13,148,136,0.06) 0%, transparent 70%);
+}
+
+/* ── SECTION TITLE BAR ── */
+.section-title::before {
+  background: linear-gradient(180deg, #0d9488, #ffaa00);
+}
+
+/* ── STAT CARDS ── */
+.stat-card::before {
+  background: linear-gradient(90deg, #0d9488 0%, #ffaa00 100%);
+}
+
+.stat-card:hover {
+  border-color: #0d9488;
+  box-shadow: 0 8px 28px rgba(13,148,136,0.18);
+}
+
+/* ── CONTENT SECTION ── */
+.content-section::before {
+  background: linear-gradient(90deg, #0d9488, #14b8a6, #ffaa00);
+}
+
+/* ── TABLE ── */
+.compact-table thead {
+  background: linear-gradient(135deg, #f0fdfb 0%, #e6faf7 100%);
+}
+
+.compact-table th {
+  color: #0f766e;
+  border-bottom: 2px solid rgba(13,148,136,0.14);
+}
+
+.compact-table tbody tr:hover {
+  background: linear-gradient(135deg, #f0fdfb 0%, #e6faf7 100%);
+}
+
+/* ── FORMS ── */
+.form-input:focus,
+.form-select:focus,
+.form-textarea:focus,
+.search-input:focus {
+  border-color: #0d9488;
+  box-shadow: 0 0 0 3px rgba(13,148,136,0.12);
+}
+
+.form-input,
+.form-select,
+.form-textarea,
+.search-input {
+  background: #f0fdfb;
+  border-color: #cce8e5;
+}
+
+/* ── BUTTONS ── */
+.btn-secondary {
+  background: linear-gradient(135deg, #0d9488 0%, #0f766e 100%);
+  box-shadow: 0 6px 20px rgba(13,148,136,0.35);
+}
+
+.btn-secondary:hover {
+  box-shadow: 0 10px 30px rgba(13,148,136,0.45);
+}
+
+.btn-small:hover {
+  border-color: #0d9488;
+  color: #0d9488;
+  box-shadow: 0 4px 12px rgba(13,148,136,0.18);
+}
+
+.btn-link {
+  color: #0d9488;
+}
+
+.btn-link::after {
+  background: #0d9488;
+}
+
+.btn-link:hover {
+  color: #0f766e;
+}
+
+/* ── MODAL ── */
+.modal-title {
+  background: linear-gradient(135deg, #0d9488 0%, #0f766e 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.modal-content {
+  border-top: 4px solid #0d9488;
+}
+
+.confirm-modal::before {
+  background: linear-gradient(90deg, #0d9488, #ffaa00);
+}
+
+.btn-confirm-ok {
+  background: linear-gradient(135deg, #0d9488, #0f766e);
+  box-shadow: 0 4px 14px rgba(13,148,136,0.35);
+}
+
+.btn-confirm-ok:hover {
+  box-shadow: 0 8px 24px rgba(13,148,136,0.45);
+}
+
+.btn-confirm-cancel:hover {
+  border-color: #0d9488;
+  color: #0d9488;
+}
+
+/* ── TABS ── */
+.tab-btn.active {
+  color: #0d9488;
+  border-bottom-color: #0d9488;
+}
+
+.tab-btn:hover {
+  color: #0d9488;
+  background: rgba(13,148,136,0.05);
+}
+
+/* ── CALENDAR ── */
+.calendar-day-header {
+  background: linear-gradient(135deg, #0f766e 0%, #0d9488 100%);
+}
+
+.calendar-day.today {
+  background: linear-gradient(135deg, rgba(13,148,136,0.07) 0%, rgba(13,148,136,0.12) 100%);
+  border: 2px solid #0d9488;
+}
+
+/* ── PRIORITY CARD ── */
+.priority-card {
+  background: linear-gradient(135deg, #fff 0%, #f0fdfb 100%);
+}
+
+/* ── BACKGROUND TINT ── */
+body {
+  background: #f0fdfb;
+  background-image:
+    radial-gradient(circle at 20% 20%, rgba(13,148,136,0.04) 0%, transparent 50%),
+    radial-gradient(circle at 80% 80%, rgba(255,170,0,0.03) 0%, transparent 50%);
+}

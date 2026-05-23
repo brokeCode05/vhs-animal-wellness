@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard - VHS Admin</title>
+  <link rel="stylesheet" href="admin-style.css">
+  <link rel="stylesheet" href="../shared/vhs-ui.css">
+</head>
+<body>
+  <!-- Top Navbar -->
+  <nav class="top-navbar">
+    <button class="hamburger-menu" id="hamburgerMenu" aria-label="Toggle menu">
+      <span></span><span></span><span></span>
+    </button>
+    <div class="navbar-brand">
+      <img src="../image/vhs-assets/vhs-logo.png" alt="VHS Logo" class="navbar-logo">
+      <span class="brand-name">VHS Admin</span>
+    </div>
+    <div class="navbar-right">
+      <span class="navbar-badge">Admin Panel</span>
+    </div>
+  </nav>
+
+  <div class="main-wrapper">
+    <!-- Compact Sidebar -->
+    <aside class="sidebar">
+      <div class="sidebar-profile">
+        <div class="sidebar-avatar">👤</div>
+        <div class="sidebar-user-info">
+          <span class="sidebar-user-name">Admin User</span>
+          <span class="sidebar-user-role">Administrator</span>
+        </div>
+      </div>
+      <nav class="sidebar-nav">
+        <a href="index.html" class="nav-item active" title="Dashboard">
+          <span class="icon">📊</span>
+          <span class="label">Dashboard</span>
+        </a>
+        <a href="accounts.html" class="nav-item" title="Account Management">
+          <span class="icon">👥</span>
+          <span class="label">Accounts</span>
+        </a>
+        <a href="appointments.html" class="nav-item" title="Appointments">
+          <span class="icon">📅</span>
+          <span class="label">Appointments</span>
+        </a>
+        <a href="clients-pets.html" class="nav-item" title="Pet Management">
+          <span class="icon">🐾</span>
+          <span class="label">Clients & Pets</span>
+        </a>
+        <a href="website.html" class="nav-item" title="Website Content">
+          <span class="icon">🌐</span>
+          <span class="label">Website</span>
+        </a>
+        <a href="#" class="nav-item nav-item-logout" id="logoutBtn">
+          <span class="icon">🚪</span>
+          <span class="label">Logout</span>
+        </a>
+      </nav>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main-content">
+      <!-- Page Header -->
+      <div class="page-header">
+        <h1>Dashboard Overview</h1>
+        <p class="page-subtitle">Welcome back! Here's what's happening today.</p>
+      </div>
+
+      <!-- PRIORITY SECTION: Requires Attention -->
+      <section class="priority-section">
+        <h2 class="section-title priority-title">⚠️ Requires Attention</h2>
+      </section>
+
+      <!-- Summary Stats -->
+      <section class="stats-section">
+        <h2 class="section-title">Quick Overview</h2>
+        <div class="stats-grid">
+          <div class="stat-card">
+            <div class="stat-icon confirmed">✅</div>
+            <div class="stat-info">
+              <div class="stat-value">—</div>
+              <div class="stat-label">Confirmed Appointments</div>
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon">👥</div>
+            <div class="stat-info">
+              <div class="stat-value" id="statTotalClients">—</div>
+              <div class="stat-label">Total Clients</div>
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon">🐾</div>
+            <div class="stat-info">
+              <div class="stat-value" id="statTotalPets">—</div>
+              <div class="stat-label">Total Pets</div>
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon">💉</div>
+            <div class="stat-info">
+              <div class="stat-value">—</div>
+              <div class="stat-label">Active Services</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Today's Confirmed Appointments -->
+      <section class="content-section">
+        <div class="section-header">
+          <h2 class="section-title">Today's Confirmed Appointments</h2>
+          <a href="appointments.html" class="btn-link">View All →</a>
+        </div>
+        <div class="table-wrapper">
+          <table class="compact-table">
+            <thead>
+              <tr>
+                <th>Time</th>
+                <th>Owner</th>
+                <th>Pet</th>
+                <th>Service</th>
+                <th>Type</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody id="todayAppointmentsTable">
+              <tr><td colspan="6" style="text-align:center;color:#888;">No appointments today.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script src="../shared/vhs-ui.js"></script>
+  <script src="admin-script.js"></script>
+  <script>
+  const PHP = '../php_files';
+
+  function fmtDate(str) {
+    if (!str) return '—';
+    var parts = str.split('-');
+    var d = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+    return d.toLocaleDateString('en-US', { year:'numeric', month:'short', day:'numeric' });
+  }
+
+  function fmtDateTime(date, time) {
+    if (!date) return '—';
+    var dateStr = fmtDate(date);
+    if (!time) return dateStr;
+    return dateStr + ' · ' + time;
+  }
+
+  async function loadDashboard() {
+    // ── Total pets ─────────────────────────────────────────────────────────
+    try {
+      const res  = await fetch(`${PHP}/get_pets.php`);
+      const pets = await res.json();
+      const statPets = document.getElementById('statTotalPets');
+      if (statPets) statPets.textContent = Array.isArray(pets) ? pets.length : '—';
+    } catch(e) { /* optional */ }
+  }
+
+  loadDashboard();
+  </script>
+</body>
+</html>

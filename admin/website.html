@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Website Content - VHS Admin</title>
+  <link rel="stylesheet" href="admin-style.css">
+  <link rel="stylesheet" href="../shared/vhs-ui.css">
+</head>
+<body>
+  <!-- Top Navbar -->
+  <nav class="top-navbar">
+    <button class="hamburger-menu" id="hamburgerMenu" aria-label="Toggle menu">
+      <span></span><span></span><span></span>
+    </button>
+    <div class="navbar-brand">
+      <img src="../image/vhs-assets/vhs-logo.png" alt="VHS Logo" class="navbar-logo">
+      <span class="brand-name">VHS Admin</span>
+    </div>
+  </nav>
+
+  <div class="main-wrapper">
+    <!-- Compact Sidebar -->
+    <aside class="sidebar">
+      <div class="sidebar-profile">
+        <div class="sidebar-avatar">👤</div>
+        <div class="sidebar-user-info">
+          <span class="sidebar-user-name">Admin User</span>
+          <span class="sidebar-user-role">Administrator</span>
+        </div>
+      </div>
+      <nav class="sidebar-nav">
+        <a href="index.html" class="nav-item">
+          <span class="icon">📊</span>
+          <span class="label">Dashboard</span>
+        </a>
+        <a href="accounts.html" class="nav-item">
+          <span class="icon">👥</span>
+          <span class="label">Accounts</span>
+          <span class="badge-count">3</span>
+        </a>
+        <a href="appointments.html" class="nav-item">
+          <span class="icon">📅</span>
+          <span class="label">Appointments</span>
+          <span class="badge-count">5</span>
+        </a>
+        <a href="clients-pets.html" class="nav-item">
+          <span class="icon">🐾</span>
+          <span class="label">Clients & Pets</span>
+        </a>
+        <a href="website.html" class="nav-item active">
+          <span class="icon">🌐</span>
+          <span class="label">Website</span>
+        </a>
+        <a href="#" class="nav-item nav-item-logout" id="logoutBtn">
+          <span class="icon">🚪</span>
+          <span class="label">Logout</span>
+        </a>
+      </nav>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main-content">
+      <div class="page-header">
+        <h1>Website Content Management</h1>
+        <p class="page-subtitle">Edit website information and content</p>
+      </div>
+
+      <!-- Clinic Information -->
+      <section class="content-section">
+        <h2 class="section-title">Clinic Information</h2>
+        <form id="clinicInfoForm">
+          <div class="form-group">
+            <label class="form-label">Clinic Name</label>
+            <input type="text" class="form-input" value="VHS Animal Wellness Center">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Address</label>
+            <textarea class="form-textarea" rows="3">834 Aurora Boulevard cor Driod Street, Kaunlaran, Cubao, Quezon City, Philippines, 1111</textarea>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Phone Number</label>
+            <input type="tel" class="form-input" value="0917 108 4174">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Email Address</label>
+            <input type="email" class="form-input" value="vhs.animalwellness@gmail.com">
+          </div>
+          <button type="submit" class="btn-primary">Save Changes</button>
+        </form>
+      </section>
+
+      <!-- Operating Hours -->
+      <section class="content-section">
+        <h2 class="section-title">Operating Hours</h2>
+        <form id="operatingHoursForm">
+          <div class="form-group">
+            <label class="form-label">Monday - Saturday</label>
+            <input type="text" class="form-input" value="8:00 AM - 6:00 PM">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Sunday</label>
+            <input type="text" class="form-input" value="9:00 AM - 4:00 PM">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Emergency Care</label>
+            <input type="text" class="form-input" value="24/7 Available">
+          </div>
+          <button type="submit" class="btn-primary">Save Changes</button>
+        </form>
+      </section>
+
+      <!-- About Us -->
+      <section class="content-section">
+        <h2 class="section-title">About Us</h2>
+        <form id="aboutUsForm">
+          <div class="form-group">
+            <label class="form-label">Mission Statement</label>
+            <textarea class="form-textarea" rows="3">To provide compassionate, high-quality veterinary care that enhances the health and well-being of every pet we serve.</textarea>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Vision Statement</label>
+            <textarea class="form-textarea" rows="3">To be the most trusted veterinary partner in the community, setting the standard for excellence in animal healthcare.</textarea>
+          </div>
+          <div class="form-group">
+            <label class="form-label">About Our Clinic</label>
+            <textarea class="form-textarea" rows="4">With over 15 years of experience, VHS combines modern veterinary medicine with genuine care for your pets. Our team of experienced veterinarians and dedicated staff members are passionate about animal health and welfare.</textarea>
+          </div>
+          <button type="submit" class="btn-primary">Save Changes</button>
+        </form>
+      </section>
+
+      <!-- Announcements -->
+      <section class="content-section">
+        <div class="section-header">
+          <h2 class="section-title">Announcements & Promos</h2>
+          <button class="btn-primary" onclick="addAnnouncement()">âž• Add Announcement</button>
+        </div>
+        <div class="table-wrapper">
+          <table class="compact-table">
+            <thead>
+              <tr>
+                <th>Title</th>
+                <th>Content</th>
+                <th>Date Posted</th>
+                <th>Status</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Free Rabies Vaccination Day</td>
+                <td>Join us on March 15 for free rabies vaccination...</td>
+                <td>Feb 20, 2026</td>
+                <td><span class="status-badge completed">Active</span></td>
+                <td>
+                  <button class="btn-small" onclick="editAnnouncement(1)">Edit</button>
+                  <button class="btn-small" onclick="deleteAnnouncement(1)">Delete</button>
+                </td>
+              </tr>
+              <tr>
+                <td>20% Off Grooming Services</td>
+                <td>Get 20% discount on all grooming services this month...</td>
+                <td>Feb 15, 2026</td>
+                <td><span class="status-badge completed">Active</span></td>
+                <td>
+                  <button class="btn-small" onclick="editAnnouncement(2)">Edit</button>
+                  <button class="btn-small" onclick="deleteAnnouncement(2)">Delete</button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- Social Media Links -->
+      <section class="content-section">
+        <h2 class="section-title">Social Media Links</h2>
+        <form id="socialMediaForm">
+          <div class="form-group">
+            <label class="form-label">Facebook Page URL</label>
+            <input type="url" class="form-input" value="https://www.facebook.com/VHSanimalwellnesscenter">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Instagram Profile URL</label>
+            <input type="url" class="form-input" value="https://www.instagram.com/vhsanimalwellness">
+          </div>
+          <button type="submit" class="btn-primary">Save Changes</button>
+        </form>
+      </section>
+    </main>
+  </div>
+
+  <script src="../shared/vhs-ui.js"></script>
+  <script src="admin-script.js"></script>
+</body>
+</html>

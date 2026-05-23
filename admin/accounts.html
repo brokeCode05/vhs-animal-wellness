@@ -1,0 +1,403 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Account Management - VHS Admin</title>
+    <link rel="stylesheet" href="admin-style.css" />
+    <link rel="stylesheet" href="../shared/vhs-ui.css" />
+  </head>
+  <body>
+    <!-- Top Navbar -->
+    <nav class="top-navbar">
+      <button
+        class="hamburger-menu"
+        id="hamburgerMenu"
+        aria-label="Toggle menu"
+      >
+        <span></span><span></span><span></span>
+      </button>
+      <div class="navbar-brand">
+        <img
+          src="../image/vhs-assets/vhs-logo.png"
+          alt="VHS Logo"
+          class="navbar-logo"
+        />
+        <span class="brand-name">VHS Admin</span>
+      </div>
+    </nav>
+
+    <div class="main-wrapper">
+      <!-- Compact Sidebar -->
+      <aside class="sidebar">
+        <div class="sidebar-profile">
+          <div class="sidebar-avatar">👤</div>
+          <div class="sidebar-user-info">
+            <span class="sidebar-user-name">Admin User</span>
+            <span class="sidebar-user-role">Administrator</span>
+          </div>
+        </div>
+        <nav class="sidebar-nav">
+          <a href="index.html" class="nav-item">
+            <span class="icon">📊</span>
+            <span class="label">Dashboard</span>
+          </a>
+          <a href="accounts.html" class="nav-item active">
+            <span class="icon">👥</span>
+            <span class="label">Accounts</span>
+          </a>
+          <a href="appointments.html" class="nav-item">
+            <span class="icon">📅</span>
+            <span class="label">Appointments</span>
+            <span class="badge-count">5</span>
+          </a>
+          <a href="clients-pets.html" class="nav-item">
+            <span class="icon">🐾</span>
+            <span class="label">Clients & Pets</span>
+          </a>
+          <a href="website.html" class="nav-item">
+            <span class="icon">🌐</span>
+            <span class="label">Website</span>
+          </a>
+          <a href="#" class="nav-item nav-item-logout" id="logoutBtn">
+            <span class="icon">🚪</span>
+            <span class="label">Logout</span>
+          </a>
+        </nav>
+      </aside>
+
+      <!-- Main Content -->
+      <main class="main-content">
+        <div class="page-header">
+          <h1>Account Management</h1>
+          <p class="page-subtitle">
+            Manage user registrations and client accounts
+          </p>
+        </div>
+
+        <!-- Staff Account Creation -->
+        <section class="content-section" action="add-staff.php">
+          <div class="section-header">
+            <h2 class="section-title">Staff Account Management</h2>
+            <button class="btn-primary" onclick="openCreateStaffModal()">
+              + Create Staff Account
+            </button>
+          </div>
+
+          <!-- Search & Filter -->
+          <div class="filter-bar">
+            <input
+              type="search"
+              class="search-input"
+              placeholder="Search staff by name or email..."
+              id="searchStaff"
+            />
+            <select class="form-select" style="width: auto" id="filterRole">
+              <option value="all">All Roles</option>
+              <option value="owner">Clinic Owner</option>
+              <option value="clerk">Clerk</option>
+              <option value="vet">Veterinarian</option>
+              <option value="staff">Other Staff</option>
+            </select>
+            <select
+              class="form-select"
+              style="width: auto"
+              id="filterStaffStatus"
+            >
+              <option value="all">All Status</option>
+              <option value="active">Active</option>
+              <option value="inactive">Inactive</option>
+            </select>
+          </div>
+
+          <div class="table-wrapper">
+            <table class="compact-table">
+              <thead>
+                <tr>
+                  <th>ID</th>
+                  <th>Name</th>
+                  <th>Email</th>
+                  <th>Role</th>
+                  <th>Contact</th>
+                  <th>Created</th>
+                  <th>Status</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="staffAccountsTable">
+                <tr>
+                  <td colspan="8" style="text-align: center; color: #888">
+                    Loading...
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <!-- Client Accounts -->
+        <section class="content-section">
+          <div class="section-header">
+            <h2 class="section-title">Client Accounts</h2>
+          </div>
+
+          <!-- Search & Filter -->
+          <div class="filter-bar">
+            <input
+              type="search"
+              class="search-input"
+              placeholder="Search by name, email, or contact..."
+              id="searchAccounts"
+            />
+            <select class="form-select" style="width: auto" id="filterStatus">
+              <option value="all">All Status</option>
+              <option value="active">Active</option>
+              <option value="inactive">Inactive</option>
+            </select>
+          </div>
+
+          <div class="table-wrapper">
+            <table class="compact-table">
+              <thead>
+                <tr>
+                  <th>ID</th>
+                  <th>Name</th>
+                  <th>Email</th>
+                  <th>Contact</th>
+                  <th>Pets</th>
+                  <th>Total Visits</th>
+                  <th>Status</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="approvedAccountsTable">
+                <tr>
+                  <td colspan="8" style="text-align: center; color: #888">
+                    Loading...
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <!-- Create Staff Account Modal -->
+    <div class="modal-overlay" id="createStaffModal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2 class="modal-title">Create Staff Account</h2>
+          <button class="modal-close" onclick="closeCreateStaffModal()">
+            &times;
+          </button>
+        </div>
+
+        <form id="createStaffForm" onsubmit="submitStaffAccount(event)">
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label"
+                >Last Name <span class="required">*</span></label
+              >
+              <input
+                type="text"
+                class="form-input"
+                name="staffLastName"
+                placeholder="e.g. Dela Cruz"
+                required
+              />
+            </div>
+            <div class="form-group">
+              <label class="form-label"
+                >First Name <span class="required">*</span></label
+              >
+              <input
+                type="text"
+                class="form-input"
+                name="staffFirstName"
+                placeholder="e.g. Juan"
+                required
+              />
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Middle Name</label>
+              <input
+                type="text"
+                class="form-input"
+                name="staffMiddleName"
+                placeholder="e.g. Santos"
+              />
+            </div>
+            <div class="form-group">
+              <label class="form-label"
+                >Email Address <span class="required">*</span></label
+              >
+              <input
+                type="email"
+                class="form-input"
+                name="staffEmail"
+                placeholder="email@vhs.com"
+                required
+              />
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label"
+                >Contact Number <span class="required">*</span></label
+              >
+              <input
+                type="tel"
+                class="form-input"
+                name="staffPhone"
+                placeholder="09XXXXXXXXX"
+                pattern="[0-9]{11}"
+                required
+              />
+            </div>
+            <div class="form-group">
+              <label class="form-label"
+                >Role <span class="required">*</span></label
+              >
+              <select class="form-select" name="staffRole" required>
+                <option value="">Select role</option>
+                <option value="clinic owner">Clinic Owner</option>
+                <option value="clerk">Clerk</option>
+                <option value="veterinarian">Veterinarian</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label"
+                >Password <span class="required">*</span></label
+              >
+              <input
+                type="password"
+                class="form-input"
+                name="staffPassword"
+                placeholder="Min. 8 characters"
+                minlength="8"
+                required
+              />
+            </div>
+            <div class="form-group">
+              <label class="form-label"
+                >Confirm Password <span class="required">*</span></label
+              >
+              <input
+                type="password"
+                class="form-input"
+                name="staffConfirmPassword"
+                placeholder="Re-enter password"
+                required
+              />
+            </div>
+          </div>
+
+          <div class="form-actions">
+            <button type="submit" class="btn-primary">Create Account</button>
+            <button
+              type="button"
+              class="btn-secondary"
+              onclick="closeCreateStaffModal()"
+            >
+              Cancel
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <script src="../shared/vhs-ui.js"></script>
+    <script src="admin-script.js"></script>
+    <script>
+      const PHP = "/VHS-MAY--main/vhs_main/php_files";
+
+      function fmtDate(str) {
+        if (!str) return "—";
+        return new Date(str).toLocaleDateString("en-US", {
+          year: "numeric",
+          month: "short",
+          day: "numeric",
+        });
+      }
+
+      // ── Approved clients (status = approved) ──
+      async function loadClients() {
+        const tbody = document.getElementById("approvedAccountsTable");
+        try {
+          const res = await fetch(`${PHP}/get_users.php?status=approved`);
+          const data = await res.json();
+          tbody.innerHTML =
+            data.length ?
+              data
+                .map(
+                  (u, i) => `
+        <tr data-id="${u.id}">
+          <td>#C${String(i + 1).padStart(3, "0")}</td>
+          <td>${u.fullName}</td>
+          <td>${u.email}</td>
+          <td>${u.phone || "—"}</td>
+          <td>—</td>
+          <td>—</td>
+          <td><span class="status-badge completed">Active</span></td>
+          <td>
+            <button class="btn-small" onclick="viewClient(${u.id})">View</button>
+            <button class="btn-small" onclick="editClient(${u.id})">Edit</button>
+            <button class="btn-small" onclick="deactivateClient(${u.id})">Deactivate</button>
+          </td>
+        </tr>`,
+                )
+                .join("")
+            : '<tr><td colspan="8" style="text-align:center;color:#888;">No approved clients yet.</td></tr>';
+        } catch (e) {
+          tbody.innerHTML =
+            '<tr><td colspan="8" style="color:red;text-align:center;">Failed to load.</td></tr>';
+        }
+      }
+
+      // ── Staff ──
+      async function loadStaff() {
+        const tbody = document.getElementById("staffAccountsTable");
+        try {
+          const res = await fetch(`${PHP}/get_staff.php`);
+          const data = await res.json();
+          tbody.innerHTML =
+            data.length ?
+              data
+                .map(
+                  (s, i) => `
+        <tr data-id="${s.id}">
+          <td>#S${String(i + 1).padStart(3, "0")}</td>
+          <td>${s.fullName}</td>
+          <td>${s.email}</td>
+          <td><span class="role-badge ${s.role}">${s.role}</span></td>
+          <td>${s.phone || "—"}</td>
+          <td>${fmtDate(s.created_at)}</td>
+          <td><span class="status-badge active">Active</span></td>
+          <td>
+            <button class="btn-small" onclick="viewStaff(${s.id})">View</button>
+            <button class="btn-small" onclick="editStaff(${s.id})">Edit</button>
+            <button class="btn-small" onclick="deactivateStaff(${s.id})">Deactivate</button>
+          </td>
+        </tr>`,
+                )
+                .join("")
+            : '<tr><td colspan="8" style="text-align:center;color:#888;">No staff accounts yet.</td></tr>';
+        } catch (e) {
+          tbody.innerHTML =
+            '<tr><td colspan="8" style="color:red;text-align:center;">Failed to load.</td></tr>';
+        }
+      }
+
+      loadClients();
+      loadStaff();
+    </script>
+  </body>
+</html>

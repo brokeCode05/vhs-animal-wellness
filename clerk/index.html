@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard - VHS Clerk</title>
+  <link rel="stylesheet" href="clerk-style.css">
+  <link rel="stylesheet" href="../shared/vhs-ui.css">
+</head>
+<body>
+  <nav class="top-navbar">
+    <button class="hamburger-menu" id="hamburgerMenu" aria-label="Toggle menu">
+      <span></span><span></span><span></span>
+    </button>
+    <div class="navbar-brand">
+      <img src="../image/vhs-assets/vhs-logo.png" alt="VHS Logo" class="navbar-logo">
+      <span class="brand-name">VHS Clerk</span>
+    </div>
+    <div class="navbar-right">
+      <span class="navbar-badge">Desk Clerk</span>
+    </div>
+  </nav>
+
+  <div class="main-wrapper">
+    <aside class="sidebar">
+      <div class="sidebar-profile">
+        <div class="sidebar-avatar">🧑‍💼</div>
+        <div class="sidebar-user-info">
+          <span class="sidebar-user-name">Desk Clerk</span>
+          <span class="sidebar-user-role">Clerk</span>
+        </div>
+      </div>
+      <nav class="sidebar-nav">
+        <a href="index.html" class="nav-item active" title="Dashboard">
+          <span class="icon">📊</span><span class="label">Dashboard</span>
+        </a>
+        <a href="appointments.html" class="nav-item" title="Appointments">
+          <span class="icon">📅</span><span class="label">Appointments</span>
+        </a>
+        <a href="clients.html" class="nav-item" title="Clients">
+          <span class="icon">👥</span><span class="label">Clients</span>
+        </a>
+        <a href="clients-pets.html" class="nav-item" title="Pets">
+          <span class="icon">🐾</span><span class="label">Clients & Pets</span>
+        </a>
+        <a href="#" class="nav-item nav-item-logout" id="logoutBtn">
+          <span class="icon">🚪</span><span class="label">Logout</span>
+        </a>
+      </nav>
+    </aside>
+
+    <main class="main-content">
+      <div class="page-header">
+        <h1>Dashboard Overview</h1>
+        <p class="page-subtitle">Welcome back! Here's what needs your attention today.</p>
+      </div>
+
+      <!-- Stats -->
+      <section class="stats-section">
+        <h2 class="section-title">Quick Overview</h2>
+        <div class="stats-grid">
+          <div class="stat-card">
+            <div class="stat-icon confirmed">✅</div>
+            <div class="stat-info"><div class="stat-value">—</div><div class="stat-label">Confirmed Today</div></div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon">👥</div>
+            <div class="stat-info"><div class="stat-value">—</div><div class="stat-label">Total Clients</div></div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon">🐾</div>
+            <div class="stat-info"><div class="stat-value">—</div><div class="stat-label">Total Pets</div></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Today's Schedule -->
+      <section class="content-section">
+        <div class="section-header">
+          <h2 class="section-title">Today's Schedule</h2>
+          <a href="appointments.html" class="btn-link">View All →</a>
+        </div>
+        <div class="table-wrapper">
+          <table class="compact-table">
+            <thead>
+              <tr><th>Time</th><th>Owner</th><th>Pet</th><th>Service</th><th>Type</th><th>Status</th></tr>
+            </thead>
+            <tbody id="todayScheduleTable">
+              <tr><td colspan="6" style="text-align:center;color:#888;">No appointments today.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script src="../shared/vhs-ui.js"></script>
+  <script src="clerk-script.js"></script>
+</body>
+</html>

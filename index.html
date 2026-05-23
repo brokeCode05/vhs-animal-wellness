@@ -1,0 +1,1302 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>VHS - VetHAVEN Animal Wellness Center</title>
+    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="shared/vhs-ui.css" />
+  </head>
+  <body>
+    <!-- PAGE LOADER -->
+    <div class="page-loader" id="pageLoader">
+      <div class="loader-content">
+        <div class="loader-spinner"></div>
+        <div class="loader-text">Loading VHS...</div>
+      </div>
+    </div>
+
+    <!-- HEADER -->
+    <header>
+      <nav class="navbar">
+        <a href="#hero" class="logo">
+          <img
+            src="image/vhs-assets/vhs-logo.png"
+            alt="VHS Logo"
+            class="logo-img"
+          />
+          <div class="logo-text">
+            <span class="logo-title">VHS</span>
+            <span class="logo-sub">Animal Wellness Center</span>
+          </div>
+        </a>
+
+        <ul class="nav-menu">
+          <li><a href="index.html" class="nav-link active">Home</a></li>
+          <li><a href="services.html" class="nav-link">Services</a></li>
+          <li><a href="about.html" class="nav-link">About</a></li>
+          <li><a href="contact.html" class="nav-link">Contact</a></li>
+        </ul>
+
+        <div class="navbar-btns">
+          <button class="btn-outline" id="navLoginBtn">Login</button>
+          <button class="btn-primary" id="navSignupBtn">Sign Up</button>
+        </div>
+
+        <button class="hamburger" id="hamburger" aria-label="Toggle menu">
+          <span></span>
+          <span></span>
+          <span></span>
+        </button>
+      </nav>
+    </header>
+
+    <div class="mobile-overlay" id="mobileOverlay"></div>
+
+    <main>
+      <!-- HERO -->
+      <section id="hero" class="hero">
+        <!-- Animated Background Elements -->
+        <div class="hero-bg">
+          <div class="blob blob-1"></div>
+          <div class="blob blob-2"></div>
+          <div class="blob blob-3"></div>
+        </div>
+
+        <div class="hero-container">
+          <!-- Hero Content -->
+          <div class="hero-content">
+            <span class="hero-label"> 🐾 Premium Veterinary Care </span>
+            <h1 class="hero-title">
+              <span class="title-line">Welcome to</span>
+              <span class="title-main">VHS Animal</span>
+              <span class="title-main">Wellness Center</span>
+            </h1>
+            <p class="hero-description">
+              Your trusted partner in providing compassionate, professional
+              veterinary care. We're dedicated to keeping your beloved pets
+              healthy, happy, and thriving.
+            </p>
+            <div class="hero-cta">
+              <button class="btn btn-primary" id="heroSignupBtn">
+                <span>Sign Up</span>
+                <svg
+                  width="20"
+                  height="20"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                >
+                  <path d="M5 12h14M12 5l7 7-7 7" />
+                </svg>
+              </button>
+              <button class="btn btn-secondary" id="heroLoginBtn">
+                <span>Login</span>
+              </button>
+            </div>
+            <div class="hero-stats">
+              <div class="stat">
+                <span class="stat-number">50+</span>
+                <span class="stat-label">Pets Treated Monthly</span>
+              </div>
+              <div class="stat">
+                <span class="stat-number">PRC</span>
+                <span class="stat-label">Licensed Veterinarians</span>
+              </div>
+              <div class="stat">
+                <span class="stat-number">2009</span>
+                <span class="stat-label">Serving Since</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Hero Visual -->
+          <div class="hero-visual">
+            <div class="hero-shape">
+              <svg viewBox="0 0 500 500" xmlns="http://www.w3.org/2000/svg">
+                <defs>
+                  <linearGradient
+                    id="heroGradient"
+                    x1="0%"
+                    y1="0%"
+                    x2="100%"
+                    y2="100%"
+                  >
+                    <stop
+                      offset="0%"
+                      style="stop-color: #8b5cf6; stop-opacity: 0.3"
+                    />
+                    <stop
+                      offset="100%"
+                      style="stop-color: #ec4899; stop-opacity: 0.3"
+                    />
+                  </linearGradient>
+                </defs>
+                <path
+                  fill="url(#heroGradient)"
+                  d="M432.5,305.5Q401,361,357,408Q313,455,250,455.5Q187,456,142,409.5Q97,363,69,306.5Q41,250,75.5,197Q110,144,159,107.5Q208,71,250,87Q292,103,339.5,121Q387,139,418,194.5Q449,250,432.5,305.5Z"
+                />
+              </svg>
+            </div>
+
+            <div class="hero-image-wrapper">
+              <img
+                src="https://images.unsplash.com/photo-1574158622682-e40e69881006?w=1200&h=1200&fit=crop&q=90"
+                alt="Happy cat"
+                class="hero-pet active"
+                data-pet="0"
+              />
+              <img
+                src="https://images.unsplash.com/photo-1587300003388-59208cc962cb?w=1200&h=1200&fit=crop&q=90"
+                alt="Happy dog"
+                class="hero-pet"
+                data-pet="1"
+              />
+              <img
+                src="https://images.unsplash.com/photo-1585110396000-c9ffd4e4b308?w=1200&h=1200&fit=crop&q=90"
+                alt="Cute rabbit"
+                class="hero-pet"
+                data-pet="2"
+              />
+              <img
+                src="https://images.unsplash.com/photo-1444464666168-49d633b86797?w=1200&h=1200&fit=crop&q=90"
+                alt="Lovely bird"
+                class="hero-pet"
+                data-pet="3"
+              />
+            </div>
+          </div>
+        </div>
+
+        <!-- Floating Badges -->
+        <div class="floating-badge badge-1">
+          <span class="badge-icon">🐾</span>
+          <div class="badge-text">
+            <span class="badge-title">Licensed Vets</span>
+            <span class="badge-subtitle">PRC Registered</span>
+          </div>
+        </div>
+
+        <div class="floating-badge badge-2">
+          <span class="badge-icon">📍</span>
+          <div class="badge-text">
+            <span class="badge-title">Cubao, QC</span>
+            <span class="badge-subtitle">Quezon City</span>
+          </div>
+        </div>
+
+        <div class="floating-badge badge-3">
+          <span class="badge-icon">✅</span>
+          <div class="badge-text">
+            <span class="badge-title">Est. 2009</span>
+            <span class="badge-subtitle">Trusted Clinic</span>
+          </div>
+        </div>
+
+        <!-- Sparkle Effects -->
+        <span class="sparkle"></span>
+        <span class="sparkle"></span>
+        <span class="sparkle"></span>
+        <span class="sparkle"></span>
+
+        <!-- Paw Prints -->
+        <span class="paw-print">🐾</span>
+        <span class="paw-print">🐾</span>
+        <span class="paw-print">🐾</span>
+      </section>
+
+      <!-- SERVICES -->
+      <section id="services" class="section">
+        <h2>Our Services</h2>
+        <p class="subtitle">Comprehensive care for your beloved pets</p>
+
+        <div class="services-grid">
+          <div class="service-card">
+            <span class="icon">🩺</span>
+            <h3>Vet Consultation</h3>
+            <p>Professional advice and complete health check for your pets.</p>
+          </div>
+          <div class="service-card">
+            <span class="icon">💉</span>
+            <h3>Canine & Feline Vaccinations</h3>
+            <p>Complete vaccination programs for dogs and cats.</p>
+          </div>
+          <div class="service-card">
+            <span class="icon">✂️</span>
+            <h3>Pet Grooming and Pet Supplies</h3>
+            <p>Professional grooming services and essential pet products.</p>
+          </div>
+          <div class="service-card">
+            <span class="icon">🛡️</span>
+            <h3>Anti-rabies Vaccination</h3>
+            <p>Protect your pets and family with rabies immunization.</p>
+          </div>
+          <div class="service-card">
+            <span class="icon">🔬</span>
+            <h3>Pet Microchipping</h3>
+            <p>Permanent identification solution for your pets.</p>
+          </div>
+          <div class="service-card">
+            <span class="icon">💊</span>
+            <h3>Heartworm Prevention</h3>
+            <p>Prevent heartworm disease with proper medication.</p>
+          </div>
+          <div class="service-card">
+            <span class="icon">🧪</span>
+            <h3>Blood Tests (CBC, Blood Chem)</h3>
+            <p>Accurate diagnostic laboratory testing services.</p>
+          </div>
+          <div class="service-card">
+            <span class="icon">⚕️</span>
+            <h3>Spay & Neuter Services</h3>
+            <p>Safe surgical procedures for population control.</p>
+          </div>
+          <div class="service-card">
+            <span class="icon">💻</span>
+            <h3>Online Consultation</h3>
+            <p>Virtual vet consultations for your convenience.</p>
+          </div>
+          <div class="service-card">
+            <span class="icon">🏠</span>
+            <h3>Home Service Visits</h3>
+            <p>Veterinary care provided in the comfort of your home.</p>
+          </div>
+          <div class="service-card">
+            <span class="icon">🧬</span>
+            <h3>Test Kits (Distemper, Parvovirus, etc.)</h3>
+            <p>Rapid testing kits for common pet diseases.</p>
+          </div>
+          <div class="service-card">
+            <span class="icon">📋</span>
+            <h3>Vet Health Certificates</h3>
+            <p>Official health documentation for travel and compliance.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ABOUT -->
+      <section id="about" class="about">
+        <div class="about-bg">
+          <div
+            class="bg-slide active"
+            style="
+              background-image: url(&quot;https://images.unsplash.com/photo-1628009368231-7bb7cfcb0def?w=1600&h=900&fit=crop&quot;);
+            "
+          ></div>
+          <div
+            class="bg-slide"
+            style="
+              background-image: url(&quot;https://images.unsplash.com/photo-1530041539828-114de669390e?w=1600&h=900&fit=crop&quot;);
+            "
+          ></div>
+          <div
+            class="bg-slide"
+            style="
+              background-image: url(&quot;https://images.unsplash.com/photo-1581888227599-779811939961?w=1600&h=900&fit=crop&quot;);
+            "
+          ></div>
+        </div>
+        <div class="overlay"></div>
+        <div class="about-content">
+          <h2>Why Choose Us?</h2>
+
+          <button
+            class="scroll-btn scroll-prev light"
+            data-target="about"
+            aria-label="Previous"
+          >
+            ‹
+          </button>
+          <button
+            class="scroll-btn scroll-next light"
+            data-target="about"
+            aria-label="Next"
+          >
+            ›
+          </button>
+
+          <div class="scroll-container" id="about-scroll">
+            <div class="card glass">
+              <span class="icon">🎯</span>
+              <h3>Our Mission</h3>
+              <p>
+                To provide compassionate, high-quality veterinary care that
+                enhances the health and well-being of every pet we serve.
+              </p>
+            </div>
+            <div class="card glass">
+              <span class="icon">👁️</span>
+              <h3>Our Vision</h3>
+              <p>
+                To be the most trusted veterinary partner in the community,
+                setting the standard for excellence in animal healthcare.
+              </p>
+            </div>
+            <div class="card glass">
+              <span class="icon">🏥</span>
+              <h3>About Our Clinic</h3>
+              <p>
+                With over 15 years of experience, VHS combines modern veterinary
+                medicine with genuine care for your pets.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- TEAM -->
+      <section id="team" class="section">
+        <h2>Meet Our Team</h2>
+        <p class="subtitle">The people behind your pet's care</p>
+
+        <!-- Main Veterinarians -->
+        <h3 class="team-section-title">Our Veterinarians</h3>
+        <div class="team-carousel-wrapper">
+          <button
+            class="carousel-nav prev"
+            data-carousel="main-vets"
+            aria-label="Previous"
+          >
+            ‹
+          </button>
+          <div class="team-main" id="main-vets-carousel">
+            <div class="team-card main-vet placeholder-card">
+              <div class="placeholder-avatar">👤</div>
+              <h3>[Veterinarian Name]</h3>
+              <p class="role">[Role / Specialization]</p>
+              <p class="placeholder-note">— Placeholder —</p>
+            </div>
+            <div class="team-card main-vet placeholder-card">
+              <div class="placeholder-avatar">👤</div>
+              <h3>[Veterinarian Name]</h3>
+              <p class="role">[Role / Specialization]</p>
+              <p class="placeholder-note">— Placeholder —</p>
+            </div>
+            <div class="team-card main-vet placeholder-card">
+              <div class="placeholder-avatar">👤</div>
+              <h3>[Veterinarian Name]</h3>
+              <p class="role">[Role / Specialization]</p>
+              <p class="placeholder-note">— Placeholder —</p>
+            </div>
+          </div>
+          <button
+            class="carousel-nav next"
+            data-carousel="main-vets"
+            aria-label="Next"
+          >
+            ›
+          </button>
+        </div>
+
+        <!-- Support Staff -->
+        <h3 class="team-section-title">Our Support Staff</h3>
+        <div class="team-carousel-wrapper">
+          <button
+            class="carousel-nav prev"
+            data-carousel="staff"
+            aria-label="Previous"
+          >
+            ‹
+          </button>
+          <div class="team-staff" id="staff-carousel">
+            <div class="team-card staff placeholder-card">
+              <div class="placeholder-avatar">👤</div>
+              <h3>[Staff Name]</h3>
+              <p class="role">[Role]</p>
+              <p class="placeholder-note">— Placeholder —</p>
+            </div>
+            <div class="team-card staff placeholder-card">
+              <div class="placeholder-avatar">👤</div>
+              <h3>[Staff Name]</h3>
+              <p class="role">[Role]</p>
+              <p class="placeholder-note">— Placeholder —</p>
+            </div>
+            <div class="team-card staff placeholder-card">
+              <div class="placeholder-avatar">👤</div>
+              <h3>[Staff Name]</h3>
+              <p class="role">[Role]</p>
+              <p class="placeholder-note">— Placeholder —</p>
+            </div>
+            <div class="team-card staff placeholder-card">
+              <div class="placeholder-avatar">👤</div>
+              <h3>[Staff Name]</h3>
+              <p class="role">[Role]</p>
+              <p class="placeholder-note">— Placeholder —</p>
+            </div>
+          </div>
+          <button
+            class="carousel-nav next"
+            data-carousel="staff"
+            aria-label="Next"
+          >
+            ›
+          </button>
+        </div>
+      </section>
+
+      <!-- BOOK -->
+      <section class="cta">
+        <span class="icon">🐶</span>
+        <h2>Ready to Care for Your Pet?</h2>
+        <p>
+          Schedule an appointment with our experienced veterinary team today.
+        </p>
+        <div class="cta-btns">
+          <button class="btn btn-primary" id="ctaSignupBtn">
+            Sign Up
+          </button>
+          <button class="btn btn-secondary" id="ctaLoginBtn">
+            Login to Book
+          </button>
+        </div>
+      </section>
+    </main>
+
+    <!-- ========================================
+       AI CHATBOT INTEGRATION AREA
+       This is a placeholder structure for future AI chatbot integration.
+       Replace the content inside #chatbotMessages and #chatbotInput
+       with your AI chatbot logic when ready.
+  ======================================== -->
+    <div id="chatbotContainer" class="chatbot-container">
+      <!-- Chatbot Bubble Button -->
+      <button id="chatbotBubble" class="chatbot-bubble" aria-label="Open Chat">
+        <svg
+          class="chatbot-icon"
+          width="28"
+          height="28"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+        >
+          <path
+            d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"
+          />
+        </svg>
+        <svg
+          class="chatbot-close-icon"
+          width="24"
+          height="24"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+        >
+          <line x1="18" y1="6" x2="6" y2="18" />
+          <line x1="6" y1="6" x2="18" y2="18" />
+        </svg>
+      </button>
+
+      <!-- Chatbot Window -->
+      <div id="chatbotWindow" class="chatbot-window">
+        <!-- Chatbot Header -->
+        <div class="chatbot-header">
+          <div class="chatbot-header-info">
+            <div class="chatbot-avatar">
+              <svg
+                width="24"
+                height="24"
+                viewBox="0 0 24 24"
+                fill="currentColor"
+              >
+                <path
+                  d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z"
+                />
+              </svg>
+            </div>
+            <div>
+              <h3 class="chatbot-title">VHS Assistant</h3>
+              <p class="chatbot-status">Online</p>
+            </div>
+          </div>
+          <button
+            id="chatbotClose"
+            class="chatbot-close-btn"
+            aria-label="Close Chat"
+          >
+            <svg
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <line x1="18" y1="6" x2="6" y2="18" />
+              <line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
+          </button>
+        </div>
+
+        <!-- Chatbot Messages Area -->
+        <div id="chatbotMessages" class="chatbot-messages">
+          <!-- Welcome Message -->
+          <div class="chatbot-message bot-message">
+            <div class="message-avatar">
+              <svg
+                width="20"
+                height="20"
+                viewBox="0 0 24 24"
+                fill="currentColor"
+              >
+                <path
+                  d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z"
+                />
+              </svg>
+            </div>
+            <div class="message-content">
+              <p>
+                Hello! 👋 Welcome to VHS Animal Wellness Center. How can I help
+                you today?
+              </p>
+            </div>
+          </div>
+
+          <!-- AI messages will be dynamically added here -->
+        </div>
+
+        <!-- Chatbot Input Area -->
+        <div class="chatbot-input-area">
+          <input
+            type="text"
+            id="chatbotInput"
+            class="chatbot-input"
+            placeholder="Type your message..."
+            aria-label="Chat message input"
+          />
+          <button
+            id="chatbotSend"
+            class="chatbot-send-btn"
+            aria-label="Send message"
+          >
+            <svg
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <line x1="22" y1="2" x2="11" y2="13" />
+              <polygon points="22 2 15 22 11 13 2 9 22 2" />
+            </svg>
+          </button>
+        </div>
+
+        <!-- Chatbot Footer -->
+        <div class="chatbot-footer">
+          <p>Powered by AI • Available 24/7</p>
+        </div>
+      </div>
+    </div>
+    <!-- END AI CHATBOT INTEGRATION AREA -->
+
+    <!-- FOOTER -->
+    <footer id="footer">
+      <div class="footer-grid">
+        <div>
+          <h3>VHS Animal Wellness Center</h3>
+          <p>
+            Providing compassionate veterinary care for your beloved pets since
+            2009.
+          </p>
+        </div>
+        <div>
+          <h4>Contact Us</h4>
+          <p>
+            📍 834 Aurora Boulevard cor Driod Street, Kaunlaran, Cubao, Quezon
+            City, Philippines, 1111
+          </p>
+          <p>📞 0917 108 4174</p>
+          <p>✉️ vhs.animalwellness@gmail.com</p>
+        </div>
+        <div>
+          <h4>Quick Links</h4>
+          <a href="index.html">Home</a>
+          <a href="services.html">Services</a>
+          <a href="about.html">About</a>
+          <a href="contact.html">Contact</a>
+        </div>
+        <div>
+          <h4>Follow Us</h4>
+          <div class="social">
+            <a
+              href="https://www.facebook.com/VHSanimalwellnesscenter"
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="Facebook"
+            >
+              <svg
+                width="24"
+                height="24"
+                viewBox="0 0 24 24"
+                fill="currentColor"
+              >
+                <path
+                  d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"
+                />
+              </svg>
+            </a>
+            <a
+              href="https://www.instagram.com/vhsanimalwellness"
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="Instagram"
+            >
+              <svg
+                width="24"
+                height="24"
+                viewBox="0 0 24 24"
+                fill="currentColor"
+              >
+                <path
+                  d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"
+                />
+              </svg>
+            </a>
+          </div>
+        </div>
+      </div>
+      <div class="footer-bottom">
+        <p>&copy; 2024 VHS Animal Wellness Center. All rights reserved.</p>
+      </div>
+    </footer>
+
+    <!-- MODAL -->
+    <div id="modal" class="modal">
+      <div class="modal-content modal-booking">
+        <button class="modal-close" id="closeModal">&times;</button>
+
+        <!-- Guest Booking Form -->
+        <form id="guestForm" class="booking-form">
+          <h2>Book as Guest</h2>
+          <p class="modal-subtitle">
+            Fill out the form below to schedule your pet's visit
+          </p>
+
+          <!-- Personal Information -->
+          <div class="form-section">
+            <h3 class="section-title">Personal Information</h3>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label for="guestLastName"
+                  >Last Name <span class="required">*</span></label
+                >
+                <input
+                  type="text"
+                  id="guestLastName"
+                  name="lastName1"
+                  placeholder="Dela Cruz"
+                  required
+                />
+              </div>
+              <div class="form-group">
+                <label for="guestFirstName"
+                  >First Name <span class="required">*</span></label
+                >
+                <input
+                  type="text"
+                  id="guestFirstName"
+                  name="firstName1"
+                  placeholder="Juan"
+                  required
+                />
+              </div>
+              <div class="form-group">
+                <label for="guestMiddleName">Middle Name</label>
+                <input
+                  type="text"
+                  id="guestMiddleName"
+                  name="middleName1"
+                  placeholder="Santos"
+                />
+              </div>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label for="guestEmail"
+                  >Email Address <span class="required">*</span></label
+                >
+                <input
+                  type="email"
+                  id="guestEmail"
+                  name="email1"
+                  placeholder="example@gmail.com"
+                  required
+                />
+                <span class="form-hint"
+                  >We'll send confirmation to this email</span
+                >
+              </div>
+              <div class="form-group">
+                <label for="guestPhone"
+                  >Phone Number <span class="required">*</span></label
+                >
+                <input
+                  type="tel"
+                  id="guestPhone"
+                  name="phone1"
+                  placeholder="09XXXXXXXXX"
+                  pattern="[0-9]{11}"
+                  required
+                />
+                <span class="form-hint">Format: 09XXXXXXXXX (11 digits)</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Pet Information -->
+          <div class="form-section">
+            <h3 class="section-title">Pet Information</h3>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label for="guestPetName"
+                  >Pet Name <span class="required">*</span></label
+                >
+                <input
+                  type="text"
+                  id="guestPetName"
+                  name="petName"
+                  placeholder="Fluffy"
+                  required
+                />
+              </div>
+              <div class="form-group">
+                <label for="guestPetType"
+                  >Pet Type <span class="required">*</span></label
+                >
+                <select id="guestPetType" name="petType" required>
+                  <option value="">Select pet type</option>
+                  <option value="dog">Dog</option>
+                  <option value="cat">Cat</option>
+                  <option value="rabbit">Rabbit</option>
+                  <option value="bird">Bird</option>
+                  <option value="other">Other</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <!-- Appointment Details -->
+          <div class="form-section">
+            <h3 class="section-title">Appointment Details</h3>
+
+            <div class="form-group">
+              <label for="guestService"
+                >Service Needed <span class="required">*</span></label
+              >
+              <select id="guestService" name="service" required>
+                <option value="">Select a service</option>
+                <option value="consultation">Vet Consultation</option>
+                <option value="vaccination-canine">Canine Vaccination</option>
+                <option value="vaccination-feline">Feline Vaccination</option>
+                <option value="grooming">Pet Grooming</option>
+                <option value="antirabies">Anti-rabies Vaccination</option>
+                <option value="microchipping">Pet Microchipping</option>
+                <option value="heartworm">Heartworm Prevention</option>
+                <option value="bloodtest">Blood Tests</option>
+                <option value="spay-neuter">Spay & Neuter</option>
+                <option value="online">Online Consultation</option>
+                <option value="homeservice">Home Service Visit</option>
+                <option value="testkits">Test Kits</option>
+                <option value="certificate">Vet Health Certificate</option>
+              </select>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label for="guestDate"
+                  >Preferred Date <span class="required">*</span></label
+                >
+                <input
+                  type="date"
+                  id="guestDate"
+                  name="preferredDate"
+                  required
+                />
+              </div>
+              <div class="form-group">
+                <label for="guestTime"
+                  >Preferred Time <span class="required">*</span></label
+                >
+                <select id="guestTime" name="preferredTime" required>
+                  <option value="">Select time</option>
+                  <option value="08:00">8:00 AM</option>
+                  <option value="09:00">9:00 AM</option>
+                  <option value="10:00">10:00 AM</option>
+                  <option value="11:00">11:00 AM</option>
+                  <option value="13:00">1:00 PM</option>
+                  <option value="14:00">2:00 PM</option>
+                  <option value="15:00">3:00 PM</option>
+                  <option value="16:00">4:00 PM</option>
+                  <option value="17:00">5:00 PM</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label for="guestNotes">Additional Notes</label>
+              <textarea
+                id="guestNotes"
+                name="notes"
+                rows="3"
+                placeholder="Any special concerns or information we should know about your pet..."
+              ></textarea>
+            </div>
+          </div>
+
+          <!-- Terms -->
+          <div class="terms-section">
+            <div class="terms-checkbox">
+              <input
+                type="checkbox"
+                id="guestAgreeTerms"
+                name="agreeTerms"
+                required
+              />
+              <label for="guestAgreeTerms"
+                >I agree to the
+                <a href="#" class="terms-link">Terms and Conditions</a> and
+                <a href="#" class="terms-link">Privacy Policy</a>
+                <span class="required">*</span></label
+              >
+            </div>
+          </div>
+
+          <div class="form-actions">
+            <button type="submit" class="btn btn-primary btn-submit">
+              Book Appointment
+            </button>
+          </div>
+        </form>
+
+        <!-- Login Form -->
+        <form
+          id="loginForm"
+          action="login.php"
+          class="booking-form hidden"
+          method="post"
+        >
+          <h2>Log In</h2>
+          <p class="modal-subtitle">
+            Access your account to book an appointment
+          </p>
+
+          <div class="form-section">
+            <div class="form-group">
+              <label for="loginEmail"
+                >Email Address <span class="required">*</span></label
+              >
+              <input
+                type="email"
+                id="loginEmail"
+                name="email2"
+                placeholder="example@gmail.com"
+                required
+              />
+            </div>
+
+            <div class="form-group">
+              <label for="loginPassword"
+                >Password <span class="required">*</span></label
+              >
+              <input
+                type="password"
+                id="loginPassword"
+                name="password1"
+                placeholder="Enter your password"
+                required
+              />
+            </div>
+
+            <div class="form-group">
+              <div
+                id="loginError"
+                class="error-message"
+                style="display: none"
+              ></div>
+            </div>
+
+            <div class="form-group">
+              <a href="#" class="forgot-password">Forgot password?</a>
+            </div>
+          </div>
+
+          <div class="form-actions">
+            <button type="submit" class="btn btn-primary btn-submit">
+              Log In
+            </button>
+          </div>
+
+          <div class="form-footer">
+            <p>
+              Don't have an account?
+              <a href="#" class="switch-form" data-target="signupBtn"
+                >Sign up here</a
+              >
+            </p>
+          </div>
+        </form>
+
+        <!-- Sign Up Form -->
+        <form
+          id="signupForm"
+          class="booking-form hidden"
+        >
+          <h2>Create Account</h2>
+          <p class="modal-subtitle">
+            Sign up to easily manage your pet's appointments
+          </p>
+
+          <!-- Personal Information -->
+          <div class="form-section">
+            <h3 class="section-title">Personal Information</h3>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label for="signupLastName"
+                  >Last Name <span class="required">*</span></label
+                >
+                <input
+                  type="text"
+                  id="signupLastName"
+                  name="lastName2"
+                  placeholder="Dela Cruz"
+                  maxlength="50"
+                  required
+                />
+              </div>
+              <div class="form-group">
+                <label for="signupFirstName"
+                  >First Name <span class="required">*</span></label
+                >
+                <input
+                  type="text"
+                  id="signupFirstName"
+                  name="firstName2"
+                  placeholder="Juan"
+                  maxlength="50"
+                  required
+                />
+              </div>
+              <div class="form-group">
+                <label for="signupMiddleName">Middle Name</label>
+                <input
+                  type="text"
+                  id="signupMiddleName"
+                  name="middleName2"
+                  placeholder="Santos"
+                  maxlength="50"
+                />
+              </div>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label for="signupEmail"
+                  >Email Address <span class="required">*</span></label
+                >
+                <input
+                  type="email"
+                  id="signupEmail"
+                  name="email3"
+                  placeholder="example@gmail.com"
+                  required
+                />
+              </div>
+              <div class="form-group">
+                <label for="signupPhone"
+                  >Phone Number <span class="required">*</span></label
+                >
+                <input
+                  type="tel"
+                  id="signupPhone"
+                  name="phone2"
+                  placeholder="09XXXXXXXXX"
+                  pattern="[0-9]{11}"
+                  maxlength="11"
+                  inputmode="numeric"
+                  required
+                />
+                <span class="form-hint">Format: 09XXXXXXXXX (11 digits)</span>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label for="signupAddress"
+                >Address <span class="required">*</span></label
+              >
+              <textarea
+                id="signupAddress"
+                name="address"
+                rows="2"
+                style="resize:none;"
+                placeholder="Street, Barangay, City, Province"
+                required
+              ></textarea>
+            </div>
+
+            <div class="form-group">
+              <label for="signupDob"
+                >Date of Birth <span class="required">*</span></label
+              >
+              <input type="date" id="signupDob" name="dob" required />
+            </div>
+          </div>
+
+          <!-- Account Security -->
+          <div class="form-section">
+            <h3 class="section-title">Account Security</h3>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label for="signupPassword"
+                  >Password <span class="required">*</span></label
+                >
+                <input
+                  type="password"
+                  id="signupPassword"
+                  name="password2"
+                  placeholder="Enter password"
+                  minlength="8"
+                  required
+                />
+                <span class="form-hint"
+                  >Minimum 8 characters, at least 1 number and 1 special
+                  character</span
+                >
+              </div>
+              <div class="form-group">
+                <label for="signupConfirmPassword"
+                  >Confirm Password <span class="required">*</span></label
+                >
+                <input
+                  type="password"
+                  id="signupConfirmPassword"
+                  name="confirmPassword"
+                  placeholder="Re-enter password"
+                  required
+                />
+              </div>
+            </div>
+          </div>
+
+          <!-- Terms -->
+          <div class="terms-section">
+            <div class="terms-checkbox">
+              <input
+                type="checkbox"
+                id="signupAgreeTerms"
+                name="agreeTerms"
+                required
+              />
+              <label for="signupAgreeTerms"
+                >I agree to the
+                <a href="#" class="terms-link">Terms and Conditions</a> and
+                <a href="#" class="terms-link">Privacy Policy</a>
+                <span class="required">*</span></label
+              >
+            </div>
+          </div>
+
+          <div class="form-actions">
+            <button
+              type="submit"
+              class="btn btn-primary btn-submit"
+              name="submitButt"
+            >
+              Create Account
+            </button>
+          </div>
+
+          <div class="form-footer">
+            <p>
+              Already have an account?
+              <a href="#" class="switch-form" data-target="loginBtn"
+                >Log in here</a
+              >
+            </p>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- TERMS & CONDITIONS POPUP -->
+    <div id="termsPopup" class="terms-popup">
+      <div class="terms-popup-content">
+        <div class="terms-popup-header">
+          <h3>📋 Terms and Conditions & Data Privacy</h3>
+          <button class="terms-popup-close" id="termsPopupClose">
+            &times;
+          </button>
+        </div>
+        <div class="terms-popup-body">
+          <h4>1. Acceptance of Terms</h4>
+          <p>
+            By using the services of VHS Animal Wellness Center — whether in
+            person, through our website, or via our online booking system — you
+            agree to be bound by these Terms and Conditions. If you do not
+            agree, please do not proceed with booking.
+          </p>
+
+          <h4>2. Appointment Booking</h4>
+          <ul>
+            <li>
+              All appointments are subject to availability and clinic operating
+              hours.
+            </li>
+            <li>
+              A confirmation will be sent to your registered email address after
+              booking.
+            </li>
+            <li>
+              Please arrive at least 10 minutes before your scheduled
+              appointment time.
+            </li>
+            <li>
+              Late arrivals (more than 15 minutes) may be rescheduled at the
+              clinic's discretion.
+            </li>
+            <li>
+              Walk-in consultations are accommodated based on availability.
+            </li>
+          </ul>
+
+          <h4>3. Cancellation & No-Show Policy</h4>
+          <ul>
+            <li>
+              Cancellations must be made at least 24 hours before the scheduled
+              appointment.
+            </li>
+            <li>
+              To cancel, contact us via phone or email using the details
+              provided in your confirmation.
+            </li>
+            <li>
+              Repeated no-shows (3 or more) may result in restricted online
+              booking access.
+            </li>
+            <li>
+              Emergency cancellations are handled on a case-by-case basis with
+              compassion.
+            </li>
+          </ul>
+
+          <h4>4. Pet Owner Responsibilities</h4>
+          <ul>
+            <li>
+              You are responsible for ensuring your pet is safely restrained
+              during transport and at the clinic.
+            </li>
+            <li>
+              Provide complete and accurate medical history, including known
+              allergies and prior treatments.
+            </li>
+            <li>
+              Inform our staff of any aggressive behavior, anxiety, or special
+              handling needs before the visit.
+            </li>
+            <li>
+              Dogs must be on a leash; cats and small animals must be in a
+              secure carrier upon arrival.
+            </li>
+            <li>
+              VHS Animal Wellness Center is not liable for injuries caused by an
+              unrestrained or undisclosed aggressive pet.
+            </li>
+          </ul>
+
+          <h4>5. Medical Disclaimer</h4>
+          <p>
+            All veterinary services are performed by licensed professionals.
+            Treatment outcomes may vary depending on the pet's condition, age,
+            and medical history. VHS Animal Wellness Center is not liable for
+            complications arising from pre-existing conditions that were not
+            disclosed at the time of consultation. In emergencies, we will act
+            in the best interest of the animal.
+          </p>
+
+          <h4>6. Payment Terms</h4>
+          <ul>
+            <li>Payment is due in full at the time of service.</li>
+            <li>
+              We currently accept cash. Additional payment methods may be added
+              in the future.
+            </li>
+            <li>
+              Service fees are subject to change. Updated pricing will be posted
+              at the clinic.
+            </li>
+            <li>No refunds are issued for services already rendered.</li>
+          </ul>
+
+          <h4>7. Data Privacy Policy</h4>
+          <p>
+            VHS Animal Wellness Center is committed to protecting your personal
+            information in accordance with the
+            <strong>Data Privacy Act of 2012 (Republic Act No. 10173)</strong>
+            of the Philippines.
+          </p>
+          <ul>
+            <li>
+              <strong>What we collect:</strong> Name, contact number, email
+              address, home address, and pet medical records.
+            </li>
+            <li>
+              <strong>Why we collect it:</strong> To manage appointments,
+              provide veterinary care, and communicate with you about your pet's
+              health.
+            </li>
+            <li>
+              <strong>How we store it:</strong> Your data is stored securely and
+              accessible only to authorized clinic staff.
+            </li>
+            <li>
+              <strong>We do not sell or share</strong> your personal information
+              with third parties without your explicit consent, except as
+              required by law.
+            </li>
+            <li>
+              <strong>Retention:</strong> Records are kept for a minimum of 5
+              years for medical continuity purposes.
+            </li>
+            <li>
+              <strong>Your rights:</strong> You have the right to access,
+              correct, or request deletion of your personal data. Contact us to
+              exercise these rights.
+            </li>
+          </ul>
+
+          <h4>8. Changes to These Terms</h4>
+          <p>
+            VHS Animal Wellness Center reserves the right to update these Terms
+            and Conditions at any time. Changes will be posted on our website
+            and at the clinic. Continued use of our services after changes
+            constitutes acceptance of the updated terms.
+          </p>
+
+          <h4>9. Contact Us</h4>
+          <p>
+            For questions about these terms or your data privacy rights, reach
+            us at:
+          </p>
+          <ul>
+            <li>📧 vhs.animalwellness@gmail.com</li>
+            <li>📞 0917 108 4174</li>
+            <li>
+              📍 834 Aurora Blvd cor Driod St, Kaunlaran, Cubao, Quezon City
+            </li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <script src="shared/vhs-ui.js"></script>
+    <script src="script.js"></script>
+  </body>
+</html>
