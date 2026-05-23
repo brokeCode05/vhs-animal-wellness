@@ -831,14 +831,11 @@ document.addEventListener("DOMContentLoaded", () => {
 
   if (document.getElementById("calendarGrid")) updateCalendarDisplay();
 
-  // Load real appointment data if on the appointments page
-  if (
-    document.getElementById("pendingAppointmentsTable") ||
-    document.getElementById("allAppointmentsTable")
-  ) {
-    loadAppointments();
-
-    // Wire up filter/search controls
+  // Demo mode — replace loading state with empty state (no backend on GitHub Pages)
+  var allApptTable = document.getElementById("allAppointmentsTable");
+  if (allApptTable) {
+    allApptTable.innerHTML = '<tr><td colspan="8" style="text-align:center;color:#888;">No data — backend required.</td></tr>';
+    // Wire up filter/search controls (still functional for UI demo)
     ["filterStatus", "filterDate"].forEach(function (id) {
       document.getElementById(id)?.addEventListener("change", applyAllAppointmentsFilter);
     });

@@ -802,15 +802,30 @@ function loadUserData() {
 // ─── INIT ─────────────────────────────────────────────────────────────────────
 
 document.addEventListener("DOMContentLoaded", () => {
-  loadUserData();
   initLogout();
-  loadPets();
-  loadUserAppointments();
   showSection("dashboard");
   autoLabelTables();
 
-  // ── Profile field input restrictions ──────────────────────────────────────
-  // Block digits from name fields
+  // Demo mode — set empty states instead of fetching from backend
+  var dashAppt = document.getElementById('dashApptBody');
+  var apptBody = document.getElementById('apptTableBody');
+  var petsGrid = document.getElementById('petsGrid');
+  var dashPets = document.getElementById('dashPetsGrid');
+  var statUpcoming = document.getElementById('statUpcoming');
+  var statPets = document.getElementById('statPets');
+  var statCompleted = document.getElementById('statCompleted');
+  var statPending = document.getElementById('statPending');
+
+  if (dashAppt) dashAppt.innerHTML = '<tr class="empty-row"><td colspan="5" style="text-align:center;padding:2rem;color:#888;">No data — backend required.</td></tr>';
+  if (apptBody) apptBody.innerHTML = '<tr class="empty-row"><td colspan="7" style="text-align:center;padding:2rem;color:#888;">No data — backend required.</td></tr>';
+  if (petsGrid) petsGrid.innerHTML = '<p style="color:#888;padding:1rem 0">No data — backend required.</p>';
+  if (dashPets) dashPets.innerHTML = '<p style="color:#888;padding:1rem 0">No data — backend required.</p>';
+  if (statUpcoming) statUpcoming.textContent = '—';
+  if (statPets) statPets.textContent = '—';
+  if (statCompleted) statCompleted.textContent = '—';
+  if (statPending) statPending.textContent = '—';
+
+  // Profile field input restrictions
   ["profileLastName", "profileFirstName", "profileMiddleName"].forEach(
     function (id) {
       const el = document.getElementById(id);
@@ -829,19 +844,10 @@ document.addEventListener("DOMContentLoaded", () => {
     },
   );
 
-  // Block non-digits from phone field
   const profilePhone = document.getElementById("profilePhone");
   if (profilePhone) {
     profilePhone.addEventListener("keydown", function (e) {
-      const allowed = [
-        "Backspace",
-        "Delete",
-        "ArrowLeft",
-        "ArrowRight",
-        "Tab",
-        "Home",
-        "End",
-      ];
+      const allowed = ["Backspace","Delete","ArrowLeft","ArrowRight","Tab","Home","End"];
       if (allowed.includes(e.key)) return;
       if (e.key < "0" || e.key > "9") e.preventDefault();
     });

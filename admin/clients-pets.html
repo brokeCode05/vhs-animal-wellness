@@ -352,81 +352,14 @@
   <script src="../shared/vhs-ui.js"></script>
   <script src="admin-script.js"></script>
   <script>
-  var PHP = '/VHS-MAY--main/vhs_main/php_files';
-
-  function fmtDate(str) {
-    if (!str) return '—';
-    return new Date(str).toLocaleDateString('en-US', { year:'numeric', month:'short', day:'numeric' });
-  }
-
-  function loadClients() {
-    var tbody = document.getElementById('clientsTable');
-    if (!tbody) return;
-    fetch(PHP + '/get_users.php?status=approved')
-      .then(function(r) { return r.json(); })
-      .then(function(data) {
-        tbody.innerHTML = data.length ? data.map(function(u, i) {
-          return '<tr data-id="' + u.id + '">' +
-            '<td>#C' + String(i+1).padStart(3,'0') + '</td>' +
-            '<td>' + u.fullName + '</td>' +
-            '<td>' + u.email + '</td>' +
-            '<td>' + (u.phone || '—') + '</td>' +
-            '<td>' + (u.address || '—') + '</td>' +
-            '<td>—</td>' +
-            '<td>' + fmtDate(u.created_at) + '</td>' +
-            '<td>' +
-              '<button class="btn-small" onclick="viewOwnerProfile(' + u.id + ')">View Profile</button>' +
-              '<button class="btn-small" onclick="editOwner(' + u.id + ')">Edit</button>' +
-            '</td></tr>';
-        }).join('')
-        : '<tr><td colspan="8" style="text-align:center;color:#888;">No registered clients yet.</td></tr>';
-      })
-      .catch(function() {
-        tbody.innerHTML = '<tr><td colspan="8" style="color:red;text-align:center;">Failed to load clients.</td></tr>';
-      });
-  }
-
-  function loadPets() {
-    var tbody = document.getElementById('petsTable');
-    if (!tbody) return;
-    tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;color:#888;">Loading...</td></tr>';
-    fetch(PHP + '/get_pets.php')
-      .then(function(r) { return r.json(); })
-      .then(function(data) {
-        tbody.innerHTML = data.length ? data.map(function(p, i) {
-          return '<tr data-id="' + p.id + '">' +
-            '<td>#P' + String(i+1).padStart(3,'0') + '</td>' +
-            '<td>' + p.name + '</td>' +
-            '<td>' + (p.type || '—') + '</td>' +
-            '<td>' + (p.breed || '—') + '</td>' +
-            '<td>' + (p.age || '—') + '</td>' +
-            '<td>—</td>' +
-            '<td>' + (p.ownerName || '—') + '</td>' +
-            '<td>—</td>' +
-            '<td>' +
-              '<button class="btn-small" onclick="viewPetProfile(' + p.id + ')">View Profile</button>' +
-              '<button class="btn-small" onclick="editPet(' + p.id + ')">Edit</button>' +
-            '</td></tr>';
-        }).join('')
-        : '<tr><td colspan="9" style="text-align:center;color:#888;">No pets registered yet.</td></tr>';
-      })
-      .catch(function() {
-        tbody.innerHTML = '<tr><td colspan="9" style="color:red;text-align:center;">Failed to load pets.</td></tr>';
-      });
-  }
-
+  // Demo mode — no backend available on GitHub Pages
   document.addEventListener('DOMContentLoaded', function() {
-    loadClients();
-    loadPets();
-
-    // Reload data when switching tabs
-    document.querySelectorAll('.tab-btn').forEach(function(btn) {
-      btn.addEventListener('click', function() {
-        var tab = btn.getAttribute('data-tab');
-        if (tab === 'pets') loadPets();
-        if (tab === 'clients') loadClients();
-      });
-    });
+    var empty = '<tr><td colspan="8" style="text-align:center;color:#888;">No data — backend required.</td></tr>';
+    var emptyPets = '<tr><td colspan="9" style="text-align:center;color:#888;">No data — backend required.</td></tr>';
+    var ct = document.getElementById('clientsTable');
+    var pt = document.getElementById('petsTable');
+    if (ct) ct.innerHTML = empty;
+    if (pt) pt.innerHTML = emptyPets;
   });
   </script>
 </body>

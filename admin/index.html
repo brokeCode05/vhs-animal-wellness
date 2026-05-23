@@ -138,33 +138,13 @@
   <script src="../shared/vhs-ui.js"></script>
   <script src="admin-script.js"></script>
   <script>
-  const PHP = '../php_files';
-
-  function fmtDate(str) {
-    if (!str) return '—';
-    var parts = str.split('-');
-    var d = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
-    return d.toLocaleDateString('en-US', { year:'numeric', month:'short', day:'numeric' });
-  }
-
-  function fmtDateTime(date, time) {
-    if (!date) return '—';
-    var dateStr = fmtDate(date);
-    if (!time) return dateStr;
-    return dateStr + ' · ' + time;
-  }
-
-  async function loadDashboard() {
-    // ── Total pets ─────────────────────────────────────────────────────────
-    try {
-      const res  = await fetch(`${PHP}/get_pets.php`);
-      const pets = await res.json();
-      const statPets = document.getElementById('statTotalPets');
-      if (statPets) statPets.textContent = Array.isArray(pets) ? pets.length : '—';
-    } catch(e) { /* optional */ }
-  }
-
-  loadDashboard();
+  // Demo mode — no backend available on GitHub Pages
+  document.addEventListener('DOMContentLoaded', function() {
+    var statPets = document.getElementById('statTotalPets');
+    if (statPets) statPets.textContent = '—';
+    var todayTbody = document.getElementById('todayAppointmentsTable');
+    if (todayTbody) todayTbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#888;">No data — backend required.</td></tr>';
+  });
   </script>
 </body>
 </html>
