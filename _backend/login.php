@@ -1,6 +1,5 @@
 <?php
 
-ob_clean(); // Add this line
 header('Content-Type: application/json');
 require_once __DIR__ . '/php_files/config.php';
 require_once __DIR__ . '/php_files/db.php';
