@@ -325,13 +325,13 @@ if (guestForm) {
 }
 
 // LOGIN HANDLER — Single, clean declaration
-const loginForm = document.getElementById("loginForm");
+const loginForm1 = document.getElementById("loginForm");
 
-if (loginForm) {
-  loginForm.addEventListener("submit", async (e) => {
+if (loginForm1) {
+  loginForm1.addEventListener("submit", async (e) => {
     e.preventDefault();
     
-    const formData = new FormData(loginForm);
+    const formData = new FormData(loginForm1);
 
     try {
       const response = await fetch('/_backend/login.php', {
