@@ -345,7 +345,7 @@ if (loginForm1) {
       const result = await response.json();
 
       if (result.success) {
-        window.location.href = '/dashboard.php';
+        window.location.href = '/user/index.html';
       } else {
         alert(result.message || "Login Failed");
       }
