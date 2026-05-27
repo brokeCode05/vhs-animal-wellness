@@ -1,5 +1,5 @@
 <?php
-require_once '../php_files/db.php';
+require_once __DIR__ . '/php_files/db.php';
 $conn = getDB();
 
 header('Content-Type: application/json');
