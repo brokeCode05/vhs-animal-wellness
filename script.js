@@ -324,9 +324,7 @@ if (guestForm) {
   });
 }
 
-// LOGIN HANDLER
-const loginForm = document.getElementById("loginForm");
-
+// LOGIN HANDLE
 if (loginForm) {
   loginForm.addEventListener("submit", async (e) => {
     e.preventDefault();
