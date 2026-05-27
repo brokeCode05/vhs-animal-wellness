@@ -274,3 +274,19 @@ document.addEventListener('DOMContentLoaded', () => {
 
   if (document.getElementById('calendarGrid')) updateCalendarDisplay();
 });
+
+// Replace the "Backend Required" block in clerkScriptJS.txt
+function loadClerkData() {
+  const table = document.getElementById("clerkAppointmentsTable"); // Use your actual table ID
+  if (!table) return;
+
+  fetch('/php_files/get_clerk_appointments.php') // Ensure this file exists
+    .then(response => response.json())
+    .then(data => {
+      table.innerHTML = ''; 
+      data.forEach(item => {
+        table.innerHTML += `<tr><td>${item.pet_name}</td><td>${item.status}</td><td><button>Approve</button></td></tr>`;
+      });
+    });
+}
+document.addEventListener("DOMContentLoaded", loadClerkData);
