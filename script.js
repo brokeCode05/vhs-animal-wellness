@@ -324,10 +324,12 @@ if (guestForm) {
   });
 }
 
-// LOGIN HANDLER — Updated for Live Backend
+// LOGIN HANDLER
+const loginForm = document.getElementById("loginForm"); // Adjust ID to match your HTML
+
 if (loginForm) {
   loginForm.addEventListener("submit", async (e) => {
-    e.preventDefault(); // Keep this to prevent default page refresh
+    e.preventDefault();
     
     const formData = new FormData(loginForm);
 
@@ -336,16 +338,19 @@ if (loginForm) {
         method: 'POST',
         body: formData
       });
+      
       const result = await response.json();
 
       if (result.success) {
-        window.location.href = '/dashboard.php'; // Redirect to your actual dashboard
+        // Redirect to dashboard
+        window.location.href = '/dashboard.php';
       } else {
-        showAlert(result.message, "error", "Login Failed");
+        // Display the specific message returned by PHP
+        alert(result.message || "Login Failed");
       }
     } catch (error) {
       console.error("Login error:", error);
-      showAlert("Could not connect to server.", "error", "Connection Error");
+      alert("Could not connect to the server.");
     }
   });
 }
