@@ -1,40 +1,39 @@
 <?php
-// Ensure this file sends JSON headers
+// Ensure the browser expects JSON and errors are captured
 header('Content-Type: application/json');
-
 require_once __DIR__ . '/php_files/config.php';
 require_once __DIR__ . '/php_files/db.php';
 
 $conn = getDB();
+$response = ['success' => false, 'message' => 'An unexpected error occurred.'];
 
-// Initialize the response structure
-$response = ['success' => false, 'message' => 'Invalid request'];
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $email = mysqli_real_escape_string($conn, trim($_POST['email2'] ?? ''));
+    $pass  = $_POST['password1'] ?? '';
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['email2'], $_POST['password1'])) {
-    $email = mysqli_real_escape_string($conn, trim($_POST['email2']));
-    $pass  = $_POST['password1'];
+    $stmt = $conn->prepare("SELECT idvet_users, user_pass, email_verified, status FROM vet_users WHERE user_email = ?");
+    $stmt->bind_param("s", $email);
+    $stmt->execute();
+    $result = $stmt->get_result();
 
-    $result = mysqli_query($conn, "SELECT * FROM vet_users WHERE user_email='$email'");
-
-    if (mysqli_num_rows($result) === 0) {
-        $response = ['success' => false, 'message' => 'Email does not exist'];
+    if ($result->num_rows === 0) {
+        $response['message'] = 'Email does not exist.';
     } else {
-        $user = mysqli_fetch_assoc($result);
-
+        $user = $result->fetch_assoc();
         if (!password_verify($pass, $user['user_pass'])) {
-            $response = ['success' => false, 'message' => 'Wrong password'];
+            $response['message'] = 'Wrong password.';
         } elseif ((int)$user['email_verified'] === 0) {
-            $response = ['success' => false, 'message' => 'Please verify your email first.'];
+            $response['message'] = 'Please verify your email first.';
         } elseif ($user['status'] === 'pending') {
-            $response = ['success' => false, 'message' => 'Account pending approval.'];
+            $response['message'] = 'Account pending admin approval.';
         } else {
-            $response = ['success' => true, 'message' => 'Login successful'];
+            $response = ['success' => true, 'message' => 'Login successful.'];
         }
     }
+    $stmt->close();
 }
 
-// Always echo just one JSON string at the end
 echo json_encode($response);
-mysqli_close($conn);
+$conn->close();
 exit();
 ?>
