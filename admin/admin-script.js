@@ -837,7 +837,7 @@ function loadAppointments() {
   const table = document.getElementById("allAppointmentsTable");
   if (!table) return;
 
-  fetch('/_backend/get_appointments.php')
+  fetch('../php_files/get_appointments.php')
     .then(function(response) { 
       return response.json(); 
     })
