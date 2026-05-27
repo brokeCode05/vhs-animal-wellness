@@ -1,5 +1,6 @@
 <?php
-// Ensure the browser expects JSON and errors are captured
+
+ob_clean(); // Add this line
 header('Content-Type: application/json');
 require_once __DIR__ . '/php_files/config.php';
 require_once __DIR__ . '/php_files/db.php';
