@@ -1,5 +1,10 @@
 <?php
+// Load the config FIRST so the constants exist
+require_once __DIR__ . '/php_files/config.php';
 require_once __DIR__ . '/php_files/db.php';
+
+// Now you can safely call your function
+
 $conn = getDB();
 
 if (isset($_POST['email2']) && isset($_POST['password1'])) {
