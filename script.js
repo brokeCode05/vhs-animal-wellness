@@ -324,10 +324,13 @@ if (guestForm) {
   });
 }
 
-// LOGIN HANDLE
+// LOGIN HANDLER — Single, clean declaration
+const loginForm = document.getElementById("loginForm");
+
 if (loginForm) {
   loginForm.addEventListener("submit", async (e) => {
     e.preventDefault();
+    
     const formData = new FormData(loginForm);
 
     try {
@@ -336,19 +339,22 @@ if (loginForm) {
         body: formData
       });
 
-      // Parse JSON
+      // Check if response is valid
+      if (!response.ok) throw new Error('Server error');
+
       const result = await response.json();
 
       if (result.success) {
         window.location.href = '/dashboard.php';
       } else {
-        showAlert(result.message, "error", "Login Failed");
+        alert(result.message || "Login Failed");
       }
     } catch (error) {
       console.error("Login error:", error);
-      showAlert("Could not connect to the server. Please check your network.", "error", "Connection Error");
+      alert("Could not connect to the server.");
     }
   });
+}
 
 // SIGNUP HANDLER — Updated for Live Backend
 if (signupForm) {
