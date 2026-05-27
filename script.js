@@ -324,33 +324,28 @@ if (guestForm) {
   });
 }
 
-// LOGIN HANDLER
-const loginForm = document.getElementById("loginForm"); // Adjust ID to match your HTML
-
+// LOGIN HANDLER — Updated for Live Backend
 if (loginForm) {
   loginForm.addEventListener("submit", async (e) => {
-    e.preventDefault();
+    e.preventDefault(); // Keep this to prevent default page refresh
     
     const formData = new FormData(loginForm);
 
     try {
-      const response = await fetch('/_backend/login.php', {
+      const response = await fetch('/php_files/login.php', {
         method: 'POST',
         body: formData
       });
-      
       const result = await response.json();
 
       if (result.success) {
-        // Redirect to dashboard
-        window.location.href = '/dashboard.php';
+        window.location.href = '/dashboard.php'; // Redirect to your actual dashboard
       } else {
-        // Display the specific message returned by PHP
-        alert(result.message || "Login Failed");
+        showAlert(result.message, "error", "Login Failed");
       }
     } catch (error) {
       console.error("Login error:", error);
-      alert("Could not connect to the server.");
+      showAlert("Could not connect to server.", "error", "Connection Error");
     }
   });
 }
