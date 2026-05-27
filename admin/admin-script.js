@@ -861,3 +861,39 @@ function loadAppointments() {
 
 // Call this function when the page loads
 document.addEventListener("DOMContentLoaded", loadAppointments);
+   initLogout();
+  setupSearch();
+  setupFilters();
+  setupTabs();
+  setupModals();
+  autoLabelTables();
+
+  document
+    .getElementById("hamburgerMenu")
+    ?.addEventListener("click", toggleSidebar);
+  document.querySelectorAll(".sidebar .nav-item").forEach((item) => {
+    item.addEventListener("click", () => {
+      if (window.innerWidth <= 768) closeMobileSidebar();
+    });
+  });
+  window.addEventListener("resize", () => {
+    if (window.innerWidth > 768) closeMobileSidebar();
+  });
+
+  if (document.getElementById("calendarGrid")) updateCalendarDisplay();
+
+  // Load real appointment data if on the appointments page
+  if (
+    document.getElementById("pendingAppointmentsTable") ||
+    document.getElementById("allAppointmentsTable")
+  ) {
+    loadAppointments();
+
+    // Wire up filter/search controls
+    ["filterStatus", "filterDate"].forEach(function (id) {
+      document.getElementById(id)?.addEventListener("change", applyAllAppointmentsFilter);
+    });
+    document.getElementById("searchAppointments")?.addEventListener("input", applyAllAppointmentsFilter);
+  }
+});
+
