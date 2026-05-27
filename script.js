@@ -330,7 +330,7 @@ const loginForm1 = document.getElementById("loginForm");
 if (loginForm1) {
   loginForm1.addEventListener("submit", async (e) => {
     e.preventDefault();
-    
+
     const formData = new FormData(loginForm1);
 
     try {
@@ -339,8 +339,12 @@ if (loginForm1) {
         body: formData
       });
 
-      // Check if response is valid
       if (!response.ok) throw new Error('Server error');
+
+      const contentType = response.headers.get("content-type");
+      if (!contentType || !contentType.includes("application/json")) {
+        throw new Error("Invalid server response");
+      }
 
       const result = await response.json();
 
@@ -349,9 +353,10 @@ if (loginForm1) {
       } else {
         alert(result.message || "Login Failed");
       }
+
     } catch (error) {
       console.error("Login error:", error);
-      alert("Could not connect to the server.");
+      alert(error.message);
     }
   });
 }
