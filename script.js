@@ -332,7 +332,7 @@ if (loginForm) {
     const formData = new FormData(loginForm);
 
     try {
-      const response = await fetch('/php_files/login.php', {
+      const response = await fetch('/_backend/login.php', {
         method: 'POST',
         body: formData
       });
@@ -373,7 +373,7 @@ if (signupForm) {
     const formData = new FormData(signupForm);
 
     try {
-      const response = await fetch('/php_files/register.php', {
+      const response = await fetch('/_backend/index.php', {
         method: 'POST',
         body: formData
       });
