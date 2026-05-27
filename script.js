@@ -332,7 +332,7 @@ if (loginForm) {
     const formData = new FormData(loginForm);
 
     try {
-      const response = await fetch('/php_files/login.php', {
+      const response = await fetch('/_backend/login.php', {
         method: 'POST',
         body: formData
       });
