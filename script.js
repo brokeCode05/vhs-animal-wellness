@@ -324,27 +324,38 @@ if (guestForm) {
   });
 }
 
-// Inside script.js — LOGIN HANDLER
-// NOTE: GitHub Pages is static-only. Login requires a PHP backend.
-// When deployed with a PHP server, restore the fetch("login.php") block below.
+// LOGIN HANDLER — Updated for Live Backend
 if (loginForm) {
   loginForm.addEventListener("submit", async (e) => {
-    e.preventDefault();
-    showAlert(
-      "Login requires a backend server (PHP + MySQL). This demo is hosted on GitHub Pages which is static-only. Please visit the live version at the clinic's hosted server to log in.",
-      "info",
-      "Backend Required"
-    );
+    e.preventDefault(); // Keep this to prevent default page refresh
+    
+    const formData = new FormData(loginForm);
+
+    try {
+      const response = await fetch('/php_files/login.php', {
+        method: 'POST',
+        body: formData
+      });
+      const result = await response.json();
+
+      if (result.success) {
+        window.location.href = '/dashboard.php'; // Redirect to your actual dashboard
+      } else {
+        showAlert(result.message, "error", "Login Failed");
+      }
+    } catch (error) {
+      console.error("Login error:", error);
+      showAlert("Could not connect to server.", "error", "Connection Error");
+    }
   });
 }
 
-// SIGNUP HANDLER — GitHub Pages static version
-// NOTE: Registration requires a PHP backend. This shows a notice on GitHub Pages.
+// SIGNUP HANDLER — Updated for Live Backend
 if (signupForm) {
   signupForm.addEventListener("submit", async (e) => {
     e.preventDefault();
 
-    // Password strength validation still runs client-side
+    // 1. Client-side validation (keep your existing checks)
     const password = document.getElementById("signupPassword")?.value;
     const confirmPassword = document.getElementById("signupConfirmPassword")?.value;
 
@@ -352,20 +363,33 @@ if (signupForm) {
       showAlert("Password must be at least 8 characters long.", "error", "Weak Password");
       return;
     }
-    if (!/\d/.test(password) || !/[!@#$%^&*(),.?":{}|<>]/.test(password)) {
-      showAlert("Password must include at least 1 number and 1 special character.", "error", "Weak Password");
-      return;
-    }
+    // ... (keep your regex checks here)
     if (password !== confirmPassword) {
       showAlert("Passwords do not match.", "error", "Password Mismatch");
       return;
     }
 
-    showAlert(
-      "Registration requires a backend server (PHP + MySQL). This demo is hosted on GitHub Pages which is static-only. Please visit the live version at the clinic's hosted server to create an account.",
-      "info",
-      "Backend Required"
-    );
+    // 2. Send to PHP Backend
+    const formData = new FormData(signupForm);
+
+    try {
+      const response = await fetch('/php_files/register.php', {
+        method: 'POST',
+        body: formData
+      });
+      
+      const result = await response.json();
+
+      if (result.success) {
+        showAlert("Account created successfully! Redirecting...", "success", "Success");
+        setTimeout(() => window.location.href = '/login.php', 2000);
+      } else {
+        showAlert(result.message, "error", "Registration Failed");
+      }
+    } catch (error) {
+      console.error("Registration error:", error);
+      showAlert("Could not connect to the registration server.", "error", "Connection Error");
+    }
   });
 }
 
