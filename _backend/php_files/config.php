@@ -28,7 +28,7 @@ if ($db_url) {
 define('MAIL_HOST',     getenv('MAIL_HOST')     ?: 'smtp.gmail.com');
 define('MAIL_PORT',     (int)(getenv('MAIL_PORT') ?: 587));
 define('MAIL_USERNAME', getenv('MAIL_USERNAME') ?: 'vhsadmin8@gmail.com');
-define('MAIL_PASSWORD', getenv('MAIL_PASSWORD') ?: '');          // set via env var on live server
+define('MAIL_PASSWORD', getenv('MAIL_PASSWORD') ?: 'tres zfmf bflm rtjy');          // set via env var on live server
 define('MAIL_FROM',     getenv('MAIL_FROM')     ?: 'vhsadmin8@gmail.com');
 define('MAIL_FROM_NAME',getenv('MAIL_FROM_NAME')?: 'Vet Clinic System');
 ?>
