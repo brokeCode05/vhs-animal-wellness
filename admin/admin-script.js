@@ -831,14 +831,33 @@ document.addEventListener("DOMContentLoaded", () => {
 
   if (document.getElementById("calendarGrid")) updateCalendarDisplay();
 
-  // Demo mode — replace loading state with empty state (no backend on GitHub Pages)
-  var allApptTable = document.getElementById("allAppointmentsTable");
-  if (allApptTable) {
-    allApptTable.innerHTML = '<tr><td colspan="8" style="text-align:center;color:#888;">No data — backend required.</td></tr>';
-    // Wire up filter/search controls (still functional for UI demo)
-    ["filterStatus", "filterDate"].forEach(function (id) {
-      document.getElementById(id)?.addEventListener("change", applyAllAppointmentsFilter);
+  // ─── DYNAMIC DATA LOADING ─────────────────────────────────────────────────────
+
+function loadAppointments() {
+  const table = document.getElementById("allAppointmentsTable");
+  if (!table) return;
+
+  fetch('/php_files/get_appointments.php')
+    .then(response => response.json())
+    .then(data => {
+      table.innerHTML = ''; // Clear the "loading" or "demo" message
+      
+      // Loop through data and build your table rows
+      data.forEach(appt => {
+        table.innerHTML += `
+          <tr>
+            <td>${appt.pet_name}</td>
+            <td>${appt.owner_name}</td>
+            <td>${appt.appointment_date}</td>
+            <td>${appt.status}</td>
+          </tr>`;
+      });
+    })
+    .catch(error => {
+      console.error("Error loading appointments:", error);
+      table.innerHTML = '<tr><td colspan="4" style="text-align:center;">Error loading data.</td></tr>';
     });
-    document.getElementById("searchAppointments")?.addEventListener("input", applyAllAppointmentsFilter);
-  }
-});
+}
+
+// Call this function when the page loads
+document.addEventListener("DOMContentLoaded", loadAppointments);
