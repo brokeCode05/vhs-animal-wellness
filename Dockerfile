@@ -16,4 +16,7 @@ RUN a2enmod rewrite
 # Configure Apache to listen on the correct port
 RUN sed -i 's/80/${PORT}/g' /etc/apache2/sites-available/000-default.conf /etc/apache2/ports.conf
 
+# Add this line to your Dockerfile to debug
+RUN ls -R /var/www/html
+
 EXPOSE 80
