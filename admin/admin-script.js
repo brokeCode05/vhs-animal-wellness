@@ -846,13 +846,13 @@ function loadAppointments() {
       data.forEach(appt => {
         table.innerHTML += `
           <tr>
-            <td>${appt.pet_name}</td>
-            <td>${appt.owner_name}</td>
-            <td>${appt.appointment_date}</td>
-            <td>${appt.status}</td>
-          </tr>`;
+            <td>${appt.pet_id}</td>    
+            <td>${appt.service}</td>   
+            <td>${appt.date}</td>      
+            <td>${appt.time}</td>      
+            <td>${appt.status}</td>    
+         </tr>`;
       });
-    })
     .catch(error => {
       console.error("Error loading appointments:", error);
       table.innerHTML = '<tr><td colspan="4" style="text-align:center;">Error loading data.</td></tr>';
