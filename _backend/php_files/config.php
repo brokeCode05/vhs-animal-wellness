@@ -5,7 +5,7 @@
 
 // Grab the full connection URL from Render's Environment Variables
 $db_url = getenv('DATABASE_URL');
-
+$mail_pass = getenv('MAIL_PASSWORD');
 if ($db_url) {
     $db_parts = parse_url($db_url);
     
@@ -25,10 +25,10 @@ if ($db_url) {
 }
 
 // ── Mail (SMTP) ───────────────────────────────────────────────
-define('MAIL_HOST',     getenv('MAIL_HOST')     ?: 'smtp.gmail.com');
-define('MAIL_PORT',     (int)(getenv('MAIL_PORT') ?: 587));
-define('MAIL_USERNAME', getenv('MAIL_USERNAME') ?: 'vhsadmin8@gmail.com');
-define('MAIL_PASSWORD', getenv('MAIL_PASSWORD') ?: 'treszfmfbflmrtjy');          // set via env var on live server
-define('MAIL_FROM',     getenv('MAIL_FROM')     ?: 'vhsadmin8@gmail.com');
-define('MAIL_FROM_NAME',getenv('MAIL_FROM_NAME')?: 'Vet Clinic System');
+define('MAIL_HOST', getenv('MAIL_HOST'));
+define('MAIL_PORT', getenv('MAIL_PORT'));
+define('MAIL_USERNAME', getenv('MAIL_USERNAME'));
+define('MAIL_PASSWORD', getenv('MAIL_PASSWORD'));
+define('MAIL_FROM', getenv('MAIL_FROM'));
+define('MAIL_FROM_NAME', getenv('MAIL_FROM_NAME'));
 ?>
