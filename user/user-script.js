@@ -857,3 +857,19 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 });
+
+// Replace the "Backend Required" block in user-csriptJS.txt
+function loadUserAppointments() {
+  const container = document.getElementById("userAppointmentsList"); 
+  if (!container) return;
+
+  fetch('/php_files/get_user_appointments.php')
+    .then(response => response.json())
+    .then(data => {
+      container.innerHTML = '';
+      data.forEach(appt => {
+        container.innerHTML += `<div class="appt-card">${appt.date} - ${appt.service}</div>`;
+      });
+    });
+}
+document.addEventListener("DOMContentLoaded", loadUserAppointments);
