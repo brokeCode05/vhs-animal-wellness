@@ -39,9 +39,8 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     $stmt = $conn->prepare("INSERT INTO vet_users (first_name, last_name, middle_name, phone, user_address, user_email, user_pass, birthday, status, email_verified, verify_token) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'approved', 0, ?)");
     $stmt->bind_param("sssssssss", $fname, $lname, $mname, $phone, $address, $email, $hash, $dob, $token);
 
-    iif ($stmt->execute()) {
+   if ($stmt->execute()) {
 
-    // 3. Send Email
     require_once __DIR__ . '/PHPMailer-7.1.1/src/PHPMailer.php';
     require_once __DIR__ . '/PHPMailer-7.1.1/src/SMTP.php';
     require_once __DIR__ . '/PHPMailer-7.1.1/src/Exception.php';
@@ -55,8 +54,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             : 'http';
 
         $verifyLink = $protocol . '://' . $_SERVER['HTTP_HOST']
-            . dirname($_SERVER['PHP_SELF'])
-            . '/verify.php?token=' . $token;
+            . '/_backend/verify.php?token=' . $token;
 
         $mail->isSMTP();
         $mail->Host       = MAIL_HOST;
@@ -78,10 +76,6 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             <a href='$verifyLink'>$verifyLink</a>
         ";
 
-        // TEMP DEBUG
-        $mail->SMTPDebug = 2;
-        $mail->Debugoutput = 'html';
-
         $mail->send();
 
         echo json_encode([
@@ -95,6 +89,15 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             'success' => false,
             'message' => $mail->ErrorInfo
         ]);
+    }
+
+} else {
+
+    echo json_encode([
+        'success' => false,
+        'message' => 'Database error: ' . $conn->error
+    ]);
+}
     }
 
 } else {
