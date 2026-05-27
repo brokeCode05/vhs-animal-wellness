@@ -39,58 +39,69 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     $stmt = $conn->prepare("INSERT INTO vet_users (first_name, last_name, middle_name, phone, user_address, user_email, user_pass, birthday, status, email_verified, verify_token) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'approved', 0, ?)");
     $stmt->bind_param("sssssssss", $fname, $lname, $mname, $phone, $address, $email, $hash, $dob, $token);
 
-    if ($stmt->execute()) {
-       // 3. Send Email
-require_once __DIR__ . '/PHPMailer-7.1.1/src/PHPMailer.php';
-require_once __DIR__ . '/PHPMailer-7.1.1/src/SMTP.php';
-require_once __DIR__ . '/PHPMailer-7.1.1/src/Exception.php';
+    iif ($stmt->execute()) {
 
-$mail = new PHPMailer(true);
+    // 3. Send Email
+    require_once __DIR__ . '/PHPMailer-7.1.1/src/PHPMailer.php';
+    require_once __DIR__ . '/PHPMailer-7.1.1/src/SMTP.php';
+    require_once __DIR__ . '/PHPMailer-7.1.1/src/Exception.php';
 
-try {
-    $protocol = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
-        ? 'https'
-        : 'http';
+    $mail = new PHPMailer(true);
 
-    $verifyLink = $protocol . '://' . $_SERVER['HTTP_HOST']
-        . dirname($_SERVER['PHP_SELF'])
-        . '/verify.php?token=' . $token;
+    try {
 
-    $mail->isSMTP();
-    $mail->Host       = MAIL_HOST;
-    $mail->SMTPAuth   = true;
-    $mail->Username   = MAIL_USERNAME;
-    $mail->Password   = MAIL_PASSWORD;
-    $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
-    $mail->Port       = MAIL_PORT;
+        $protocol = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
+            ? 'https'
+            : 'http';
 
-    $mail->setFrom(MAIL_FROM, MAIL_FROM_NAME);
-    $mail->addAddress($email);
+        $verifyLink = $protocol . '://' . $_SERVER['HTTP_HOST']
+            . dirname($_SERVER['PHP_SELF'])
+            . '/verify.php?token=' . $token;
 
-    $mail->isHTML(true);
-    $mail->Subject = 'Verify Your Email';
-    $mail->Body = "
-        <h3>Welcome, $fname!</h3>
-        <p>Click the link below to verify your account:</p>
-        <a href='$verifyLink'>$verifyLink</a>
-    ";
+        $mail->isSMTP();
+        $mail->Host       = MAIL_HOST;
+        $mail->SMTPAuth   = true;
+        $mail->Username   = MAIL_USERNAME;
+        $mail->Password   = MAIL_PASSWORD;
+        $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
+        $mail->Port       = MAIL_PORT;
 
-    // TEMP DEBUG
-    $mail->SMTPDebug = 2;
-    $mail->Debugoutput = 'html';
+        $mail->setFrom(MAIL_FROM, MAIL_FROM_NAME);
+        $mail->addAddress($email);
 
-    $mail->send();
+        $mail->isHTML(true);
+        $mail->Subject = 'Verify Your Email';
 
-    echo json_encode([
-        'success' => true,
-        'message' => 'Registration successful! Please check your email.'
-    ]);
+        $mail->Body = "
+            <h3>Welcome, $fname!</h3>
+            <p>Click the link below to verify your account:</p>
+            <a href='$verifyLink'>$verifyLink</a>
+        ";
 
-} catch (Exception $e) {
+        // TEMP DEBUG
+        $mail->SMTPDebug = 2;
+        $mail->Debugoutput = 'html';
+
+        $mail->send();
+
+        echo json_encode([
+            'success' => true,
+            'message' => 'Registration successful! Please check your email.'
+        ]);
+
+    } catch (Exception $e) {
+
+        echo json_encode([
+            'success' => false,
+            'message' => $mail->ErrorInfo
+        ]);
+    }
+
+} else {
 
     echo json_encode([
         'success' => false,
-        'message' => $mail->ErrorInfo
+        'message' => 'Database error: ' . $conn->error
     ]);
 }
 }
