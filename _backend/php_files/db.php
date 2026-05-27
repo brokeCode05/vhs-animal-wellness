@@ -3,7 +3,7 @@ function getDB() {
     $conn = mysqli_init();
 
     // Point to your actual CA certificate file
-    $ca_cert = __DIR__ . '/certs/ca.pem'; 
+    $ca_cert = dirname(__DIR__) . '/certs/ca.pem';
     
     // Pass the file path instead of NULL
     mysqli_ssl_set($conn, NULL, NULL, $ca_cert, NULL, NULL);
