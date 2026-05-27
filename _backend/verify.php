@@ -1,5 +1,5 @@
 <?php
-require_once '../php_files/db.php';
+require_once __DIR__ . '/php_files/db.php';
 $conn = getDB();
 
 echo "<div style='font-family: sans-serif; max-width: 500px; margin: 50px auto; padding: 30px; text-align: center; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); border-top: 5px solid #4CAF50;'>";
