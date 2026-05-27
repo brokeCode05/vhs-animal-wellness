@@ -1,6 +1,6 @@
 <?php
-require_once '../php_files/db.php';   // also loads config.php
-require_once '../php_files/config.php';
+require_once __DIR__ . '/php_files/db.php';
+require_once __DIR__ . '/php_files/config.php';
 use PHPMailer\PHPMailer\PHPMailer;
 use PHPMailer\PHPMailer\Exception;
 
