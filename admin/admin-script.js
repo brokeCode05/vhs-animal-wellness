@@ -831,69 +831,53 @@ document.addEventListener("DOMContentLoaded", () => {
 
   if (document.getElementById("calendarGrid")) updateCalendarDisplay();
 
-  // ─── DYNAMIC DATA LOADING ─────────────────────────────────────────────────────
+// ─── DYNAMIC DATA LOADING ─────────────────────────────────────────────────────
 
 function loadAppointments() {
   const table = document.getElementById("allAppointmentsTable");
   if (!table) return;
 
-  fetch('/php_files/get_appointments.php')
-    .then(response => response.json())
-    .then(data => {
-      table.innerHTML = ''; // Clear the "loading" or "demo" message
+  fetch('../php_files/get_appointments.php')
+    .then(function(response) { 
+      return response.json(); 
+    })
+    .then(function(data) {
+      if (data.status !== "success") {
+        console.error("Data status not success");
+        return;
+      }
       
-      // Loop through data and build your table rows
-      data.forEach(appt => {
+      table.innerHTML = ''; 
+      
+      data.appointments.forEach(function(appt) {
         table.innerHTML += `
           <tr>
-            <td>${appt.pet_id}</td>    
-            <td>${appt.service}</td>   
-            <td>${appt.date}</td>      
-            <td>${appt.time}</td>      
-            <td>${appt.status}</td>    
-         </tr>`;
+            <td>#A${String(appt.id).padStart(3, '0')}</td>
+            <td>${appt.date}</td>
+            <td>${appt.owner_name || '—'}</td>
+            <td>${appt.pet_name || '—'}</td>
+            <td>${appt.service}</td>
+            <td>${appt.status}</td>
+          </tr>`;
       });
-    .catch(error => {
+    })
+    .catch(function(error) {
       console.error("Error loading appointments:", error);
-      table.innerHTML = '<tr><td colspan="4" style="text-align:center;">Error loading data.</td></tr>';
+      table.innerHTML = '<tr><td colspan="6" style="text-align:center;">Error loading data.</td></tr>';
     });
 }
 
-// Call this function when the page loads
-document.addEventListener("DOMContentLoaded", loadAppointments);
-   initLogout();
+// Ensure the page and the dashboard are ready before running
+document.addEventListener("DOMContentLoaded", () => {
+  initLogout();
   setupSearch();
   setupFilters();
   setupTabs();
   setupModals();
   autoLabelTables();
 
-  document
-    .getElementById("hamburgerMenu")
-    ?.addEventListener("click", toggleSidebar);
-  document.querySelectorAll(".sidebar .nav-item").forEach((item) => {
-    item.addEventListener("click", () => {
-      if (window.innerWidth <= 768) closeMobileSidebar();
-    });
-  });
-  window.addEventListener("resize", () => {
-    if (window.innerWidth > 768) closeMobileSidebar();
-  });
-
-  if (document.getElementById("calendarGrid")) updateCalendarDisplay();
-
-  // Load real appointment data if on the appointments page
-  if (
-    document.getElementById("pendingAppointmentsTable") ||
-    document.getElementById("allAppointmentsTable")
-  ) {
+  // Load appointments if we are on the dashboard
+  if (document.getElementById("allAppointmentsTable")) {
     loadAppointments();
-
-    // Wire up filter/search controls
-    ["filterStatus", "filterDate"].forEach(function (id) {
-      document.getElementById(id)?.addEventListener("change", applyAllAppointmentsFilter);
-    });
-    document.getElementById("searchAppointments")?.addEventListener("input", applyAllAppointmentsFilter);
   }
 });
-
