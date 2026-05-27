@@ -382,7 +382,7 @@ if (signupForm) {
 
       if (result.success) {
         showAlert("Account created successfully! Redirecting...", "success", "Success");
-        setTimeout(() => window.location.href = '/login.php', 2000);
+        setTimeout(() => window.location.href = '/_backend/login.php', 2000);
       } else {
         showAlert(result.message, "error", "Registration Failed");
       }
