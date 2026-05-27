@@ -180,7 +180,7 @@ function submitStaffAccount(e) {
  *  - Sidebar badge
  */
 function loadAppointments() {
-  fetch("../php_files/get_appointments.php")
+  fetch("/_backend/get_appointments.php")
     .then(function (r) { return r.json(); })
     .then(function (data) {
       if (data.status !== "success") {
@@ -837,7 +837,7 @@ function loadAppointments() {
   const table = document.getElementById("allAppointmentsTable");
   if (!table) return;
 
-  fetch('../php_files/get_appointments.php')
+  fetch('/_backend/get_appointments.php')
     .then(function(response) { 
       return response.json(); 
     })
