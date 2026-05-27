@@ -1,12 +1,14 @@
 <?php
+<?php
+
+use PHPMailer\PHPMailer\PHPMailer;
+use PHPMailer\PHPMailer\Exception;
+
 // Set header to JSON so JavaScript can parse it correctly
 header('Content-Type: application/json');
 
 require_once __DIR__ . '/php_files/db.php';
 require_once __DIR__ . '/php_files/config.php';
-
-use PHPMailer\PHPMailer\PHPMailer;
-use PHPMailer\PHPMailer\Exception;
 
 $conn = getDB();
 
