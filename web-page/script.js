@@ -994,7 +994,7 @@ const scrollObserver = new IntersectionObserver(
 document.addEventListener("DOMContentLoaded", () => {
   // Service cards
   document
-    .querySelectorAll(".service-card, .service-card-detailed")
+    .querySelectorAll(".service-card, .service-card-detailed, .svc-card")
     .forEach((el) => {
       el.classList.add("scroll-animate");
       scrollObserver.observe(el);
