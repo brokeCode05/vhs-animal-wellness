@@ -1,0 +1,8 @@
+/* ============================================
+   VHS CLERK DASHBOARD - STYLESHEET
+   Uses the same purple palette as admin/user
+   ============================================ */
+@import url('../admin/admin-style.css');
+
+/* Clerk uses the same purple identity as the rest of the system */
+/* No color overrides — inherits --primary: #6d4ab1 from admin-style.css */

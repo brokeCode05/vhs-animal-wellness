@@ -1,0 +1,14 @@
+# Block direct browser access to internal PHP files.
+# API endpoints (called via fetch/AJAX) are explicitly allowed below.
+
+# First, deny all PHP files by default
+<FilesMatch "\.php$">
+    Order Allow,Deny
+    Deny from all
+</FilesMatch>
+
+# Allow only the public-facing API endpoints
+<FilesMatch "^(book-appointment|get_appointments|get_booked_slots|get_pets|get_staff|get_users|get_user_profile|get_user_appointments|update_appointment_status|update_profile|create_staff|sms_otp)\.php$">
+    Order Allow,Deny
+    Allow from all
+</FilesMatch>

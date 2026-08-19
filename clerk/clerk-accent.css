@@ -1,0 +1,28 @@
+/* ============================================================
+   CLERK ACCENT — blue (logo blue #3977b4 family)
+   Loaded after shared/dashboard-theme.css
+   ============================================================ */
+
+:root {
+  --accent: #3977b4;
+  --accent-dark: #2d5f94;
+  --accent-deep: #234a73;
+  --accent-light: #8ab4e3;
+  --accent-hover: #4a87c6;
+  --accent-hover-dark: #33689c;
+  --accent-soft: rgba(57, 119, 180, 0.13);
+  --accent-soft-2: rgba(45, 95, 148, 0.09);
+  --accent-border: rgba(45, 95, 148, 0.17);
+  --accent-shadow: rgba(35, 74, 115, 0.32);
+  --accent-glow: rgba(138, 180, 227, 0.18);
+  --accent-shimmer: rgba(205, 225, 245, 0.85);
+  --accent-bg: #eef4fb;
+  --accent-bg-2: #e2ecf7;
+  --accent-bg-3: #f5f9fd;
+  --accent-bg-4: #ebf3fa;
+  --accent-badge-bg: #e4eef9;
+  --accent-badge-bg-2: #d3e4f4;
+  --accent-badge-border: #a9c8e8;
+  --accent-sched-bg: #e9f1f9;
+  --accent-sched-bg-2: #dbe8f5;
+}

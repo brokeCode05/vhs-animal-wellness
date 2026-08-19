@@ -1,0 +1,734 @@
+/* ============================================================
+   VHS DASHBOARD THEME — shared design system
+   Admin / Clerk / User portals
+   Loaded AFTER admin-style.css / clerk-style.css / user-style.css
+   The role accent colors come from a per-role accent file
+   loaded after this one (admin-accent.css / clerk-accent.css /
+   user-accent.css) which only overrides the --accent* vars.
+   ============================================================ */
+
+/* ===== FONTS ===== */
+@import url("https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700;800&family=Nunito:wght@400;500;600;700;800&display=swap");
+
+/* ===== ACCENT VARIABLES (default: violet — admin) ===== */
+:root {
+  --accent: #8b5cf6;          /* main brand color */
+  --accent-dark: #6d4ab1;     /* darker shade */
+  --accent-deep: #5a3a94;     /* darkest (navbar top) */
+  --accent-light: #b79cf9;    /* light shade */
+  --accent-hover: #9a6ef8;    /* button hover */
+  --accent-hover-dark: #7a56c4;
+  --accent-soft: rgba(139, 92, 246, 0.12);    /* tinted fills */
+  --accent-soft-2: rgba(109, 74, 177, 0.08);  /* lighter tint */
+  --accent-border: rgba(109, 74, 177, 0.14);
+  --accent-shadow: rgba(93, 64, 130, 0.35);
+  --accent-glow: rgba(183, 156, 249, 0.16);
+  --accent-shimmer: rgba(230, 217, 255, 0.85);
+  --accent-bg: #f5eefc;       /* scrollbar track + light bg */
+  --accent-bg-2: #efe7fb;     /* table header */
+  --accent-bg-3: #faf8ff;     /* hover rows */
+  --accent-bg-4: #f5f0ff;
+  --accent-badge-bg: #f0e9fc;
+  --accent-badge-bg-2: #e3d7fa;
+  --accent-badge-border: #c9b4f2;
+  --accent-sched-bg: #f5effd;
+  --accent-sched-bg-2: #e9defa;
+
+  /* Legacy aliases used by base admin/user stylesheets */
+  --primary: var(--accent);
+  --primary-dark: var(--accent-dark);
+  --primary-light: var(--accent-light);
+  --secondary: var(--accent);
+  --secondary-dark: var(--accent-dark);
+  --dark: #3b2d4a;
+  --text-dark: #3b2d4a;
+  --text-dim: rgba(59, 45, 74, 0.68);
+  --bg-light: var(--accent-bg);
+  --border: var(--accent-border);
+}
+
+/* ===== BASE ===== */
+body {
+  font-family: "Nunito", "Segoe UI", sans-serif;
+  background: linear-gradient(180deg, #fdf9ff 0%, #f3ecfa 100%);
+  color: #3b2d4a;
+}
+
+h1, h2, h3, h4, h5, h6,
+.brand-name,
+.stat-value,
+.page-header h1,
+.modal-title,
+.sidebar-user-name {
+  font-family: "Baloo 2", "Nunito", sans-serif;
+}
+
+/* Themed scrollbar */
+::-webkit-scrollbar-track {
+  background: var(--accent-bg);
+}
+
+/* ===== TOP NAVBAR ===== */
+.top-navbar {
+  background: linear-gradient(135deg, var(--accent-deep) 0%, var(--accent-dark) 45%, var(--accent) 100%);
+  box-shadow: 0 4px 24px var(--accent-shadow);
+}
+
+.top-navbar::before {
+  background: radial-gradient(circle, var(--accent-glow) 0%, transparent 70%);
+}
+
+.top-navbar::after {
+  background: linear-gradient(90deg, transparent, var(--accent-shimmer), rgba(255, 255, 255, 0.55), transparent);
+}
+
+.navbar-badge {
+  background: rgba(255, 255, 255, 0.14);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  color: #ffffff;
+}
+
+.brand-name {
+  color: #ffffff;
+}
+
+/* ===== SIDEBAR ===== */
+.sidebar {
+  background: linear-gradient(180deg, #ffffff 0%, #faf8ff 100%);
+  border-right: 1px solid var(--accent-border);
+  box-shadow: 4px 0 24px rgba(0, 0, 0, 0.06);
+}
+
+.sidebar-profile {
+  background: linear-gradient(135deg, var(--accent-soft) 0%, var(--accent-soft-2) 100%);
+  border: 1px solid var(--accent-border);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.05);
+}
+
+.sidebar-avatar {
+  background: linear-gradient(135deg, var(--accent) 0%, var(--accent-light) 100%);
+  border: 2px solid rgba(255, 255, 255, 0.5);
+  box-shadow: 0 4px 12px var(--accent-shadow);
+}
+
+.sidebar-user-name {
+  color: #3b2d4a;
+}
+
+.sidebar-user-role {
+  color: var(--accent);
+}
+
+.sidebar .nav-item {
+  border-radius: 0.625rem;
+  margin: 0 0.25rem;
+}
+
+.sidebar .nav-item:hover {
+  background: linear-gradient(135deg, var(--accent-soft) 0%, var(--accent-soft-2) 100%);
+  color: var(--accent-dark);
+  transform: translateX(6px);
+}
+
+.sidebar .nav-item.active {
+  background: linear-gradient(135deg, var(--accent-soft) 0%, var(--accent-soft-2) 100%);
+  color: var(--accent-dark);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.1);
+}
+
+.sidebar .nav-item.active::before {
+  background: linear-gradient(180deg, var(--accent-light), var(--accent));
+  width: 3px;
+}
+
+.sidebar::-webkit-scrollbar-thumb {
+  background: var(--accent-soft);
+  border-radius: 8px;
+}
+
+/* ===== STAT CARDS ===== */
+.stat-card {
+  background: #ffffff;
+  border: 1px solid var(--accent-border);
+  border-radius: 1.1rem;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+  position: relative;
+  overflow: hidden;
+}
+
+.stat-card::after {
+  content: '';
+  position: absolute;
+  bottom: -20px; right: -20px;
+  width: 90px; height: 90px;
+  border-radius: 50%;
+  background: radial-gradient(circle, var(--accent-soft) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+.stat-card:hover {
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+  transform: translateY(-5px);
+}
+
+.stat-icon {
+  background: linear-gradient(135deg, var(--accent-soft), var(--accent-soft-2));
+  border-radius: 0.875rem;
+  color: var(--accent);
+  border: none;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+}
+
+.stat-value {
+  font-size: 2.25rem;
+  font-weight: 800;
+  background: linear-gradient(135deg, var(--accent-dark), var(--accent));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.stat-label {
+  color: #7a6a8f;
+}
+
+/* ===== CONTENT SECTIONS ===== */
+.content-section {
+  background: #ffffff;
+  border: 1px solid var(--accent-border);
+  border-radius: 1rem;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+  position: relative;
+  overflow: hidden;
+}
+
+.content-section::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, var(--accent), var(--accent-light), var(--accent-dark));
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.content-section:hover::before {
+  opacity: 1;
+}
+
+.page-header {
+  background: #ffffff;
+  border-radius: 1rem;
+  border-left: 4px solid var(--accent);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+  position: relative;
+  overflow: hidden;
+}
+
+.page-header h1 {
+  color: #3b2d4a;
+}
+
+.page-subtitle {
+  color: #8a7a9f;
+}
+
+/* ===== TABLES ===== */
+.table-wrapper {
+  border: 1px solid var(--accent-border);
+  border-radius: 0.875rem;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.04);
+  overflow: hidden;
+}
+
+.compact-table thead {
+  background: linear-gradient(135deg, var(--accent-bg) 0%, var(--accent-bg-2) 100%);
+}
+
+.compact-table th {
+  color: var(--accent-dark);
+  border-bottom: 2px solid var(--accent-border);
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.compact-table tbody tr:hover {
+  background: linear-gradient(135deg, var(--accent-bg-3) 0%, var(--accent-bg-4) 100%);
+}
+
+/* ===== FORMS ===== */
+.form-input,
+.form-select,
+.form-textarea,
+.search-input {
+  border: 1.5px solid var(--accent-border);
+  border-radius: 0.625rem;
+  background: #fffdfe;
+  color: #3b2d4a;
+}
+
+.form-input:focus,
+.form-select:focus,
+.form-textarea:focus,
+.search-input:focus {
+  background: #ffffff;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.form-label {
+  color: #4a3a5e;
+}
+
+.form-hint {
+  color: #a89ab8;
+}
+
+/* ===== BUTTONS ===== */
+.btn-primary {
+  background: linear-gradient(135deg, var(--accent) 0%, var(--accent-dark) 100%);
+  color: #ffffff;
+  box-shadow: 0 6px 20px var(--accent-shadow);
+}
+
+.btn-primary:hover {
+  background: linear-gradient(135deg, var(--accent-hover) 0%, var(--accent-hover-dark) 100%);
+  box-shadow: 0 8px 26px var(--accent-shadow);
+}
+
+.btn-secondary {
+  background: linear-gradient(135deg, var(--accent) 0%, var(--accent-dark) 100%);
+  color: #ffffff;
+  box-shadow: 0 6px 20px var(--accent-shadow);
+}
+
+.btn-secondary:hover {
+  background: linear-gradient(135deg, var(--accent-hover) 0%, var(--accent-hover-dark) 100%);
+}
+
+.btn-small {
+  border-radius: 0.5rem;
+}
+
+.btn-link {
+  color: var(--accent);
+}
+
+.btn-link::after {
+  background: var(--accent);
+}
+
+.btn-link:hover {
+  color: var(--accent-dark);
+}
+
+/* Status badges — role-tinted fills */
+.type-badge.guest,
+.status-badge.in-progress,
+.role-badge.clerk {
+  background: linear-gradient(135deg, var(--accent-badge-bg) 0%, var(--accent-badge-bg-2) 100%);
+  color: var(--accent-dark);
+  border: 1px solid var(--accent-badge-border);
+}
+
+.appointment-item.status-scheduled {
+  background: linear-gradient(135deg, var(--accent-sched-bg) 0%, var(--accent-sched-bg-2) 100%);
+  border-left: 3px solid var(--accent);
+  color: var(--accent-dark);
+}
+
+/* ===== BADGES ===== */
+.badge-count {
+  background: linear-gradient(135deg, var(--accent), var(--accent-dark));
+  box-shadow: 0 2px 8px var(--accent-shadow);
+  font-size: 0.7rem;
+  padding: 0.2rem 0.55rem;
+}
+
+.count-badge {
+  background: linear-gradient(135deg, var(--accent), var(--accent-dark));
+  color: #ffffff;
+}
+
+/* ===== MODALS ===== */
+.modal-content {
+  background: linear-gradient(160deg, #fffdfe 0%, var(--accent-bg) 100%);
+  border-radius: 1.25rem;
+  border-top: 4px solid var(--accent);
+  box-shadow: 0 24px 70px rgba(43, 31, 61, 0.3);
+}
+
+.modal-title {
+  background: linear-gradient(135deg, var(--accent-dark) 0%, var(--accent) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.confirm-modal {
+  border-radius: 1.25rem;
+}
+
+.confirm-modal::before {
+  background: radial-gradient(circle, var(--accent-soft) 0%, transparent 70%);
+}
+
+.confirm-icon {
+  background: linear-gradient(135deg, var(--accent), var(--accent-dark));
+}
+
+.btn-confirm-ok {
+  background: linear-gradient(135deg, var(--accent), var(--accent-dark));
+  color: #ffffff;
+  box-shadow: 0 4px 14px var(--accent-shadow);
+}
+
+.btn-confirm-cancel {
+  background: #ffffff;
+  color: #3b2d4a;
+  border: 2px solid var(--accent-border);
+}
+
+.btn-confirm-cancel:hover {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+/* ===== TABS ===== */
+.tab-btn.active {
+  background: linear-gradient(135deg, var(--accent), var(--accent-dark));
+  color: #ffffff;
+  box-shadow: 0 4px 14px var(--accent-shadow);
+}
+
+.tab-btn:hover {
+  background: var(--accent-soft);
+  color: var(--accent-dark);
+}
+
+/* ===== CALENDAR ===== */
+.calendar-day-header {
+  color: var(--accent-dark);
+}
+
+.calendar-day.today {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--accent-dark);
+  box-shadow: 0 2px 10px var(--accent-shadow);
+}
+
+.calendar-nav,
+.calendar-view-toggle {
+  border-radius: 0.5rem;
+}
+
+/* ===== CARDS & MISC ===== */
+.priority-card {
+  background: #ffffff;
+  border: 1px solid var(--accent-border);
+  border-radius: 0.875rem;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.05);
+}
+
+.pet-full-card,
+.service-card-user {
+  background: #ffffff;
+  border: 1px solid var(--accent-border);
+  border-radius: 1rem;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.05);
+  transition: all 0.3s ease;
+}
+
+.pet-full-card::before,
+.service-card-user::before {
+  background: linear-gradient(90deg, var(--accent), var(--accent-light));
+}
+
+.pet-full-card:hover,
+.service-card-user:hover {
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+  transform: translateY(-4px);
+  border-color: var(--accent-soft);
+}
+
+.announcement-item:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  transform: translateX(4px);
+}
+
+.hours-row:hover {
+  background: var(--accent-soft);
+}
+
+/* ===== LOGOUT ===== */
+.nav-item-logout {
+  border-top: 1px solid rgba(239, 68, 68, 0.12);
+}
+
+.nav-item-logout:hover {
+  color: #ef4444;
+}
+
+/* ============================================================
+   UI POLISH — shared micro-interactions & finishing touches
+   ============================================================ */
+
+/* Smooth everything */
+.btn-primary, .btn-secondary, .btn-small, .btn-link,
+.stat-card, .stat-icon,
+.content-section, .page-header, .table-wrapper,
+.form-input, .form-select, .form-textarea, .search-input,
+.modal-content, .tab-btn, .calendar-day,
+.nav-item, .badge-count, .count-badge {
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Accessible focus rings */
+.btn-primary:focus-visible,
+.btn-secondary:focus-visible,
+.btn-small:focus-visible,
+.btn-link:focus-visible,
+.tab-btn:focus-visible,
+.search-input:focus-visible,
+.form-input:focus-visible,
+.form-select:focus-visible,
+.form-textarea:focus-visible {
+  outline: 3px solid var(--accent-soft);
+  outline-offset: 2px;
+}
+
+/* ===== BUTTONS — press states ===== */
+.btn-primary:active,
+.btn-secondary:active,
+.btn-small:active {
+  transform: translateY(1px) scale(0.98);
+}
+
+/* ===== LOADING OVERLAY (accent-tinted) ===== */
+.loading-overlay {
+  background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 92%, #0a0a0a) 0%, color-mix(in srgb, var(--accent-deep) 92%, #000) 100%);
+  backdrop-filter: blur(12px);
+}
+
+.spinner {
+  border-color: rgba(255, 255, 255, 0.22);
+  border-top-color: var(--accent-light);
+  border-right-color: var(--accent-light);
+  box-shadow: 0 0 50px color-mix(in srgb, var(--accent) 55%, transparent);
+}
+
+/* ===== PAGE HEADER — subtle glow + divider ===== */
+.page-header::after {
+  content: '';
+  position: absolute;
+  right: -30px; top: -30px;
+  width: 140px; height: 140px;
+  border-radius: 50%;
+  background: radial-gradient(circle, var(--accent-soft) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+.page-header .page-subtitle {
+  margin-top: 0.35rem;
+}
+
+/* ===== SECTION TITLES — gradient underline ===== */
+.section-title {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.section-title::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  bottom: -0.4rem;
+  width: 2.5rem;
+  height: 3px;
+  border-radius: 3px;
+  background: linear-gradient(90deg, var(--accent), var(--accent-light));
+  transition: width 0.3s ease;
+}
+
+.section-title:hover::after {
+  width: 100%;
+}
+
+/* ===== TABLES — zebra + softer hover ===== */
+.compact-table tbody tr:nth-child(even) {
+  background: rgba(0, 0, 0, 0.015);
+}
+
+.compact-table tbody tr {
+  transition: background 0.2s ease, transform 0.2s ease;
+}
+
+.compact-table td {
+  padding: 0.85rem 1rem;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.045);
+}
+
+.compact-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+/* Empty-state table row */
+.compact-table .empty-row td,
+.compact-table tr td[colspan] {
+  padding: 2.5rem 1rem;
+  text-align: center;
+  color: var(--accent-dark) !important;
+  font-weight: 600;
+  font-size: 0.95rem;
+  letter-spacing: 0.01em;
+  opacity: 0.75;
+}
+
+/* ===== FILTER BAR — search icon feel ===== */
+.search-input {
+  padding-left: 2.4rem;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 24 24' fill='none' stroke='%23888' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='11' cy='11' r='8'/%3E%3Cline x1='21' y1='21' x2='16.65' y2='16.65'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: 0.8rem center;
+}
+
+/* Lock page scroll while a modal is open */
+body.modal-open {
+  overflow: hidden;
+}
+
+/* ===== MODALS — entrance animation =====
+   NOTE: fill-mode 'backwards' only — 'both'/'forwards' would
+   permanently force opacity:1 and break modals that hide via
+   inline opacity:0 (e.g. admin/clerk booking modals). */
+.modal-overlay.show {
+  animation: dashFadeIn 0.25s ease backwards;
+}
+
+.modal-overlay.show .modal-content {
+  animation: dashPopIn 0.3s cubic-bezier(0.34, 1.4, 0.64, 1) backwards;
+}
+
+.confirm-modal-overlay.show {
+  animation: dashFadeIn 0.25s ease backwards;
+}
+
+.confirm-modal-overlay.show .confirm-modal {
+  animation: dashPopIn 0.3s cubic-bezier(0.34, 1.4, 0.64, 1) backwards;
+}
+
+@keyframes dashFadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes dashPopIn {
+  from {
+    opacity: 0;
+    transform: translateY(14px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* ===== BADGES — soft pills with status dot ===== */
+.status-badge,
+.role-badge,
+.type-badge,
+.appointment-badge {
+  position: relative;
+  padding-left: 1.4rem;
+}
+
+.status-badge::before,
+.role-badge::before,
+.type-badge::before,
+.appointment-badge::before {
+  content: '';
+  position: absolute;
+  left: 0.55rem;
+  top: 50%;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  transform: translateY(-50%);
+  background: currentColor;
+  opacity: 0.55;
+}
+
+/* ===== STAT CARDS — icon pop on hover ===== */
+.stat-card:hover .stat-icon {
+  transform: scale(1.08) rotate(-4deg);
+}
+
+.stat-icon {
+  transition: transform 0.25s ease;
+}
+
+/* ===== SIDEBAR — smoother active slide ===== */
+.sidebar .nav-item {
+  position: relative;
+  transition: background 0.25s ease, color 0.25s ease, transform 0.25s ease, box-shadow 0.25s ease;
+}
+
+.sidebar .nav-item .icon {
+  transition: transform 0.25s ease;
+}
+
+.sidebar .nav-item:hover .icon {
+  transform: scale(1.12);
+}
+
+/* ===== CALENDAR — day hover ===== */
+.calendar-day:not(:empty):hover {
+  background: var(--accent-soft);
+  border-color: var(--accent-light);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08);
+  z-index: 1;
+}
+
+/* ===== APPOINTMENT ITEMS ===== */
+.appointment-item {
+  border-radius: 0.5rem;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.appointment-item:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+/* ===== PRIORITY CARDS ===== */
+.priority-card {
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
+}
+
+.priority-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.1);
+}
+
+/* ===== CARDS MISC ===== */
+.detail-item {
+  padding: 0.85rem 1rem;
+  border-radius: 0.625rem;
+  background: rgba(0, 0, 0, 0.02);
+  transition: background 0.2s ease;
+}
+
+.detail-item:hover {
+  background: var(--accent-soft);
+}
+
+/* ===== RESPONSIVE ===== */
+@media (max-width: 768px) {
+  .navbar {
+    background: #fffdfe;
+  }
+}

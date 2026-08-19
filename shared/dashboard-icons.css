@@ -1,0 +1,127 @@
+/* ============================================
+   VHS DASHBOARD — SVG ICON SYSTEM
+   Replaces all emoji icons in admin/clerk/user
+   Consistent stroke-based Lucide-style icons
+   ============================================ */
+
+/* Sidebar nav icon wrapper */
+.nav-item .icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.25rem;
+  height: 1.25rem;
+  flex-shrink: 0;
+}
+
+.nav-item .icon svg {
+  width: 1.25rem;
+  height: 1.25rem;
+  display: block;
+}
+
+/* Stat card icon */
+.stat-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 3rem;
+  height: 3rem;
+  border-radius: 0.75rem;
+  flex-shrink: 0;
+}
+
+.stat-icon svg {
+  width: 1.5rem;
+  height: 1.5rem;
+  display: block;
+}
+
+/* Service icon wrap (user portal) */
+.service-icon-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 3.5rem;
+  height: 3.5rem;
+  border-radius: 1rem;
+  background: rgba(109, 74, 177, 0.1);
+  color: var(--primary);
+  margin-bottom: 1rem;
+  flex-shrink: 0;
+}
+
+.service-icon-wrap svg {
+  width: 1.75rem;
+  height: 1.75rem;
+  display: block;
+}
+
+/* Clinic info icon (user portal) */
+.clinic-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 0.625rem;
+  background: rgba(109, 74, 177, 0.08);
+  color: var(--primary);
+  flex-shrink: 0;
+}
+
+.clinic-icon svg {
+  width: 1.1rem;
+  height: 1.1rem;
+  display: block;
+}
+
+/* Sidebar avatar placeholder */
+.sidebar-avatar-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.sidebar-avatar-placeholder svg {
+  width: 1.75rem;
+  height: 1.75rem;
+  display: block;
+}
+
+/* Pet photo upload icon */
+.upload-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 0.5rem;
+  color: var(--primary);
+}
+
+.upload-icon svg {
+  width: 2rem;
+  height: 2rem;
+  display: block;
+}
+
+/* Confirm modal icon */
+.confirm-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0;
+}
+
+.confirm-icon svg {
+  width: 2.5rem;
+  height: 2.5rem;
+  display: block;
+}
+
+/* vhs-modal icon wrap SVG sizing */
+.vhs-modal-icon-wrap svg {
+  width: 1.75rem;
+  height: 1.75rem;
+  display: block;
+}

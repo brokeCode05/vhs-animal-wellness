@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard - VHS Admin</title>
+  <link rel="stylesheet" href="admin-style.css">
+  <link rel="stylesheet" href="../shared/dashboard-theme.css">
+  <link rel="stylesheet" href="admin-accent.css">
+  <link rel="stylesheet" href="../shared/vhs-ui.css">
+  <link rel="stylesheet" href="../shared/dashboard-icons.css">
+</head>
+<body>
+  <!-- Top Navbar -->
+  <nav class="top-navbar">
+    <button class="hamburger-menu" id="hamburgerMenu" aria-label="Toggle menu">
+      <span></span><span></span><span></span>
+    </button>
+    <div class="navbar-brand">
+      <img src="../web-page/image/vhs-assets/vhs-logo.png" alt="VHS Logo" class="navbar-logo">
+      <span class="brand-name">VHS Admin</span>
+    </div>
+    <div class="navbar-right">
+      <span class="navbar-badge">Admin Panel</span>
+    </div>
+  </nav>
+
+  <div class="main-wrapper">
+    <!-- Compact Sidebar -->
+    <aside class="sidebar">
+      <div class="sidebar-profile">
+        <div class="sidebar-avatar sidebar-avatar-placeholder"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></div>
+        <div class="sidebar-user-info">
+          <span class="sidebar-user-name">Admin User</span>
+          <span class="sidebar-user-role">Administrator</span>
+        </div>
+      </div>
+      <nav class="sidebar-nav">
+        <a href="index.html" class="nav-item active" title="Dashboard">
+          <span class="icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg></span>
+          <span class="label">Dashboard</span>
+        </a>
+        <a href="accounts.html" class="nav-item" title="Account Management">
+          <span class="icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></span>
+          <span class="label">Accounts</span>
+        </a>
+        <a href="appointments.html" class="nav-item" title="Appointments">
+          <span class="icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></span>
+          <span class="label">Appointments</span>
+        </a>
+        <a href="clients-pets.html" class="nav-item" title="Pet Management">
+          <span class="icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="4" r="2"/><circle cx="18" cy="8" r="2"/><circle cx="4" cy="8" r="2"/><path d="M12 22c-4 0-7-2-7-5 0-2 1.5-3.5 3-4s3-1 4-1 2.5.5 4 1 3 2 3 4c0 3-3 5-7 5z"/></svg></span>
+          <span class="label">Clients & Pets</span>
+        </a>
+        <a href="website.html" class="nav-item" title="Website Content">
+          <span class="icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg></span>
+          <span class="label">Website</span>
+        </a>
+        <a href="#" class="nav-item nav-item-logout" id="logoutBtn">
+          <span class="icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg></span>
+          <span class="label">Logout</span>
+        </a>
+      </nav>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main-content">
+      <!-- Page Header -->
+      <div class="page-header">
+        <h1>Dashboard Overview</h1>
+        <p class="page-subtitle">Welcome back! Here's what's happening today.</p>
+      </div>
+
+      <!-- PRIORITY SECTION: Requires Attention -->
+      <section class="priority-section">
+        <h2 class="section-title priority-title"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg> Requires Attention</h2>
+      </section>
+
+      <!-- Summary Stats -->
+      <section class="stats-section">
+        <h2 class="section-title">Quick Overview</h2>
+        <div class="stats-grid">
+          <div class="stat-card">
+            <div class="stat-icon confirmed"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg></div>
+            <div class="stat-info">
+              <div class="stat-value">—</div>
+              <div class="stat-label">Confirmed Appointments</div>
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></div>
+            <div class="stat-info">
+              <div class="stat-value" id="statTotalClients">—</div>
+              <div class="stat-label">Total Clients</div>
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="4" r="2"/><circle cx="18" cy="8" r="2"/><circle cx="4" cy="8" r="2"/><path d="M12 22c-4 0-7-2-7-5 0-2 1.5-3.5 3-4s3-1 4-1 2.5.5 4 1 3 2 3 4c0 3-3 5-7 5z"/></svg></div>
+            <div class="stat-info">
+              <div class="stat-value" id="statTotalPets">—</div>
+              <div class="stat-label">Total Pets</div>
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg></div>
+            <div class="stat-info">
+              <div class="stat-value">—</div>
+              <div class="stat-label">Active Services</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Today's Confirmed Appointments -->
+      <section class="content-section">
+        <div class="section-header">
+          <h2 class="section-title">Today's Confirmed Appointments</h2>
+          <a href="appointments.html" class="btn-link">View All →</a>
+        </div>
+        <div class="table-wrapper">
+          <table class="compact-table">
+            <thead>
+              <tr>
+                <th>Time</th>
+                <th>Owner</th>
+                <th>Pet</th>
+                <th>Service</th>
+                <th>Type</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody id="todayAppointmentsTable">
+              <tr><td colspan="6" style="text-align:center;color:#888;">No appointments today.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script src="../shared/vhs-ui.js"></script>
+  <script src="../shared/dashboard-shared.js"></script>
+  <script src="admin-script.js"></script>
+  <script>
+  const PHP = '../php_files';
+
+  function fmtDate(str) {
+    if (!str) return '—';
+    var parts = str.split('-');
+    var d = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+    return d.toLocaleDateString('en-US', { year:'numeric', month:'short', day:'numeric' });
+  }
+
+  function fmtDateTime(date, time) {
+    if (!date) return '—';
+    var dateStr = fmtDate(date);
+    if (!time) return dateStr;
+    return dateStr + ' · ' + time;
+  }
+
+  async function loadDashboard() {
+    // ── Total pets ─────────────────────────────────────────────────────────
+    try {
+      const res  = await fetch(`${PHP}/get_pets.php`);
+      const pets = await res.json();
+      const statPets = document.getElementById('statTotalPets');
+      if (statPets) statPets.textContent = Array.isArray(pets) ? pets.length : '—';
+    } catch(e) { /* optional */ }
+
+    // ── Total clients ─────────────────────────────────────────────────────
+    try {
+      const res  = await fetch(`${PHP}/get_users.php`);
+      const users = await res.json();
+      const statClients = document.getElementById('statTotalClients');
+      if (statClients) statClients.textContent = Array.isArray(users) ? users.length : '—';
+    } catch(e) { /* optional */ }
+
+    // ── Today's appointments ───────────────────────────────────────────────
+    try {
+      const res  = await fetch(`${PHP}/get_appointments.php`);
+      const data = await res.json();
+      if (data.status === 'success' && Array.isArray(data.appointments)) {
+        var today = new Date();
+        var todayStr = today.getFullYear() + '-' +
+          String(today.getMonth() + 1).padStart(2, '0') + '-' +
+          String(today.getDate()).padStart(2, '0');
+        var todayAppts = data.appointments.filter(function(a) {
+          return a.date === todayStr && (a.status === 'scheduled' || a.status === 'confirmed');
+        });
+        var tbody = document.getElementById('todayAppointmentsTable');
+        if (tbody) {
+          tbody.innerHTML = todayAppts.length
+            ? todayAppts.map(function(a) {
+                var timeStr = a.time || '';
+                if (/^\d{1,2}:\d{2}/.test(timeStr)) {
+                  var tp = timeStr.split(':');
+                  var h = parseInt(tp[0], 10), m = tp[1];
+                  var ampm = h >= 12 ? 'PM' : 'AM';
+                  timeStr = (h % 12 || 12) + ':' + m + ' ' + ampm;
+                }
+                return '<tr>' +
+                  '<td>' + timeStr + '</td>' +
+                  '<td>' + (a.owner_name || '—') + '</td>' +
+                  '<td>' + (a.pet_name || '—') + '</td>' +
+                  '<td>' + (a.service || '—') + '</td>' +
+                  '<td><span class="type-badge registered">Registered</span></td>' +
+                  '<td><span class="status-badge ' + (a.status === 'confirmed' ? 'confirmed' : 'info') + '">' + (a.status === 'confirmed' ? 'Confirmed' : 'Scheduled') + '</span></td>' +
+                  '</tr>';
+              }).join('')
+            : '<tr><td colspan="6" style="text-align:center;color:#888;">No confirmed appointments today.</td></tr>';
+        }
+        // Update confirmed appointments stat
+        var confirmed = data.appointments.filter(function(a) { return a.status === 'scheduled' || a.status === 'confirmed'; }).length;
+        var statConfirmed = document.querySelector('.stat-card.confirmed .stat-value');
+        if (statConfirmed) statConfirmed.textContent = confirmed;
+      }
+    } catch(e) { /* optional */ }
+  }
+
+  loadDashboard();
+  </script>
+</body>
+</html>

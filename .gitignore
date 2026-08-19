@@ -1,0 +1,22 @@
+# Credentials — never commit these
+php_files/config.php
+
+# User uploads — these are runtime data, not source code
+user/pet_photos/*
+user/profile_photos/*
+!user/pet_photos/.gitkeep
+!user/profile_photos/.gitkeep
+
+# SSL certs — load from env or volume in production
+certs/
+
+# XAMPP / local dev artifacts
+*.session.sql
+*.log
+
+# OS junk
+.DS_Store
+Thumbs.db
+
+# Node (if used for tooling)
+node_modules/

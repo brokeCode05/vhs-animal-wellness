@@ -1,0 +1,28 @@
+/* ============================================================
+   USER ACCENT — brand purple (logo purple #563aa4 family)
+   Loaded after shared/dashboard-theme.css
+   ============================================================ */
+
+:root {
+  --accent: #6d4ab1;
+  --accent-dark: #563aa4;
+  --accent-deep: #452f85;
+  --accent-light: #a78bfa;
+  --accent-hover: #7c59c4;
+  --accent-hover-dark: #6146a0;
+  --accent-soft: rgba(109, 74, 177, 0.12);
+  --accent-soft-2: rgba(86, 58, 164, 0.08);
+  --accent-border: rgba(86, 58, 164, 0.16);
+  --accent-shadow: rgba(69, 47, 133, 0.32);
+  --accent-glow: rgba(167, 139, 250, 0.16);
+  --accent-shimmer: rgba(215, 205, 250, 0.85);
+  --accent-bg: #f3eefc;
+  --accent-bg-2: #ebe3fa;
+  --accent-bg-3: #faf8ff;
+  --accent-bg-4: #f4f0fd;
+  --accent-badge-bg: #ece5fb;
+  --accent-badge-bg-2: #ded2f8;
+  --accent-badge-border: #c3b3ef;
+  --accent-sched-bg: #f0eafc;
+  --accent-sched-bg-2: #e6ddf9;
+}

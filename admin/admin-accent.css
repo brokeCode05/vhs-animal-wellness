@@ -1,0 +1,28 @@
+/* ============================================================
+   ADMIN ACCENT — yellowish orange (logo gold #fec94b family)
+   Loaded after shared/dashboard-theme.css
+   ============================================================ */
+
+:root {
+  --accent: #f0a830;
+  --accent-dark: #d18a12;
+  --accent-deep: #a86e0a;
+  --accent-light: #ffd98c;
+  --accent-hover: #f7b94d;
+  --accent-hover-dark: #db9215;
+  --accent-soft: rgba(240, 168, 48, 0.14);
+  --accent-soft-2: rgba(209, 138, 18, 0.09);
+  --accent-border: rgba(209, 138, 18, 0.18);
+  --accent-shadow: rgba(168, 110, 10, 0.32);
+  --accent-glow: rgba(255, 217, 140, 0.2);
+  --accent-shimmer: rgba(255, 230, 170, 0.85);
+  --accent-bg: #fdf6ea;
+  --accent-bg-2: #fbefd6;
+  --accent-bg-3: #fefbf4;
+  --accent-bg-4: #fcf3e2;
+  --accent-badge-bg: #fdf0d4;
+  --accent-badge-bg-2: #fbe3b2;
+  --accent-badge-border: #f2cd82;
+  --accent-sched-bg: #fdf4e2;
+  --accent-sched-bg-2: #faebcc;
+}
