@@ -7,6 +7,85 @@
   <link rel="stylesheet" href="style.css">
   <link rel="stylesheet" href="warm-theme.css">
   <link rel="stylesheet" href="../shared/vhs-ui.css">
+  <style>
+    .services-page-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(min(22rem, 100%), 1fr));
+      gap: 1.5rem;
+      margin-bottom: 2rem;
+    }
+    .svc-card {
+      background: #fff;
+      border: 1px solid rgba(109, 74, 177, 0.1);
+      border-radius: 1rem;
+      padding: 1.75rem;
+      display: flex;
+      flex-direction: column;
+      transition: all 0.25s ease;
+    }
+    .svc-card:hover {
+      border-color: #8b5cf6;
+      box-shadow: 0 8px 24px rgba(109, 74, 177, 0.12);
+      transform: translateY(-3px);
+    }
+    .svc-card-head {
+      display: flex;
+      align-items: center;
+      gap: 0.875rem;
+      margin-bottom: 0.75rem;
+    }
+    .svc-card-icon {
+      width: 2.75rem;
+      height: 2.75rem;
+      border-radius: 0.75rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: linear-gradient(135deg, rgba(139, 92, 246, 0.12), rgba(109, 74, 177, 0.08));
+      color: #6d4ab1;
+      flex-shrink: 0;
+    }
+    .svc-card-icon svg {
+      width: 1.35rem;
+      height: 1.35rem;
+    }
+    .svc-card-head h4 {
+      font-size: 1.05rem;
+      font-weight: 700;
+      color: #1a1a2e;
+      margin: 0;
+    }
+    .svc-card p {
+      flex: 1;
+      font-size: 0.9rem;
+      line-height: 1.65;
+      color: #6b7280;
+      margin: 0 0 1.25rem;
+    }
+    .btn-learn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      background: linear-gradient(135deg, #8b5cf6, #6d4ab1);
+      color: #fff;
+      border: none;
+      padding: 0.6rem 1.25rem;
+      border-radius: 0.5rem;
+      font-size: 0.85rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      align-self: flex-start;
+    }
+    .btn-learn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(109, 74, 177, 0.3);
+    }
+    .btn-learn svg {
+      width: 0.85rem;
+      height: 0.85rem;
+    }
+  </style>
 </head>
 <body>
   <!-- PAGE LOADER -->
@@ -27,31 +106,25 @@
           <span class="logo-sub">Animal Wellness Center</span>
         </div>
       </a>
-      
       <ul class="nav-menu">
         <li><a href="index.html" class="nav-link">Home</a></li>
         <li><a href="services.html" class="nav-link active">Services</a></li>
         <li><a href="about.html" class="nav-link">About</a></li>
         <li><a href="contact.html" class="nav-link">Contact</a></li>
       </ul>
-      
       <div class="navbar-btns">
         <button class="btn-outline" id="navLoginBtn">Login</button>
         <button class="btn-primary" id="navSignupBtn">Sign Up</button>
       </div>
-      
       <button class="hamburger" id="hamburger" aria-label="Toggle menu">
-        <span></span>
-        <span></span>
-        <span></span>
+        <span></span><span></span><span></span>
       </button>
     </nav>
   </header>
-
   <div class="mobile-overlay" id="mobileOverlay"></div>
 
   <main>
-    <!-- SERVICES HERO -->
+    <!-- HERO -->
     <section class="page-hero">
       <div class="page-hero-content">
         <h1>Our Services</h1>
@@ -59,167 +132,131 @@
       </div>
     </section>
 
-    <!-- SERVICES BY CATEGORY -->
-    <section class="section services-grid-page">
+    <!-- ALL SERVICES — FLAT GRID -->
+    <section class="section">
+      <div class="services-page-grid">
 
-      <!-- ═══════════ MEDICAL SERVICES ═══════════ -->
-      <div class="service-category">
-        <h2 class="category-title">
-          <span class="category-icon">🩺</span> Medical Services
-        </h2>
-        <div class="services-grid-page">
-
-          <div class="service-card-detailed">
-            <div class="service-header">
-              <span class="service-icon"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4.8 2.3A.3.3 0 1 0 5 2H4a2 2 0 0 0-2 2v5a6 6 0 0 0 6 6a6 6 0 0 0 6-6V4a2 2 0 0 0-2-2h-1a.2.2 0 1 0 .3.3"/><path d="M8 15v1a6 6 0 0 0 6 6a6 6 0 0 0 6-6v-4"/><circle cx="20" cy="10" r="2"/></svg></span>
-              <h4>Vet Consultation</h4>
-            </div>
-            <p class="service-description">Professional advice and complete health check for your pets. Our experienced veterinarians provide thorough physical examinations, discuss your pet's diet and behavior, and create personalized wellness plans tailored to your pet's specific needs.</p>
-            <button class="btn-service">Learn More</button>
+        <!-- Vet Consultation -->
+        <div class="svc-card">
+          <div class="svc-card-head">
+            <span class="svc-card-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4.8 2.3A.3.3 0 1 0 5 2H4a2 2 0 0 0-2 2v5a6 6 0 0 0 6 6 6 6 0 0 0 6-6V4a2 2 0 0 0-2-2h-1a.2.2 0 1 0 .3.3"/><path d="M8 15v1a6 6 0 0 0 6 6 6 6 0 0 0 6-6v-4"/><circle cx="20" cy="10" r="2"/></svg></span>
+            <h4>Vet Consultation</h4>
           </div>
-
-          <div class="service-card-detailed">
-            <div class="service-header">
-              <span class="service-icon"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg></span>
-              <h4>Online Consultation</h4>
-            </div>
-            <p class="service-description">Virtual vet consultations for your convenience. Get expert veterinary advice from the comfort of your home via video call. Perfect for follow-up visits, minor concerns, or when traveling isn't possible.</p>
-            <button class="btn-service">Learn More</button>
-          </div>
-
-          <div class="service-card-detailed">
-            <div class="service-header">
-              <span class="service-icon"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg></span>
-              <h4>Home Service Visits</h4>
-            </div>
-            <p class="service-description">Veterinary care provided in the comfort of your home. Ideal for pets that get stressed during travel, elderly pets, or multi-pet households. Our vets bring the clinic experience to your doorstep.</p>
-            <button class="btn-service">Learn More</button>
-          </div>
-
+          <p>Professional advice and complete health check for your pets. Our experienced veterinarians provide thorough examinations and personalized care plans.</p>
+          <button class="btn-learn">Learn More <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></button>
         </div>
-      </div>
 
-      <!-- ═══════════ SURGICAL SERVICES ═══════════ -->
-      <div class="service-category">
-        <h2 class="category-title">
-          <span class="category-icon">✂️</span> Surgical Services
-        </h2>
-        <div class="services-grid-page">
-
-          <div class="service-card-detailed">
-            <div class="service-header">
-              <span class="service-icon"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg></span>
-              <h4>Spay & Neuter Services</h4>
-            </div>
-            <p class="service-description">Safe and professional surgical procedures for population control. Spaying and neutering helps reduce pet overpopulation, lowers the risk of certain cancers, and can reduce behavioral issues in pets.</p>
-            <button class="btn-service">Learn More</button>
+        <!-- Vaccinations -->
+        <div class="svc-card">
+          <div class="svc-card-head">
+            <span class="svc-card-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m18 2 4 4"/><path d="m17 7 3-3"/><path d="M19 9 8.7 19.3c-1 1-2.5 1-3.4 0l-.6-.6c-1-1-1-2.5 0-3.4L15 5"/><path d="m9 11 4 4"/><path d="m5 19-3 3"/><path d="m14 4 6 6"/></svg></span>
+            <h4>Canine &amp; Feline Vaccinations</h4>
           </div>
-
+          <p>Complete vaccination programs for dogs and cats to protect them from common diseases. Timely immunizations following the latest veterinary guidelines.</p>
+          <button class="btn-learn">Learn More <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></button>
         </div>
-      </div>
 
-      <!-- ═══════════ PREVENTIVE CARE ═══════════ -->
-      <div class="service-category">
-        <h2 class="category-title">
-          <span class="category-icon">🛡️</span> Preventive Care
-        </h2>
-        <div class="services-grid-page">
-
-          <div class="service-card-detailed">
-            <div class="service-header">
-              <span class="service-icon"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m18 2 4 4"/><path d="m17 7 3-3"/><path d="M19 9 8.7 19.3c-1 1-2.5 1-3.4 0l-.6-.6c-1-1-1-2.5 0-3.4L15 5"/><path d="m9 11 4 4"/><path d="m5 19-3 3"/><path d="m14 4 6 6"/></svg></span>
-              <h4>Canine & Feline Vaccinations</h4>
-            </div>
-            <p class="service-description">Complete vaccination programs for dogs and cats to protect them from common diseases. We follow the latest veterinary guidelines to ensure your pets receive timely and effective immunizations.</p>
-            <button class="btn-service">Learn More</button>
+        <!-- Anti-rabies -->
+        <div class="svc-card">
+          <div class="svc-card-head">
+            <span class="svc-card-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22a7 7 0 0 0 7-7c0-2-1-3.9-3-5.5s-3.5-4-4-6.5c-.5 2.5-2 4.9-4 6.5C6 11.1 5 13 5 15a7 7 0 0 0 7 7z"/><path d="M10 13a2 2 0 0 0 4 0"/></svg></span>
+            <h4>Anti-rabies Vaccination</h4>
           </div>
-
-          <div class="service-card-detailed">
-            <div class="service-header">
-              <span class="service-icon"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="M9 12h6"/><path d="M12 9v6"/></svg></span>
-              <h4>Anti-rabies Vaccination</h4>
-            </div>
-            <p class="service-description">Protect your pets and family with rabies immunization. Required by law in the Philippines, rabies vaccination is essential for public health safety and is mandatory for all dogs and cats.</p>
-            <button class="btn-service">Learn More</button>
-          </div>
-
-          <div class="service-card-detailed">
-            <div class="service-header">
-              <span class="service-icon"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/><path d="M3.22 12H9.5l.5-1 2 4.5 2-7 1.5 3.5h5.27"/></svg></span>
-              <h4>Heartworm Prevention</h4>
-            </div>
-            <p class="service-description">Prevent heartworm disease with proper medication and regular testing. Heartworm is transmitted by mosquitoes and can be fatal if left untreated. Regular prevention is key to your pet's long-term health.</p>
-            <button class="btn-service">Learn More</button>
-          </div>
-
+          <p>Protect your pets and family with rabies immunization. Required by law and essential for public health safety.</p>
+          <button class="btn-learn">Learn More <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></button>
         </div>
-      </div>
 
-      <!-- ═══════════ DIAGNOSTIC & LAB ═══════════ -->
-      <div class="service-category">
-        <h2 class="category-title">
-          <span class="category-icon">🔬</span> Diagnostic & Laboratory
-        </h2>
-        <div class="services-grid-page">
-
-          <div class="service-card-detailed">
-            <div class="service-header">
-              <span class="service-icon"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22a7 7 0 0 0 7-7c0-2-1-3.9-3-5.5s-3.5-4-4-6.5c-.5 2.5-2 4.9-4 6.5C6 11.1 5 13 5 15a7 7 0 0 0 7 7z"/><path d="M10 13a2 2 0 0 0 4 0"/></svg></span>
-              <h4>Blood Tests (CBC, Blood Chem)</h4>
-            </div>
-            <p class="service-description">Accurate diagnostic laboratory testing services to detect health issues early. Complete Blood Count (CBC) and Blood Chemistry panels help identify infections, organ problems, and metabolic disorders.</p>
-            <button class="btn-service">Learn More</button>
+        <!-- Heartworm Prevention -->
+        <div class="svc-card">
+          <div class="svc-card-head">
+            <span class="svc-card-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/><path d="M3.22 12H9.5l.5-1 2 4.5 2-7 1.5 3.5h5.27"/></svg></span>
+            <h4>Heartworm Prevention</h4>
           </div>
-
-          <div class="service-card-detailed">
-            <div class="service-header">
-              <span class="service-icon"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10 2v7.527a2 2 0 0 1-.211.896L4.72 20.55a1 1 0 0 0 .9 1.45h12.76a1 1 0 0 0 .9-1.45l-5.069-10.127A2 2 0 0 1 14 9.527V2"/><path d="M8.5 2h7"/><path d="M7 16h10"/></svg></span>
-              <h4>Test Kits (Distemper, Parvovirus, etc.)</h4>
-            </div>
-            <p class="service-description">Rapid testing kits for common pet diseases. Get quick and accurate results for conditions like Canine Distemper, Parvovirus, Feline Leukemia, and more — enabling timely treatment decisions.</p>
-            <button class="btn-service">Learn More</button>
-          </div>
-
+          <p>Prevent heartworm disease with proper medication and regular testing. Essential for your pet's long-term health.</p>
+          <button class="btn-learn">Learn More <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></button>
         </div>
-      </div>
 
-      <!-- ═══════════ PET CARE & GROOMING ═══════════ -->
-      <div class="service-category">
-        <h2 class="category-title">
-          <span class="category-icon">🐾</span> Pet Care & Grooming
-        </h2>
-        <div class="services-grid-page">
-
-          <div class="service-card-detailed">
-            <div class="service-header">
-              <span class="service-icon"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="3"/><path d="M8.12 8.12 12 12"/><path d="M20 4 8.12 15.88"/><circle cx="6" cy="18" r="3"/><path d="M14.8 14.8 20 20"/></svg></span>
-              <h4>Pet Grooming & Pet Supplies</h4>
-            </div>
-            <p class="service-description">Professional grooming services and essential pet products. From bathing and haircuts to nail trimming and ear cleaning, we keep your furry friends looking and feeling their best.</p>
-            <button class="btn-service">Learn More</button>
+        <!-- Blood Tests -->
+        <div class="svc-card">
+          <div class="svc-card-head">
+            <span class="svc-card-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2v4"/><path d="M16 2v4"/><rect width="16" height="18" x="4" y="4" rx="2"/><path d="M12 11v4"/><path d="M12 17v2"/></svg></span>
+            <h4>Blood Tests (CBC, Blood Chem)</h4>
           </div>
-
-          <div class="service-card-detailed">
-            <div class="service-header">
-              <span class="service-icon"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/><path d="M15 2v2"/><path d="M15 20v2"/><path d="M2 15h2"/><path d="M2 9h2"/><path d="M20 15h2"/><path d="M20 9h2"/><path d="M9 2v2"/><path d="M9 20v2"/></svg></span>
-              <h4>Pet Microchipping</h4>
-            </div>
-            <p class="service-description">Permanent identification solution for your pets. A tiny microchip implanted under the skin helps reunite lost pets with their owners quickly and reliably through a nationwide scanning network.</p>
-            <button class="btn-service">Learn More</button>
-          </div>
-
-          <div class="service-card-detailed">
-            <div class="service-header">
-              <span class="service-icon"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg></span>
-              <h4>Vet Health Certificates</h4>
-            </div>
-            <p class="service-description">Official health documentation for travel and compliance. Required for pet transport, international travel, and breed registration. Issued by our licensed veterinarians after a thorough examination.</p>
-            <button class="btn-service">Learn More</button>
-          </div>
-
+          <p>Accurate diagnostic laboratory testing to detect health issues early. CBC and Blood Chemistry panels identify infections and organ problems.</p>
+          <button class="btn-learn">Learn More <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></button>
         </div>
-      </div>
 
+        <!-- Grooming -->
+        <div class="svc-card">
+          <div class="svc-card-head">
+            <span class="svc-card-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="3"/><path d="M8.12 8.12 12 12"/><path d="M20 4 8.12 15.88"/><circle cx="6" cy="18" r="3"/><path d="M14.8 14.8 20 20"/></svg></span>
+            <h4>Pet Grooming &amp; Supplies</h4>
+          </div>
+          <p>Professional grooming services and essential pet products. Bathing, haircuts, nail trimming, ear cleaning — keeping your pets looking their best.</p>
+          <button class="btn-learn">Learn More <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></button>
+        </div>
+
+        <!-- Spay & Neuter -->
+        <div class="svc-card">
+          <div class="svc-card-head">
+            <span class="svc-card-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg></span>
+            <h4>Spay &amp; Neuter Services</h4>
+          </div>
+          <p>Safe surgical procedures for population control. Reduces risk of certain cancers and helps reduce pet overpopulation.</p>
+          <button class="btn-learn">Learn More <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></button>
+        </div>
+
+        <!-- Microchipping -->
+        <div class="svc-card">
+          <div class="svc-card-head">
+            <span class="svc-card-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/><path d="M15 2v2"/><path d="M15 20v2"/><path d="M2 15h2"/><path d="M2 9h2"/><path d="M20 15h2"/><path d="M20 9h2"/><path d="M9 2v2"/><path d="M9 20v2"/></svg></span>
+            <h4>Pet Microchipping</h4>
+          </div>
+          <p>Permanent identification for your pets. A tiny microchip helps reunite lost pets with their owners through a nationwide scanning network.</p>
+          <button class="btn-learn">Learn More <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></button>
+        </div>
+
+        <!-- Test Kits -->
+        <div class="svc-card">
+          <div class="svc-card-head">
+            <span class="svc-card-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 2v7.527a2 2 0 0 1-.211.896L4.72 20.55a1 1 0 0 0 .9 1.45h12.76a1 1 0 0 0 .9-1.45l-5.069-10.127A2 2 0 0 1 14 9.527V2"/><path d="M8.5 2h7"/><path d="M7 16h10"/></svg></span>
+            <h4>Test Kits (Distemper, Parvovirus)</h4>
+          </div>
+          <p>Rapid testing kits for common pet diseases. Quick and accurate results for timely treatment decisions.</p>
+          <button class="btn-learn">Learn More <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></button>
+        </div>
+
+        <!-- Online Consultation -->
+        <div class="svc-card">
+          <div class="svc-card-head">
+            <span class="svc-card-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg></span>
+            <h4>Online Consultation</h4>
+          </div>
+          <p>Virtual vet consultations for your convenience. Get expert advice from the comfort of your home via video call.</p>
+          <button class="btn-learn">Learn More <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></button>
+        </div>
+
+        <!-- Home Service -->
+        <div class="svc-card">
+          <div class="svc-card-head">
+            <span class="svc-card-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg></span>
+            <h4>Home Service Visits</h4>
+          </div>
+          <p>Veterinary care at your doorstep. Ideal for stressed, elderly, or multi-pet households.</p>
+          <button class="btn-learn">Learn More <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></button>
+        </div>
+
+        <!-- Health Certificates -->
+        <div class="svc-card">
+          <div class="svc-card-head">
+            <span class="svc-card-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></span>
+            <h4>Vet Health Certificates</h4>
+          </div>
+          <p>Official health documentation for travel and compliance. Required for pet transport and international travel.</p>
+          <button class="btn-learn">Learn More <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></button>
+        </div>
+
+      </div>
     </section>
 
     <!-- CTA -->
@@ -244,7 +281,7 @@
       <span class="service-modal-category" id="serviceModalCategory"></span>
       <h2 class="modal-title" id="serviceModalTitle"></h2>
       <p id="serviceModalBody"></p>
-      <button class="btn-service" id="serviceBookBtn" onclick="closeServiceModal(); document.getElementById('navLoginBtn')?.click();">Book This Service</button>
+      <button class="btn-service" id="serviceBookBtn">Book This Service</button>
     </div>
   </div>
 
@@ -257,31 +294,20 @@
     <div id="chatbotWindow" class="chatbot-window">
       <div class="chatbot-header">
         <div class="chatbot-header-info">
-          <div class="chatbot-avatar">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z"/></svg>
-          </div>
-          <div>
-            <h3 class="chatbot-title">VHS Assistant</h3>
-            <p class="chatbot-status">Online</p>
-          </div>
+          <div class="chatbot-avatar"><svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z"/></svg></div>
+          <div><h3 class="chatbot-title">VHS Assistant</h3><p class="chatbot-status">Online</p></div>
         </div>
-        <button id="chatbotClose" class="chatbot-close-btn" aria-label="Close Chat">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-        </button>
+        <button id="chatbotClose" class="chatbot-close-btn" aria-label="Close Chat"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
       </div>
       <div id="chatbotMessages" class="chatbot-messages">
         <div class="chatbot-message bot-message">
-          <div class="message-avatar">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z"/></svg>
-          </div>
+          <div class="message-avatar"><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z"/></svg></div>
           <div class="message-content"><p>Welcome to VHS Animal Wellness Center. How can I help you today?</p></div>
         </div>
       </div>
       <div class="chatbot-input-area">
         <input type="text" id="chatbotInput" class="chatbot-input" placeholder="Type your message..." aria-label="Chat message input">
-        <button id="chatbotSend" class="chatbot-send-btn" aria-label="Send message">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
-        </button>
+        <button id="chatbotSend" class="chatbot-send-btn" aria-label="Send message"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg></button>
       </div>
       <div class="chatbot-footer"><p>Powered by AI &bull; Available 24/7</p></div>
     </div>
@@ -310,144 +336,73 @@
       <div>
         <h4>Follow Us</h4>
         <div class="social">
-          <a href="https://www.facebook.com/VHSanimalwellnesscenter" target="_blank" rel="noopener noreferrer" aria-label="Facebook">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
-          </a>
-          <a href="https://www.instagram.com/vhsanimalwellness" target="_blank" rel="noopener noreferrer" aria-label="Instagram">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/></svg>
-          </a>
+          <a href="https://www.facebook.com/VHSanimalwellnesscenter" target="_blank" rel="noopener noreferrer" aria-label="Facebook"><svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg></a>
+          <a href="https://www.instagram.com/vhsanimalwellness" target="_blank" rel="noopener noreferrer" aria-label="Instagram"><svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/></svg></a>
         </div>
       </div>
     </div>
-    <div class="footer-bottom">
-      <p>&copy; 2024 VHS Animal Wellness Center. All rights reserved.</p>
-    </div>
+    <div class="footer-bottom"><p>&copy; 2024 VHS Animal Wellness Center. All rights reserved.</p></div>
   </footer>
 
-  <!-- MODAL -->
+  <!-- LOGIN/SIGNUP MODAL -->
   <div id="modal" class="modal">
     <div class="modal-content modal-booking">
       <button class="modal-close" id="closeModal">&times;</button>
-
-      <!-- Login Form -->
       <form id="loginForm" class="booking-form hidden" method="post">
         <h2>Log In</h2>
         <p class="modal-subtitle">Access your account to book an appointment</p>
         <div class="form-section">
-          <div class="form-group">
-            <label for="loginEmail">Email Address <span class="required">*</span></label>
-            <input type="email" id="loginEmail" name="email2" placeholder="example@gmail.com" required>
-          </div>
-          <div class="form-group">
-            <label for="loginPassword">Password <span class="required">*</span></label>
-            <input type="password" id="loginPassword" name="password1" placeholder="Enter your password" required>
-          </div>
-          <div class="form-group">
-            <div id="loginError" class="error-message" style="display: none;"></div>
-          </div>
-          <div class="form-group">
-            <a href="#" class="forgot-password">Forgot password?</a>
-          </div>
+          <div class="form-group"><label for="loginEmail">Email Address <span class="required">*</span></label><input type="email" id="loginEmail" name="email2" placeholder="example@gmail.com" required></div>
+          <div class="form-group"><label for="loginPassword">Password <span class="required">*</span></label><input type="password" id="loginPassword" name="password1" placeholder="Enter your password" required></div>
+          <div class="form-group"><div id="loginError" class="error-message" style="display:none;"></div></div>
+          <div class="form-group"><a href="#" class="forgot-password">Forgot password?</a></div>
         </div>
-        <div class="form-actions">
-          <button type="submit" class="btn btn-primary btn-submit">Log In</button>
-        </div>
-        <div class="form-footer">
-          <p>Don't have an account? <a href="#" class="switch-form" data-target="signupBtn">Sign up here</a></p>
-        </div>
+        <div class="form-actions"><button type="submit" class="btn btn-primary btn-submit">Log In</button></div>
+        <div class="form-footer"><p>Don't have an account? <a href="#" class="switch-form" data-target="signupBtn">Sign up here</a></p></div>
       </form>
-
-      <!-- Sign Up Form -->
       <form id="signupForm" class="booking-form hidden">
         <h2>Create Account</h2>
         <p class="modal-subtitle">Sign up to easily manage your pet's appointments</p>
         <div class="form-section">
           <h3 class="section-title">Personal Information</h3>
           <div class="form-row">
-            <div class="form-group">
-              <label for="signupLastName">Last Name <span class="required">*</span></label>
-              <input type="text" id="signupLastName" name="lastName2" placeholder="Dela Cruz" maxlength="50" required>
-            </div>
-            <div class="form-group">
-              <label for="signupFirstName">First Name <span class="required">*</span></label>
-              <input type="text" id="signupFirstName" name="firstName2" placeholder="Juan" maxlength="50" required>
-            </div>
-            <div class="form-group">
-              <label for="signupMiddleName">Middle Name</label>
-              <input type="text" id="signupMiddleName" name="middleName2" placeholder="Santos" maxlength="50">
-            </div>
+            <div class="form-group"><label for="signupLastName">Last Name <span class="required">*</span></label><input type="text" id="signupLastName" name="lastName2" placeholder="Dela Cruz" maxlength="50" required></div>
+            <div class="form-group"><label for="signupFirstName">First Name <span class="required">*</span></label><input type="text" id="signupFirstName" name="firstName2" placeholder="Juan" maxlength="50" required></div>
+            <div class="form-group"><label for="signupMiddleName">Middle Name</label><input type="text" id="signupMiddleName" name="middleName2" placeholder="Santos" maxlength="50"></div>
           </div>
           <div class="form-row">
-            <div class="form-group">
-              <label for="signupEmail">Email Address <span class="required">*</span></label>
-              <input type="email" id="signupEmail" name="email3" placeholder="example@gmail.com" required>
-            </div>
+            <div class="form-group"><label for="signupEmail">Email Address <span class="required">*</span></label><input type="email" id="signupEmail" name="email3" placeholder="example@gmail.com" required></div>
             <div class="form-group">
               <label for="signupPhone">Phone Number <span class="required">*</span></label>
-              <div class="phone-input-wrapper">
-                <span class="phone-country-code">PH +63</span>
-                <input type="tel" id="signupPhoneLocal" placeholder="9123456789" pattern="9[0-9]{9}" maxlength="10" inputmode="numeric" required>
-              </div>
-              <input type="hidden" id="signupPhone" name="phone2">
-              <span class="form-hint">Format: +63 9XXXXXXXXX</span>
+              <div class="phone-input-wrapper"><span class="phone-country-code">PH +63</span><input type="tel" id="signupPhoneLocal" placeholder="9123456789" pattern="9[0-9]{9}" maxlength="10" inputmode="numeric" required></div>
+              <input type="hidden" id="signupPhone" name="phone2"><span class="form-hint">Format: +63 9XXXXXXXXX</span>
             </div>
           </div>
           <div class="form-group verification-method-group">
             <label>Verification Method <span class="required">*</span></label>
             <div class="verification-choices">
-              <label class="choice-container">
-                <input type="radio" name="verificationMethod" value="email" checked required>
-                <span class="choice-label"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;margin-right:0.4rem;" aria-hidden="true"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg> Verify via Email Link</span>
-              </label>
-              <label class="choice-container">
-                <input type="radio" name="verificationMethod" value="sms" required>
-                <span class="choice-label"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;margin-right:0.4rem;" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg> Verify via SMS OTP</span>
-              </label>
+              <label class="choice-container"><input type="radio" name="verificationMethod" value="email" checked required><span class="choice-label"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;margin-right:0.4rem;"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg> Verify via Email Link</span></label>
+              <label class="choice-container"><input type="radio" name="verificationMethod" value="sms" required><span class="choice-label"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;margin-right:0.4rem;"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg> Verify via SMS OTP</span></label>
             </div>
           </div>
           <div id="otpVerificationContainer" class="form-group hidden">
             <label for="signupOtp">SMS OTP Code <span class="required">*</span></label>
-            <div class="otp-input-wrapper">
-              <input type="text" id="signupOtp" name="otpCode" placeholder="Enter 6-digit OTP" maxlength="6" inputmode="numeric" pattern="[0-9]{6}">
-              <button type="button" id="resendOtpBtn" class="resend-btn" disabled>Resend in <span id="otpTimer">30</span>s</button>
-            </div>
+            <div class="otp-input-wrapper"><input type="text" id="signupOtp" name="otpCode" placeholder="Enter 6-digit OTP" maxlength="6" inputmode="numeric" pattern="[0-9]{6}"><button type="button" id="resendOtpBtn" class="resend-btn" disabled>Resend in <span id="otpTimer">30</span>s</button></div>
             <span class="form-hint">We have sent a 6-digit verification code to your phone number.</span>
           </div>
-          <div class="form-group">
-            <label for="signupAddress">Address <span class="required">*</span></label>
-            <textarea id="signupAddress" name="address" rows="2" style="resize:none" placeholder="Street, Barangay, City, Province" required></textarea>
-          </div>
-          <div class="form-group">
-            <label for="signupDob">Date of Birth <span class="required">*</span></label>
-            <input type="date" id="signupDob" name="dob" required>
-          </div>
+          <div class="form-group"><label for="signupAddress">Address <span class="required">*</span></label><textarea id="signupAddress" name="address" rows="2" style="resize:none" placeholder="Street, Barangay, City, Province" required></textarea></div>
+          <div class="form-group"><label for="signupDob">Date of Birth <span class="required">*</span></label><input type="date" id="signupDob" name="dob" required></div>
         </div>
         <div class="form-section">
           <h3 class="section-title">Account Security</h3>
           <div class="form-row">
-            <div class="form-group">
-              <label for="signupPassword">Password <span class="required">*</span></label>
-              <input type="password" id="signupPassword" name="password2" placeholder="Enter password" minlength="8" required>
-              <span class="form-hint">Minimum 8 characters, at least 1 number and 1 special character</span>
-            </div>
-            <div class="form-group">
-              <label for="signupConfirmPassword">Confirm Password <span class="required">*</span></label>
-              <input type="password" id="signupConfirmPassword" name="confirmPassword" placeholder="Re-enter password" required>
-            </div>
+            <div class="form-group"><label for="signupPassword">Password <span class="required">*</span></label><input type="password" id="signupPassword" name="password2" placeholder="Enter password" minlength="8" required><span class="form-hint">Minimum 8 characters, at least 1 number and 1 special character</span></div>
+            <div class="form-group"><label for="signupConfirmPassword">Confirm Password <span class="required">*</span></label><input type="password" id="signupConfirmPassword" name="confirmPassword" placeholder="Re-enter password" required></div>
           </div>
         </div>
-        <div class="terms-section">
-          <div class="terms-checkbox">
-            <input type="checkbox" id="signupAgreeTerms" name="agreeTerms" required>
-            <label for="signupAgreeTerms">I agree to the <a href="#" class="terms-link">Terms and Conditions</a> and <a href="#" class="terms-link">Privacy Policy</a> <span class="required">*</span></label>
-          </div>
-        </div>
-        <div class="form-actions">
-          <button type="submit" class="btn btn-primary btn-submit" name="submitButt">Create Account</button>
-        </div>
-        <div class="form-footer">
-          <p>Already have an account? <a href="#" class="switch-form" data-target="loginBtn">Log in here</a></p>
-        </div>
+        <div class="terms-section"><div class="terms-checkbox"><input type="checkbox" id="signupAgreeTerms" name="agreeTerms" required><label for="signupAgreeTerms">I agree to the <a href="#" class="terms-link">Terms and Conditions</a> and <a href="#" class="terms-link">Privacy Policy</a> <span class="required">*</span></label></div></div>
+        <div class="form-actions"><button type="submit" class="btn btn-primary btn-submit" name="submitButt">Create Account</button></div>
+        <div class="form-footer"><p>Already have an account? <a href="#" class="switch-form" data-target="loginBtn">Log in here</a></p></div>
       </form>
     </div>
   </div>
