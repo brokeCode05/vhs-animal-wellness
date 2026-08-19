@@ -8,262 +8,280 @@
   <link rel="stylesheet" href="warm-theme.css">
   <link rel="stylesheet" href="../shared/vhs-ui.css">
   <style>
-    .services-page-grid {
+    .svc-category { margin-bottom: 3rem; }
+    .svc-cat-title {
+      display: flex; align-items: center; gap: 0.75rem;
+      font-size: 1.35rem; font-weight: 700; color: #1a1a2e;
+      margin-bottom: 1.5rem; padding-bottom: 0.75rem;
+      border-bottom: 2px solid rgba(109,74,177,0.1);
+    }
+    .svc-cat-icon {
+      width: 2.5rem; height: 2.5rem; border-radius: 0.625rem;
+      display: flex; align-items: center; justify-content: center;
+      background: linear-gradient(135deg, rgba(139,92,246,0.15), rgba(109,74,177,0.1));
+      color: #6d4ab1; flex-shrink: 0;
+    }
+    .svc-cat-icon svg { width: 1.25rem; height: 1.25rem; }
+    .svc-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(min(22rem, 100%), 1fr));
-      gap: 1.5rem;
-      margin-bottom: 2rem;
+      grid-template-columns: repeat(auto-fit, minmax(min(20rem, 100%), 1fr));
+      gap: 1.25rem;
     }
     .svc-card {
-      background: #fff;
-      border: 1px solid rgba(109, 74, 177, 0.1);
-      border-radius: 1rem;
-      padding: 1.75rem;
-      display: flex;
-      flex-direction: column;
+      background: #fff; border: 1px solid rgba(109,74,177,0.1);
+      border-radius: 1rem; padding: 1.5rem;
+      display: flex; flex-direction: column;
       transition: all 0.25s ease;
     }
     .svc-card:hover {
       border-color: #8b5cf6;
-      box-shadow: 0 8px 24px rgba(109, 74, 177, 0.12);
+      box-shadow: 0 8px 24px rgba(109,74,177,0.12);
       transform: translateY(-3px);
     }
-    .svc-card-head {
-      display: flex;
-      align-items: center;
-      gap: 0.875rem;
-      margin-bottom: 0.75rem;
-    }
+    .svc-card-head { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.625rem; }
     .svc-card-icon {
-      width: 2.75rem;
-      height: 2.75rem;
-      border-radius: 0.75rem;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      background: linear-gradient(135deg, rgba(139, 92, 246, 0.12), rgba(109, 74, 177, 0.08));
-      color: #6d4ab1;
-      flex-shrink: 0;
+      width: 2.5rem; height: 2.5rem; border-radius: 0.625rem;
+      display: flex; align-items: center; justify-content: center;
+      background: linear-gradient(135deg, rgba(139,92,246,0.12), rgba(109,74,177,0.08));
+      color: #6d4ab1; flex-shrink: 0;
     }
-    .svc-card-icon svg {
-      width: 1.35rem;
-      height: 1.35rem;
-    }
-    .svc-card-head h4 {
-      font-size: 1.05rem;
-      font-weight: 700;
-      color: #1a1a2e;
-      margin: 0;
-    }
-    .svc-card p {
-      flex: 1;
-      font-size: 0.9rem;
-      line-height: 1.65;
-      color: #6b7280;
-      margin: 0 0 1.25rem;
-    }
+    .svc-card-icon svg { width: 1.2rem; height: 1.2rem; }
+    .svc-card-head h4 { font-size: 1rem; font-weight: 700; color: #1a1a2e; margin: 0; }
+    .svc-card > p { flex: 1; font-size: 0.875rem; line-height: 1.6; color: #6b7280; margin: 0 0 1rem; }
     .btn-learn {
-      display: inline-flex;
-      align-items: center;
-      gap: 0.4rem;
-      background: linear-gradient(135deg, #8b5cf6, #6d4ab1);
-      color: #fff;
-      border: none;
-      padding: 0.6rem 1.25rem;
-      border-radius: 0.5rem;
-      font-size: 0.85rem;
-      font-weight: 600;
-      cursor: pointer;
+      display: inline-flex; align-items: center; gap: 0.35rem;
+      background: linear-gradient(135deg, #8b5cf6, #6d4ab1); color: #fff;
+      border: none; padding: 0.55rem 1.1rem; border-radius: 0.5rem;
+      font-size: 0.82rem; font-weight: 600; cursor: pointer;
+      transition: all 0.2s; align-self: flex-start;
+    }
+    .btn-learn:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(109,74,177,0.3); }
+    .btn-learn svg { width: 0.8rem; height: 0.8rem; }
+
+    /* Service Detail Modal */
+    .svc-modal-icon {
+      width: 3.5rem; height: 3.5rem; border-radius: 0.875rem;
+      display: flex; align-items: center; justify-content: center;
+      background: linear-gradient(135deg, #8b5cf6, #6d4ab1); color: #fff;
+      margin-bottom: 1rem;
+    }
+    .svc-modal-icon svg { width: 1.75rem; height: 1.75rem; }
+    .svc-modal-category {
+      display: inline-block; font-size: 0.75rem; font-weight: 600;
+      text-transform: uppercase; letter-spacing: 0.05em;
+      color: #8b5cf6; margin-bottom: 0.5rem;
+    }
+    .svc-modal-title { font-size: 1.5rem; font-weight: 700; color: #1a1a2e; margin: 0 0 1rem; }
+    .svc-modal-desc { font-size: 0.95rem; line-height: 1.7; color: #4a5568; margin-bottom: 1.5rem; }
+    .svc-modal-details {
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+      gap: 1rem; margin-bottom: 1.5rem;
+    }
+    .svc-detail-item {
+      background: #f8f7fc; border-radius: 0.625rem; padding: 1rem;
+      text-align: center;
+    }
+    .svc-detail-item .label { font-size: 0.75rem; color: #9ca3af; text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 0.35rem; }
+    .svc-detail-item .value { font-size: 1rem; font-weight: 700; color: #1a1a2e; }
+    .svc-modal-book {
+      width: 100%; padding: 0.85rem; border: none; border-radius: 0.625rem;
+      background: linear-gradient(135deg, #8b5cf6, #6d4ab1); color: #fff;
+      font-size: 0.95rem; font-weight: 700; cursor: pointer;
       transition: all 0.2s;
-      align-self: flex-start;
     }
-    .btn-learn:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 4px 12px rgba(109, 74, 177, 0.3);
-    }
-    .btn-learn svg {
-      width: 0.85rem;
-      height: 0.85rem;
-    }
+    .svc-modal-book:hover { transform: translateY(-2px); box-shadow: 0 6px 18px rgba(109,74,177,0.35); }
   </style>
 </head>
 <body>
-  <!-- PAGE LOADER -->
-  <div class="page-loader" id="pageLoader">
-    <div class="loader-content">
-      <div class="loader-spinner"></div>
-      <div class="loader-text">Loading VHS...</div>
-    </div>
-  </div>
+  <div class="page-loader" id="pageLoader"><div class="loader-content"><div class="loader-spinner"></div><div class="loader-text">Loading VHS...</div></div></div>
 
-  <!-- HEADER -->
   <header>
     <nav class="navbar">
-      <a href="index.html" class="logo">
-        <img src="image/vhs-assets/vhs-logo.png" alt="VHS Logo" class="logo-img">
-        <div class="logo-text">
-          <span class="logo-title">VHS</span>
-          <span class="logo-sub">Animal Wellness Center</span>
-        </div>
-      </a>
+      <a href="index.html" class="logo"><img src="image/vhs-assets/vhs-logo.png" alt="VHS Logo" class="logo-img"><div class="logo-text"><span class="logo-title">VHS</span><span class="logo-sub">Animal Wellness Center</span></div></a>
       <ul class="nav-menu">
         <li><a href="index.html" class="nav-link">Home</a></li>
         <li><a href="services.html" class="nav-link active">Services</a></li>
         <li><a href="about.html" class="nav-link">About</a></li>
         <li><a href="contact.html" class="nav-link">Contact</a></li>
       </ul>
-      <div class="navbar-btns">
-        <button class="btn-outline" id="navLoginBtn">Login</button>
-        <button class="btn-primary" id="navSignupBtn">Sign Up</button>
-      </div>
-      <button class="hamburger" id="hamburger" aria-label="Toggle menu">
-        <span></span><span></span><span></span>
-      </button>
+      <div class="navbar-btns"><button class="btn-outline" id="navLoginBtn">Login</button><button class="btn-primary" id="navSignupBtn">Sign Up</button></div>
+      <button class="hamburger" id="hamburger" aria-label="Toggle menu"><span></span><span></span><span></span></button>
     </nav>
   </header>
   <div class="mobile-overlay" id="mobileOverlay"></div>
 
   <main>
-    <!-- HERO -->
-    <section class="page-hero">
-      <div class="page-hero-content">
-        <h1>Our Services</h1>
-        <p>Comprehensive veterinary care for your beloved pets</p>
-      </div>
-    </section>
+    <section class="page-hero"><div class="page-hero-content"><h1>Our Services</h1><p>Comprehensive veterinary care for your beloved pets</p></div></section>
 
-    <!-- ALL SERVICES — FLAT GRID -->
     <section class="section">
-      <div class="services-page-grid">
 
-        <!-- Vet Consultation -->
-        <div class="svc-card">
-          <div class="svc-card-head">
-            <span class="svc-card-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4.8 2.3A.3.3 0 1 0 5 2H4a2 2 0 0 0-2 2v5a6 6 0 0 0 6 6 6 6 0 0 0 6-6V4a2 2 0 0 0-2-2h-1a.2.2 0 1 0 .3.3"/><path d="M8 15v1a6 6 0 0 0 6 6 6 6 0 0 0 6-6v-4"/><circle cx="20" cy="10" r="2"/></svg></span>
-            <h4>Vet Consultation</h4>
+      <!-- ══ MEDICAL SERVICES ══ -->
+      <div class="svc-category">
+        <h2 class="svc-cat-title">
+          <span class="svc-cat-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4.8 2.3A.3.3 0 1 0 5 2H4a2 2 0 0 0-2 2v5a6 6 0 0 0 6 6 6 6 0 0 0 6-6V4a2 2 0 0 0-2-2h-1a.2.2 0 1 0 .3.3"/><path d="M8 15v1a6 6 0 0 0 6 6 6 6 0 0 0 6-6v-4"/><circle cx="20" cy="10" r="2"/></svg></span>
+          Medical Services
+        </h2>
+        <div class="svc-grid">
+
+          <div class="svc-card" data-title="Vet Consultation" data-category="Medical Services" data-desc="Professional advice and complete health check for your pets. Our experienced veterinarians provide thorough physical examinations, discuss your pet's diet and behavior, and create personalized wellness plans tailored to your pet's specific needs." data-cost="₱500 – ₱1,500" data-time="30 – 45 mins" data-includes="Physical exam, Health assessment, Wellness plan">
+            <div class="svc-card-head">
+              <span class="svc-card-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4.8 2.3A.3.3 0 1 0 5 2H4a2 2 0 0 0-2 2v5a6 6 0 0 0 6 6 6 6 0 0 0 6-6V4a2 2 0 0 0-2-2h-1a.2.2 0 1 0 .3.3"/><path d="M8 15v1a6 6 0 0 0 6 6 6 6 0 0 0 6-6v-4"/><circle cx="20" cy="10" r="2"/></svg></span>
+              <h4>Vet Consultation</h4>
+            </div>
+            <p>Professional advice and complete health check for your pets.</p>
+            <button class="btn-learn">Learn More <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></button>
           </div>
-          <p>Professional advice and complete health check for your pets. Our experienced veterinarians provide thorough examinations and personalized care plans.</p>
-          <button class="btn-learn">Learn More <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></button>
-        </div>
 
-        <!-- Vaccinations -->
-        <div class="svc-card">
-          <div class="svc-card-head">
-            <span class="svc-card-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m18 2 4 4"/><path d="m17 7 3-3"/><path d="M19 9 8.7 19.3c-1 1-2.5 1-3.4 0l-.6-.6c-1-1-1-2.5 0-3.4L15 5"/><path d="m9 11 4 4"/><path d="m5 19-3 3"/><path d="m14 4 6 6"/></svg></span>
-            <h4>Canine &amp; Feline Vaccinations</h4>
+          <div class="svc-card" data-title="Online Consultation" data-category="Medical Services" data-desc="Virtual vet consultations for your convenience. Get expert veterinary advice from the comfort of your home via video call. Perfect for follow-up visits, minor concerns, or when traveling isn't possible." data-cost="₱300 – ₱800" data-time="15 – 30 mins" data-includes="Video call, Health advice, Prescription if needed">
+            <div class="svc-card-head">
+              <span class="svc-card-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg></span>
+              <h4>Online Consultation</h4>
+            </div>
+            <p>Virtual vet consultations for your convenience.</p>
+            <button class="btn-learn">Learn More <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></button>
           </div>
-          <p>Complete vaccination programs for dogs and cats to protect them from common diseases. Timely immunizations following the latest veterinary guidelines.</p>
-          <button class="btn-learn">Learn More <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></button>
-        </div>
 
-        <!-- Anti-rabies -->
-        <div class="svc-card">
-          <div class="svc-card-head">
-            <span class="svc-card-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22a7 7 0 0 0 7-7c0-2-1-3.9-3-5.5s-3.5-4-4-6.5c-.5 2.5-2 4.9-4 6.5C6 11.1 5 13 5 15a7 7 0 0 0 7 7z"/><path d="M10 13a2 2 0 0 0 4 0"/></svg></span>
-            <h4>Anti-rabies Vaccination</h4>
+          <div class="svc-card" data-title="Home Service Visits" data-category="Medical Services" data-desc="Veterinary care provided in the comfort of your home. Ideal for pets that get stressed during travel, elderly pets, or multi-pet households. Our vets bring the clinic experience to your doorstep." data-cost="₱1,000 – ₱2,500" data-time="45 – 60 mins" data-includes="Home visit, Physical exam, Basic treatment">
+            <div class="svc-card-head">
+              <span class="svc-card-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg></span>
+              <h4>Home Service Visits</h4>
+            </div>
+            <p>Veterinary care at your doorstep.</p>
+            <button class="btn-learn">Learn More <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></button>
           </div>
-          <p>Protect your pets and family with rabies immunization. Required by law and essential for public health safety.</p>
-          <button class="btn-learn">Learn More <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></button>
-        </div>
 
-        <!-- Heartworm Prevention -->
-        <div class="svc-card">
-          <div class="svc-card-head">
-            <span class="svc-card-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/><path d="M3.22 12H9.5l.5-1 2 4.5 2-7 1.5 3.5h5.27"/></svg></span>
-            <h4>Heartworm Prevention</h4>
-          </div>
-          <p>Prevent heartworm disease with proper medication and regular testing. Essential for your pet's long-term health.</p>
-          <button class="btn-learn">Learn More <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></button>
         </div>
-
-        <!-- Blood Tests -->
-        <div class="svc-card">
-          <div class="svc-card-head">
-            <span class="svc-card-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2v4"/><path d="M16 2v4"/><rect width="16" height="18" x="4" y="4" rx="2"/><path d="M12 11v4"/><path d="M12 17v2"/></svg></span>
-            <h4>Blood Tests (CBC, Blood Chem)</h4>
-          </div>
-          <p>Accurate diagnostic laboratory testing to detect health issues early. CBC and Blood Chemistry panels identify infections and organ problems.</p>
-          <button class="btn-learn">Learn More <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></button>
-        </div>
-
-        <!-- Grooming -->
-        <div class="svc-card">
-          <div class="svc-card-head">
-            <span class="svc-card-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="3"/><path d="M8.12 8.12 12 12"/><path d="M20 4 8.12 15.88"/><circle cx="6" cy="18" r="3"/><path d="M14.8 14.8 20 20"/></svg></span>
-            <h4>Pet Grooming &amp; Supplies</h4>
-          </div>
-          <p>Professional grooming services and essential pet products. Bathing, haircuts, nail trimming, ear cleaning — keeping your pets looking their best.</p>
-          <button class="btn-learn">Learn More <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></button>
-        </div>
-
-        <!-- Spay & Neuter -->
-        <div class="svc-card">
-          <div class="svc-card-head">
-            <span class="svc-card-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg></span>
-            <h4>Spay &amp; Neuter Services</h4>
-          </div>
-          <p>Safe surgical procedures for population control. Reduces risk of certain cancers and helps reduce pet overpopulation.</p>
-          <button class="btn-learn">Learn More <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></button>
-        </div>
-
-        <!-- Microchipping -->
-        <div class="svc-card">
-          <div class="svc-card-head">
-            <span class="svc-card-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/><path d="M15 2v2"/><path d="M15 20v2"/><path d="M2 15h2"/><path d="M2 9h2"/><path d="M20 15h2"/><path d="M20 9h2"/><path d="M9 2v2"/><path d="M9 20v2"/></svg></span>
-            <h4>Pet Microchipping</h4>
-          </div>
-          <p>Permanent identification for your pets. A tiny microchip helps reunite lost pets with their owners through a nationwide scanning network.</p>
-          <button class="btn-learn">Learn More <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></button>
-        </div>
-
-        <!-- Test Kits -->
-        <div class="svc-card">
-          <div class="svc-card-head">
-            <span class="svc-card-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 2v7.527a2 2 0 0 1-.211.896L4.72 20.55a1 1 0 0 0 .9 1.45h12.76a1 1 0 0 0 .9-1.45l-5.069-10.127A2 2 0 0 1 14 9.527V2"/><path d="M8.5 2h7"/><path d="M7 16h10"/></svg></span>
-            <h4>Test Kits (Distemper, Parvovirus)</h4>
-          </div>
-          <p>Rapid testing kits for common pet diseases. Quick and accurate results for timely treatment decisions.</p>
-          <button class="btn-learn">Learn More <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></button>
-        </div>
-
-        <!-- Online Consultation -->
-        <div class="svc-card">
-          <div class="svc-card-head">
-            <span class="svc-card-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg></span>
-            <h4>Online Consultation</h4>
-          </div>
-          <p>Virtual vet consultations for your convenience. Get expert advice from the comfort of your home via video call.</p>
-          <button class="btn-learn">Learn More <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></button>
-        </div>
-
-        <!-- Home Service -->
-        <div class="svc-card">
-          <div class="svc-card-head">
-            <span class="svc-card-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg></span>
-            <h4>Home Service Visits</h4>
-          </div>
-          <p>Veterinary care at your doorstep. Ideal for stressed, elderly, or multi-pet households.</p>
-          <button class="btn-learn">Learn More <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></button>
-        </div>
-
-        <!-- Health Certificates -->
-        <div class="svc-card">
-          <div class="svc-card-head">
-            <span class="svc-card-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></span>
-            <h4>Vet Health Certificates</h4>
-          </div>
-          <p>Official health documentation for travel and compliance. Required for pet transport and international travel.</p>
-          <button class="btn-learn">Learn More <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></button>
-        </div>
-
       </div>
+
+      <!-- ══ SURGICAL SERVICES ══ -->
+      <div class="svc-category">
+        <h2 class="svc-cat-title">
+          <span class="svc-cat-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg></span>
+          Surgical Services
+        </h2>
+        <div class="svc-grid">
+
+          <div class="svc-card" data-title="Spay &amp; Neuter" data-category="Surgical Services" data-desc="Safe and professional surgical procedures for population control. Spaying and neutering helps reduce pet overpopulation, lowers the risk of certain cancers, and can reduce behavioral issues. Performed under general anesthesia with full monitoring." data-cost="₱2,500 – ₱5,000" data-time="1 – 2 hours" data-includes="Pre-surgery blood work, Anesthesia, Surgery, Post-op monitoring, Follow-up">
+            <div class="svc-card-head">
+              <span class="svc-card-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg></span>
+              <h4>Spay &amp; Neuter</h4>
+            </div>
+            <p>Safe surgical procedures for population control.</p>
+            <button class="btn-learn">Learn More <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></button>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- ══ PREVENTIVE CARE ══ -->
+      <div class="svc-category">
+        <h2 class="svc-cat-title">
+          <span class="svc-cat-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22a7 7 0 0 0 7-7c0-2-1-3.9-3-5.5s-3.5-4-4-6.5c-.5 2.5-2 4.9-4 6.5C6 11.1 5 13 5 15a7 7 0 0 0 7 7z"/><path d="M10 13a2 2 0 0 0 4 0"/></svg></span>
+          Preventive Care
+        </h2>
+        <div class="svc-grid">
+
+          <div class="svc-card" data-title="Canine &amp; Feline Vaccinations" data-category="Preventive Care" data-desc="Complete vaccination programs for dogs and cats to protect them from common diseases. We follow the latest veterinary guidelines to ensure your pets receive timely and effective immunizations throughout their lives." data-cost="₱400 – ₱1,200 per dose" data-time="15 – 20 mins" data-includes="Vaccine administration, Health check, Vaccination record">
+            <div class="svc-card-head">
+              <span class="svc-card-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m18 2 4 4"/><path d="m17 7 3-3"/><path d="M19 9 8.7 19.3c-1 1-2.5 1-3.4 0l-.6-.6c-1-1-1-2.5 0-3.4L15 5"/><path d="m9 11 4 4"/><path d="m5 19-3 3"/><path d="m14 4 6 6"/></svg></span>
+              <h4>Canine &amp; Feline Vaccinations</h4>
+            </div>
+            <p>Complete vaccination programs for dogs and cats.</p>
+            <button class="btn-learn">Learn More <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></button>
+          </div>
+
+          <div class="svc-card" data-title="Anti-rabies Vaccination" data-category="Preventive Care" data-desc="Protect your pets and family with rabies immunization. Required by law in the Philippines, rabies vaccination is essential for public health safety and is mandatory for all dogs and cats." data-cost="₱300 – ₱600" data-time="10 – 15 mins" data-includes="Vaccine administration, Certificate of vaccination">
+            <div class="svc-card-head">
+              <span class="svc-card-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22a7 7 0 0 0 7-7c0-2-1-3.9-3-5.5s-3.5-4-4-6.5c-.5 2.5-2 4.9-4 6.5C6 11.1 5 13 5 15a7 7 0 0 0 7 7z"/><path d="M10 13a2 2 0 0 0 4 0"/></svg></span>
+              <h4>Anti-rabies Vaccination</h4>
+            </div>
+            <p>Required rabies immunization for your pets.</p>
+            <button class="btn-learn">Learn More <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></button>
+          </div>
+
+          <div class="svc-card" data-title="Heartworm Prevention" data-category="Preventive Care" data-desc="Prevent heartworm disease with proper medication and regular testing. Heartworm is transmitted by mosquitoes and can be fatal if left untreated. Regular prevention is key to your pet's long-term health." data-cost="₱200 – ₱800/month" data-time="10 – 15 mins" data-includes="Heartworm test, Medication, Follow-up">
+            <div class="svc-card-head">
+              <span class="svc-card-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/><path d="M3.22 12H9.5l.5-1 2 4.5 2-7 1.5 3.5h5.27"/></svg></span>
+              <h4>Heartworm Prevention</h4>
+            </div>
+            <p>Prevent heartworm disease with proper medication.</p>
+            <button class="btn-learn">Learn More <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></button>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- ══ DIAGNOSTIC & LAB ══ -->
+      <div class="svc-category">
+        <h2 class="svc-cat-title">
+          <span class="svc-cat-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2v4"/><path d="M16 2v4"/><rect width="16" height="18" x="4" y="4" rx="2"/><path d="M12 11v4"/><path d="M12 17v2"/></svg></span>
+          Diagnostic &amp; Laboratory
+        </h2>
+        <div class="svc-grid">
+
+          <div class="svc-card" data-title="Blood Tests (CBC, Blood Chem)" data-category="Diagnostic &amp; Laboratory" data-desc="Accurate diagnostic laboratory testing services to detect health issues early. Complete Blood Count (CBC) and Blood Chemistry panels help identify infections, organ problems, and metabolic disorders." data-cost="₱800 – ₱2,000" data-time="15 – 30 mins (results in 1 hour)" data-includes="Blood draw, Lab analysis, Results consultation">
+            <div class="svc-card-head">
+              <span class="svc-card-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2v4"/><path d="M16 2v4"/><rect width="16" height="18" x="4" y="4" rx="2"/><path d="M12 11v4"/><path d="M12 17v2"/></svg></span>
+              <h4>Blood Tests (CBC, Blood Chem)</h4>
+            </div>
+            <p>Diagnostic lab testing to detect health issues early.</p>
+            <button class="btn-learn">Learn More <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></button>
+          </div>
+
+          <div class="svc-card" data-title="Test Kits (Distemper, Parvovirus)" data-category="Diagnostic &amp; Laboratory" data-desc="Rapid testing kits for common pet diseases. Get quick and accurate results for conditions like Canine Distemper, Parvovirus, Feline Leukemia, and more — enabling timely treatment decisions." data-cost="₱500 – ₱1,500" data-time="10 – 20 mins (rapid results)" data-includes="Sample collection, Rapid test, Results">
+            <div class="svc-card-head">
+              <span class="svc-card-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 2v7.527a2 2 0 0 1-.211.896L4.72 20.55a1 1 0 0 0 .9 1.45h12.76a1 1 0 0 0 .9-1.45l-5.069-10.127A2 2 0 0 1 14 9.527V2"/><path d="M8.5 2h7"/><path d="M7 16h10"/></svg></span>
+              <h4>Test Kits (Distemper, Parvovirus)</h4>
+            </div>
+            <p>Rapid testing for common pet diseases.</p>
+            <button class="btn-learn">Learn More <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></button>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- ══ PET CARE & GROOMING ══ -->
+      <div class="svc-category">
+        <h2 class="svc-cat-title">
+          <span class="svc-cat-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="3"/><path d="M8.12 8.12 12 12"/><path d="M20 4 8.12 15.88"/><circle cx="6" cy="18" r="3"/><path d="M14.8 14.8 20 20"/></svg></span>
+          Pet Care &amp; Grooming
+        </h2>
+        <div class="svc-grid">
+
+          <div class="svc-card" data-title="Pet Grooming &amp; Supplies" data-category="Pet Care &amp; Grooming" data-desc="Professional grooming services and essential pet products. From bathing and haircuts to nail trimming and ear cleaning, we keep your furry friends looking and feeling their best." data-cost="₱300 – ₱1,500" data-time="30 – 90 mins" data-includes="Bath, Haircut, Nail trim, Ear cleaning, Blow dry">
+            <div class="svc-card-head">
+              <span class="svc-card-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="3"/><path d="M8.12 8.12 12 12"/><path d="M20 4 8.12 15.88"/><circle cx="6" cy="18" r="3"/><path d="M14.8 14.8 20 20"/></svg></span>
+              <h4>Pet Grooming &amp; Supplies</h4>
+            </div>
+            <p>Professional grooming and essential pet products.</p>
+            <button class="btn-learn">Learn More <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></button>
+          </div>
+
+          <div class="svc-card" data-title="Pet Microchipping" data-category="Pet Care &amp; Grooming" data-desc="Permanent identification for your pets. A tiny microchip implanted under the skin helps reunite lost pets with their owners quickly and reliably through a nationwide scanning network." data-cost="₱800 – ₱1,500" data-time="10 – 15 mins" data-includes="Microchip implant, Registration, Scanning certificate">
+            <div class="svc-card-head">
+              <span class="svc-card-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/><path d="M15 2v2"/><path d="M15 20v2"/><path d="M2 15h2"/><path d="M2 9h2"/><path d="M20 15h2"/><path d="M20 9h2"/><path d="M9 2v2"/><path d="M9 20v2"/></svg></span>
+              <h4>Pet Microchipping</h4>
+            </div>
+            <p>Permanent identification for your pets.</p>
+            <button class="btn-learn">Learn More <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></button>
+          </div>
+
+          <div class="svc-card" data-title="Vet Health Certificates" data-category="Pet Care &amp; Grooming" data-desc="Official health documentation for travel and compliance. Required for pet transport, international travel, and breed registration. Issued by our licensed veterinarians after a thorough examination." data-cost="₱500 – ₱1,000" data-time="20 – 30 mins" data-includes="Physical exam, Certificate issuance, Official stamp">
+            <div class="svc-card-head">
+              <span class="svc-card-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></span>
+              <h4>Vet Health Certificates</h4>
+            </div>
+            <p>Official health documentation for travel and compliance.</p>
+            <button class="btn-learn">Learn More <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></button>
+          </div>
+
+        </div>
+      </div>
+
     </section>
 
-    <!-- CTA -->
     <section class="cta">
-      <span class="icon" aria-hidden="true">
-        <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg>
-      </span>
+      <span class="icon" aria-hidden="true"><svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg></span>
       <h2>Ready to Care for Your Pet?</h2>
       <p>Schedule an appointment with our experienced veterinary team today.</p>
       <div class="cta-btns">
@@ -275,13 +293,18 @@
 
   <!-- SERVICE DETAIL MODAL -->
   <div class="modal" id="serviceModal">
-    <div class="modal-content service-modal-body">
-      <button class="modal-close" id="closeServiceModal">&times;</button>
-      <div class="service-modal-icon" id="serviceModalIcon"></div>
-      <span class="service-modal-category" id="serviceModalCategory"></span>
-      <h2 class="modal-title" id="serviceModalTitle"></h2>
-      <p id="serviceModalBody"></p>
-      <button class="btn-service" id="serviceBookBtn">Book This Service</button>
+    <div class="modal-content" style="max-width:560px;padding:2rem;border-radius:1.25rem;border-top:4px solid #8b5cf6;">
+      <button class="modal-close" id="closeServiceModal" style="position:absolute;top:1rem;right:1.25rem;background:none;border:none;font-size:1.5rem;cursor:pointer;color:#9ca3af;">&times;</button>
+      <div class="svc-modal-icon" id="svcModalIcon"></div>
+      <span class="svc-modal-category" id="svcModalCategory"></span>
+      <h2 class="svc-modal-title" id="svcModalTitle"></h2>
+      <p class="svc-modal-desc" id="svcModalDesc"></p>
+      <div class="svc-modal-details">
+        <div class="svc-detail-item"><div class="label">Estimated Cost</div><div class="value" id="svcModalCost">—</div></div>
+        <div class="svc-detail-item"><div class="label">Procedure Time</div><div class="value" id="svcModalTime">—</div></div>
+        <div class="svc-detail-item" style="grid-column:1/-1;"><div class="label">What's Included</div><div class="value" id="svcModalIncludes" style="font-size:0.9rem;font-weight:500;">—</div></div>
+      </div>
+      <button class="svc-modal-book" id="svcModalBook">Book This Service</button>
     </div>
   </div>
 
@@ -292,54 +315,19 @@
       <svg class="chatbot-close-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
     </button>
     <div id="chatbotWindow" class="chatbot-window">
-      <div class="chatbot-header">
-        <div class="chatbot-header-info">
-          <div class="chatbot-avatar"><svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z"/></svg></div>
-          <div><h3 class="chatbot-title">VHS Assistant</h3><p class="chatbot-status">Online</p></div>
-        </div>
-        <button id="chatbotClose" class="chatbot-close-btn" aria-label="Close Chat"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
-      </div>
-      <div id="chatbotMessages" class="chatbot-messages">
-        <div class="chatbot-message bot-message">
-          <div class="message-avatar"><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z"/></svg></div>
-          <div class="message-content"><p>Welcome to VHS Animal Wellness Center. How can I help you today?</p></div>
-        </div>
-      </div>
-      <div class="chatbot-input-area">
-        <input type="text" id="chatbotInput" class="chatbot-input" placeholder="Type your message..." aria-label="Chat message input">
-        <button id="chatbotSend" class="chatbot-send-btn" aria-label="Send message"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg></button>
-      </div>
+      <div class="chatbot-header"><div class="chatbot-header-info"><div class="chatbot-avatar"><svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z"/></svg></div><div><h3 class="chatbot-title">VHS Assistant</h3><p class="chatbot-status">Online</p></div></div><button id="chatbotClose" class="chatbot-close-btn" aria-label="Close Chat"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>
+      <div id="chatbotMessages" class="chatbot-messages"><div class="chatbot-message bot-message"><div class="message-avatar"><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z"/></svg></div><div class="message-content"><p>Welcome to VHS Animal Wellness Center. How can I help you today?</p></div></div></div>
+      <div class="chatbot-input-area"><input type="text" id="chatbotInput" class="chatbot-input" placeholder="Type your message..." aria-label="Chat message input"><button id="chatbotSend" class="chatbot-send-btn" aria-label="Send message"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg></button></div>
       <div class="chatbot-footer"><p>Powered by AI &bull; Available 24/7</p></div>
     </div>
   </div>
 
-  <!-- FOOTER -->
   <footer id="footer">
     <div class="footer-grid">
-      <div>
-        <h3>VHS Animal Wellness Center</h3>
-        <p>Providing compassionate veterinary care for your beloved pets since 2009.</p>
-      </div>
-      <div>
-        <h4>Contact Us</h4>
-        <p>834 Aurora Boulevard cor Driod Street, Kaunlaran, Cubao, Quezon City, Philippines, 1111</p>
-        <p>0917 108 4174</p>
-        <p>vhs.animalwellness@gmail.com</p>
-      </div>
-      <div>
-        <h4>Quick Links</h4>
-        <a href="index.html">Home</a>
-        <a href="services.html">Services</a>
-        <a href="about.html">About</a>
-        <a href="contact.html">Contact</a>
-      </div>
-      <div>
-        <h4>Follow Us</h4>
-        <div class="social">
-          <a href="https://www.facebook.com/VHSanimalwellnesscenter" target="_blank" rel="noopener noreferrer" aria-label="Facebook"><svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg></a>
-          <a href="https://www.instagram.com/vhsanimalwellness" target="_blank" rel="noopener noreferrer" aria-label="Instagram"><svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/></svg></a>
-        </div>
-      </div>
+      <div><h3>VHS Animal Wellness Center</h3><p>Providing compassionate veterinary care for your beloved pets since 2009.</p></div>
+      <div><h4>Contact Us</h4><p>834 Aurora Boulevard cor Driod Street, Kaunlaran, Cubao, Quezon City, Philippines, 1111</p><p>0917 108 4174</p><p>vhs.animalwellness@gmail.com</p></div>
+      <div><h4>Quick Links</h4><a href="index.html">Home</a><a href="services.html">Services</a><a href="about.html">About</a><a href="contact.html">Contact</a></div>
+      <div><h4>Follow Us</h4><div class="social"><a href="https://www.facebook.com/VHSanimalwellnesscenter" target="_blank" rel="noopener noreferrer" aria-label="Facebook"><svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg></a><a href="https://www.instagram.com/vhsanimalwellness" target="_blank" rel="noopener noreferrer" aria-label="Instagram"><svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/></svg></a></div></div>
     </div>
     <div class="footer-bottom"><p>&copy; 2024 VHS Animal Wellness Center. All rights reserved.</p></div>
   </footer>
@@ -349,8 +337,7 @@
     <div class="modal-content modal-booking">
       <button class="modal-close" id="closeModal">&times;</button>
       <form id="loginForm" class="booking-form hidden" method="post">
-        <h2>Log In</h2>
-        <p class="modal-subtitle">Access your account to book an appointment</p>
+        <h2>Log In</h2><p class="modal-subtitle">Access your account to book an appointment</p>
         <div class="form-section">
           <div class="form-group"><label for="loginEmail">Email Address <span class="required">*</span></label><input type="email" id="loginEmail" name="email2" placeholder="example@gmail.com" required></div>
           <div class="form-group"><label for="loginPassword">Password <span class="required">*</span></label><input type="password" id="loginPassword" name="password1" placeholder="Enter your password" required></div>
@@ -361,8 +348,7 @@
         <div class="form-footer"><p>Don't have an account? <a href="#" class="switch-form" data-target="signupBtn">Sign up here</a></p></div>
       </form>
       <form id="signupForm" class="booking-form hidden">
-        <h2>Create Account</h2>
-        <p class="modal-subtitle">Sign up to easily manage your pet's appointments</p>
+        <h2>Create Account</h2><p class="modal-subtitle">Sign up to easily manage your pet's appointments</p>
         <div class="form-section">
           <h3 class="section-title">Personal Information</h3>
           <div class="form-row">
@@ -372,34 +358,14 @@
           </div>
           <div class="form-row">
             <div class="form-group"><label for="signupEmail">Email Address <span class="required">*</span></label><input type="email" id="signupEmail" name="email3" placeholder="example@gmail.com" required></div>
-            <div class="form-group">
-              <label for="signupPhone">Phone Number <span class="required">*</span></label>
-              <div class="phone-input-wrapper"><span class="phone-country-code">PH +63</span><input type="tel" id="signupPhoneLocal" placeholder="9123456789" pattern="9[0-9]{9}" maxlength="10" inputmode="numeric" required></div>
-              <input type="hidden" id="signupPhone" name="phone2"><span class="form-hint">Format: +63 9XXXXXXXXX</span>
-            </div>
+            <div class="form-group"><label for="signupPhone">Phone Number <span class="required">*</span></label><div class="phone-input-wrapper"><span class="phone-country-code">PH +63</span><input type="tel" id="signupPhoneLocal" placeholder="9123456789" pattern="9[0-9]{9}" maxlength="10" inputmode="numeric" required></div><input type="hidden" id="signupPhone" name="phone2"><span class="form-hint">Format: +63 9XXXXXXXXX</span></div>
           </div>
-          <div class="form-group verification-method-group">
-            <label>Verification Method <span class="required">*</span></label>
-            <div class="verification-choices">
-              <label class="choice-container"><input type="radio" name="verificationMethod" value="email" checked required><span class="choice-label"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;margin-right:0.4rem;"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg> Verify via Email Link</span></label>
-              <label class="choice-container"><input type="radio" name="verificationMethod" value="sms" required><span class="choice-label"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;margin-right:0.4rem;"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg> Verify via SMS OTP</span></label>
-            </div>
-          </div>
-          <div id="otpVerificationContainer" class="form-group hidden">
-            <label for="signupOtp">SMS OTP Code <span class="required">*</span></label>
-            <div class="otp-input-wrapper"><input type="text" id="signupOtp" name="otpCode" placeholder="Enter 6-digit OTP" maxlength="6" inputmode="numeric" pattern="[0-9]{6}"><button type="button" id="resendOtpBtn" class="resend-btn" disabled>Resend in <span id="otpTimer">30</span>s</button></div>
-            <span class="form-hint">We have sent a 6-digit verification code to your phone number.</span>
-          </div>
+          <div class="form-group verification-method-group"><label>Verification Method <span class="required">*</span></label><div class="verification-choices"><label class="choice-container"><input type="radio" name="verificationMethod" value="email" checked required><span class="choice-label">Verify via Email Link</span></label><label class="choice-container"><input type="radio" name="verificationMethod" value="sms" required><span class="choice-label">Verify via SMS OTP</span></label></div></div>
+          <div id="otpVerificationContainer" class="form-group hidden"><label for="signupOtp">SMS OTP Code <span class="required">*</span></label><div class="otp-input-wrapper"><input type="text" id="signupOtp" name="otpCode" placeholder="Enter 6-digit OTP" maxlength="6" inputmode="numeric" pattern="[0-9]{6}"><button type="button" id="resendOtpBtn" class="resend-btn" disabled>Resend in <span id="otpTimer">30</span>s</button></div></div>
           <div class="form-group"><label for="signupAddress">Address <span class="required">*</span></label><textarea id="signupAddress" name="address" rows="2" style="resize:none" placeholder="Street, Barangay, City, Province" required></textarea></div>
           <div class="form-group"><label for="signupDob">Date of Birth <span class="required">*</span></label><input type="date" id="signupDob" name="dob" required></div>
         </div>
-        <div class="form-section">
-          <h3 class="section-title">Account Security</h3>
-          <div class="form-row">
-            <div class="form-group"><label for="signupPassword">Password <span class="required">*</span></label><input type="password" id="signupPassword" name="password2" placeholder="Enter password" minlength="8" required><span class="form-hint">Minimum 8 characters, at least 1 number and 1 special character</span></div>
-            <div class="form-group"><label for="signupConfirmPassword">Confirm Password <span class="required">*</span></label><input type="password" id="signupConfirmPassword" name="confirmPassword" placeholder="Re-enter password" required></div>
-          </div>
-        </div>
+        <div class="form-section"><h3 class="section-title">Account Security</h3><div class="form-row"><div class="form-group"><label for="signupPassword">Password <span class="required">*</span></label><input type="password" id="signupPassword" name="password2" placeholder="Enter password" minlength="8" required></div><div class="form-group"><label for="signupConfirmPassword">Confirm Password <span class="required">*</span></label><input type="password" id="signupConfirmPassword" name="confirmPassword" placeholder="Re-enter password" required></div></div></div>
         <div class="terms-section"><div class="terms-checkbox"><input type="checkbox" id="signupAgreeTerms" name="agreeTerms" required><label for="signupAgreeTerms">I agree to the <a href="#" class="terms-link">Terms and Conditions</a> and <a href="#" class="terms-link">Privacy Policy</a> <span class="required">*</span></label></div></div>
         <div class="form-actions"><button type="submit" class="btn btn-primary btn-submit" name="submitButt">Create Account</button></div>
         <div class="form-footer"><p>Already have an account? <a href="#" class="switch-form" data-target="loginBtn">Log in here</a></p></div>
@@ -409,5 +375,68 @@
 
   <script src="../shared/vhs-ui.js"></script>
   <script src="script.js"></script>
+  <script>
+  // Service detail modal — reads data-* attributes from card
+  (function() {
+    const svcModal = document.getElementById('serviceModal');
+    const svcClose = document.getElementById('closeServiceModal');
+    const svcIcon = document.getElementById('svcModalIcon');
+    const svcCat = document.getElementById('svcModalCategory');
+    const svcTitle = document.getElementById('svcModalTitle');
+    const svcDesc = document.getElementById('svcModalDesc');
+    const svcCost = document.getElementById('svcModalCost');
+    const svcTime = document.getElementById('svcModalTime');
+    const svcIncludes = document.getElementById('svcModalIncludes');
+    const svcBook = document.getElementById('svcModalBook');
+
+    document.querySelectorAll('.btn-learn').forEach(function(btn) {
+      btn.addEventListener('click', function() {
+        var card = btn.closest('.svc-card');
+        if (!card || !svcModal) return;
+
+        // Get icon from card
+        var iconSvg = card.querySelector('.svc-card-icon svg');
+        if (svcIcon && iconSvg) {
+          svcIcon.innerHTML = '';
+          svcIcon.appendChild(iconSvg.cloneNode(true));
+        }
+
+        if (svcCat) svcCat.textContent = card.dataset.category || '';
+        if (svcTitle) svcTitle.textContent = card.dataset.title || '';
+        if (svcDesc) svcDesc.textContent = card.dataset.desc || '';
+        if (svcCost) svcCost.textContent = card.dataset.cost || '—';
+        if (svcTime) svcTime.textContent = card.dataset.time || '—';
+        if (svcIncludes) svcIncludes.textContent = card.dataset.includes || '—';
+
+        svcModal.classList.add('active');
+        document.body.style.overflow = 'hidden';
+      });
+    });
+
+    if (svcClose) svcClose.addEventListener('click', function() {
+      svcModal.classList.remove('active');
+      document.body.style.overflow = '';
+    });
+
+    if (svcModal) {
+      svcModal.addEventListener('click', function(e) {
+        if (e.target === svcModal) {
+          svcModal.classList.remove('active');
+          document.body.style.overflow = '';
+        }
+      });
+    }
+
+    if (svcBook) {
+      svcBook.addEventListener('click', function() {
+        svcModal.classList.remove('active');
+        document.body.style.overflow = '';
+        // Open login modal
+        var loginBtn = document.getElementById('navLoginBtn');
+        if (loginBtn) loginBtn.click();
+      });
+    }
+  })();
+  </script>
 </body>
 </html>
