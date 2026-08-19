@@ -26,9 +26,9 @@ h1, h2, h3, h4, h5, h6,
   font-family: "Baloo 2", "Nunito", sans-serif;
 }
 
-/* Themed scrollbar */
+/* Hidden scrollbar */
 ::-webkit-scrollbar-track {
-  background: #f5eefc;
+  background: transparent;
 }
 
 /* ===== ACCENT VARIABLES (purple brand) ===== */

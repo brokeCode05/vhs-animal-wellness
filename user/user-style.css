@@ -250,8 +250,7 @@ body {
   z-index: 999;
 }
 
-.sidebar::-webkit-scrollbar { width: 4px; }
-.sidebar::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+.sidebar::-webkit-scrollbar { width: 0; height: 0; }
 
 .sidebar-nav {
   display: flex;
@@ -1968,21 +1967,13 @@ body {
   display: flex;
   flex-direction: column;
   gap: 1rem;
-  scrollbar-width: thin;
-  scrollbar-color: var(--primary) rgba(255, 255, 255, 0.1);
+  scrollbar-width: none;
 }
 
 .chatbot-messages::-webkit-scrollbar {
-  width: 6px;
+  width: 0;
+  height: 0;
 }
-
-.chatbot-messages::-webkit-scrollbar-track {
-  background: rgba(255, 255, 255, 0.05);
-}
-
-.chatbot-messages::-webkit-scrollbar-thumb {
-  background: var(--primary);
-  border-radius: 10px;
 }
 
 .chatbot-message {

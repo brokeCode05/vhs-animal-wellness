@@ -3,6 +3,17 @@
    Used by: admin, clerk, user dashboards
    ============================================ */
 
+/* ── HIDDEN SCROLLBAR ── */
+::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+}
+
+* {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
 /* ── TOAST CONTAINER ── */
 .toast-container {
   position: fixed;
