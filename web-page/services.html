@@ -8,88 +8,101 @@
   <link rel="stylesheet" href="warm-theme.css">
   <link rel="stylesheet" href="../shared/vhs-ui.css">
   <style>
-    .svc-category { margin-bottom: 3rem; }
+    /* ── Category Header ── */
+    .svc-category { margin-bottom: 3.5rem; }
     .svc-cat-title {
       display: flex; align-items: center; gap: 0.75rem;
-      font-size: 1.35rem; font-weight: 700; color: #1a1a2e;
-      margin-bottom: 1.5rem; padding-bottom: 0.75rem;
+      font-size: 1.25rem; font-weight: 700; color: #1a1a2e;
+      margin-bottom: 1.25rem; padding-bottom: 0.625rem;
       border-bottom: 2px solid rgba(109,74,177,0.1);
     }
     .svc-cat-icon {
-      width: 2.5rem; height: 2.5rem; border-radius: 0.625rem;
+      width: 2.25rem; height: 2.25rem; border-radius: 0.5rem;
       display: flex; align-items: center; justify-content: center;
       background: linear-gradient(135deg, rgba(139,92,246,0.15), rgba(109,74,177,0.1));
       color: #6d4ab1; flex-shrink: 0;
     }
-    .svc-cat-icon svg { width: 1.25rem; height: 1.25rem; }
+    .svc-cat-icon svg { width: 1.15rem; height: 1.15rem; }
+
+    /* ── Service Grid ── */
     .svc-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(min(20rem, 100%), 1fr));
-      gap: 1.25rem;
+      grid-template-columns: repeat(auto-fill, minmax(18rem, 1fr));
+      gap: 1rem;
     }
+
+    /* ── Service Card ── */
     .svc-card {
-      background: #fff; border: 1px solid rgba(109,74,177,0.1);
-      border-radius: 1rem; padding: 1.5rem;
+      background: #fff; border: 1px solid rgba(109,74,177,0.08);
+      border-radius: 0.875rem; padding: 1.35rem;
       display: flex; flex-direction: column;
-      transition: all 0.25s ease;
+      transition: border-color 0.2s, box-shadow 0.25s, transform 0.25s;
     }
     .svc-card:hover {
-      border-color: #8b5cf6;
-      box-shadow: 0 8px 24px rgba(109,74,177,0.12);
-      transform: translateY(-3px);
+      border-color: rgba(139,92,246,0.3);
+      box-shadow: 0 6px 20px rgba(109,74,177,0.1);
+      transform: translateY(-2px);
     }
-    .svc-card-head { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.625rem; }
+    .svc-card-head {
+      display: flex; align-items: center; gap: 0.625rem;
+      margin-bottom: 0.5rem;
+    }
     .svc-card-icon {
-      width: 2.5rem; height: 2.5rem; border-radius: 0.625rem;
+      width: 2.25rem; height: 2.25rem; border-radius: 0.5rem;
       display: flex; align-items: center; justify-content: center;
-      background: linear-gradient(135deg, rgba(139,92,246,0.12), rgba(109,74,177,0.08));
-      color: #6d4ab1; flex-shrink: 0;
+      background: linear-gradient(135deg, rgba(139,92,246,0.1), rgba(109,74,177,0.06));
+      color: #7c5cbf; flex-shrink: 0;
     }
-    .svc-card-icon svg { width: 1.2rem; height: 1.2rem; }
-    .svc-card-head h4 { font-size: 1rem; font-weight: 700; color: #1a1a2e; margin: 0; }
-    .svc-card > p { flex: 1; font-size: 0.875rem; line-height: 1.6; color: #6b7280; margin: 0 0 1rem; }
+    .svc-card-icon svg { width: 1.1rem; height: 1.1rem; }
+    .svc-card-head h4 { font-size: 0.95rem; font-weight: 700; color: #1a1a2e; margin: 0; }
+    .svc-card > p {
+      flex: 1; font-size: 0.85rem; line-height: 1.55;
+      color: #6b7280; margin: 0 0 1rem;
+    }
     .btn-learn {
-      display: inline-flex; align-items: center; gap: 0.35rem;
+      display: inline-flex; align-items: center; gap: 0.3rem;
       background: linear-gradient(135deg, #8b5cf6, #6d4ab1); color: #fff;
-      border: none; padding: 0.55rem 1.1rem; border-radius: 0.5rem;
-      font-size: 0.82rem; font-weight: 600; cursor: pointer;
+      border: none; padding: 0.5rem 1rem; border-radius: 0.4rem;
+      font-size: 0.8rem; font-weight: 600; cursor: pointer;
       transition: all 0.2s; align-self: flex-start;
     }
-    .btn-learn:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(109,74,177,0.3); }
-    .btn-learn svg { width: 0.8rem; height: 0.8rem; }
+    .btn-learn:hover { transform: translateY(-1px); box-shadow: 0 4px 10px rgba(109,74,177,0.25); }
+    .btn-learn svg { width: 0.75rem; height: 0.75rem; }
 
-    /* Service Detail Modal */
+    /* ── Service Modal ── */
     .svc-modal-icon {
-      width: 3.5rem; height: 3.5rem; border-radius: 0.875rem;
+      width: 3rem; height: 3rem; border-radius: 0.75rem;
       display: flex; align-items: center; justify-content: center;
       background: linear-gradient(135deg, #8b5cf6, #6d4ab1); color: #fff;
-      margin-bottom: 1rem;
+      margin-bottom: 0.875rem;
     }
-    .svc-modal-icon svg { width: 1.75rem; height: 1.75rem; }
-    .svc-modal-category {
-      display: inline-block; font-size: 0.75rem; font-weight: 600;
+    .svc-modal-icon svg { width: 1.5rem; height: 1.5rem; }
+    .svc-modal-cat {
+      display: inline-block; font-size: 0.7rem; font-weight: 600;
       text-transform: uppercase; letter-spacing: 0.05em;
-      color: #8b5cf6; margin-bottom: 0.5rem;
+      color: #8b5cf6; margin-bottom: 0.375rem;
     }
-    .svc-modal-title { font-size: 1.5rem; font-weight: 700; color: #1a1a2e; margin: 0 0 1rem; }
-    .svc-modal-desc { font-size: 0.95rem; line-height: 1.7; color: #4a5568; margin-bottom: 1.5rem; }
+    .svc-modal-title { font-size: 1.35rem; font-weight: 700; color: #1a1a2e; margin: 0 0 0.75rem; }
+    .svc-modal-desc { font-size: 0.9rem; line-height: 1.65; color: #4a5568; margin-bottom: 1.25rem; }
     .svc-modal-details {
-      display: grid; grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
-      gap: 1rem; margin-bottom: 1.5rem;
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+      gap: 0.75rem; margin-bottom: 1.25rem;
     }
     .svc-detail-item {
-      background: #f8f7fc; border-radius: 0.625rem; padding: 1rem;
-      text-align: center;
+      background: #f8f7fc; border-radius: 0.5rem; padding: 0.85rem; text-align: center;
     }
-    .svc-detail-item .label { font-size: 0.75rem; color: #9ca3af; text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 0.35rem; }
-    .svc-detail-item .value { font-size: 1rem; font-weight: 700; color: #1a1a2e; }
+    .svc-detail-item .label {
+      font-size: 0.7rem; color: #9ca3af; text-transform: uppercase;
+      letter-spacing: 0.04em; margin-bottom: 0.25rem;
+    }
+    .svc-detail-item .value { font-size: 0.9rem; font-weight: 700; color: #1a1a2e; }
     .svc-modal-book {
-      width: 100%; padding: 0.85rem; border: none; border-radius: 0.625rem;
+      width: 100%; padding: 0.75rem; border: none; border-radius: 0.5rem;
       background: linear-gradient(135deg, #8b5cf6, #6d4ab1); color: #fff;
-      font-size: 0.95rem; font-weight: 700; cursor: pointer;
+      font-size: 0.9rem; font-weight: 700; cursor: pointer;
       transition: all 0.2s;
     }
-    .svc-modal-book:hover { transform: translateY(-2px); box-shadow: 0 6px 18px rgba(109,74,177,0.35); }
+    .svc-modal-book:hover { transform: translateY(-1px); box-shadow: 0 4px 14px rgba(109,74,177,0.3); }
   </style>
 </head>
 <body>
@@ -116,14 +129,14 @@
     <section class="section">
 
       <!-- ══ MEDICAL SERVICES ══ -->
-      <div class="svc-category">
+      <!-- Category icon: medical cross (distinct from service stethoscope) -->
+      <div class="svc-category scroll-animate">
         <h2 class="svc-cat-title">
-          <span class="svc-cat-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4.8 2.3A.3.3 0 1 0 5 2H4a2 2 0 0 0-2 2v5a6 6 0 0 0 6 6 6 6 0 0 0 6-6V4a2 2 0 0 0-2-2h-1a.2.2 0 1 0 .3.3"/><path d="M8 15v1a6 6 0 0 0 6 6 6 6 0 0 0 6-6v-4"/><circle cx="20" cy="10" r="2"/></svg></span>
+          <span class="svc-cat-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2v4"/><path d="M16 2v4"/><path d="M12 8v8"/><path d="M8 12h8"/></svg></span>
           Medical Services
         </h2>
         <div class="svc-grid">
-
-          <div class="svc-card" data-title="Vet Consultation" data-category="Medical Services" data-desc="Professional advice and complete health check for your pets. Our experienced veterinarians provide thorough physical examinations, discuss your pet's diet and behavior, and create personalized wellness plans tailored to your pet's specific needs." data-cost="₱500 – ₱1,500" data-time="30 – 45 mins" data-includes="Physical exam, Health assessment, Wellness plan">
+          <div class="svc-card" data-title="Vet Consultation" data-category="Medical Services" data-desc="Professional advice and complete health check for your pets. Our experienced veterinarians provide thorough physical examinations, discuss your pet's diet and behavior, and create personalized wellness plans." data-cost="&#8369;500 – &#8369;1,500" data-time="30 – 45 mins" data-includes="Physical exam, Health assessment, Wellness plan">
             <div class="svc-card-head">
               <span class="svc-card-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4.8 2.3A.3.3 0 1 0 5 2H4a2 2 0 0 0-2 2v5a6 6 0 0 0 6 6 6 6 0 0 0 6-6V4a2 2 0 0 0-2-2h-1a.2.2 0 1 0 .3.3"/><path d="M8 15v1a6 6 0 0 0 6 6 6 6 0 0 0 6-6v-4"/><circle cx="20" cy="10" r="2"/></svg></span>
               <h4>Vet Consultation</h4>
@@ -131,8 +144,7 @@
             <p>Professional advice and complete health check for your pets.</p>
             <button class="btn-learn">Learn More <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></button>
           </div>
-
-          <div class="svc-card" data-title="Online Consultation" data-category="Medical Services" data-desc="Virtual vet consultations for your convenience. Get expert veterinary advice from the comfort of your home via video call. Perfect for follow-up visits, minor concerns, or when traveling isn't possible." data-cost="₱300 – ₱800" data-time="15 – 30 mins" data-includes="Video call, Health advice, Prescription if needed">
+          <div class="svc-card" data-title="Online Consultation" data-category="Medical Services" data-desc="Virtual vet consultations for your convenience. Get expert veterinary advice from the comfort of your home via video call. Perfect for follow-up visits and minor concerns." data-cost="&#8369;300 – &#8369;800" data-time="15 – 30 mins" data-includes="Video call, Health advice, Prescription if needed">
             <div class="svc-card-head">
               <span class="svc-card-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg></span>
               <h4>Online Consultation</h4>
@@ -140,8 +152,7 @@
             <p>Virtual vet consultations for your convenience.</p>
             <button class="btn-learn">Learn More <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></button>
           </div>
-
-          <div class="svc-card" data-title="Home Service Visits" data-category="Medical Services" data-desc="Veterinary care provided in the comfort of your home. Ideal for pets that get stressed during travel, elderly pets, or multi-pet households. Our vets bring the clinic experience to your doorstep." data-cost="₱1,000 – ₱2,500" data-time="45 – 60 mins" data-includes="Home visit, Physical exam, Basic treatment">
+          <div class="svc-card" data-title="Home Service Visits" data-category="Medical Services" data-desc="Veterinary care provided in the comfort of your home. Ideal for pets that get stressed during travel, elderly pets, or multi-pet households." data-cost="&#8369;1,000 – &#8369;2,500" data-time="45 – 60 mins" data-includes="Home visit, Physical exam, Basic treatment">
             <div class="svc-card-head">
               <span class="svc-card-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg></span>
               <h4>Home Service Visits</h4>
@@ -149,19 +160,18 @@
             <p>Veterinary care at your doorstep.</p>
             <button class="btn-learn">Learn More <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></button>
           </div>
-
         </div>
       </div>
 
       <!-- ══ SURGICAL SERVICES ══ -->
-      <div class="svc-category">
+      <!-- Category icon: scissors (clean, distinct) -->
+      <div class="svc-category scroll-animate">
         <h2 class="svc-cat-title">
-          <span class="svc-cat-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg></span>
+          <span class="svc-cat-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="3"/><path d="M8.12 8.12 12 12"/><path d="M20 4 8.12 15.88"/><circle cx="6" cy="18" r="3"/><path d="M14.8 14.8 20 20"/></svg></span>
           Surgical Services
         </h2>
         <div class="svc-grid">
-
-          <div class="svc-card" data-title="Spay &amp; Neuter" data-category="Surgical Services" data-desc="Safe and professional surgical procedures for population control. Spaying and neutering helps reduce pet overpopulation, lowers the risk of certain cancers, and can reduce behavioral issues. Performed under general anesthesia with full monitoring." data-cost="₱2,500 – ₱5,000" data-time="1 – 2 hours" data-includes="Pre-surgery blood work, Anesthesia, Surgery, Post-op monitoring, Follow-up">
+          <div class="svc-card" data-title="Spay &amp; Neuter" data-category="Surgical Services" data-desc="Safe and professional surgical procedures for population control. Performed under general anesthesia with full monitoring. Helps reduce pet overpopulation and lowers the risk of certain cancers." data-cost="&#8369;2,500 – &#8369;5,000" data-time="1 – 2 hours" data-includes="Pre-surgery blood work, Anesthesia, Surgery, Post-op monitoring, Follow-up">
             <div class="svc-card-head">
               <span class="svc-card-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg></span>
               <h4>Spay &amp; Neuter</h4>
@@ -169,19 +179,18 @@
             <p>Safe surgical procedures for population control.</p>
             <button class="btn-learn">Learn More <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></button>
           </div>
-
         </div>
       </div>
 
       <!-- ══ PREVENTIVE CARE ══ -->
-      <div class="svc-category">
+      <!-- Category icon: shield with check (protection) -->
+      <div class="svc-category scroll-animate">
         <h2 class="svc-cat-title">
-          <span class="svc-cat-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22a7 7 0 0 0 7-7c0-2-1-3.9-3-5.5s-3.5-4-4-6.5c-.5 2.5-2 4.9-4 6.5C6 11.1 5 13 5 15a7 7 0 0 0 7 7z"/><path d="M10 13a2 2 0 0 0 4 0"/></svg></span>
+          <span class="svc-cat-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg></span>
           Preventive Care
         </h2>
         <div class="svc-grid">
-
-          <div class="svc-card" data-title="Canine &amp; Feline Vaccinations" data-category="Preventive Care" data-desc="Complete vaccination programs for dogs and cats to protect them from common diseases. We follow the latest veterinary guidelines to ensure your pets receive timely and effective immunizations throughout their lives." data-cost="₱400 – ₱1,200 per dose" data-time="15 – 20 mins" data-includes="Vaccine administration, Health check, Vaccination record">
+          <div class="svc-card" data-title="Canine &amp; Feline Vaccinations" data-category="Preventive Care" data-desc="Complete vaccination programs for dogs and cats to protect them from common diseases. We follow the latest veterinary guidelines to ensure timely and effective immunizations." data-cost="&#8369;400 – &#8369;1,200 per dose" data-time="15 – 20 mins" data-includes="Vaccine administration, Health check, Vaccination record">
             <div class="svc-card-head">
               <span class="svc-card-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m18 2 4 4"/><path d="m17 7 3-3"/><path d="M19 9 8.7 19.3c-1 1-2.5 1-3.4 0l-.6-.6c-1-1-1-2.5 0-3.4L15 5"/><path d="m9 11 4 4"/><path d="m5 19-3 3"/><path d="m14 4 6 6"/></svg></span>
               <h4>Canine &amp; Feline Vaccinations</h4>
@@ -189,8 +198,7 @@
             <p>Complete vaccination programs for dogs and cats.</p>
             <button class="btn-learn">Learn More <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></button>
           </div>
-
-          <div class="svc-card" data-title="Anti-rabies Vaccination" data-category="Preventive Care" data-desc="Protect your pets and family with rabies immunization. Required by law in the Philippines, rabies vaccination is essential for public health safety and is mandatory for all dogs and cats." data-cost="₱300 – ₱600" data-time="10 – 15 mins" data-includes="Vaccine administration, Certificate of vaccination">
+          <div class="svc-card" data-title="Anti-rabies Vaccination" data-category="Preventive Care" data-desc="Protect your pets and family with rabies immunization. Required by law in the Philippines and essential for public health safety." data-cost="&#8369;300 – &#8369;600" data-time="10 – 15 mins" data-includes="Vaccine administration, Certificate of vaccination">
             <div class="svc-card-head">
               <span class="svc-card-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22a7 7 0 0 0 7-7c0-2-1-3.9-3-5.5s-3.5-4-4-6.5c-.5 2.5-2 4.9-4 6.5C6 11.1 5 13 5 15a7 7 0 0 0 7 7z"/><path d="M10 13a2 2 0 0 0 4 0"/></svg></span>
               <h4>Anti-rabies Vaccination</h4>
@@ -198,8 +206,7 @@
             <p>Required rabies immunization for your pets.</p>
             <button class="btn-learn">Learn More <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></button>
           </div>
-
-          <div class="svc-card" data-title="Heartworm Prevention" data-category="Preventive Care" data-desc="Prevent heartworm disease with proper medication and regular testing. Heartworm is transmitted by mosquitoes and can be fatal if left untreated. Regular prevention is key to your pet's long-term health." data-cost="₱200 – ₱800/month" data-time="10 – 15 mins" data-includes="Heartworm test, Medication, Follow-up">
+          <div class="svc-card" data-title="Heartworm Prevention" data-category="Preventive Care" data-desc="Prevent heartworm disease with proper medication and regular testing. Transmitted by mosquitoes, heartworm can be fatal if left untreated." data-cost="&#8369;200 – &#8369;800/month" data-time="10 – 15 mins" data-includes="Heartworm test, Medication, Follow-up">
             <div class="svc-card-head">
               <span class="svc-card-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/><path d="M3.22 12H9.5l.5-1 2 4.5 2-7 1.5 3.5h5.27"/></svg></span>
               <h4>Heartworm Prevention</h4>
@@ -207,19 +214,18 @@
             <p>Prevent heartworm disease with proper medication.</p>
             <button class="btn-learn">Learn More <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></button>
           </div>
-
         </div>
       </div>
 
       <!-- ══ DIAGNOSTIC & LAB ══ -->
-      <div class="svc-category">
+      <!-- Category icon: microscope (distinct from test tube) -->
+      <div class="svc-category scroll-animate">
         <h2 class="svc-cat-title">
-          <span class="svc-cat-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2v4"/><path d="M16 2v4"/><rect width="16" height="18" x="4" y="4" rx="2"/><path d="M12 11v4"/><path d="M12 17v2"/></svg></span>
+          <span class="svc-cat-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 18h8"/><path d="M3 22h18"/><path d="M14 22a7 7 0 1 0 0-14h-1"/><path d="M9 14h2"/><path d="M9 12a2 2 0 0 1-2-2V6h6v4a2 2 0 0 1-2 2z"/><path d="M12 6V3a1 1 0 0 0-1-1H9a1 1 0 0 0-1 1v3"/></svg></span>
           Diagnostic &amp; Laboratory
         </h2>
         <div class="svc-grid">
-
-          <div class="svc-card" data-title="Blood Tests (CBC, Blood Chem)" data-category="Diagnostic &amp; Laboratory" data-desc="Accurate diagnostic laboratory testing services to detect health issues early. Complete Blood Count (CBC) and Blood Chemistry panels help identify infections, organ problems, and metabolic disorders." data-cost="₱800 – ₱2,000" data-time="15 – 30 mins (results in 1 hour)" data-includes="Blood draw, Lab analysis, Results consultation">
+          <div class="svc-card" data-title="Blood Tests (CBC, Blood Chem)" data-category="Diagnostic &amp; Laboratory" data-desc="Accurate diagnostic laboratory testing to detect health issues early. CBC and Blood Chemistry panels identify infections, organ problems, and metabolic disorders." data-cost="&#8369;800 – &#8369;2,000" data-time="15 – 30 mins (results in 1 hour)" data-includes="Blood draw, Lab analysis, Results consultation">
             <div class="svc-card-head">
               <span class="svc-card-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2v4"/><path d="M16 2v4"/><rect width="16" height="18" x="4" y="4" rx="2"/><path d="M12 11v4"/><path d="M12 17v2"/></svg></span>
               <h4>Blood Tests (CBC, Blood Chem)</h4>
@@ -227,8 +233,7 @@
             <p>Diagnostic lab testing to detect health issues early.</p>
             <button class="btn-learn">Learn More <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></button>
           </div>
-
-          <div class="svc-card" data-title="Test Kits (Distemper, Parvovirus)" data-category="Diagnostic &amp; Laboratory" data-desc="Rapid testing kits for common pet diseases. Get quick and accurate results for conditions like Canine Distemper, Parvovirus, Feline Leukemia, and more — enabling timely treatment decisions." data-cost="₱500 – ₱1,500" data-time="10 – 20 mins (rapid results)" data-includes="Sample collection, Rapid test, Results">
+          <div class="svc-card" data-title="Test Kits (Distemper, Parvovirus)" data-category="Diagnostic &amp; Laboratory" data-desc="Rapid testing kits for common pet diseases. Quick and accurate results for conditions like Canine Distemper, Parvovirus, and Feline Leukemia." data-cost="&#8369;500 – &#8369;1,500" data-time="10 – 20 mins (rapid results)" data-includes="Sample collection, Rapid test, Results">
             <div class="svc-card-head">
               <span class="svc-card-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 2v7.527a2 2 0 0 1-.211.896L4.72 20.55a1 1 0 0 0 .9 1.45h12.76a1 1 0 0 0 .9-1.45l-5.069-10.127A2 2 0 0 1 14 9.527V2"/><path d="M8.5 2h7"/><path d="M7 16h10"/></svg></span>
               <h4>Test Kits (Distemper, Parvovirus)</h4>
@@ -236,28 +241,26 @@
             <p>Rapid testing for common pet diseases.</p>
             <button class="btn-learn">Learn More <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></button>
           </div>
-
         </div>
       </div>
 
       <!-- ══ PET CARE & GROOMING ══ -->
-      <div class="svc-category">
+      <!-- Category icon: paw print (pet care) -->
+      <div class="svc-category scroll-animate">
         <h2 class="svc-cat-title">
-          <span class="svc-cat-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="3"/><path d="M8.12 8.12 12 12"/><path d="M20 4 8.12 15.88"/><circle cx="6" cy="18" r="3"/><path d="M14.8 14.8 20 20"/></svg></span>
+          <span class="svc-cat-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="4" r="2"/><circle cx="18" cy="8" r="2"/><circle cx="4" cy="8" r="2"/><path d="M12 22c-4 0-7-2-7-5 0-2 1.5-3.5 3-4s3-1 4-1 2.5.5 4 1 3 2 3 4c0 3-3 5-7 5z"/></svg></span>
           Pet Care &amp; Grooming
         </h2>
         <div class="svc-grid">
-
-          <div class="svc-card" data-title="Pet Grooming &amp; Supplies" data-category="Pet Care &amp; Grooming" data-desc="Professional grooming services and essential pet products. From bathing and haircuts to nail trimming and ear cleaning, we keep your furry friends looking and feeling their best." data-cost="₱300 – ₱1,500" data-time="30 – 90 mins" data-includes="Bath, Haircut, Nail trim, Ear cleaning, Blow dry">
+          <div class="svc-card" data-title="Pet Grooming &amp; Supplies" data-category="Pet Care &amp; Grooming" data-desc="Professional grooming services and essential pet products. Bathing, haircuts, nail trimming, ear cleaning — keeping your pets looking and feeling their best." data-cost="&#8369;300 – &#8369;1,500" data-time="30 – 90 mins" data-includes="Bath, Haircut, Nail trim, Ear cleaning, Blow dry">
             <div class="svc-card-head">
-              <span class="svc-card-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="3"/><path d="M8.12 8.12 12 12"/><path d="M20 4 8.12 15.88"/><circle cx="6" cy="18" r="3"/><path d="M14.8 14.8 20 20"/></svg></span>
+              <span class="svc-card-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.5 4.5v3h3"/><path d="M4 12V6a2 2 0 0 1 2-2h2"/><path d="M15 10h3a2 2 0 0 1 2 2v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15"/></svg></span>
               <h4>Pet Grooming &amp; Supplies</h4>
             </div>
             <p>Professional grooming and essential pet products.</p>
             <button class="btn-learn">Learn More <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></button>
           </div>
-
-          <div class="svc-card" data-title="Pet Microchipping" data-category="Pet Care &amp; Grooming" data-desc="Permanent identification for your pets. A tiny microchip implanted under the skin helps reunite lost pets with their owners quickly and reliably through a nationwide scanning network." data-cost="₱800 – ₱1,500" data-time="10 – 15 mins" data-includes="Microchip implant, Registration, Scanning certificate">
+          <div class="svc-card" data-title="Pet Microchipping" data-category="Pet Care &amp; Grooming" data-desc="Permanent identification for your pets. A tiny microchip helps reunite lost pets with their owners through a nationwide scanning network." data-cost="&#8369;800 – &#8369;1,500" data-time="10 – 15 mins" data-includes="Microchip implant, Registration, Scanning certificate">
             <div class="svc-card-head">
               <span class="svc-card-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/><path d="M15 2v2"/><path d="M15 20v2"/><path d="M2 15h2"/><path d="M2 9h2"/><path d="M20 15h2"/><path d="M20 9h2"/><path d="M9 2v2"/><path d="M9 20v2"/></svg></span>
               <h4>Pet Microchipping</h4>
@@ -265,8 +268,7 @@
             <p>Permanent identification for your pets.</p>
             <button class="btn-learn">Learn More <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></button>
           </div>
-
-          <div class="svc-card" data-title="Vet Health Certificates" data-category="Pet Care &amp; Grooming" data-desc="Official health documentation for travel and compliance. Required for pet transport, international travel, and breed registration. Issued by our licensed veterinarians after a thorough examination." data-cost="₱500 – ₱1,000" data-time="20 – 30 mins" data-includes="Physical exam, Certificate issuance, Official stamp">
+          <div class="svc-card" data-title="Vet Health Certificates" data-category="Pet Care &amp; Grooming" data-desc="Official health documentation for travel and compliance. Required for pet transport, international travel, and breed registration." data-cost="&#8369;500 – &#8369;1,000" data-time="20 – 30 mins" data-includes="Physical exam, Certificate issuance, Official stamp">
             <div class="svc-card-head">
               <span class="svc-card-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></span>
               <h4>Vet Health Certificates</h4>
@@ -274,7 +276,6 @@
             <p>Official health documentation for travel and compliance.</p>
             <button class="btn-learn">Learn More <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></button>
           </div>
-
         </div>
       </div>
 
@@ -293,16 +294,16 @@
 
   <!-- SERVICE DETAIL MODAL -->
   <div class="modal" id="serviceModal">
-    <div class="modal-content" style="max-width:560px;padding:2rem;border-radius:1.25rem;border-top:4px solid #8b5cf6;">
-      <button class="modal-close" id="closeServiceModal" style="position:absolute;top:1rem;right:1.25rem;background:none;border:none;font-size:1.5rem;cursor:pointer;color:#9ca3af;">&times;</button>
+    <div class="modal-content" style="max-width:520px;padding:1.75rem;border-radius:1.125rem;border-top:3px solid #8b5cf6;">
+      <button class="modal-close" id="closeServiceModal" style="position:absolute;top:0.875rem;right:1rem;background:none;border:none;font-size:1.4rem;cursor:pointer;color:#9ca3af;">&times;</button>
       <div class="svc-modal-icon" id="svcModalIcon"></div>
-      <span class="svc-modal-category" id="svcModalCategory"></span>
+      <span class="svc-modal-cat" id="svcModalCategory"></span>
       <h2 class="svc-modal-title" id="svcModalTitle"></h2>
       <p class="svc-modal-desc" id="svcModalDesc"></p>
       <div class="svc-modal-details">
         <div class="svc-detail-item"><div class="label">Estimated Cost</div><div class="value" id="svcModalCost">—</div></div>
         <div class="svc-detail-item"><div class="label">Procedure Time</div><div class="value" id="svcModalTime">—</div></div>
-        <div class="svc-detail-item" style="grid-column:1/-1;"><div class="label">What's Included</div><div class="value" id="svcModalIncludes" style="font-size:0.9rem;font-weight:500;">—</div></div>
+        <div class="svc-detail-item" style="grid-column:1/-1;"><div class="label">What's Included</div><div class="value" id="svcModalIncludes" style="font-size:0.85rem;font-weight:500;">—</div></div>
       </div>
       <button class="svc-modal-book" id="svcModalBook">Book This Service</button>
     </div>
@@ -376,66 +377,30 @@
   <script src="../shared/vhs-ui.js"></script>
   <script src="script.js"></script>
   <script>
-  // Service detail modal — reads data-* attributes from card
-  (function() {
-    const svcModal = document.getElementById('serviceModal');
-    const svcClose = document.getElementById('closeServiceModal');
-    const svcIcon = document.getElementById('svcModalIcon');
-    const svcCat = document.getElementById('svcModalCategory');
-    const svcTitle = document.getElementById('svcModalTitle');
-    const svcDesc = document.getElementById('svcModalDesc');
-    const svcCost = document.getElementById('svcModalCost');
-    const svcTime = document.getElementById('svcModalTime');
-    const svcIncludes = document.getElementById('svcModalIncludes');
-    const svcBook = document.getElementById('svcModalBook');
-
-    document.querySelectorAll('.btn-learn').forEach(function(btn) {
-      btn.addEventListener('click', function() {
-        var card = btn.closest('.svc-card');
-        if (!card || !svcModal) return;
-
-        // Get icon from card
-        var iconSvg = card.querySelector('.svc-card-icon svg');
-        if (svcIcon && iconSvg) {
-          svcIcon.innerHTML = '';
-          svcIcon.appendChild(iconSvg.cloneNode(true));
-        }
-
-        if (svcCat) svcCat.textContent = card.dataset.category || '';
-        if (svcTitle) svcTitle.textContent = card.dataset.title || '';
-        if (svcDesc) svcDesc.textContent = card.dataset.desc || '';
-        if (svcCost) svcCost.textContent = card.dataset.cost || '—';
-        if (svcTime) svcTime.textContent = card.dataset.time || '—';
-        if (svcIncludes) svcIncludes.textContent = card.dataset.includes || '—';
-
-        svcModal.classList.add('active');
-        document.body.style.overflow = 'hidden';
+  /* ── Service Detail Modal ── */
+  (function(){
+    var m=document.getElementById('serviceModal'),c=document.getElementById('closeServiceModal'),
+        ico=document.getElementById('svcModalIcon'),cat=document.getElementById('svcModalCategory'),
+        ttl=document.getElementById('svcModalTitle'),dsc=document.getElementById('svcModalDesc'),
+        cst=document.getElementById('svcModalCost'),tm=document.getElementById('svcModalTime'),
+        inc=document.getElementById('svcModalIncludes'),bk=document.getElementById('svcModalBook');
+    document.querySelectorAll('.btn-learn').forEach(function(b){
+      b.addEventListener('click',function(){
+        var card=b.closest('.svc-card');if(!card||!m)return;
+        var svg=card.querySelector('.svc-card-icon svg');
+        if(ico&&svg){ico.innerHTML='';ico.appendChild(svg.cloneNode(true));}
+        if(cat)cat.textContent=card.dataset.category||'';
+        if(ttl)ttl.textContent=card.dataset.title||'';
+        if(dsc)dsc.textContent=card.dataset.desc||'';
+        if(cst)cst.textContent=card.dataset.cost||'\u2014';
+        if(tm)tm.textContent=card.dataset.time||'\u2014';
+        if(inc)inc.textContent=card.dataset.includes||'\u2014';
+        m.classList.add('active');document.body.style.overflow='hidden';
       });
     });
-
-    if (svcClose) svcClose.addEventListener('click', function() {
-      svcModal.classList.remove('active');
-      document.body.style.overflow = '';
-    });
-
-    if (svcModal) {
-      svcModal.addEventListener('click', function(e) {
-        if (e.target === svcModal) {
-          svcModal.classList.remove('active');
-          document.body.style.overflow = '';
-        }
-      });
-    }
-
-    if (svcBook) {
-      svcBook.addEventListener('click', function() {
-        svcModal.classList.remove('active');
-        document.body.style.overflow = '';
-        // Open login modal
-        var loginBtn = document.getElementById('navLoginBtn');
-        if (loginBtn) loginBtn.click();
-      });
-    }
+    if(c)c.addEventListener('click',function(){m.classList.remove('active');document.body.style.overflow='';});
+    if(m)m.addEventListener('click',function(e){if(e.target===m){m.classList.remove('active');document.body.style.overflow='';}});
+    if(bk)bk.addEventListener('click',function(){m.classList.remove('active');document.body.style.overflow='';var lb=document.getElementById('navLoginBtn');if(lb)lb.click();});
   })();
   </script>
 </body>
