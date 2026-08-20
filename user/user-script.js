@@ -1201,7 +1201,7 @@ function getAssistantReply(text) {
     return "You can book an appointment from the \"My Appointments\" section in the sidebar — just click \"+ Book Appointment\", pick your pet, service, and preferred date & time.";
   }
   if (/(service|vaccinat|groom|check|consult|surgery|spay|deworm|test)/.test(q)) {
-    return "We offer vaccinations, grooming, check-ups & consultations, anti-rabies shots, microchipping, heartworm prevention, blood tests, spay & neuter, dental cleaning, surgery, and home visits. Check the \"Services\" section in your sidebar for the full list!";
+    return "We offer 26 services across 5 categories: Preventive & Wellness (consultation, vaccination, deworming, feline preventive care, health certificate, microchipping), Diagnostics (blood test, fecalysis, microscopy, urinalysis), Surgery & Procedures (spay, castration, C-section, cystotomy, cherry eye correction, wound repair, dental prophylaxis, catheterization, euthanasia, whelping assistance), Pet Care (dog grooming, cat grooming, boarding, confinement), and Specialized Care (chemotherapy, home service). Check the \"Services\" section for prices!";
   }
   if (/(location|address|where|find|map)/.test(q)) {
     return "We're located at 834 Aurora Boulevard cor Driod Street, Kaunlaran, Cubao, Quezon City, Philippines 1111. You can see a map in the \"Clinic Info\" section.";

@@ -1065,6 +1065,7 @@ body {
 .service-card-user:hover .service-icon-wrap { transform: scale(1.1) rotate(5deg); }
 .service-card-user h3 { font-size: 1.05rem; font-weight: 700; color: var(--text-dark); }
 .service-card-user p { font-size: 0.875rem; color: var(--text-dim); line-height: 1.6; flex: 1; }
+.service-card-user .service-price { font-size: 0.85rem; font-weight: 600; color: var(--primary); margin-bottom: 0.5rem; }
 .service-card-user .btn-primary {
   margin-top: auto;
   justify-content: center;
