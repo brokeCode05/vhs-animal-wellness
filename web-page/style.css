@@ -1584,26 +1584,55 @@ header.nav-visible {
   margin-top: 0.5rem;
 }
 
-/* Team grid variants */
-.team-grid--single {
+/* Vet card - horizontal layout */
+.main-vet--horizontal {
   display: flex;
-  justify-content: center;
-  margin-bottom: 2rem;
+  align-items: flex-start;
+  gap: 2.5rem;
+  max-width: 52rem;
+  margin: 0 auto 2.5rem;
+  padding: 2rem;
+  text-align: left;
 }
 
-.team-grid--single .team-card.main-vet {
-  max-width: 32rem;
-  width: 100%;
+.main-vet--horizontal .main-vet__photo {
+  flex-shrink: 0;
 }
 
-.team-grid--single .team-card.main-vet img {
-  width: 12rem;
-  height: 12rem;
+.main-vet--horizontal .main-vet__photo img {
+  width: 14rem;
+  height: 14rem;
   border-radius: 50%;
   object-fit: cover;
-  margin: 0 auto 1.5rem;
-  display: block;
   border: 4px solid var(--secondary);
+}
+
+.main-vet--horizontal .main-vet__info {
+  flex: 1;
+  min-width: 0;
+}
+
+.main-vet--horizontal .main-vet__info h3 {
+  font-size: 1.5rem;
+  margin-bottom: 0.25rem;
+}
+
+.main-vet--horizontal .main-vet__info .role {
+  color: var(--secondary);
+  font-weight: 600;
+  margin-bottom: 1rem;
+  font-size: 0.95rem;
+}
+
+.main-vet--horizontal .main-vet__info p {
+  font-size: 0.9rem;
+  color: #7a6a8f;
+  line-height: 1.7;
+  margin-bottom: 0.5rem;
+}
+
+.main-vet--horizontal .experience-tags {
+  margin-top: 1rem;
 }
 
 .team-grid--staff {
@@ -4087,6 +4116,23 @@ footer a:hover {
   .team-grid .team-card,
   .staff-grid .team-card {
     width: 100%;
+  }
+  
+  /* Vet card stacks on mobile */
+  .main-vet--horizontal {
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: 1.5rem;
+  }
+  
+  .main-vet--horizontal .main-vet__photo img {
+    width: 11rem;
+    height: 11rem;
+  }
+  
+  .main-vet--horizontal .main-vet__info .experience-tags .tags-list {
+    justify-content: center;
   }
   
   .form-row {
