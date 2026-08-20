@@ -1676,12 +1676,12 @@ header.nav-visible {
   border-radius: 1rem;
 }
 
-/* Staff cards */
+/* Staff cards — auto-adapts: 1 = full, 2 = 2-col, 3 = 3-col, 4 = 4-col */
 .staff-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
   gap: 1.5rem;
-  max-width: 40rem;
+  max-width: 68rem;
   margin: 0 auto;
 }
 
@@ -3617,9 +3617,7 @@ footer a:hover {
   margin-bottom: 3rem;
 }
 
-.staff-grid {
-  grid-template-columns: repeat(4, 1fr);
-}
+/* staff-grid uses auto-fit from base definition */
 
 /* Location Section */
 .location-section {
@@ -4155,7 +4153,7 @@ footer a:hover {
   }
   
   .staff-grid {
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
   }
   
   .contact-container {
@@ -4253,7 +4251,7 @@ footer a:hover {
   
   .staff-grid {
     grid-template-columns: 1fr;
-    max-width: 22rem;
+    max-width: 20rem;
   }
   
   .form-row {
