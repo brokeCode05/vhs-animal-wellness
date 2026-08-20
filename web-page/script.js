@@ -990,11 +990,45 @@ const scrollObserver = new IntersectionObserver(
   },
 );
 
-// Observe all animatable elements
+// ── Services page: category observer with staggered card reveal ──
+const svcCatObserver = new IntersectionObserver(
+  (entries) => {
+    entries.forEach((entry) => {
+      if (entry.isIntersecting) {
+        const cat = entry.target;
+        cat.classList.add("is-visible");
+        // Stagger cards inside this category
+        const cards = cat.querySelectorAll(".svc-card");
+        cards.forEach((card, i) => {
+          card.style.transitionDelay = (i * 0.1) + "s";
+          // Trigger reflow so the delay is applied from opacity 0
+          void card.offsetHeight;
+          card.classList.add("is-visible");
+        });
+        svcCatObserver.unobserve(cat);
+      }
+    });
+  },
+  {
+    threshold: 0.15,
+    rootMargin: "0px 0px -60px 0px",
+  },
+);
+
 document.addEventListener("DOMContentLoaded", () => {
-  // Service cards
+  // ── Services page: observe categories ──
+  document.querySelectorAll(".svc-category").forEach((cat) => {
+    svcCatObserver.observe(cat);
+  });
+
+  // ── Services page: observe CTA ──
+  document.querySelectorAll(".cta").forEach((el) => {
+    svcCatObserver.observe(el);
+  });
+
+  // Legacy service cards (if any old markup exists)
   document
-    .querySelectorAll(".service-card, .service-card-detailed, .svc-card")
+    .querySelectorAll(".service-card, .service-card-detailed")
     .forEach((el) => {
       el.classList.add("scroll-animate");
       scrollObserver.observe(el);

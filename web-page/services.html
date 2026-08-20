@@ -31,17 +31,37 @@
       gap: 1rem;
     }
 
-    /* ── Service Card ── */
+    /* ── Scroll Animation — Category ── */
+    .svc-category {
+      opacity: 0;
+      transform: translateY(32px);
+      transition: opacity 0.6s cubic-bezier(0.4, 0, 0.2, 1),
+                  transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .svc-category.is-visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    /* ── Scroll Animation — Cards ── */
     .svc-card {
       background: #fff; border: 1px solid rgba(109,74,177,0.08);
       border-radius: 0.875rem; padding: 1.35rem;
       display: flex; flex-direction: column;
-      transition: border-color 0.2s, box-shadow 0.25s, transform 0.25s;
+      opacity: 0;
+      transform: translateY(24px) scale(0.97);
+      transition: opacity 0.5s cubic-bezier(0.4, 0, 0.2, 1),
+                  transform 0.5s cubic-bezier(0.4, 0, 0.2, 1),
+                  border-color 0.2s, box-shadow 0.25s;
+    }
+    .svc-card.is-visible {
+      opacity: 1;
+      transform: translateY(0) scale(1);
     }
     .svc-card:hover {
       border-color: rgba(139,92,246,0.3);
       box-shadow: 0 6px 20px rgba(109,74,177,0.1);
-      transform: translateY(-2px);
+      transform: translateY(-2px) scale(1);
     }
     .svc-card-head {
       display: flex; align-items: center; gap: 0.625rem;
@@ -103,6 +123,18 @@
       transition: all 0.2s;
     }
     .svc-modal-book:hover { transform: translateY(-1px); box-shadow: 0 4px 14px rgba(109,74,177,0.3); }
+
+    /* ── CTA scroll animation ── */
+    .cta {
+      opacity: 0;
+      transform: translateY(32px);
+      transition: opacity 0.6s cubic-bezier(0.4, 0, 0.2, 1),
+                  transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .cta.is-visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
   </style>
 </head>
 <body>
