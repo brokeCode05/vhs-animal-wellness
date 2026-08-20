@@ -79,6 +79,10 @@
       flex: 1; font-size: 0.85rem; line-height: 1.55;
       color: #6b7280; margin: 0 0 1rem;
     }
+    .svc-price {
+      font-size: 0.85rem; font-weight: 700; color: #6d4ab1;
+      margin-bottom: 0.75rem;
+    }
     .btn-learn {
       display: inline-flex; align-items: center; gap: 0.3rem;
       background: linear-gradient(135deg, #8b5cf6, #6d4ab1); color: #fff;
@@ -124,7 +128,7 @@
     }
     .svc-modal-book:hover { transform: translateY(-1px); box-shadow: 0 4px 14px rgba(109,74,177,0.3); }
 
-    /* ── CTA scroll animation ── */
+    /* ── CTA ── */
     .cta {
       opacity: 0;
       transform: translateY(32px);
@@ -156,156 +160,211 @@
   <div class="mobile-overlay" id="mobileOverlay"></div>
 
   <main>
-    <section class="page-hero"><div class="page-hero-content"><h1>Our Services</h1><p>Comprehensive veterinary care for your beloved pets</p></div></section>
+    <section class="page-hero"><div class="page-hero-content"><h1>Our Services</h1><p>Comprehensive veterinary care for your pets, delivered with compassion and professionalism</p></div></section>
 
     <section class="section">
 
-      <!-- ══ MEDICAL SERVICES ══ -->
-      <!-- Category icon: medical cross (distinct from service stethoscope) -->
-      <div class="svc-category">
-        <h2 class="svc-cat-title">
-          <span class="svc-cat-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2v4"/><path d="M16 2v4"/><path d="M12 8v8"/><path d="M8 12h8"/></svg></span>
-          Medical Services
-        </h2>
-        <div class="svc-grid">
-          <div class="svc-card" data-title="Vet Consultation" data-category="Medical Services" data-desc="Professional advice and complete health check for your pets. Our experienced veterinarians provide thorough physical examinations, discuss your pet's diet and behavior, and create personalized wellness plans." data-cost="&#8369;500 – &#8369;1,500" data-time="30 – 45 mins" data-includes="Physical exam, Health assessment, Wellness plan">
-            <div class="svc-card-head">
-              <span class="svc-card-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4.8 2.3A.3.3 0 1 0 5 2H4a2 2 0 0 0-2 2v5a6 6 0 0 0 6 6 6 6 0 0 0 6-6V4a2 2 0 0 0-2-2h-1a.2.2 0 1 0 .3.3"/><path d="M8 15v1a6 6 0 0 0 6 6 6 6 0 0 0 6-6v-4"/><circle cx="20" cy="10" r="2"/></svg></span>
-              <h4>Vet Consultation</h4>
-            </div>
-            <p>Professional advice and complete health check for your pets.</p>
-            <button class="btn-learn">Learn More <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></button>
-          </div>
-          <div class="svc-card" data-title="Online Consultation" data-category="Medical Services" data-desc="Virtual vet consultations for your convenience. Get expert veterinary advice from the comfort of your home via video call. Perfect for follow-up visits and minor concerns." data-cost="&#8369;300 – &#8369;800" data-time="15 – 30 mins" data-includes="Video call, Health advice, Prescription if needed">
-            <div class="svc-card-head">
-              <span class="svc-card-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg></span>
-              <h4>Online Consultation</h4>
-            </div>
-            <p>Virtual vet consultations for your convenience.</p>
-            <button class="btn-learn">Learn More <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></button>
-          </div>
-          <div class="svc-card" data-title="Home Service Visits" data-category="Medical Services" data-desc="Veterinary care provided in the comfort of your home. Ideal for pets that get stressed during travel, elderly pets, or multi-pet households." data-cost="&#8369;1,000 – &#8369;2,500" data-time="45 – 60 mins" data-includes="Home visit, Physical exam, Basic treatment">
-            <div class="svc-card-head">
-              <span class="svc-card-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg></span>
-              <h4>Home Service Visits</h4>
-            </div>
-            <p>Veterinary care at your doorstep.</p>
-            <button class="btn-learn">Learn More <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></button>
-          </div>
-        </div>
-      </div>
-
-      <!-- ══ SURGICAL SERVICES ══ -->
-      <!-- Category icon: scissors (clean, distinct) -->
-      <div class="svc-category">
-        <h2 class="svc-cat-title">
-          <span class="svc-cat-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="3"/><path d="M8.12 8.12 12 12"/><path d="M20 4 8.12 15.88"/><circle cx="6" cy="18" r="3"/><path d="M14.8 14.8 20 20"/></svg></span>
-          Surgical Services
-        </h2>
-        <div class="svc-grid">
-          <div class="svc-card" data-title="Spay &amp; Neuter" data-category="Surgical Services" data-desc="Safe and professional surgical procedures for population control. Performed under general anesthesia with full monitoring. Helps reduce pet overpopulation and lowers the risk of certain cancers." data-cost="&#8369;2,500 – &#8369;5,000" data-time="1 – 2 hours" data-includes="Pre-surgery blood work, Anesthesia, Surgery, Post-op monitoring, Follow-up">
-            <div class="svc-card-head">
-              <span class="svc-card-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg></span>
-              <h4>Spay &amp; Neuter</h4>
-            </div>
-            <p>Safe surgical procedures for population control.</p>
-            <button class="btn-learn">Learn More <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></button>
-          </div>
-        </div>
-      </div>
-
-      <!-- ══ PREVENTIVE CARE ══ -->
-      <!-- Category icon: shield with check (protection) -->
+      <!-- ══ PREVENTIVE & WELLNESS ══ -->
       <div class="svc-category">
         <h2 class="svc-cat-title">
           <span class="svc-cat-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg></span>
-          Preventive Care
+          Preventive &amp; Wellness
         </h2>
         <div class="svc-grid">
-          <div class="svc-card" data-title="Canine &amp; Feline Vaccinations" data-category="Preventive Care" data-desc="Complete vaccination programs for dogs and cats to protect them from common diseases. We follow the latest veterinary guidelines to ensure timely and effective immunizations." data-cost="&#8369;400 – &#8369;1,200 per dose" data-time="15 – 20 mins" data-includes="Vaccine administration, Health check, Vaccination record">
-            <div class="svc-card-head">
-              <span class="svc-card-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m18 2 4 4"/><path d="m17 7 3-3"/><path d="M19 9 8.7 19.3c-1 1-2.5 1-3.4 0l-.6-.6c-1-1-1-2.5 0-3.4L15 5"/><path d="m9 11 4 4"/><path d="m5 19-3 3"/><path d="m14 4 6 6"/></svg></span>
-              <h4>Canine &amp; Feline Vaccinations</h4>
-            </div>
-            <p>Complete vaccination programs for dogs and cats.</p>
+          <div class="svc-card" data-title="Consultation" data-category="Preventive &amp; Wellness" data-desc="Professional health assessment and veterinary advice for your pets. Our veterinarians conduct thorough physical examinations, discuss your pet's condition, and recommend appropriate treatment plans." data-cost="&#8369;300.00 – &#8369;2,000.00" data-time="30 – 45 mins" data-includes="Physical examination, Health assessment, Treatment recommendations">
+            <div class="svc-card-head"><span class="svc-card-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4.8 2.3A.3.3 0 1 0 5 2H4a2 2 0 0 0-2 2v5a6 6 0 0 0 6 6 6 6 0 0 0 6-6V4a2 2 0 0 0-2-2h-1a.2.2 0 1 0 .3.3"/><path d="M8 15v1a6 6 0 0 0 6 6 6 6 0 0 0 6-6v-4"/><circle cx="20" cy="10" r="2"/></svg></span><h4>Consultation</h4></div>
+            <p>Professional health assessment and veterinary advice.</p>
+            <div class="svc-price">&#8369;300.00 – &#8369;2,000.00</div>
             <button class="btn-learn">Learn More <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></button>
           </div>
-          <div class="svc-card" data-title="Anti-rabies Vaccination" data-category="Preventive Care" data-desc="Protect your pets and family with rabies immunization. Required by law in the Philippines and essential for public health safety." data-cost="&#8369;300 – &#8369;600" data-time="10 – 15 mins" data-includes="Vaccine administration, Certificate of vaccination">
-            <div class="svc-card-head">
-              <span class="svc-card-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22a7 7 0 0 0 7-7c0-2-1-3.9-3-5.5s-3.5-4-4-6.5c-.5 2.5-2 4.9-4 6.5C6 11.1 5 13 5 15a7 7 0 0 0 7 7z"/><path d="M10 13a2 2 0 0 0 4 0"/></svg></span>
-              <h4>Anti-rabies Vaccination</h4>
-            </div>
-            <p>Required rabies immunization for your pets.</p>
+          <div class="svc-card" data-title="Vaccination" data-category="Preventive &amp; Wellness" data-desc="Protective immunization programs for dogs and cats to guard against common infectious diseases. Vaccination schedules are tailored to your pet's age and lifestyle." data-cost="Contact us for pricing" data-time="10 – 20 mins" data-includes="Vaccine administration, Vaccination record, Health check">
+            <div class="svc-card-head"><span class="svc-card-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m18 2 4 4"/><path d="m17 7 3-3"/><path d="M19 9 8.7 19.3c-1 1-2.5 1-3.4 0l-.6-.6c-1-1-1-2.5 0-3.4L15 5"/><path d="m9 11 4 4"/><path d="m5 19-3 3"/><path d="m14 4 6 6"/></svg></span><h4>Vaccination</h4></div>
+            <p>Protective immunization for dogs and cats.</p>
+            <div class="svc-price">Contact us for pricing</div>
             <button class="btn-learn">Learn More <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></button>
           </div>
-          <div class="svc-card" data-title="Heartworm Prevention" data-category="Preventive Care" data-desc="Prevent heartworm disease with proper medication and regular testing. Transmitted by mosquitoes, heartworm can be fatal if left untreated." data-cost="&#8369;200 – &#8369;800/month" data-time="10 – 15 mins" data-includes="Heartworm test, Medication, Follow-up">
-            <div class="svc-card-head">
-              <span class="svc-card-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/><path d="M3.22 12H9.5l.5-1 2 4.5 2-7 1.5 3.5h5.27"/></svg></span>
-              <h4>Heartworm Prevention</h4>
-            </div>
-            <p>Prevent heartworm disease with proper medication.</p>
+          <div class="svc-card" data-title="Deworming" data-category="Preventive &amp; Wellness" data-desc="Internal parasite prevention and treatment for dogs and cats. Regular deworming helps maintain your pet's digestive health and prevents the spread of parasites." data-cost="&#8369;300.00 – &#8369;1,000.00" data-time="10 – 15 mins" data-includes="Parasite assessment, Medication administration, Follow-up advice">
+            <div class="svc-card-head"><span class="svc-card-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 2v7.527a2 2 0 0 1-.211.896L4.72 20.55a1 1 0 0 0 .9 1.45h12.76a1 1 0 0 0 .9-1.45l-5.069-10.127A2 2 0 0 1 14 9.527V2"/><path d="M8.5 2h7"/><path d="M7 16h10"/></svg></span><h4>Deworming</h4></div>
+            <p>Internal parasite prevention and treatment.</p>
+            <div class="svc-price">&#8369;300.00 – &#8369;1,000.00</div>
+            <button class="btn-learn">Learn More <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></button>
+          </div>
+          <div class="svc-card" data-title="Feline Executive Preventive Care" data-category="Preventive &amp; Wellness" data-desc="Comprehensive preventive care package designed specifically for cats, covering routine health assessments, vaccinations, and wellness screenings." data-cost="&#8369;3,999.00 – &#8369;6,999.00" data-time="45 – 60 mins" data-includes="Complete physical exam, Vaccinations, Lab tests, Wellness report">
+            <div class="svc-card-head"><span class="svc-card-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="4" r="2"/><circle cx="18" cy="8" r="2"/><circle cx="4" cy="8" r="2"/><path d="M12 22c-4 0-7-2-7-5 0-2 1.5-3.5 3-4s3-1 4-1 2.5.5 4 1 3 2 3 4c0 3-3 5-7 5z"/></svg></span><h4>Feline Executive Preventive Care</h4></div>
+            <p>Comprehensive preventive care package for cats.</p>
+            <div class="svc-price">&#8369;3,999.00 – &#8369;6,999.00</div>
+            <button class="btn-learn">Learn More <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></button>
+          </div>
+          <div class="svc-card" data-title="Health Certificate" data-category="Preventive &amp; Wellness" data-desc="Official veterinary health documentation required for pet transport, international travel, and breed registration. Issued after a thorough health examination." data-cost="&#8369;200.00 – &#8369;600.00" data-time="20 – 30 mins" data-includes="Physical examination, Certificate issuance, Official stamp">
+            <div class="svc-card-head"><span class="svc-card-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></span><h4>Health Certificate</h4></div>
+            <p>Official health documentation for travel and compliance.</p>
+            <div class="svc-price">&#8369;200.00 – &#8369;600.00</div>
+            <button class="btn-learn">Learn More <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></button>
+          </div>
+          <div class="svc-card" data-title="Microchipping" data-category="Preventive &amp; Wellness" data-desc="Permanent identification for your pets using a tiny microchip implanted under the skin. Helps reunite lost pets with their owners through a scanning network." data-cost="&#8369;900.00" data-time="10 – 15 mins" data-includes="Microchip implant, Registration, Scanning certificate">
+            <div class="svc-card-head"><span class="svc-card-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/><path d="M15 2v2"/><path d="M15 20v2"/><path d="M2 15h2"/><path d="M2 9h2"/><path d="M20 15h2"/><path d="M20 9h2"/><path d="M9 2v2"/><path d="M9 20v2"/></svg></span><h4>Microchipping</h4></div>
+            <p>Permanent identification for your pets.</p>
+            <div class="svc-price">&#8369;900.00</div>
             <button class="btn-learn">Learn More <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></button>
           </div>
         </div>
       </div>
 
-      <!-- ══ DIAGNOSTIC & LAB ══ -->
-      <!-- Category icon: microscope (distinct from test tube) -->
+      <!-- ══ DIAGNOSTICS ══ -->
       <div class="svc-category">
         <h2 class="svc-cat-title">
           <span class="svc-cat-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 18h8"/><path d="M3 22h18"/><path d="M14 22a7 7 0 1 0 0-14h-1"/><path d="M9 14h2"/><path d="M9 12a2 2 0 0 1-2-2V6h6v4a2 2 0 0 1-2 2z"/><path d="M12 6V3a1 1 0 0 0-1-1H9a1 1 0 0 0-1 1v3"/></svg></span>
-          Diagnostic &amp; Laboratory
+          Diagnostics
         </h2>
         <div class="svc-grid">
-          <div class="svc-card" data-title="Blood Tests (CBC, Blood Chem)" data-category="Diagnostic &amp; Laboratory" data-desc="Accurate diagnostic laboratory testing to detect health issues early. CBC and Blood Chemistry panels identify infections, organ problems, and metabolic disorders." data-cost="&#8369;800 – &#8369;2,000" data-time="15 – 30 mins (results in 1 hour)" data-includes="Blood draw, Lab analysis, Results consultation">
-            <div class="svc-card-head">
-              <span class="svc-card-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2v4"/><path d="M16 2v4"/><rect width="16" height="18" x="4" y="4" rx="2"/><path d="M12 11v4"/><path d="M12 17v2"/></svg></span>
-              <h4>Blood Tests (CBC, Blood Chem)</h4>
-            </div>
-            <p>Diagnostic lab testing to detect health issues early.</p>
+          <div class="svc-card" data-title="Blood Test" data-category="Diagnostics" data-desc="Comprehensive blood testing including Complete Blood Count (CBC) and Blood Chemistry panels. Identifies infections, organ problems, and metabolic disorders." data-cost="&#8369;900.00 – &#8369;3,000.00" data-time="15 – 30 mins (results in 1 hour)" data-includes="Blood draw, Lab analysis, Results consultation">
+            <div class="svc-card-head"><span class="svc-card-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2v4"/><path d="M16 2v4"/><rect width="16" height="18" x="4" y="4" rx="2"/><path d="M12 11v4"/><path d="M12 17v2"/></svg></span><h4>Blood Test</h4></div>
+            <p>Diagnostic lab testing including CBC and Blood Chemistry.</p>
+            <div class="svc-price">&#8369;900.00 – &#8369;3,000.00</div>
             <button class="btn-learn">Learn More <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></button>
           </div>
-          <div class="svc-card" data-title="Test Kits (Distemper, Parvovirus)" data-category="Diagnostic &amp; Laboratory" data-desc="Rapid testing kits for common pet diseases. Quick and accurate results for conditions like Canine Distemper, Parvovirus, and Feline Leukemia." data-cost="&#8369;500 – &#8369;1,500" data-time="10 – 20 mins (rapid results)" data-includes="Sample collection, Rapid test, Results">
-            <div class="svc-card-head">
-              <span class="svc-card-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 2v7.527a2 2 0 0 1-.211.896L4.72 20.55a1 1 0 0 0 .9 1.45h12.76a1 1 0 0 0 .9-1.45l-5.069-10.127A2 2 0 0 1 14 9.527V2"/><path d="M8.5 2h7"/><path d="M7 16h10"/></svg></span>
-              <h4>Test Kits (Distemper, Parvovirus)</h4>
-            </div>
-            <p>Rapid testing for common pet diseases.</p>
+          <div class="svc-card" data-title="Fecalysis" data-category="Diagnostics" data-desc="Stool examination to detect intestinal parasites, bacteria, and other abnormalities. Essential for diagnosing digestive issues in pets." data-cost="&#8369;350.00" data-time="10 – 15 mins (results in 30 mins)" data-includes="Sample collection, Microscopic analysis, Results">
+            <div class="svc-card-head"><span class="svc-card-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 2v7.527a2 2 0 0 1-.211.896L4.72 20.55a1 1 0 0 0 .9 1.45h12.76a1 1 0 0 0 .9-1.45l-5.069-10.127A2 2 0 0 1 14 9.527V2"/><path d="M8.5 2h7"/><path d="M7 16h10"/></svg></span><h4>Fecalysis</h4></div>
+            <p>Stool examination to detect parasites and abnormalities.</p>
+            <div class="svc-price">&#8369;350.00</div>
+            <button class="btn-learn">Learn More <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></button>
+          </div>
+          <div class="svc-card" data-title="Microscopy" data-category="Diagnostics" data-desc="Microscopic examination of blood, urine, and tissue samples for diagnostic purposes. Used to identify cells, parasites, and other microscopic organisms." data-cost="&#8369;500.00" data-time="15 – 20 mins" data-includes="Sample preparation, Microscopic analysis, Results">
+            <div class="svc-card-head"><span class="svc-card-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 18h8"/><path d="M3 22h18"/><path d="M14 22a7 7 0 1 0 0-14h-1"/><path d="M9 14h2"/><path d="M9 12a2 2 0 0 1-2-2V6h6v4a2 2 0 0 1-2 2z"/><path d="M12 6V3a1 1 0 0 0-1-1H9a1 1 0 0 0-1 1v3"/></svg></span><h4>Microscopy</h4></div>
+            <p>Microscopic examination of samples for diagnostic purposes.</p>
+            <div class="svc-price">&#8369;500.00</div>
+            <button class="btn-learn">Learn More <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></button>
+          </div>
+          <div class="svc-card" data-title="Urinalysis" data-category="Diagnostics" data-desc="Comprehensive urine analysis to detect kidney disease, urinary tract infections, diabetes, and other metabolic conditions." data-cost="&#8369;500.00 – &#8369;850.00" data-time="10 – 15 mins" data-includes="Sample collection, Lab analysis, Results">
+            <div class="svc-card-head"><span class="svc-card-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 2v7.527a2 2 0 0 1-.211.896L4.72 20.55a1 1 0 0 0 .9 1.45h12.76a1 1 0 0 0 .9-1.45l-5.069-10.127A2 2 0 0 1 14 9.527V2"/><path d="M8.5 2h7"/><path d="M7 16h10"/></svg></span><h4>Urinalysis</h4></div>
+            <p>Urine analysis to detect kidney and metabolic conditions.</p>
+            <div class="svc-price">&#8369;500.00 – &#8369;850.00</div>
             <button class="btn-learn">Learn More <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></button>
           </div>
         </div>
       </div>
 
-      <!-- ══ PET CARE & GROOMING ══ -->
-      <!-- Category icon: paw print (pet care) -->
+      <!-- ══ SURGERY & PROCEDURES ══ -->
+      <div class="svc-category">
+        <h2 class="svc-cat-title">
+          <span class="svc-cat-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg></span>
+          Surgery &amp; Procedures
+        </h2>
+        <div class="svc-grid">
+          <div class="svc-card" data-title="Spay" data-category="Surgery &amp; Procedures" data-desc="Surgical sterilization for female pets. Performed under general anesthesia with full monitoring. Helps prevent reproductive health issues and unwanted pregnancies." data-cost="&#8369;650.00 – &#8369;6,000.00" data-time="1 – 2 hours" data-includes="Pre-surgery assessment, Anesthesia, Surgery, Post-op monitoring, Follow-up">
+            <div class="svc-card-head"><span class="svc-card-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg></span><h4>Spay</h4></div>
+            <p>Surgical sterilization for female pets.</p>
+            <div class="svc-price">&#8369;650.00 – &#8369;6,000.00</div>
+            <button class="btn-learn">Learn More <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></button>
+          </div>
+          <div class="svc-card" data-title="Castration" data-category="Surgery &amp; Procedures" data-desc="Surgical sterilization for male pets. Performed under general anesthesia with full monitoring. Helps reduce behavioral issues and prevents certain health conditions." data-cost="&#8369;500.00 – &#8369;5,000.00" data-time="30 mins – 1 hour" data-includes="Pre-surgery assessment, Anesthesia, Surgery, Post-op monitoring, Follow-up">
+            <div class="svc-card-head"><span class="svc-card-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="3"/><path d="M8.12 8.12 12 12"/><path d="M20 4 8.12 15.88"/><circle cx="6" cy="18" r="3"/><path d="M14.8 14.8 20 20"/></svg></span><h4>Castration</h4></div>
+            <p>Surgical sterilization for male pets.</p>
+            <div class="svc-price">&#8369;500.00 – &#8369;5,000.00</div>
+            <button class="btn-learn">Learn More <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></button>
+          </div>
+          <div class="svc-card" data-title="Caesarean Section (CS)" data-category="Surgery &amp; Procedures" data-desc="Surgical delivery of puppies or kittens when natural birth is not possible. Performed under general anesthesia with full monitoring for both mother and offspring." data-cost="&#8369;10,000.00 – &#8369;35,000.00" data-time="2 – 3 hours" data-includes="Pre-surgery assessment, Anesthesia, Surgery, Neonatal care, Post-op monitoring">
+            <div class="svc-card-head"><span class="svc-card-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/><path d="M3.22 12H9.5l.5-1 2 4.5 2-7 1.5 3.5h5.27"/></svg></span><h4>Caesarean Section (CS)</h4></div>
+            <p>Surgical delivery when natural birth is not possible.</p>
+            <div class="svc-price">&#8369;10,000.00 – &#8369;35,000.00</div>
+            <button class="btn-learn">Learn More <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></button>
+          </div>
+          <div class="svc-card" data-title="Cystotomy" data-category="Surgery &amp; Procedures" data-desc="Surgical procedure to remove bladder stones or tumors. Performed under general anesthesia with full monitoring." data-cost="&#8369;4,000.00 – &#8369;7,000.00" data-time="1 – 2 hours" data-includes="Pre-surgery blood work, Anesthesia, Surgery, Post-op monitoring, Follow-up">
+            <div class="svc-card-head"><span class="svc-card-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2v4"/><path d="M16 2v4"/><rect width="16" height="18" x="4" y="4" rx="2"/><path d="M12 11v4"/><path d="M12 17v2"/></svg></span><h4>Cystotomy</h4></div>
+            <p>Surgical removal of bladder stones or tumors.</p>
+            <div class="svc-price">&#8369;4,000.00 – &#8369;7,000.00</div>
+            <button class="btn-learn">Learn More <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></button>
+          </div>
+          <div class="svc-card" data-title="Cherry Eye Correction" data-category="Surgery &amp; Procedures" data-desc="Surgical correction of prolapsed third eyelid gland (cherry eye). Restores the gland to its normal position to preserve tear production." data-cost="&#8369;5,000.00 – &#8369;35,000.00" data-time="1 – 2 hours" data-includes="Pre-surgery assessment, Anesthesia, Surgery, Post-op care, Follow-up">
+            <div class="svc-card-head"><span class="svc-card-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg></span><h4>Cherry Eye Correction</h4></div>
+            <p>Surgical correction of prolapsed third eyelid gland.</p>
+            <div class="svc-price">&#8369;5,000.00 – &#8369;35,000.00</div>
+            <button class="btn-learn">Learn More <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></button>
+          </div>
+          <div class="svc-card" data-title="Wound Repair" data-category="Surgery &amp; Procedures" data-desc="Surgical treatment of wounds, lacerations, and abrasions. Includes cleaning, suturing, and post-operative care to ensure proper healing." data-cost="&#8369;1,500.00 – &#8369;3,000.00" data-time="30 – 60 mins" data-includes="Wound cleaning, Suturing, Antibiotics, Follow-up care">
+            <div class="svc-card-head"><span class="svc-card-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22a7 7 0 0 0 7-7c0-2-1-3.9-3-5.5s-3.5-4-4-6.5c-.5 2.5-2 4.9-4 6.5C6 11.1 5 13 5 15a7 7 0 0 0 7 7z"/><path d="M10 13a2 2 0 0 0 4 0"/></svg></span><h4>Wound Repair</h4></div>
+            <p>Surgical treatment of wounds and lacerations.</p>
+            <div class="svc-price">&#8369;1,500.00 – &#8369;3,000.00</div>
+            <button class="btn-learn">Learn More <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></button>
+          </div>
+          <div class="svc-card" data-title="Dental Prophylaxis + Kapon" data-category="Surgery &amp; Procedures" data-desc="Professional dental cleaning combined with sterilization procedure. Includes scaling, polishing, and extraction if necessary, along with castration or spaying." data-cost="&#8369;2,500.00 – &#8369;7,500.00" data-time="2 – 3 hours" data-includes="Dental assessment, Scaling and polishing, Sterilization, Anesthesia, Post-op care">
+            <div class="svc-card-head"><span class="svc-card-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22a7 7 0 0 0 7-7c0-2-1-3.9-3-5.5s-3.5-4-4-6.5c-.5 2.5-2 4.9-4 6.5C6 11.1 5 13 5 15a7 7 0 0 0 7 7z"/></svg></span><h4>Dental Prophylaxis + Kapon</h4></div>
+            <p>Dental cleaning combined with sterilization.</p>
+            <div class="svc-price">&#8369;2,500.00 – &#8369;7,500.00</div>
+            <button class="btn-learn">Learn More <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></button>
+          </div>
+          <div class="svc-card" data-title="U Catheterization" data-category="Surgery &amp; Procedures" data-desc="Urinary catheter placement for pets with urinary blockages or retention. Performed under sedation with monitoring." data-cost="&#8369;3,500.00" data-time="30 – 60 mins" data-includes="Sedation, Catheter placement, Urine analysis, Post-procedure monitoring">
+            <div class="svc-card-head"><span class="svc-card-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 2v7.527a2 2 0 0 1-.211.896L4.72 20.55a1 1 0 0 0 .9 1.45h12.76a1 1 0 0 0 .9-1.45l-5.069-10.127A2 2 0 0 1 14 9.527V2"/><path d="M8.5 2h7"/><path d="M7 16h10"/></svg></span><h4>U Catheterization</h4></div>
+            <p>Urinary catheter placement for blockages or retention.</p>
+            <div class="svc-price">&#8369;3,500.00</div>
+            <button class="btn-learn">Learn More <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></button>
+          </div>
+          <div class="svc-card" data-title="Euthanasia" data-category="Surgery &amp; Procedures" data-desc="Compassionate end-of-life care for pets with terminal conditions or severe suffering. Performed humanely with full support for pet owners." data-cost="&#8369;1,000.00 – &#8369;3,000.00" data-time="15 – 30 mins" data-includes="Consultation, Procedure, Aftercare guidance">
+            <div class="svc-card-head"><span class="svc-card-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg></span><h4>Euthanasia</h4></div>
+            <p>Compassionate end-of-life care for pets.</p>
+            <div class="svc-price">&#8369;1,000.00 – &#8369;3,000.00</div>
+            <button class="btn-learn">Learn More <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></button>
+          </div>
+          <div class="svc-card" data-title="Whelping Assistance" data-category="Surgery &amp; Procedures" data-desc="Professional veterinary support during the birthing process for dogs and cats. Includes monitoring, intervention if needed, and neonatal care." data-cost="&#8369;3,500.00 – &#8369;4,000.00" data-time="2 – 6 hours" data-includes="Birth monitoring, Veterinary intervention, Neonatal care, Post-birth checkup">
+            <div class="svc-card-head"><span class="svc-card-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/><path d="M3.22 12H9.5l.5-1 2 4.5 2-7 1.5 3.5h5.27"/></svg></span><h4>Whelping Assistance</h4></div>
+            <p>Professional veterinary support during birthing.</p>
+            <div class="svc-price">&#8369;3,500.00 – &#8369;4,000.00</div>
+            <button class="btn-learn">Learn More <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ══ PET CARE ══ -->
       <div class="svc-category">
         <h2 class="svc-cat-title">
           <span class="svc-cat-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="4" r="2"/><circle cx="18" cy="8" r="2"/><circle cx="4" cy="8" r="2"/><path d="M12 22c-4 0-7-2-7-5 0-2 1.5-3.5 3-4s3-1 4-1 2.5.5 4 1 3 2 3 4c0 3-3 5-7 5z"/></svg></span>
-          Pet Care &amp; Grooming
+          Pet Care
         </h2>
         <div class="svc-grid">
-          <div class="svc-card" data-title="Pet Grooming &amp; Supplies" data-category="Pet Care &amp; Grooming" data-desc="Professional grooming services and essential pet products. Bathing, haircuts, nail trimming, ear cleaning — keeping your pets looking and feeling their best." data-cost="&#8369;300 – &#8369;1,500" data-time="30 – 90 mins" data-includes="Bath, Haircut, Nail trim, Ear cleaning, Blow dry">
-            <div class="svc-card-head">
-              <span class="svc-card-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.5 4.5v3h3"/><path d="M4 12V6a2 2 0 0 1 2-2h2"/><path d="M15 10h3a2 2 0 0 1 2 2v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15"/></svg></span>
-              <h4>Pet Grooming &amp; Supplies</h4>
-            </div>
-            <p>Professional grooming and essential pet products.</p>
+          <div class="svc-card" data-title="Dog Grooming" data-category="Pet Care" data-desc="Professional grooming services for dogs including bathing, haircuts, nail trimming, ear cleaning, and blow drying." data-cost="&#8369;100.00 – &#8369;1,200.00" data-time="30 – 90 mins" data-includes="Bath, Haircut, Nail trim, Ear cleaning, Blow dry">
+            <div class="svc-card-head"><span class="svc-card-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.5 4.5v3h3"/><path d="M4 12V6a2 2 0 0 1 2-2h2"/><path d="M15 10h3a2 2 0 0 1 2 2v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15"/></svg></span><h4>Dog Grooming</h4></div>
+            <p>Professional grooming services for dogs.</p>
+            <div class="svc-price">&#8369;100.00 – &#8369;1,200.00</div>
             <button class="btn-learn">Learn More <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></button>
           </div>
-          <div class="svc-card" data-title="Pet Microchipping" data-category="Pet Care &amp; Grooming" data-desc="Permanent identification for your pets. A tiny microchip helps reunite lost pets with their owners through a nationwide scanning network." data-cost="&#8369;800 – &#8369;1,500" data-time="10 – 15 mins" data-includes="Microchip implant, Registration, Scanning certificate">
-            <div class="svc-card-head">
-              <span class="svc-card-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/><path d="M15 2v2"/><path d="M15 20v2"/><path d="M2 15h2"/><path d="M2 9h2"/><path d="M20 15h2"/><path d="M20 9h2"/><path d="M9 2v2"/><path d="M9 20v2"/></svg></span>
-              <h4>Pet Microchipping</h4>
-            </div>
-            <p>Permanent identification for your pets.</p>
+          <div class="svc-card" data-title="Cat Grooming" data-category="Pet Care" data-desc="Professional grooming services for cats including bathing, fur trimming, nail clipping, and ear cleaning." data-cost="&#8369;100.00 – &#8369;800.00" data-time="30 – 60 mins" data-includes="Bath, Fur trimming, Nail clipping, Ear cleaning">
+            <div class="svc-card-head"><span class="svc-card-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="4" r="2"/><circle cx="18" cy="8" r="2"/><circle cx="4" cy="8" r="2"/><path d="M12 22c-4 0-7-2-7-5 0-2 1.5-3.5 3-4s3-1 4-1 2.5.5 4 1 3 2 3 4c0 3-3 5-7 5z"/></svg></span><h4>Cat Grooming</h4></div>
+            <p>Professional grooming services for cats.</p>
+            <div class="svc-price">&#8369;100.00 – &#8369;800.00</div>
             <button class="btn-learn">Learn More <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></button>
           </div>
-          <div class="svc-card" data-title="Vet Health Certificates" data-category="Pet Care &amp; Grooming" data-desc="Official health documentation for travel and compliance. Required for pet transport, international travel, and breed registration." data-cost="&#8369;500 – &#8369;1,000" data-time="20 – 30 mins" data-includes="Physical exam, Certificate issuance, Official stamp">
-            <div class="svc-card-head">
-              <span class="svc-card-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></span>
-              <h4>Vet Health Certificates</h4>
-            </div>
-            <p>Official health documentation for travel and compliance.</p>
+          <div class="svc-card" data-title="Boarding" data-category="Pet Care" data-desc="Safe and comfortable overnight stays for your pets while you are away. Your pet will be cared for by our trained staff in a clean, secure environment." data-cost="&#8369;680.00 – &#8369;1,380.00" data-time="Overnight / multi-day" data-includes="Secure accommodation, Feeding, Exercise, Daily health check">
+            <div class="svc-card-head"><span class="svc-card-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg></span><h4>Boarding</h4></div>
+            <p>Safe and comfortable overnight stays for your pets.</p>
+            <div class="svc-price">&#8369;680.00 – &#8369;1,380.00</div>
+            <button class="btn-learn">Learn More <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></button>
+          </div>
+          <div class="svc-card" data-title="Confinement" data-category="Pet Care" data-desc="Veterinary supervised confinement for pets requiring medical observation, post-surgical recovery, or isolation." data-cost="&#8369;950.00 – &#8369;2,000.00" data-time="Daily rate" data-includes="Supervised confinement, Medication administration, Daily health monitoring">
+            <div class="svc-card-head"><span class="svc-card-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></span><h4>Confinement</h4></div>
+            <p>Veterinary supervised confinement for recovery or observation.</p>
+            <div class="svc-price">&#8369;950.00 – &#8369;2,000.00</div>
+            <button class="btn-learn">Learn More <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ══ SPECIALIZED CARE ══ -->
+      <div class="svc-category">
+        <h2 class="svc-cat-title">
+          <span class="svc-cat-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg></span>
+          Specialized Care
+        </h2>
+        <div class="svc-grid">
+          <div class="svc-card" data-title="Chemotherapy" data-category="Specialized Care" data-desc="Chemotherapy treatment for pets diagnosed with cancer. Treatment plans are tailored to each patient's specific condition and needs." data-cost="&#8369;1.00" data-time="Varies by treatment plan" data-includes="Consultation, Treatment administration, Monitoring">
+            <div class="svc-card-head"><span class="svc-card-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2v4"/><path d="M16 2v4"/><rect width="16" height="18" x="4" y="4" rx="2"/><path d="M12 11v4"/><path d="M12 17v2"/></svg></span><h4>Chemotherapy</h4></div>
+            <p>Chemotherapy treatment for pets with cancer.</p>
+            <div class="svc-price">&#8369;1.00</div>
+            <button class="btn-learn">Learn More <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></button>
+          </div>
+          <div class="svc-card" data-title="Home Service" data-category="Specialized Care" data-desc="Professional veterinary care brought directly to your home. Ideal for pets that get stressed during travel, elderly pets, or multi-pet households." data-cost="&#8369;1.00 – &#8369;500.00" data-time="Varies by service" data-includes="Home visit, Veterinary assessment, Basic treatment">
+            <div class="svc-card-head"><span class="svc-card-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg></span><h4>Home Service</h4></div>
+            <p>Professional veterinary care brought to your home.</p>
+            <div class="svc-price">&#8369;1.00 – &#8369;500.00</div>
             <button class="btn-learn">Learn More <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></button>
           </div>
         </div>
@@ -316,7 +375,7 @@
     <section class="cta">
       <span class="icon" aria-hidden="true"><svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg></span>
       <h2>Ready to Care for Your Pet?</h2>
-      <p>Schedule an appointment with our experienced veterinary team today.</p>
+      <p>Schedule a consultation or request home veterinary service for your pet.</p>
       <div class="cta-btns">
         <button class="btn btn-primary" id="ctaSignupBtn">Sign Up</button>
         <button class="btn btn-secondary" id="ctaLoginBtn">Login to Book</button>
@@ -333,9 +392,9 @@
       <h2 class="svc-modal-title" id="svcModalTitle"></h2>
       <p class="svc-modal-desc" id="svcModalDesc"></p>
       <div class="svc-modal-details">
-        <div class="svc-detail-item"><div class="label">Estimated Cost</div><div class="value" id="svcModalCost">—</div></div>
-        <div class="svc-detail-item"><div class="label">Procedure Time</div><div class="value" id="svcModalTime">—</div></div>
-        <div class="svc-detail-item" style="grid-column:1/-1;"><div class="label">What's Included</div><div class="value" id="svcModalIncludes" style="font-size:0.85rem;font-weight:500;">—</div></div>
+        <div class="svc-detail-item"><div class="label">Estimated Cost</div><div class="value" id="svcModalCost">--</div></div>
+        <div class="svc-detail-item"><div class="label">Procedure Time</div><div class="value" id="svcModalTime">--</div></div>
+        <div class="svc-detail-item" style="grid-column:1/-1;"><div class="label">What's Included</div><div class="value" id="svcModalIncludes" style="font-size:0.85rem;font-weight:500;">--</div></div>
       </div>
       <button class="svc-modal-book" id="svcModalBook">Book This Service</button>
     </div>
@@ -357,12 +416,12 @@
 
   <footer id="footer">
     <div class="footer-grid">
-      <div><h3>VHS Animal Wellness Center</h3><p>Providing compassionate veterinary care for your beloved pets since 2009.</p></div>
+      <div><h3>VHS Animal Wellness Center</h3><p>Providing compassionate veterinary care for your beloved pets.</p></div>
       <div><h4>Contact Us</h4><p>834 Aurora Boulevard cor Driod Street, Kaunlaran, Cubao, Quezon City, Philippines, 1111</p><p>0917 108 4174</p><p>vhs.animalwellness@gmail.com</p></div>
       <div><h4>Quick Links</h4><a href="index.html">Home</a><a href="services.html">Services</a><a href="about.html">About</a><a href="contact.html">Contact</a></div>
       <div><h4>Follow Us</h4><div class="social"><a href="https://www.facebook.com/VHSanimalwellnesscenter" target="_blank" rel="noopener noreferrer" aria-label="Facebook"><svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg></a><a href="https://www.instagram.com/vhsanimalwellness" target="_blank" rel="noopener noreferrer" aria-label="Instagram"><svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/></svg></a></div></div>
     </div>
-    <div class="footer-bottom"><p>&copy; 2024 VHS Animal Wellness Center. All rights reserved.</p></div>
+    <div class="footer-bottom"><p>&copy; 2025 VHS Animal Wellness Center. All rights reserved.</p></div>
   </footer>
 
   <!-- LOGIN/SIGNUP MODAL -->
