@@ -302,11 +302,19 @@ function renderApptRows(tbodyId, appts, cols) {
     .join("");
 }
 
-function openBookModal() {
+function openBookModal(serviceName) {
   openModal("bookModal");
 
   var user = _getSessionUser();
   var userId = user.id || user.userId;
+
+  // Pre-select service if provided
+  if (serviceName) {
+    var svcSelect = document.getElementById("bookServiceSelect");
+    if (svcSelect) {
+      svcSelect.value = serviceName;
+    }
+  }
 
   // Load user's pets
   var petSelect = document.getElementById("bookPetSelect");
@@ -343,6 +351,20 @@ function openBookModal() {
   // Refresh available time slots if a date is already set
   refreshUserTimeSlots();
 }
+
+// Auto-detect service from card when Book Now is clicked in Services section
+document.addEventListener("click", function(e) {
+  var btn = e.target.closest(".service-card-user .btn-primary");
+  if (!btn) return;
+  e.preventDefault();
+  var card = btn.closest(".service-card-user");
+  if (!card) return;
+  var h3 = card.querySelector("h3");
+  if (h3) {
+    var name = h3.textContent.trim().toLowerCase();
+    openBookModal(name);
+  }
+});
 
 async function submitBooking(e) {
   e.preventDefault();
