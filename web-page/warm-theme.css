@@ -114,39 +114,69 @@ header::after {
   border-color: var(--primary);
 }
 
-/* ===== HERO ===== */
+/* ===== HERO (dark purple bg) ===== */
+.hero {
+  background: linear-gradient(160deg, #1a0a3e 0%, #2d1569 40%, #3d1f80 70%, #1a0a3e 100%);
+  color: #fff;
+}
+
 .title-line {
-  color: #7a6a8f;
+  color: rgba(255, 255, 255, 0.6);
 }
 
 .title-main {
-  background: linear-gradient(135deg, #6d4ab1 0%, #8b5cf6 55%, #b79cf9 100%);
+  background: linear-gradient(135deg, #ffffff 0%, #e0d4f5 50%, #ffaa00 100%);
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;
 }
 
 .hero-description {
-  color: #6b5a80;
+  color: rgba(255, 255, 255, 0.7);
 }
 
 .hero-highlight svg {
-  color: #6d4ab1;
+  color: #ffaa00;
 }
 
 .hero-highlight span {
-  color: #6b5a80;
+  color: rgba(255, 255, 255, 0.75);
+}
+
+.hero .btn-primary {
+  background: linear-gradient(135deg, #ffaa00, #e8960a);
+  color: #1a0a3e;
+  box-shadow: 0 8px 24px rgba(255, 170, 0, 0.35);
+}
+
+.hero .btn-primary:hover {
+  box-shadow: 0 12px 32px rgba(255, 170, 0, 0.5);
+}
+
+.hero .btn-secondary {
+  background: rgba(255, 255, 255, 0.1);
+  border: 2px solid rgba(255, 255, 255, 0.25);
+  color: #fff;
+}
+
+.hero .btn-secondary:hover {
+  background: rgba(255, 255, 255, 0.2);
+  border-color: rgba(255, 255, 255, 0.4);
+}
+
+.hero-visual {
+  border: 2px solid rgba(255, 255, 255, 0.1);
 }
 
 .stat-number {
-  background: linear-gradient(135deg, #6d4ab1, #8b5cf6);
+  background: linear-gradient(135deg, #ffaa00, #ffd080);
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;
 }
 
 .stat-label {
-  color: #8a7a9f;
+  color: rgba(255, 255, 255, 0.55);
 }
 
 /* ===== ICON TILES =====

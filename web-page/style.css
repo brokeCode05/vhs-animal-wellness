@@ -638,9 +638,9 @@ header.nav-visible {
   align-items: center;
   justify-content: center;
   overflow: hidden;
-  padding: 6rem 2rem 4rem;
-  background: radial-gradient(ellipse at 20% 30%, rgba(139, 92, 246, 0.08) 0%, transparent 55%),
-              radial-gradient(ellipse at 80% 70%, rgba(255, 170, 0, 0.04) 0%, transparent 50%);
+  padding: 7rem 2rem 5rem;
+  background: linear-gradient(160deg, #1a0a3e 0%, #2d1569 40%, #3d1f80 70%, #1a0a3e 100%);
+  color: #fff;
 }
 
 /* Hero Container */
@@ -905,6 +905,10 @@ header.nav-visible {
   margin: 0 auto;
   padding: 5rem 2rem;
   position: relative;
+}
+
+.section:first-of-type {
+  padding-top: 4rem;
 }
 
 .section h2 {
@@ -2148,12 +2152,6 @@ footer a:hover {
     margin-top: 0;
   }
 
-  .hero-pet {
-    height: 80%;
-    max-height: 300px;
-  }
-
-
 
   /* Team - Horizontal scroll on mobile */
   .team-section-title {
@@ -2301,11 +2299,6 @@ footer a:hover {
 
   .hero-visual {
     height: 260px;
-  }
-
-  .hero-pet {
-    height: 75%;
-    max-height: 280px;
   }
 
   .hero-stats {
