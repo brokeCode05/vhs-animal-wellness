@@ -229,23 +229,11 @@ body {
   justify-content: center;
 }
 
-/* Individual paw print */
+/* Individual paw print — continuous walking cycle */
 .loader-paw {
   opacity: 0;
   transform: translateY(8px) scale(0.7);
-  animation: pawAppear 0.4s ease-out forwards;
 }
-
-.loader-paw:nth-child(1) { animation-delay: 0s; }
-.loader-paw:nth-child(2) { animation-delay: 0.25s; }
-.loader-paw:nth-child(3) { animation-delay: 0.5s; }
-.loader-paw:nth-child(4) { animation-delay: 0.75s; }
-
-/* Slight vertical offset for walking effect */
-.loader-paw:nth-child(1) { transform: translateY(8px) scale(0.7) rotate(-12deg); }
-.loader-paw:nth-child(2) { transform: translateY(4px) scale(0.8) rotate(8deg); }
-.loader-paw:nth-child(3) { transform: translateY(6px) scale(0.9) rotate(-6deg); }
-.loader-paw:nth-child(4) { transform: translateY(2px) scale(1) rotate(10deg); }
 
 .loader-paw svg {
   width: 36px;
@@ -253,29 +241,41 @@ body {
   fill: rgba(255, 255, 255, 0.7);
 }
 
+/* Staggered fade-in then continuous pulse cycle */
+.loader-paw:nth-child(1) { animation: pawCycle1 2s ease-in-out infinite; animation-delay: 0s; }
+.loader-paw:nth-child(2) { animation: pawCycle2 2s ease-in-out infinite; animation-delay: 0.2s; }
+.loader-paw:nth-child(3) { animation: pawCycle3 2s ease-in-out infinite; animation-delay: 0.4s; }
+.loader-paw:nth-child(4) { animation: pawCycle4 2s ease-in-out infinite; animation-delay: 0.6s; }
+
+/* Paw opacity cycling — each paw lights up in sequence, then resets */
+@keyframes pawCycle1 {
+  0%, 100% { opacity: 0.25; transform: translateY(4px) scale(0.8) rotate(-12deg); }
+  12.5%    { opacity: 1;   transform: translateY(0) scale(1) rotate(-12deg); }
+  25%      { opacity: 0.25; transform: translateY(4px) scale(0.8) rotate(-12deg); }
+}
+@keyframes pawCycle2 {
+  0%, 100% { opacity: 0.25; transform: translateY(4px) scale(0.8) rotate(8deg); }
+  25%      { opacity: 0.25; transform: translateY(4px) scale(0.8) rotate(8deg); }
+  37.5%    { opacity: 1;   transform: translateY(0) scale(1) rotate(8deg); }
+  50%      { opacity: 0.25; transform: translateY(4px) scale(0.8) rotate(8deg); }
+}
+@keyframes pawCycle3 {
+  0%, 100% { opacity: 0.25; transform: translateY(4px) scale(0.8) rotate(-6deg); }
+  50%      { opacity: 0.25; transform: translateY(4px) scale(0.8) rotate(-6deg); }
+  62.5%    { opacity: 1;   transform: translateY(0) scale(1) rotate(-6deg); }
+  75%      { opacity: 0.25; transform: translateY(4px) scale(0.8) rotate(-6deg); }
+}
+@keyframes pawCycle4 {
+  0%, 100% { opacity: 0.25; transform: translateY(4px) scale(0.8) rotate(10deg); }
+  75%      { opacity: 0.25; transform: translateY(4px) scale(0.8) rotate(10deg); }
+  87.5%    { opacity: 1;   transform: translateY(-2px) scale(1.05) rotate(10deg); }
+}
+
+/* Paw color cycling */
 .loader-paw:nth-child(1) svg { fill: rgba(255, 255, 255, 0.25); }
 .loader-paw:nth-child(2) svg { fill: rgba(255, 255, 255, 0.4); }
 .loader-paw:nth-child(3) svg { fill: rgba(255, 255, 255, 0.55); }
 .loader-paw:nth-child(4) svg { fill: #ffaa00; }
-
-@keyframes pawAppear {
-  to {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
-}
-
-/* Slight bounce on the last paw */
-.loader-paw:nth-child(4) {
-  animation: pawAppearBounce 0.5s ease-out forwards;
-  animation-delay: 0.75s;
-}
-
-@keyframes pawAppearBounce {
-  0%   { opacity: 0; transform: translateY(8px) scale(0.7) rotate(10deg); }
-  60%  { opacity: 1; transform: translateY(-3px) scale(1.05) rotate(10deg); }
-  100% { opacity: 1; transform: translateY(0) scale(1) rotate(10deg); }
-}
 
 /* Clinic name below the trail */
 .loader-text {
@@ -373,7 +373,6 @@ header {
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
   box-shadow: 0 4px 24px rgba(109, 74, 177, 0.45);
   transition: transform 0.3s ease-in-out;
-  overflow: hidden;
 }
 
 /* Shimmer line */
