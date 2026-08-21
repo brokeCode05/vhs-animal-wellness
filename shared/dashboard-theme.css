@@ -1057,7 +1057,6 @@ body.modal-open {
   box-shadow: 0 12px 40px rgba(43, 31, 61, 0.18);
   max-height: 280px;
   overflow: hidden;
-  display: flex;
   flex-direction: column;
 }
 
