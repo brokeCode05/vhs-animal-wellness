@@ -890,7 +890,7 @@ body.modal-open {
   background: var(--accent-border);
   border: 1px solid var(--accent-border);
   border-radius: 0.875rem;
-  overflow: hidden;
+  overflow: visible;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.05);
 }
 
@@ -1231,6 +1231,7 @@ body.modal-open {
   .week-time-label { font-size: 0.55rem; min-height: 2.2rem; padding: 0.2rem; }
   .week-cell { min-height: 2.2rem; padding: 0.1rem; }
   .week-cell--closed::after { font-size: 0.5rem; }
+  .calendar-grid.day-view .day-header,
   .calendar-grid.day-view .day-row {
     grid-template-columns: 55px 1fr;
   }
@@ -1255,6 +1256,7 @@ body.modal-open {
   .week-time-label { font-size: 0.5rem; min-height: 1.8rem; }
   .week-cell { min-height: 1.8rem; }
   .week-apt { font-size: 0.45rem; padding: 0.1rem 0.15rem; }
+  .calendar-grid.day-view .day-header,
   .calendar-grid.day-view .day-row {
     grid-template-columns: 48px 1fr;
   }
