@@ -717,38 +717,7 @@ header.nav-visible {
   animation: fadeInLeft 1s ease-out;
 }
 
-/* Hero Open/Closed Status */
-.hero-status {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.4rem 0.85rem;
-  border-radius: 2rem;
-  background: rgba(255, 255, 255, 0.4);
-  border: 1px solid rgba(139, 92, 246, 0.1);
-  width: fit-content;
-  margin-bottom: 1.25rem;
-  animation: fadeIn 0.8s ease-out 0.2s backwards;
-}
 
-.hero-status__dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: #22c55e;
-  flex-shrink: 0;
-}
-
-.hero-status--closed .hero-status__dot {
-  background: #ef4444;
-}
-
-.hero-status__text {
-  font-size: 0.78rem;
-  font-weight: 600;
-  color: var(--text);
-  letter-spacing: 0.02em;
-}
 
 @keyframes fadeInLeft {
   from {

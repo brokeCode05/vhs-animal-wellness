@@ -143,47 +143,6 @@ if (heroPets.length > 0) setInterval(nextHeroPet, 5000);
   setTimeout(startCounters, 800);
 })();
 
-// ===== HERO OPEN/CLOSED STATUS =====
-(function initHeroStatus() {
-  const el = document.getElementById('heroStatus');
-  if (!el) return;
-  const textEl = el.querySelector('.hero-status__text');
-
-  // Operating hours (day 0=Sun ... 6=Sat)
-  const hours = {
-    0: { open: 10, close: 19 }, // Sun 10AM-7PM
-    1: { open: 9,  close: 18 }, // Mon-Fri 9AM-6PM
-    2: { open: 9,  close: 18 },
-    3: { open: 9,  close: 18 },
-    4: { open: 9,  close: 18 },
-    5: { open: 10, close: 19 }, // Fri 10AM-7PM
-    6: { open: 10, close: 19 }, // Sat 10AM-7PM
-  };
-
-  const days = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
-  const now = new Date();
-  const day = now.getDay();
-  const hour = now.getHours();
-  const min = now.getMinutes();
-  const currentMinutes = hour * 60 + min;
-  const h = hours[day];
-  const openMinutes = h.open * 60;
-  const closeMinutes = h.close * 60;
-
-  const isOpen = currentMinutes >= openMinutes && currentMinutes < closeMinutes;
-  const closeH = Math.floor(h.close / 12) || 12;
-  const closeMin = h.close % 60;
-  const closeSuffix = h.close >= 12 ? 'PM' : 'AM';
-  const closeTime = closeH + (closeMin ? ':' + String(closeMin).padStart(2,'0') : '') + ' ' + closeSuffix;
-
-  if (isOpen) {
-    textEl.textContent = 'Open Now \u2022 Closes at ' + closeTime;
-  } else {
-    el.classList.add('hero-status--closed');
-    textEl.textContent = 'Closed \u2022 ' + days[day] + ' ' + h.open + (h.open >= 12 ? 'PM' : 'AM');
-  }
-})();
-
 // ===== HERO HIGHLIGHT ICON SCROLL ANIMATION =====
 (function initHighlightAnim() {
   const highlights = document.querySelectorAll('.hero-highlight');

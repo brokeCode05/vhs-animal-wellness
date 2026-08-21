@@ -195,15 +195,6 @@ header::after {
   opacity: 0.7;
 }
 
-/* Hero status badge — warm theme */
-.hero-status {
-  background: rgba(255, 255, 255, 0.5);
-  border-color: rgba(109, 74, 177, 0.08);
-}
-.hero-status__text {
-  color: #4a3a5e;
-}
-
 /* ===== ICON TILES =====
    Plain floating icons → soft purple gradient tiles */
 .service-card .icon,
