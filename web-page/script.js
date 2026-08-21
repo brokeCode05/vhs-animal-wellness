@@ -98,6 +98,71 @@ function nextHeroPet() {
 
 if (heroPets.length > 0) setInterval(nextHeroPet, 5000);
 
+// ===== ANIMATED COUNTER STATS =====
+(function initCounters() {
+  const counters = document.querySelectorAll('.stat-number[data-count]');
+  const textCounters = document.querySelectorAll('.stat-number[data-text]');
+  let counted = false;
+
+  function animateCounter(el) {
+    const target = parseInt(el.dataset.count, 10);
+    const suffix = el.dataset.suffix || '';
+    const duration = 1500;
+    const start = performance.now();
+
+    function update(now) {
+      const elapsed = now - start;
+      const progress = Math.min(elapsed / duration, 1);
+      const eased = 1 - Math.pow(1 - progress, 3);
+      el.textContent = Math.round(target * eased) + suffix;
+      if (progress < 1) requestAnimationFrame(update);
+    }
+    requestAnimationFrame(update);
+  }
+
+  function animateTextCounter(el) {
+    const text = el.dataset.text;
+    el.style.opacity = '0';
+    el.style.transform = 'translateY(8px)';
+    setTimeout(() => {
+      el.textContent = text;
+      el.style.transition = 'opacity 0.5s ease, transform 0.5s ease';
+      el.style.opacity = '1';
+      el.style.transform = 'translateY(0)';
+    }, 1200);
+  }
+
+  function startCounters() {
+    if (counted) return;
+    counted = true;
+    counters.forEach(animateCounter);
+    textCounters.forEach(animateTextCounter);
+  }
+
+  // Start after loader hides
+  setTimeout(startCounters, 800);
+})();
+
+// ===== HERO HIGHLIGHT ICON SCROLL ANIMATION =====
+(function initHighlightAnim() {
+  const highlights = document.querySelectorAll('.hero-highlight');
+  if (!highlights.length) return;
+
+  let animated = false;
+  function checkInView() {
+    if (animated) return;
+    const rect = highlights[0].getBoundingClientRect();
+    if (rect.top < window.innerHeight && rect.bottom > 0) {
+      animated = true;
+      highlights.forEach(h => h.classList.add('in-view'));
+    }
+  }
+
+  // Check on load and scroll
+  setTimeout(checkInView, 600);
+  window.addEventListener('scroll', checkInView, { once: true });
+})();
+
 // Hero Sign Up Button
 document.getElementById("heroSignupBtn")?.addEventListener("click", () => {
   openBookModal();

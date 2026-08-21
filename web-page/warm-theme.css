@@ -195,6 +195,15 @@ header::after {
   opacity: 0.7;
 }
 
+/* Hero testimonial — warm theme */
+.hero-testimonial {
+  background: rgba(255, 253, 254, 0.88);
+  border-color: rgba(109, 74, 177, 0.08);
+}
+.hero-testimonial p {
+  color: #4a3a5e;
+}
+
 /* ===== ICON TILES =====
    Plain floating icons → soft purple gradient tiles */
 .service-card .icon,
