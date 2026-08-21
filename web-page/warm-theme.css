@@ -195,12 +195,12 @@ header::after {
   opacity: 0.7;
 }
 
-/* Hero testimonial — warm theme */
-.hero-testimonial {
-  background: rgba(255, 253, 254, 0.88);
+/* Hero status badge — warm theme */
+.hero-status {
+  background: rgba(255, 255, 255, 0.5);
   border-color: rgba(109, 74, 177, 0.08);
 }
-.hero-testimonial p {
+.hero-status__text {
   color: #4a3a5e;
 }
 

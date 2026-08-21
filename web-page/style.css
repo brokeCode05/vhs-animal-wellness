@@ -717,6 +717,39 @@ header.nav-visible {
   animation: fadeInLeft 1s ease-out;
 }
 
+/* Hero Open/Closed Status */
+.hero-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.4rem 0.85rem;
+  border-radius: 2rem;
+  background: rgba(255, 255, 255, 0.4);
+  border: 1px solid rgba(139, 92, 246, 0.1);
+  width: fit-content;
+  margin-bottom: 1rem;
+  animation: fadeIn 0.8s ease-out 0.2s backwards;
+}
+
+.hero-status__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #22c55e;
+  flex-shrink: 0;
+}
+
+.hero-status--closed .hero-status__dot {
+  background: #ef4444;
+}
+
+.hero-status__text {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text);
+  letter-spacing: 0.02em;
+}
+
 @keyframes fadeInLeft {
   from {
     opacity: 0;
@@ -980,46 +1013,7 @@ header.nav-visible {
   pointer-events: none;
 }
 
-/* Hero Testimonial */
-.hero-testimonial {
-  position: absolute;
-  bottom: 1.25rem;
-  left: 1.25rem;
-  right: 1.25rem;
-  z-index: 3;
-  padding: 1rem 1.25rem;
-  border-radius: 0.75rem;
-  background: rgba(255, 255, 255, 0.85);
-  backdrop-filter: blur(12px);
-  border: 1px solid rgba(139, 92, 246, 0.1);
-  box-shadow: 0 4px 16px rgba(109, 74, 177, 0.1);
-  animation: fadeIn 1s ease-out 1.4s backwards;
-}
 
-.hero-testimonial__quote {
-  font-size: 2rem;
-  line-height: 1;
-  color: var(--secondary);
-  opacity: 0.4;
-  font-family: Georgia, serif;
-  margin-bottom: -0.25rem;
-}
-
-.hero-testimonial p {
-  font-size: 0.85rem;
-  line-height: 1.5;
-  color: var(--text);
-  font-style: italic;
-  margin: 0;
-}
-
-.hero-testimonial__author {
-  display: block;
-  font-size: 0.75rem;
-  font-weight: 600;
-  color: var(--secondary);
-  margin-top: 0.35rem;
-}
 
 @keyframes fadeInRight {
   from {
@@ -1052,6 +1046,34 @@ header.nav-visible {
 .hero-pet.active {
   opacity: 1;
   animation: heroImageIn 1s ease-out;
+}
+
+/* Ken Burns slow zoom+pan on each image */
+.hero-pet.active:nth-child(1) { animation: heroImageIn 1s ease-out, kenBurns1 8s ease-in-out 1s forwards; }
+.hero-pet.active:nth-child(2) { animation: heroImageIn 1s ease-out, kenBurns2 8s ease-in-out 1s forwards; }
+.hero-pet.active:nth-child(3) { animation: heroImageIn 1s ease-out, kenBurns3 8s ease-in-out 1s forwards; }
+.hero-pet.active:nth-child(4) { animation: heroImageIn 1s ease-out, kenBurns4 8s ease-in-out 1s forwards; }
+.hero-pet.active:nth-child(5) { animation: heroImageIn 1s ease-out, kenBurns5 8s ease-in-out 1s forwards; }
+
+@keyframes kenBurns1 {
+  from { transform: scale(1); }
+  to   { transform: scale(1.08) translate(-2%, -1%); }
+}
+@keyframes kenBurns2 {
+  from { transform: scale(1); }
+  to   { transform: scale(1.06) translate(1%, -2%); }
+}
+@keyframes kenBurns3 {
+  from { transform: scale(1); }
+  to   { transform: scale(1.1) translate(-1%, 1%); }
+}
+@keyframes kenBurns4 {
+  from { transform: scale(1); }
+  to   { transform: scale(1.07) translate(2%, 1%); }
+}
+@keyframes kenBurns5 {
+  from { transform: scale(1); }
+  to   { transform: scale(1.09) translate(-1%, -2%); }
 }
 
 @keyframes heroImageIn {
@@ -2276,7 +2298,6 @@ footer a:hover {
     margin-top: 0;
   }
 
-  .hero-testimonial { display: none; }
 
   .title-line {
     font-size: 1.1rem;
