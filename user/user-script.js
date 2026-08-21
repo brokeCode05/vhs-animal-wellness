@@ -500,14 +500,16 @@ function refreshUserTimeSlots() {
   if (!timeSelect) return;
 
   if (!dateInput || !dateInput.value) {
+    var defaultSlots = getVHSTimeSlots(new Date().toISOString().split('T')[0]);
     timeSelect.innerHTML =
       '<option value="">Select time</option>' +
-      VHS_TIME_SLOTS.map(function (s) {
+      defaultSlots.map(function (s) {
         return '<option value="' + s + '">' + s + "</option>";
       }).join("");
     return;
   }
 
+  var slots = getVHSTimeSlots(dateInput.value);
   timeSelect.innerHTML = '<option value="">Loading slots...</option>';
   fetch("../php_files/get_booked_slots.php?date=" + dateInput.value)
     .then(function (r) {
@@ -517,7 +519,7 @@ function refreshUserTimeSlots() {
       var booked = data.booked_slots || [];
       timeSelect.innerHTML =
         '<option value="">Select time</option>' +
-        VHS_TIME_SLOTS.map(function (slot) {
+        slots.map(function (slot) {
           var isBooked = booked.indexOf(slot) !== -1;
           return (
             '<option value="' +
@@ -534,7 +536,7 @@ function refreshUserTimeSlots() {
     .catch(function () {
       timeSelect.innerHTML =
         '<option value="">Select time</option>' +
-        VHS_TIME_SLOTS.map(function (s) {
+        slots.map(function (s) {
           return '<option value="' + s + '">' + s + "</option>";
         }).join("");
     });

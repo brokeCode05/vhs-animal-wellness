@@ -137,19 +137,20 @@ function refreshClerkTimeSlots() {
     timeSelect.innerHTML = '<option value="">Select date first</option>';
     return;
   }
+  var slots = getVHSTimeSlots(dateInput.value);
   timeSelect.innerHTML = '<option value="">Loading slots...</option>';
   fetch('../php_files/get_booked_slots.php?date=' + dateInput.value)
     .then(function(r) { return r.json(); })
     .then(function(data) {
       var booked = data.booked_slots || [];
-      timeSelect.innerHTML = '<option value="">Select time</option>' + VHS_TIME_SLOTS.map(function(slot) {
+      timeSelect.innerHTML = '<option value="">Select time</option>' + slots.map(function(slot) {
         var isBooked = booked.indexOf(slot) !== -1;
         return '<option value="' + slot + '"' + (isBooked ? ' disabled' : '') + '>' +
           slot + (isBooked ? ' (Unavailable)' : '') + '</option>';
       }).join('');
     })
     .catch(function() {
-      timeSelect.innerHTML = '<option value="">Select time</option>' + VHS_TIME_SLOTS.map(function(slot) {
+      timeSelect.innerHTML = '<option value="">Select time</option>' + slots.map(function(slot) {
         return '<option value="' + slot + '">' + slot + '</option>';
       }).join('');
     });

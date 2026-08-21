@@ -10,6 +10,44 @@ const VHS_TIME_SLOTS = [
   '1:00 PM','2:00 PM','3:00 PM','4:00 PM','5:00 PM'
 ];
 
+// Operating hours by day of week (0=Sun, 6=Sat)
+// Sunday/Friday/Saturday: 10AM-7PM, Monday-Thursday: 9AM-6PM
+const VHS_HOURS = {
+  0: { open: 10, close: 19 }, // Sunday
+  1: { open: 9,  close: 18 }, // Monday
+  2: { open: 9,  close: 18 }, // Tuesday
+  3: { open: 9,  close: 18 }, // Wednesday
+  4: { open: 9,  close: 18 }, // Thursday
+  5: { open: 10, close: 19 }, // Friday
+  6: { open: 10, close: 19 }, // Saturday
+};
+
+// Return time slots appropriate for a given date string (YYYY-MM-DD)
+function getVHSTimeSlots(dateStr) {
+  if (!dateStr) return VHS_TIME_SLOTS;
+  var d = new Date(dateStr + 'T12:00:00');
+  var day = d.getDay();
+  var h = VHS_HOURS[day];
+  var slots = [];
+  var allSlots = [
+    { label: '8:00 AM', hour: 8 },
+    { label: '9:00 AM', hour: 9 },
+    { label: '10:00 AM', hour: 10 },
+    { label: '11:00 AM', hour: 11 },
+    { label: '12:00 PM', hour: 12 },
+    { label: '1:00 PM', hour: 13 },
+    { label: '2:00 PM', hour: 14 },
+    { label: '3:00 PM', hour: 15 },
+    { label: '4:00 PM', hour: 16 },
+    { label: '5:00 PM', hour: 17 },
+    { label: '6:00 PM', hour: 18 },
+  ];
+  allSlots.forEach(function(s) {
+    if (s.hour >= h.open && s.hour < h.close) slots.push(s.label);
+  });
+  return slots;
+}
+
 // ── TOAST ──────────────────────────────────────────────────────────────────
 
 const TOAST_LABELS = { success: 'Success', error: 'Error', warning: 'Warning', info: 'Info' };
