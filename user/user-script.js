@@ -320,6 +320,12 @@ function openBookModal(serviceName) {
     var svcSelect = document.getElementById("bookServiceSelect");
     if (svcSelect) {
       svcSelect.value = serviceName;
+      // Sync custom dropdown trigger text
+      var trigger = svcSelect.parentNode.querySelector('.cd-trigger-text');
+      if (trigger) {
+        var selOpt = svcSelect.options[svcSelect.selectedIndex];
+        trigger.textContent = selOpt ? selOpt.text : 'Choose a service';
+      }
     }
   }
 
@@ -1148,6 +1154,119 @@ function loadUserData() {
 
 // ─── INIT ─────────────────────────────────────────────────────────────────────
 
+// ─── CUSTOM SEARCHABLE DROPDOWN ─────────────────────────────────────────────
+function initCustomDropdown(selectId) {
+  var select = document.getElementById(selectId);
+  if (!select) return;
+
+  var trigger = document.createElement('div');
+  trigger.className = 'cd-trigger';
+  trigger.tabIndex = 0;
+  trigger.innerHTML = '<span class="cd-trigger-text">' + (select.options[0]?.text || 'Select...') + '</span><svg class="cd-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>';
+  select.parentNode.insertBefore(trigger, select.nextSibling);
+  select.style.display = 'none';
+
+  var panel = document.createElement('div');
+  panel.className = 'cd-panel';
+  panel.innerHTML = '<div class="cd-search-wrap"><input type="text" class="cd-search" placeholder="Search services..." /></div><div class="cd-options"></div>';
+  trigger.parentNode.insertBefore(panel, trigger.nextSibling);
+
+  var searchInput = panel.querySelector('.cd-search');
+  var optionsWrap = panel.querySelector('.cd-options');
+  var isOpen = false;
+
+  function renderOptions(filter) {
+    optionsWrap.innerHTML = '';
+    var filterLower = (filter || '').toLowerCase();
+    var groups = [];
+    var currentGroup = { label: '', options: [] };
+
+    Array.from(select.options).forEach(function(opt) {
+      if (opt.parentElement.tagName === 'OPTGROUP') {
+        if (opt.parentElement !== (currentGroup._optgroup || null)) {
+          if (currentGroup.options.length) groups.push(currentGroup);
+          currentGroup = { label: opt.parentElement.label, options: [], _optgroup: opt.parentElement };
+        }
+      } else {
+        if (currentGroup.options.length || currentGroup.label) {
+          groups.push(currentGroup);
+          currentGroup = { label: '', options: [] };
+        }
+      }
+      if (opt.value && opt.text.toLowerCase().indexOf(filterLower) !== -1) {
+        currentGroup.options.push(opt);
+      }
+    });
+    if (currentGroup.options.length || (!currentGroup.label && groups.length === 0)) groups.push(currentGroup);
+
+    groups.forEach(function(grp) {
+      if (grp.options.length === 0) return;
+      if (grp.label) {
+        var gh = document.createElement('div');
+        gh.className = 'cd-group-label';
+        gh.textContent = grp.label;
+        optionsWrap.appendChild(gh);
+      }
+      grp.options.forEach(function(opt) {
+        var item = document.createElement('div');
+        item.className = 'cd-option';
+        item.textContent = opt.text;
+        item.dataset.value = opt.value;
+        if (opt.value === select.value) item.classList.add('selected');
+        item.addEventListener('click', function() {
+          select.value = opt.value;
+          trigger.querySelector('.cd-trigger-text').textContent = opt.text;
+          closePanel();
+          select.dispatchEvent(new Event('change'));
+        });
+        optionsWrap.appendChild(item);
+      });
+    });
+
+    if (optionsWrap.children.length === 0) {
+      var empty = document.createElement('div');
+      empty.className = 'cd-option cd-empty';
+      empty.textContent = 'No services found';
+      optionsWrap.appendChild(empty);
+    }
+  }
+
+  function openPanel() {
+    isOpen = true;
+    panel.classList.add('open');
+    trigger.classList.add('active');
+    renderOptions('');
+    searchInput.value = '';
+    setTimeout(function() { searchInput.focus(); }, 50);
+  }
+
+  function closePanel() {
+    isOpen = false;
+    panel.classList.remove('open');
+    trigger.classList.remove('active');
+  }
+
+  trigger.addEventListener('click', function(e) {
+    e.stopPropagation();
+    isOpen ? closePanel() : openPanel();
+  });
+  trigger.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); isOpen ? closePanel() : openPanel(); }
+    if (e.key === 'Escape') closePanel();
+  });
+  searchInput.addEventListener('input', function() { renderOptions(searchInput.value); });
+  searchInput.addEventListener('keydown', function(e) { if (e.key === 'Escape') { closePanel(); trigger.focus(); } });
+  document.addEventListener('click', function(e) {
+    if (!trigger.contains(e.target) && !panel.contains(e.target)) closePanel();
+  });
+
+  // Sync initial display
+  if (select.value) {
+    var selOpt = select.options[select.selectedIndex];
+    if (selOpt) trigger.querySelector('.cd-trigger-text').textContent = selOpt.text;
+  }
+}
+
 document.addEventListener("DOMContentLoaded", () => {
   loadUserData();
   initLogout();
@@ -1155,6 +1274,9 @@ document.addEventListener("DOMContentLoaded", () => {
   loadUserAppointments();
   showSection("dashboard");
   autoLabelTables();
+
+  // Initialize custom searchable dropdown for service select
+  initCustomDropdown('bookServiceSelect');
 
   // ── Profile field input restrictions ──────────────────────────────────────
   // Block digits from name fields
