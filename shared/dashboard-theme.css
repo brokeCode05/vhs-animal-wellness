@@ -908,6 +908,35 @@ body.modal-open {
 .day-apt.status-completed { background: rgba(34,197,94,0.1); }
 .day-apt.status-canceled, .day-apt.status-cancelled { background: rgba(239,68,68,0.1); }
 
+/* ===== SELECT OPTGROUP FIX ===== */
+.form-select optgroup {
+  font-weight: 700;
+  font-size: 0.8rem;
+  color: var(--accent);
+  background: var(--bg-alt);
+  padding: 0.4rem 0.5rem;
+  border-top: 1px solid var(--border);
+}
+
+.form-select option {
+  font-weight: 400;
+  font-size: 0.875rem;
+  color: var(--text);
+  background: #fff;
+  padding: 0.35rem 0.5rem;
+}
+
+/* Fix select dropdown inside modal — scroll the form, not the modal */
+.modal-overlay .modal-content {
+  overflow-y: visible;
+}
+
+.modal-overlay .modal-content form {
+  max-height: calc(90vh - 4rem);
+  overflow-y: auto;
+  padding-right: 0.25rem;
+}
+
 /* ===== RESPONSIVE ===== */
 @media (max-width: 768px) {
   .navbar {
