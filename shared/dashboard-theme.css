@@ -1261,3 +1261,45 @@ body.modal-open {
   .day-time-label { font-size: 0.6rem; }
   .day-apt { font-size: 0.6rem; padding: 0.2rem 0.35rem; }
 }
+
+/* ===== CALENDAR CONTROLS RESPONSIVE ===== */
+.calendar-controls {
+  min-width: 0;
+}
+
+.calendar-controls .calendar-month {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex-shrink: 1;
+  font-size: 1.1rem;
+}
+
+.calendar-controls .calendar-nav,
+.calendar-controls .calendar-view-toggle,
+.calendar-controls .calendar-actions {
+  flex-shrink: 0;
+}
+
+/* ===== MODAL FORM BUTTONS ===== */
+.modal-content {
+  overflow: hidden;
+}
+
+.modal-content .btn-primary,
+.modal-content .btn-secondary {
+  padding: 0.7rem 1rem !important;
+  font-size: 0.875rem !important;
+  min-width: 0 !important;
+  width: auto !important;
+  flex: 1 1 0 !important;
+  box-sizing: border-box;
+}
+
+.modal-content .form-actions,
+.modal-content form > div:last-child {
+  display: flex !important;
+  gap: 0.75rem !important;
+  margin-top: 0.5rem !important;
+}
