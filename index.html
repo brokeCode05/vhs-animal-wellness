@@ -12,29 +12,41 @@
       justify-content: center;
       min-height: 100vh;
       margin: 0;
-      background: linear-gradient(135deg, #170741, #2d1b69, #6d4ab1);
+      background: #1a0a3e;
       color: white;
     }
-    .loader { text-align: center; }
-    .loader h1 { font-size: 1.5rem; margin-bottom: 0.5rem; }
-    .loader p { opacity: 0.7; }
-    .spinner {
-      width: 40px; height: 40px;
-      border: 4px solid rgba(255,255,255,0.2);
+    .wrap { text-align: center; }
+    .ring {
+      width: 48px; height: 48px;
+      border: 3px solid rgba(255,255,255,0.1);
       border-top-color: #ffaa00;
+      border-right-color: #6d4ab1;
       border-radius: 50%;
-      animation: spin 0.8s linear infinite;
+      animation: spin 0.9s linear infinite;
       margin: 0 auto 1.5rem;
     }
+    .ring::before {
+      content: '';
+      display: block;
+      width: 32px; height: 32px;
+      margin: 6px;
+      border: 2px solid rgba(255,255,255,0.06);
+      border-top-color: rgba(255,170,0,0.5);
+      border-radius: 50%;
+      animation: spin 1.4s linear infinite reverse;
+    }
+    .title { font-size: 1rem; font-weight: 600; letter-spacing: 3px; text-transform: uppercase; }
+    .sub   { font-size: 0.75rem; color: rgba(255,255,255,0.35); margin-top: 0.5rem; }
+    .link  { display: inline-block; margin-top: 1.5rem; color: #ffaa00; text-decoration: none; font-size: 0.8rem; }
     @keyframes spin { to { transform: rotate(360deg); } }
   </style>
 </head>
 <body>
-  <div class="loader">
-    <div class="spinner"></div>
-    <h1>VHS Animal Wellness Center</h1>
-    <p>Redirecting to the website...</p>
-    <p style="margin-top:1rem;"><a href="web-page/index.html" style="color:#ffaa00;">Click here if not redirected</a></p>
+  <div class="wrap">
+    <div class="ring"></div>
+    <div class="title">VHS</div>
+    <div class="sub">Redirecting...</div>
+    <a class="link" href="web-page/index.html">Click here if not redirected</a>
   </div>
 </body>
 </html>

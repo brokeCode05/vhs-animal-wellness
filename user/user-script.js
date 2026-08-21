@@ -123,11 +123,13 @@ function initLogout() {
         sessionStorage.clear();
         const loader = document.createElement("div");
         loader.style.cssText =
-          "position:fixed;inset:0;background:linear-gradient(135deg,#6d4ab1,#170741);display:flex;align-items:center;justify-content:center;z-index:99999;";
+          "position:fixed;inset:0;background:#1a0a3e;display:flex;align-items:center;justify-content:center;z-index:99999;";
         loader.innerHTML = `
         <div style="text-align:center;">
-          <div style="width:60px;height:60px;border:5px solid rgba(255,255,255,0.2);border-top-color:#ffaa00;border-radius:50%;animation:spin 0.8s linear infinite;margin:0 auto 1rem;"></div>
-          <div style="color:white;font-size:1.1rem;font-weight:700;font-family:inherit;">Logging out...</div>
+          <div style="width:48px;height:48px;border:3px solid rgba(255,255,255,0.1);border-top-color:#ffaa00;border-right-color:#6d4ab1;border-radius:50%;animation:spin 0.9s linear infinite;margin:0 auto 1.2rem;position:relative;">
+            <div style="position:absolute;inset:8px;border:2px solid rgba(255,255,255,0.06);border-top-color:rgba(255,170,0,0.5);border-radius:50%;animation:spin 1.4s linear infinite reverse;"></div>
+          </div>
+          <div style="color:white;font-size:0.85rem;font-weight:600;letter-spacing:3px;text-transform:uppercase;font-family:inherit;">Logging out</div>
         </div>
         <style>@keyframes spin{to{transform:rotate(360deg)}}</style>
       `;

@@ -563,13 +563,29 @@ footer a:hover {
   background: #fdf9ff;
 }
 
+.page-loader::before {
+  background:
+    radial-gradient(ellipse at 30% 20%, rgba(109, 74, 177, 0.08) 0%, transparent 60%),
+    radial-gradient(ellipse at 70% 80%, rgba(255, 170, 0, 0.04) 0%, transparent 50%);
+}
+
 .loader-spinner {
-  border-color: rgba(109, 74, 177, 0.2);
+  border-color: rgba(109, 74, 177, 0.12);
   border-top-color: #6d4ab1;
+  border-right-color: #d4b896;
+}
+
+.loader-spinner::before {
+  border-color: rgba(109, 74, 177, 0.06);
+  border-top-color: rgba(109, 74, 177, 0.4);
 }
 
 .loader-text {
-  color: #7a6a8f;
+  color: #3d2a5c;
+}
+
+.loader-subtext {
+  color: rgba(61, 42, 92, 0.35);
 }
 
 /* ===== CHATBOT ===== */

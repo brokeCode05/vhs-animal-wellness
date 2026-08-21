@@ -508,15 +508,19 @@ h1, h2, h3, h4, h5, h6,
 
 /* ===== LOADING OVERLAY (accent-tinted) ===== */
 .loading-overlay {
-  background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 92%, #0a0a0a) 0%, color-mix(in srgb, var(--accent-deep) 92%, #000) 100%);
-  backdrop-filter: blur(12px);
+  background: color-mix(in srgb, var(--accent-deep) 92%, #000);
+  backdrop-filter: blur(8px);
 }
 
 .spinner {
-  border-color: rgba(255, 255, 255, 0.22);
+  border-color: rgba(255, 255, 255, 0.1);
   border-top-color: var(--accent-light);
-  border-right-color: var(--accent-light);
-  box-shadow: 0 0 50px color-mix(in srgb, var(--accent) 55%, transparent);
+  border-right-color: var(--accent);
+}
+
+.spinner::after {
+  border-color: rgba(255, 255, 255, 0.06);
+  border-top-color: color-mix(in srgb, var(--accent-light) 50%, transparent);
 }
 
 /* ===== PAGE HEADER — subtle glow + divider ===== */
