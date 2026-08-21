@@ -759,9 +759,8 @@ body.modal-open {
   background: var(--accent-border);
   border: 1px solid var(--accent-border);
   border-radius: 0.875rem;
-  overflow: hidden;
+  overflow: visible;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.05);
-  min-width: 600px;
 }
 
 .week-corner {
@@ -1195,6 +1194,23 @@ body.modal-open {
   flex: 1 1 0;
   text-align: center;
   justify-content: center;
+}
+
+/* ===== MODAL FORM BUTTONS ===== */
+.modal-content .btn-primary,
+.modal-content .btn-secondary {
+  padding: 0.7rem 1rem !important;
+  font-size: 0.875rem !important;
+  min-width: 0 !important;
+  width: auto !important;
+  flex: 1 1 0 !important;
+}
+
+.modal-content .form-actions,
+.modal-content form > div:last-child {
+  display: flex !important;
+  gap: 0.75rem !important;
+  margin-top: 0.5rem !important;
 }
 
 /* ===== RESPONSIVE ===== */
