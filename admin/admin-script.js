@@ -294,6 +294,7 @@ function toggleService(id) {
 document.addEventListener('DOMContentLoaded', function() {
   // Shared init (sidebar, logout, search, filters, tabs, modals, calendar, appointments)
   initDashboardShared();
+  initAllCustomDropdowns();
 
   // Website forms (admin-only)
   ['clinicInfoForm','operatingHoursForm','aboutUsForm','socialMediaForm'].forEach(function(id) {

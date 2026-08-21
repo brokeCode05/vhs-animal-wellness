@@ -199,4 +199,5 @@ function addNewOwner()         { window.location.href = 'clients.html'; }
 
 document.addEventListener('DOMContentLoaded', function() {
   initDashboardShared();
+  initAllCustomDropdowns();
 });
