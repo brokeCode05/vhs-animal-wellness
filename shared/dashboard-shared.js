@@ -534,6 +534,7 @@ function generateWeekView() {
     { label: '4:00 PM', hour: 16 },
     { label: '5:00 PM', hour: 17 },
     { label: '6:00 PM', hour: 18 },
+    { label: '7:00 PM', hour: 19 },
   ];
   // Filter to only hours that at least one day in this week is open
   var activeHours = [];

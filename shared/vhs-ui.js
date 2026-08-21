@@ -7,7 +7,7 @@
 // Single definition used by user, admin, and clerk booking modals.
 const VHS_TIME_SLOTS = [
   '9:00 AM','10:00 AM','11:00 AM','12:00 PM',
-  '1:00 PM','2:00 PM','3:00 PM','4:00 PM','5:00 PM','6:00 PM'
+  '1:00 PM','2:00 PM','3:00 PM','4:00 PM','5:00 PM','6:00 PM','7:00 PM'
 ];
 
 // Operating hours by day of week (0=Sun, 6=Sat)
@@ -41,9 +41,10 @@ function getVHSTimeSlots(dateStr) {
     { label: '4:00 PM', hour: 16 },
     { label: '5:00 PM', hour: 17 },
     { label: '6:00 PM', hour: 18 },
+    { label: '7:00 PM', hour: 19 },
   ];
   allSlots.forEach(function(s) {
-    if (s.hour >= h.open && s.hour < h.close) slots.push(s.label);
+    if (s.hour >= h.open && s.hour <= h.close) slots.push(s.label);
   });
   return slots;
 }
