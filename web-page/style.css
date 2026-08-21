@@ -105,10 +105,7 @@
   display: block;
 }
 
-/* Hero label icon */
-.hero-label svg {
-  flex-shrink: 0;
-}
+
 
 /* Placeholder avatar — SVG-based */
 .placeholder-avatar {
@@ -683,17 +680,26 @@ header.nav-visible {
   }
 }
 
-.hero-label {
-  display: inline-block;
-  padding: 0.5rem 1.25rem;
-  background: rgba(255, 255, 255, 0.15);
-  backdrop-filter: blur(10px);
-  border-radius: 2rem;
-  font-size: 0.9rem;
-  font-weight: 600;
-  margin-bottom: 1.5rem;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  animation: fadeIn 1s ease-out 0.3s backwards;
+.hero-highlights {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-bottom: 2rem;
+  animation: fadeIn 1s ease-out 0.6s backwards;
+}
+
+.hero-highlight {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  font-size: 0.95rem;
+  color: var(--text-dim);
+  font-weight: 500;
+}
+
+.hero-highlight svg {
+  color: var(--secondary);
+  flex-shrink: 0;
 }
 
 .hero-title {
@@ -907,37 +913,7 @@ header.nav-visible {
   }
 }
 
-/* Hero Image Dots */
-.hero-dots {
-  position: absolute;
-  bottom: 1.5rem;
-  left: 50%;
-  transform: translateX(-50%);
-  display: flex;
-  gap: 0.5rem;
-  z-index: 10;
-}
-
-.hero-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  border: none;
-  padding: 0;
-  background: rgba(255, 255, 255, 0.35);
-  cursor: pointer;
-  transition: all 0.3s ease;
-}
-
-.hero-dot.active {
-  background: #ffaa00;
-  width: 24px;
-  border-radius: 4px;
-}
-
-.hero-dot:hover {
-  background: rgba(255, 255, 255, 0.6);
-}/* ===== SECTIONS ===== */
+/* ===== SECTIONS ===== */
 .section {
   max-width: var(--max-width);
   margin: 0 auto;
@@ -2137,11 +2113,6 @@ footer a:hover {
   .hero-content {
     text-align: center;
     order: 2;
-  }
-
-  .hero-label {
-    font-size: 0.85rem;
-    padding: 0.4rem 1rem;
   }
 
   .title-line {

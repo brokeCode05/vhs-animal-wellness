@@ -120,17 +120,6 @@ header::after {
               radial-gradient(ellipse at 80% 75%, rgba(255, 234, 200, 0.15) 0%, transparent 50%);
 }
 
-.hero-label {
-  background: #ffffff;
-  border: 1px solid rgba(109, 74, 177, 0.3);
-  color: #3b2d4a;
-  box-shadow: 0 4px 16px rgba(109, 74, 177, 0.15);
-}
-
-.hero-label svg {
-  color: var(--primary);
-}
-
 .title-line {
   color: #7a6a8f;
 }
@@ -146,6 +135,14 @@ header::after {
   color: #6b5a80;
 }
 
+.hero-highlight svg {
+  color: #6d4ab1;
+}
+
+.hero-highlight span {
+  color: #6b5a80;
+}
+
 .stat-number {
   background: linear-gradient(135deg, #6d4ab1, #8b5cf6);
   -webkit-background-clip: text;
@@ -155,14 +152,6 @@ header::after {
 
 .stat-label {
   color: #8a7a9f;
-}
-
-.hero-dot {
-  background: rgba(109, 74, 177, 0.25);
-}
-
-.hero-dot.active {
-  background: #6d4ab1;
 }
 
 /* ===== ICON TILES =====

@@ -88,37 +88,19 @@ if (header) {
 // ===== HERO PET CAROUSEL =====
 let heroPetIndex = 0;
 const heroPets = document.querySelectorAll(".hero-pet");
-const heroDots = document.querySelectorAll(".hero-dot");
-let heroTimer = null;
-
-function showHeroPet(index) {
-  if (heroPets.length === 0) return;
-  heroPetIndex = (index + heroPets.length) % heroPets.length;
-  heroPets.forEach((pet) => pet.classList.remove("active"));
-  heroPets[heroPetIndex].classList.add("active");
-  heroDots.forEach((d, i) => d.classList.toggle("active", i === heroPetIndex));
-  restartHeroTimer();
-}
 
 function nextHeroPet() {
-  showHeroPet(heroPetIndex + 1);
+  if (heroPets.length === 0) return;
+  heroPets[heroPetIndex].classList.remove("active");
+  heroPetIndex = (heroPetIndex + 1) % heroPets.length;
+  heroPets[heroPetIndex].classList.add("active");
 }
 
-function restartHeroTimer() {
-  if (heroTimer) clearInterval(heroTimer);
-  heroTimer = setInterval(nextHeroPet, 5000);
-}
-
-heroDots.forEach((dot) => {
-  dot.addEventListener("click", () => showHeroPet(parseInt(dot.dataset.pet, 10)));
-});
-
-if (heroPets.length > 0) restartHeroTimer();
+if (heroPets.length > 0) setInterval(nextHeroPet, 5000);
 
 // Hero Sign Up Button
 document.getElementById("heroSignupBtn")?.addEventListener("click", () => {
-  openModal();
-  showForm(document.getElementById("signupForm"));
+  openBookModal();
 });
 
 document.getElementById("heroLoginBtn")?.addEventListener("click", () => {
