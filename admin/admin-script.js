@@ -126,7 +126,12 @@ function renderAllAppointmentsTable(all) {
 
 function addNewAppointment() { openAdminBookModal(); }
 
-function openAdminBookModal() {
+// Clicking a calendar day opens booking modal with that date
+window.onCalendarDayClick = function(dateStr) {
+  openAdminBookModal(dateStr);
+};
+
+function openAdminBookModal(prefilledDate) {
   var modal = document.getElementById('adminBookModal');
   if (!modal) return;
   modal.classList.add('show');
@@ -134,7 +139,13 @@ function openAdminBookModal() {
   document.getElementById('adminBookForm')?.reset();
 
   var dateInput = document.getElementById('adminBookDate');
-  if (dateInput) dateInput.min = new Date().toISOString().split('T')[0];
+  if (dateInput) {
+    dateInput.min = new Date().toISOString().split('T')[0];
+    if (prefilledDate) {
+      dateInput.value = prefilledDate;
+      refreshAdminTimeSlots();
+    }
+  }
 
   var clientSelect = document.getElementById('adminClientSelect');
   if (clientSelect) {

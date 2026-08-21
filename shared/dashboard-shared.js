@@ -439,6 +439,17 @@ function makeDayCell(day, isOther, month, year, isToday) {
   el.appendChild(num);
   if (!isOther) {
     var dateStr = year + '-' + String(month + 1).padStart(2, '0') + '-' + String(day).padStart(2, '0');
+
+    // Click day cell → open booking modal with this date pre-filled
+    el.style.cursor = 'pointer';
+    el.addEventListener('click', function(e) {
+      // Don't fire if clicking an appointment item inside
+      if (e.target.closest('.appointment-item')) return;
+      if (typeof window.onCalendarDayClick === 'function') {
+        window.onCalendarDayClick(dateStr);
+      }
+    });
+
     CalendarState.appointments.filter(function(a) { return a.date === dateStr; }).forEach(function(apt) {
       var item = document.createElement('div');
       item.className = 'appointment-item status-' + (apt.status || 'pending');

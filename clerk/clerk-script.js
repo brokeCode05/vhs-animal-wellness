@@ -51,7 +51,12 @@ function renderAllAppointmentsTable(all) {
 
 function addNewAppointment() { openClerkBookModal(); }
 
-function openClerkBookModal() {
+// Clicking a calendar day opens booking modal with that date
+window.onCalendarDayClick = function(dateStr) {
+  openClerkBookModal(dateStr);
+};
+
+function openClerkBookModal(prefilledDate) {
   var modal = document.getElementById('clerkBookModal');
   if (!modal) return;
   modal.classList.add('show');
@@ -59,7 +64,13 @@ function openClerkBookModal() {
   document.getElementById('clerkBookForm')?.reset();
 
   var dateInput = document.getElementById('clerkBookDate');
-  if (dateInput) dateInput.min = new Date().toISOString().split('T')[0];
+  if (dateInput) {
+    dateInput.min = new Date().toISOString().split('T')[0];
+    if (prefilledDate) {
+      dateInput.value = prefilledDate;
+      refreshClerkTimeSlots();
+    }
+  }
 
   var clientSelect = document.getElementById('clerkClientSelect');
   if (clientSelect) {
