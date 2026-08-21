@@ -236,7 +236,7 @@ function capitalize(str) {
 
 function statusBadge(status) {
 
-  var map = { pending: 'warning', scheduled: 'info', completed: 'completed', canceled: 'rejected' };
+  var map = { pending: 'pending', scheduled: 'scheduled', completed: 'completed', canceled: 'cancelled' };
 
   var cls = map[status] || 'info';
 

@@ -337,6 +337,24 @@ h1, h2, h3, h4, h5, h6,
   color: var(--accent-dark);
 }
 
+.status-badge.pending {
+  background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+  color: #92400e;
+  border: 1px solid #fbbf24;
+}
+
+.status-badge.completed {
+  background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%);
+  color: #065f46;
+  border: 1px solid #34d399;
+}
+
+.status-badge.cancelled {
+  background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%);
+  color: #991b1b;
+  border: 1px solid #f87171;
+}
+
 /* ===== BADGES ===== */
 .badge-count {
   background: linear-gradient(135deg, var(--accent), var(--accent-dark));
@@ -1322,3 +1340,37 @@ body.modal-open {
   margin: 0;
   padding: 0.25rem 0;
 }
+
+/* ===== CALENDAR LEGEND ===== */
+.calendar-legend {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+  justify-content: center;
+  margin-bottom: 0.75rem;
+  padding: 0.5rem 0.75rem;
+  background: #ffffff;
+  border: 1px solid var(--accent-border);
+  border-radius: 0.5rem;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-dim, #888);
+}
+
+.legend-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.legend-dot.status-pending   { background: #f59e0b; }
+.legend-dot.status-scheduled { background: #3b82f6; }
+.legend-dot.status-completed { background: #10b981; }
+.legend-dot.status-canceled  { background: #ef4444; }
