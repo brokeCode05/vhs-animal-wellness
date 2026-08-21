@@ -3,15 +3,15 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta http-equiv=1787320528"Cache-Control" content="no-cache, no-store, must-revalidate">
-  <meta http-equiv=1787320528"Pragma" content="no-cache">
-  <meta http-equiv=1787320528"Expires" content="0">
+  <meta http-equiv=1787320980"Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv=1787320980"Pragma" content="no-cache">
+  <meta http-equiv=1787320980"Expires" content="0">
   <title>Appointments - VHS Clerk</title>
-  <link rel="stylesheet" href="clerk-style.css?v=1787320528">
-  <link rel="stylesheet" href="../shared/dashboard-theme.css?v=1787320528">
-  <link rel="stylesheet" href="clerk-accent.css?v=1787320528">
-  <link rel="stylesheet" href="../shared/vhs-ui.css?v=1787320528">
-  <link rel="stylesheet" href="../shared/dashboard-icons.css?v=1787320528">
+  <link rel="stylesheet" href="clerk-style.css?v=1787320980">
+  <link rel="stylesheet" href="../shared/dashboard-theme.css?v=1787320980">
+  <link rel="stylesheet" href="clerk-accent.css?v=1787320980">
+  <link rel="stylesheet" href="../shared/vhs-ui.css?v=1787320980">
+  <link rel="stylesheet" href="../shared/dashboard-icons.css?v=1787320980">
 </head>
 <body>
   <nav class="top-navbar">
@@ -116,9 +116,9 @@
     </main>
   </div>
 
-  <script src="../shared/vhs-ui.js?v=1787320528"></script>
-  <script src="../shared/dashboard-shared.js?v=1787320528"></script>
-  <script src="clerk-script.js?v=1787320528"></script>
+  <script src="../shared/vhs-ui.js?v=1787320980"></script>
+  <script src="../shared/dashboard-shared.js?v=1787320980"></script>
+  <script src="clerk-script.js?v=1787320980"></script>
 
   <!-- Clerk Book Appointment Modal -->
   <div class="modal-overlay" id="clerkBookModal" onclick="if (event.target === this) closeClerkBookModal()">
@@ -128,13 +128,13 @@
         <button onclick="closeClerkBookModal()" style="background:none;border:none;font-size:1.4rem;cursor:pointer;color:#9ca3af;line-height:1;">&times;</button>
       </div>
       <form id="clerkBookForm" onsubmit="submitClerkBooking(event)">
-        <div class="form-group" style="margin-bottom:1rem;">
+        <div class="form-group" style="margin-bottom:1rem;position:relative;">
           <label class="form-label">Client <span style="color:#ef4444">*</span></label>
           <select class="form-select" id="clerkClientSelect" required>
             <option value="">Select client</option>
           </select>
         </div>
-        <div class="form-group" style="margin-bottom:1rem;">
+        <div class="form-group" style="margin-bottom:1rem;position:relative;">
           <label class="form-label">Pet <span style="color:#ef4444">*</span></label>
           <select class="form-select" id="clerkPetSelect" required>
             <option value="">Select client first</option>
@@ -187,7 +187,7 @@
             <label class="form-label">Date <span style="color:#ef4444">*</span></label>
             <input type="date" class="form-input" id="clerkBookDate" required />
           </div>
-          <div class="form-group">
+          <div class="form-group" style="position:relative;">
             <label class="form-label">Time <span style="color:#ef4444">*</span></label>
             <select class="form-select" id="clerkBookTime" required>
               <option value="">Select date first</option>
