@@ -126,6 +126,44 @@ function nextBgSlide() {
 
 if (bgSlides.length > 0) setInterval(nextBgSlide, 5000);
 
+// ===== STORY IMAGE CAROUSEL =====
+(function initStoryCarousel() {
+  const track = document.getElementById("storyTrack");
+  const slides = track ? track.querySelectorAll(".story-slide") : [];
+  const dots = document.querySelectorAll(".story-dots .dot");
+  if (!track || !slides.length) return;
+
+  const INTERVAL = 4000;
+  let current = 0;
+  let timer = null;
+
+  function showSlide(index) {
+    current = (index + slides.length) % slides.length;
+    track.style.transform = "translateX(-" + current * 100 + "%)";
+    dots.forEach((d, i) => d.classList.toggle("active", i === current));
+    restartTimer();
+  }
+
+  function nextSlide() { showSlide(current + 1); }
+
+  function restartTimer() {
+    if (timer) clearInterval(timer);
+    timer = setInterval(nextSlide, INTERVAL);
+  }
+
+  dots.forEach((dot) => {
+    dot.addEventListener("click", () => showSlide(parseInt(dot.dataset.slide, 10)));
+  });
+
+  const carousel = document.getElementById("storyCarousel");
+  if (carousel) {
+    carousel.addEventListener("mouseenter", () => { if (timer) clearInterval(timer); });
+    carousel.addEventListener("mouseleave", restartTimer);
+  }
+
+  restartTimer();
+})();
+
 // ===== SCROLL BUTTONS =====
 document.querySelectorAll(".scroll-btn").forEach((btn) => {
   btn.addEventListener("click", () => {
@@ -1089,14 +1127,14 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // Story content
   const storyText = document.querySelector(".story-text");
-  const storyImage = document.querySelector(".story-image");
+  const storyCarousel = document.querySelector(".story-carousel");
   if (storyText) {
     storyText.classList.add("scroll-animate-left");
     scrollObserver.observe(storyText);
   }
-  if (storyImage) {
-    storyImage.classList.add("scroll-animate-right");
-    scrollObserver.observe(storyImage);
+  if (storyCarousel) {
+    storyCarousel.classList.add("scroll-animate-right");
+    scrollObserver.observe(storyCarousel);
   }
 });
 

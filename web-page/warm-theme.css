@@ -762,9 +762,17 @@ footer a:hover {
   color: #7a6a8f;
 }
 
-.story-image img,
+.story-carousel,
 .map-container {
   box-shadow: 0 10px 30px rgba(93, 64, 130, 0.18);
+}
+
+.story-dots .dot {
+  background: rgba(109, 74, 177, 0.2);
+}
+
+.story-dots .dot.active {
+  background: #6d4ab1;
 }
 
 .location-details {
