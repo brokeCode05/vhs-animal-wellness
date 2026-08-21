@@ -5,6 +5,9 @@
    VHS_TIME_SLOTS is defined in vhs-ui.js.
    ============================================ */
 
+const _PAW_SVG = '<svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg"><ellipse cx="22" cy="18" rx="8" ry="10"/><ellipse cx="42" cy="18" rx="8" ry="10"/><ellipse cx="10" cy="34" rx="7" ry="9"/><ellipse cx="54" cy="34" rx="7" ry="9"/><path d="M32 36c-10 0-18 7-18 14s4 10 10 10c4 0 6-2 8-6 2 4 4 6 8 6 6 0 10-5 10-10s-8-14-18-14z"/></svg>';
+const _PAW_TRAIL = '<div class="loader-paws"><div class="loader-paw">' + _PAW_SVG + '</div><div class="loader-paw">' + _PAW_SVG + '</div><div class="loader-paw">' + _PAW_SVG + '</div><div class="loader-paw">' + _PAW_SVG + '</div></div>';
+
 // ─── MOBILE SIDEBAR ───────────────────────────────────────────────────────────
 
 let _overlay = null;
@@ -45,7 +48,7 @@ function initLogout() {
       sessionStorage.clear();
       var loader = document.createElement('div');
       loader.className = 'page-loader';
-      loader.innerHTML = '<div class="loader-content"><div class="loader-spinner"></div><div class="loader-text">Logging out...</div></div>';
+      loader.innerHTML = '<div class="loader-content">' + _PAW_TRAIL + '<div class="loader-text">Logging out</div><div class="loader-subtext">VHS</div></div>';
       document.body.appendChild(loader);
       setTimeout(function() { window.location.href = '../web-page/index.html'; }, 1000);
     }, {

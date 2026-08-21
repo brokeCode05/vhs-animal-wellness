@@ -124,14 +124,19 @@ function initLogout() {
         const loader = document.createElement("div");
         loader.style.cssText =
           "position:fixed;inset:0;background:#1a0a3e;display:flex;align-items:center;justify-content:center;z-index:99999;";
+        const _paw = '<svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" style="width:32px;height:32px;"><ellipse cx="22" cy="18" rx="8" ry="10"/><ellipse cx="42" cy="18" rx="8" ry="10"/><ellipse cx="10" cy="34" rx="7" ry="9"/><ellipse cx="54" cy="34" rx="7" ry="9"/><path d="M32 36c-10 0-18 7-18 14s4 10 10 10c4 0 6-2 8-6 2 4 4 6 8 6 6 0 10-5 10-10s-8-14-18-14z"/></svg>';
+        const _pawStyle = 'display:inline-block;opacity:0;animation:pawIn 0.4s ease-out forwards;';
         loader.innerHTML = `
         <div style="text-align:center;">
-          <div style="width:48px;height:48px;border:3px solid rgba(255,255,255,0.1);border-top-color:#ffaa00;border-right-color:#6d4ab1;border-radius:50%;animation:spin 0.9s linear infinite;margin:0 auto 1.2rem;position:relative;">
-            <div style="position:absolute;inset:8px;border:2px solid rgba(255,255,255,0.06);border-top-color:rgba(255,170,0,0.5);border-radius:50%;animation:spin 1.4s linear infinite reverse;"></div>
+          <div style="display:flex;gap:0.5rem;justify-content:center;align-items:flex-end;margin-bottom:1.5rem;">
+            <div style="${_pawStyle}animation-delay:0s;"><div style="fill:rgba(255,255,255,0.2)">${_paw}</div></div>
+            <div style="${_pawStyle}animation-delay:0.25s;"><div style="fill:rgba(255,255,255,0.35)">${_paw}</div></div>
+            <div style="${_pawStyle}animation-delay:0.5s;"><div style="fill:rgba(255,255,255,0.5)">${_paw}</div></div>
+            <div style="${_pawStyle}animation-delay:0.75s;"><div style="fill:#ffaa00">${_paw}</div></div>
           </div>
           <div style="color:white;font-size:0.85rem;font-weight:600;letter-spacing:3px;text-transform:uppercase;font-family:inherit;">Logging out</div>
         </div>
-        <style>@keyframes spin{to{transform:rotate(360deg)}}</style>
+        <style>@keyframes pawIn{from{opacity:0;transform:translateY(6px) scale(0.7)}to{opacity:1;transform:translateY(0) scale(1)}}</style>
       `;
         document.body.appendChild(loader);
         setTimeout(() => {

@@ -188,7 +188,7 @@ body {
   -ms-overflow-style: none;
 }
 
-/* ===== PAGE LOADER ===== */
+/* ===== PAGE LOADER — Paw Steps Trail ===== */
 .page-loader {
   position: fixed;
   inset: 0;
@@ -219,56 +219,90 @@ body {
 }
 
 .loader-content {
-  text-align: center;
   position: relative;
   z-index: 1;
-  animation: loaderFadeIn 0.5s ease-out;
 }
 
-@keyframes loaderFadeIn {
-  from { opacity: 0; transform: translateY(12px); }
-  to   { opacity: 1; transform: translateY(0); }
+/* Paw trail container */
+.loader-paws {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.5rem;
+  margin-bottom: 2rem;
+  justify-content: center;
 }
 
-.loader-spinner {
-  width: 64px;
-  height: 64px;
-  border: 3px solid rgba(255, 255, 255, 0.1);
-  border-top-color: #ffaa00;
-  border-right-color: #6d4ab1;
-  border-radius: 50%;
-  animation: spin 0.9s linear infinite;
-  margin: 0 auto 1.5rem;
-  position: relative;
+/* Individual paw print */
+.loader-paw {
+  opacity: 0;
+  transform: translateY(8px) scale(0.7);
+  animation: pawAppear 0.4s ease-out forwards;
 }
 
-.loader-spinner::before {
-  content: '';
-  position: absolute;
-  inset: 8px;
-  border: 2px solid rgba(255, 255, 255, 0.06);
-  border-top-color: rgba(255, 170, 0, 0.5);
-  border-radius: 50%;
-  animation: spin 1.4s linear infinite reverse;
+.loader-paw:nth-child(1) { animation-delay: 0s; }
+.loader-paw:nth-child(2) { animation-delay: 0.25s; }
+.loader-paw:nth-child(3) { animation-delay: 0.5s; }
+.loader-paw:nth-child(4) { animation-delay: 0.75s; }
+
+/* Slight vertical offset for walking effect */
+.loader-paw:nth-child(1) { transform: translateY(8px) scale(0.7) rotate(-12deg); }
+.loader-paw:nth-child(2) { transform: translateY(4px) scale(0.8) rotate(8deg); }
+.loader-paw:nth-child(3) { transform: translateY(6px) scale(0.9) rotate(-6deg); }
+.loader-paw:nth-child(4) { transform: translateY(2px) scale(1) rotate(10deg); }
+
+.loader-paw svg {
+  width: 36px;
+  height: 36px;
+  fill: rgba(255, 255, 255, 0.7);
 }
 
-@keyframes spin {
-  to { transform: rotate(360deg); }
+.loader-paw:nth-child(1) svg { fill: rgba(255, 255, 255, 0.25); }
+.loader-paw:nth-child(2) svg { fill: rgba(255, 255, 255, 0.4); }
+.loader-paw:nth-child(3) svg { fill: rgba(255, 255, 255, 0.55); }
+.loader-paw:nth-child(4) svg { fill: #ffaa00; }
+
+@keyframes pawAppear {
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }
 
+/* Slight bounce on the last paw */
+.loader-paw:nth-child(4) {
+  animation: pawAppearBounce 0.5s ease-out forwards;
+  animation-delay: 0.75s;
+}
+
+@keyframes pawAppearBounce {
+  0%   { opacity: 0; transform: translateY(8px) scale(0.7) rotate(10deg); }
+  60%  { opacity: 1; transform: translateY(-3px) scale(1.05) rotate(10deg); }
+  100% { opacity: 1; transform: translateY(0) scale(1) rotate(10deg); }
+}
+
+/* Clinic name below the trail */
 .loader-text {
   color: white;
   font-size: 1.15rem;
   font-weight: 600;
   letter-spacing: 3px;
   text-transform: uppercase;
+  opacity: 0;
+  animation: loaderTextIn 0.5s ease-out 1s forwards;
 }
 
 .loader-subtext {
   color: rgba(255, 255, 255, 0.4);
   font-size: 0.8rem;
-  margin-top: 0.5rem;
+  margin-top: 0.4rem;
   letter-spacing: 1px;
+  opacity: 0;
+  animation: loaderTextIn 0.5s ease-out 1.15s forwards;
+}
+
+@keyframes loaderTextIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
 
 body::before {

@@ -16,34 +16,34 @@
       color: white;
     }
     .wrap { text-align: center; }
-    .ring {
-      width: 48px; height: 48px;
-      border: 3px solid rgba(255,255,255,0.1);
-      border-top-color: #ffaa00;
-      border-right-color: #6d4ab1;
-      border-radius: 50%;
-      animation: spin 0.9s linear infinite;
-      margin: 0 auto 1.5rem;
-    }
-    .ring::before {
-      content: '';
-      display: block;
-      width: 32px; height: 32px;
-      margin: 6px;
-      border: 2px solid rgba(255,255,255,0.06);
-      border-top-color: rgba(255,170,0,0.5);
-      border-radius: 50%;
-      animation: spin 1.4s linear infinite reverse;
+    .paws { display: flex; gap: 0.5rem; justify-content: center; margin-bottom: 2rem; align-items: flex-end; }
+    .paw { opacity: 0; animation: pawIn 0.4s ease-out forwards; }
+    .paw:nth-child(1) { animation-delay: 0s; }
+    .paw:nth-child(2) { animation-delay: 0.25s; }
+    .paw:nth-child(3) { animation-delay: 0.5s; }
+    .paw:nth-child(4) { animation-delay: 0.75s; }
+    .paw svg { width: 32px; height: 32px; }
+    .paw:nth-child(1) svg { fill: rgba(255,255,255,0.2); }
+    .paw:nth-child(2) svg { fill: rgba(255,255,255,0.35); }
+    .paw:nth-child(3) svg { fill: rgba(255,255,255,0.5); }
+    .paw:nth-child(4) svg { fill: #ffaa00; }
+    @keyframes pawIn {
+      from { opacity: 0; transform: translateY(6px) scale(0.7); }
+      to   { opacity: 1; transform: translateY(0) scale(1); }
     }
     .title { font-size: 1rem; font-weight: 600; letter-spacing: 3px; text-transform: uppercase; }
-    .sub   { font-size: 0.75rem; color: rgba(255,255,255,0.35); margin-top: 0.5rem; }
+    .sub   { font-size: 0.75rem; color: rgba(255,255,255,0.35); margin-top: 0.4rem; }
     .link  { display: inline-block; margin-top: 1.5rem; color: #ffaa00; text-decoration: none; font-size: 0.8rem; }
-    @keyframes spin { to { transform: rotate(360deg); } }
   </style>
 </head>
 <body>
   <div class="wrap">
-    <div class="ring"></div>
+    <div class="paws">
+      <div class="paw"><svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg"><ellipse cx="22" cy="18" rx="8" ry="10"/><ellipse cx="42" cy="18" rx="8" ry="10"/><ellipse cx="10" cy="34" rx="7" ry="9"/><ellipse cx="54" cy="34" rx="7" ry="9"/><path d="M32 36c-10 0-18 7-18 14s4 10 10 10c4 0 6-2 8-6 2 4 4 6 8 6 6 0 10-5 10-10s-8-14-18-14z"/></svg></div>
+      <div class="paw"><svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg"><ellipse cx="22" cy="18" rx="8" ry="10"/><ellipse cx="42" cy="18" rx="8" ry="10"/><ellipse cx="10" cy="34" rx="7" ry="9"/><ellipse cx="54" cy="34" rx="7" ry="9"/><path d="M32 36c-10 0-18 7-18 14s4 10 10 10c4 0 6-2 8-6 2 4 4 6 8 6 6 0 10-5 10-10s-8-14-18-14z"/></svg></div>
+      <div class="paw"><svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg"><ellipse cx="22" cy="18" rx="8" ry="10"/><ellipse cx="42" cy="18" rx="8" ry="10"/><ellipse cx="10" cy="34" rx="7" ry="9"/><ellipse cx="54" cy="34" rx="7" ry="9"/><path d="M32 36c-10 0-18 7-18 14s4 10 10 10c4 0 6-2 8-6 2 4 4 6 8 6 6 0 10-5 10-10s-8-14-18-14z"/></svg></div>
+      <div class="paw"><svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg"><ellipse cx="22" cy="18" rx="8" ry="10"/><ellipse cx="42" cy="18" rx="8" ry="10"/><ellipse cx="10" cy="34" rx="7" ry="9"/><ellipse cx="54" cy="34" rx="7" ry="9"/><path d="M32 36c-10 0-18 7-18 14s4 10 10 10c4 0 6-2 8-6 2 4 4 6 8 6 6 0 10-5 10-10s-8-14-18-14z"/></svg></div>
+    </div>
     <div class="title">VHS</div>
     <div class="sub">Redirecting...</div>
     <a class="link" href="web-page/index.html">Click here if not redirected</a>

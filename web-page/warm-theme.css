@@ -558,27 +558,25 @@ footer a:hover {
   color: #3b2d4a;
 }
 
-/* ===== PAGE LOADER ===== */
+/* ===== PAGE LOADER — warm-theme override ===== */
 .page-loader {
   background: #fdf9ff;
 }
 
 .page-loader::before {
   background:
-    radial-gradient(ellipse at 30% 20%, rgba(109, 74, 177, 0.08) 0%, transparent 60%),
-    radial-gradient(ellipse at 70% 80%, rgba(255, 170, 0, 0.04) 0%, transparent 50%);
+    radial-gradient(ellipse at 30% 20%, rgba(109, 74, 177, 0.1) 0%, transparent 60%),
+    radial-gradient(ellipse at 70% 80%, rgba(212, 184, 150, 0.06) 0%, transparent 50%);
 }
 
-.loader-spinner {
-  border-color: rgba(109, 74, 177, 0.12);
-  border-top-color: #6d4ab1;
-  border-right-color: #d4b896;
+.loader-paw svg {
+  fill: rgba(61, 42, 92, 0.6);
 }
 
-.loader-spinner::before {
-  border-color: rgba(109, 74, 177, 0.06);
-  border-top-color: rgba(109, 74, 177, 0.4);
-}
+.loader-paw:nth-child(1) svg { fill: rgba(61, 42, 92, 0.12); }
+.loader-paw:nth-child(2) svg { fill: rgba(61, 42, 92, 0.22); }
+.loader-paw:nth-child(3) svg { fill: rgba(61, 42, 92, 0.35); }
+.loader-paw:nth-child(4) svg { fill: #6d4ab1; }
 
 .loader-text {
   color: #3d2a5c;
