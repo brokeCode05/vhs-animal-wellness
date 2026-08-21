@@ -98,6 +98,26 @@ function nextHeroPet() {
 
 if (heroPets.length > 0) setInterval(nextHeroPet, 5000);
 
+// ===== HERO PARALLAX =====
+(function initParallax() {
+  const track = document.getElementById("heroParallax");
+  if (!track) return;
+  let ticking = false;
+  window.addEventListener("scroll", () => {
+    if (!ticking) {
+      requestAnimationFrame(() => {
+        const scrollY = window.scrollY;
+        const heroHeight = document.getElementById("hero")?.offsetHeight || 800;
+        if (scrollY < heroHeight) {
+          track.style.transform = "translateY(" + scrollY * 0.35 + "px)";
+        }
+        ticking = false;
+      });
+      ticking = true;
+    }
+  });
+})();
+
 // Hero Sign Up Button
 document.getElementById("heroSignupBtn")?.addEventListener("click", () => {
   openBookModal();

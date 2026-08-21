@@ -115,11 +115,6 @@ header::after {
 }
 
 /* ===== HERO ===== */
-.hero-bg {
-  background: radial-gradient(ellipse at 20% 20%, rgba(183, 156, 249, 0.25) 0%, transparent 55%),
-              radial-gradient(ellipse at 80% 75%, rgba(255, 234, 200, 0.15) 0%, transparent 50%);
-}
-
 .title-line {
   color: #7a6a8f;
 }
