@@ -165,8 +165,6 @@ function openAdminBookModal(prefilledDate, prefilledTime) {
 
   var petSelect = document.getElementById('adminPetSelect');
   if (petSelect) petSelect.innerHTML = '<option value="">Select client first</option>';
-
-  refreshAdminTimeSlots();
 }
 
 function closeAdminBookModal() {

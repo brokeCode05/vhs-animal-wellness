@@ -90,8 +90,6 @@ function openClerkBookModal(prefilledDate, prefilledTime) {
 
   var petSelect = document.getElementById('clerkPetSelect');
   if (petSelect) petSelect.innerHTML = '<option value="">Select client first</option>';
-
-  refreshClerkTimeSlots();
 }
 
 function closeClerkBookModal() {
