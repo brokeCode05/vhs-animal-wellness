@@ -405,6 +405,7 @@ function generateCalendar() {
   var grid = document.getElementById('calendarGrid');
   if (!grid) return;
   grid.innerHTML = '';
+  grid.classList.remove('week-view', 'day-view');
 
   ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].forEach(function(d) {
     var h = document.createElement('div');
@@ -469,30 +470,205 @@ function makeDayCell(day, isOther, month, year, isToday) {
 function updateCalendarDisplay() {
   var months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
   var el = document.getElementById('calendarMonth');
-  if (el) el.textContent = months[CalendarState.currentMonth] + ' ' + CalendarState.currentYear;
-  generateCalendar();
+  var view = CalendarState.currentView;
+
+  if (view === 'week') {
+    var weekStart = getWeekStart(new Date(CalendarState.currentYear, CalendarState.currentMonth, CalendarState.currentDay || new Date().getDate()));
+    var weekEnd = new Date(weekStart);
+    weekEnd.setDate(weekEnd.getDate() + 6);
+    if (el) el.textContent = months[weekStart.getMonth()] + ' ' + weekStart.getDate() + ' – ' + (weekEnd.getMonth() !== weekStart.getMonth() ? months[weekEnd.getMonth()] + ' ' : '') + weekEnd.getDate() + ', ' + weekEnd.getFullYear();
+    generateWeekView();
+  } else if (view === 'day') {
+    var d = CalendarState.currentDay || new Date().getDate();
+    var dayNames = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+    var dayDate = new Date(CalendarState.currentYear, CalendarState.currentMonth, d);
+    if (el) el.textContent = dayNames[dayDate.getDay()] + ', ' + months[CalendarState.currentMonth] + ' ' + d + ', ' + CalendarState.currentYear;
+    generateDayView(d);
+  } else {
+    if (el) el.textContent = months[CalendarState.currentMonth] + ' ' + CalendarState.currentYear;
+    generateCalendar();
+  }
+}
+
+function getWeekStart(date) {
+  var d = new Date(date);
+  var day = d.getDay();
+  d.setDate(d.getDate() - day);
+  d.setHours(0,0,0,0);
+  return d;
+}
+
+// ─── WEEK VIEW ───────────────────────────────────────────────────────────────
+function generateWeekView() {
+  var grid = document.getElementById('calendarGrid');
+  if (!grid) return;
+  grid.innerHTML = '';
+  grid.classList.add('week-view');
+  grid.classList.remove('day-view');
+
+  var weekStart = getWeekStart(new Date(CalendarState.currentYear, CalendarState.currentMonth, CalendarState.currentDay || new Date().getDate()));
+  var today = new Date();
+  var dayNames = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  var slots = typeof VHS_TIME_SLOTS !== 'undefined' ? VHS_TIME_SLOTS : ['8:00 AM','9:00 AM','10:00 AM','11:00 AM','1:00 PM','2:00 PM','3:00 PM','4:00 PM','5:00 PM'];
+
+  // Header row: empty corner + 7 day columns
+  var corner = document.createElement('div');
+  corner.className = 'week-corner';
+  grid.appendChild(corner);
+
+  var days = [];
+  for (var i = 0; i < 7; i++) {
+    var d = new Date(weekStart);
+    d.setDate(d.getDate() + i);
+    days.push(d);
+    var h = document.createElement('div');
+    h.className = 'week-day-header';
+    var isToday = d.getDate() === today.getDate() && d.getMonth() === today.getMonth() && d.getFullYear() === today.getFullYear();
+    if (isToday) h.classList.add('today');
+    h.innerHTML = '<span class="week-day-name">' + dayNames[i] + '</span><span class="week-day-num">' + d.getDate() + '</span>';
+    grid.appendChild(h);
+  }
+
+  // Time rows
+  slots.forEach(function(slot) {
+    var timeLabel = document.createElement('div');
+    timeLabel.className = 'week-time-label';
+    timeLabel.textContent = slot;
+    grid.appendChild(timeLabel);
+
+    for (var j = 0; j < 7; j++) {
+      var cell = document.createElement('div');
+      cell.className = 'week-cell';
+      var dateStr = days[j].getFullYear() + '-' + String(days[j].getMonth() + 1).padStart(2, '0') + '-' + String(days[j].getDate()).padStart(2, '0');
+      var slotApts = CalendarState.appointments.filter(function(a) { return a.date === dateStr && a.time === slot; });
+      slotApts.forEach(function(apt) {
+        var item = document.createElement('div');
+        item.className = 'week-apt status-' + (apt.status || 'pending');
+        item.innerHTML = '<strong>' + apt.owner + '</strong><span>' + apt.pet + '</span>';
+        item.onclick = function() { showToast(apt.owner + ' · ' + apt.pet + ' · ' + apt.service + ' [' + apt.status + ']', 'info'); };
+        cell.appendChild(item);
+      });
+      cell.style.cursor = 'pointer';
+      (function(ds) {
+        cell.addEventListener('click', function(e) {
+          if (e.target.closest('.week-apt')) return;
+          if (typeof window.onCalendarDayClick === 'function') window.onCalendarDayClick(ds);
+        });
+      })(dateStr);
+      grid.appendChild(cell);
+    }
+  });
+}
+
+// ─── DAY VIEW ────────────────────────────────────────────────────────────────
+function generateDayView(day) {
+  var grid = document.getElementById('calendarGrid');
+  if (!grid) return;
+  grid.innerHTML = '';
+  grid.classList.add('day-view');
+  grid.classList.remove('week-view');
+
+  var today = new Date();
+  var slots = typeof VHS_TIME_SLOTS !== 'undefined' ? VHS_TIME_SLOTS : ['8:00 AM','9:00 AM','10:00 AM','11:00 AM','1:00 PM','2:00 PM','3:00 PM','4:00 PM','5:00 PM'];
+  var dateStr = CalendarState.currentYear + '-' + String(CalendarState.currentMonth + 1).padStart(2, '0') + '-' + String(day).padStart(2, '0');
+  var isToday = day === today.getDate() && CalendarState.currentMonth === today.getMonth() && CalendarState.currentYear === today.getFullYear();
+
+  // Header
+  var header = document.createElement('div');
+  header.className = 'day-header' + (isToday ? ' today' : '');
+  header.innerHTML = '<span class="day-header-label">Time</span><span class="day-header-label">Appointments</span>';
+  grid.appendChild(header);
+
+  // Time rows
+  slots.forEach(function(slot) {
+    var row = document.createElement('div');
+    row.className = 'day-row';
+
+    var timeLabel = document.createElement('div');
+    timeLabel.className = 'day-time-label';
+    timeLabel.textContent = slot;
+    row.appendChild(timeLabel);
+
+    var cell = document.createElement('div');
+    cell.className = 'day-cell';
+    var slotApts = CalendarState.appointments.filter(function(a) { return a.date === dateStr && a.time === slot; });
+    slotApts.forEach(function(apt) {
+      var item = document.createElement('div');
+      item.className = 'day-apt status-' + (apt.status || 'pending');
+      item.innerHTML = '<strong>' + apt.owner + '</strong> · ' + apt.pet + ' — <em>' + apt.service + '</em>';
+      item.onclick = function() { showToast(apt.owner + ' · ' + apt.pet + ' · ' + apt.service + ' [' + apt.status + ']', 'info'); };
+      cell.appendChild(item);
+    });
+    cell.style.cursor = 'pointer';
+    (function(ds) {
+      cell.addEventListener('click', function(e) {
+        if (e.target.closest('.day-apt')) return;
+        if (typeof window.onCalendarDayClick === 'function') window.onCalendarDayClick(ds);
+      });
+    })(dateStr);
+    row.appendChild(cell);
+    grid.appendChild(row);
+  });
 }
 
 function previousMonth() {
-  if (--CalendarState.currentMonth < 0) { CalendarState.currentMonth = 11; CalendarState.currentYear--; }
+  var view = CalendarState.currentView;
+  if (view === 'week') {
+    var ws = getWeekStart(new Date(CalendarState.currentYear, CalendarState.currentMonth, CalendarState.currentDay || 1));
+    ws.setDate(ws.getDate() - 7);
+    CalendarState.currentMonth = ws.getMonth();
+    CalendarState.currentYear = ws.getFullYear();
+    CalendarState.currentDay = ws.getDate();
+  } else if (view === 'day') {
+    var dd = (CalendarState.currentDay || 1) - 1;
+    if (dd < 1) {
+      CalendarState.currentMonth--;
+      if (CalendarState.currentMonth < 0) { CalendarState.currentMonth = 11; CalendarState.currentYear--; }
+      dd = new Date(CalendarState.currentYear, CalendarState.currentMonth + 1, 0).getDate();
+    }
+    CalendarState.currentDay = dd;
+  } else {
+    if (--CalendarState.currentMonth < 0) { CalendarState.currentMonth = 11; CalendarState.currentYear--; }
+  }
   updateCalendarDisplay();
 }
 function nextMonth() {
-  if (++CalendarState.currentMonth > 11) { CalendarState.currentMonth = 0; CalendarState.currentYear++; }
+  var view = CalendarState.currentView;
+  if (view === 'week') {
+    var ws = getWeekStart(new Date(CalendarState.currentYear, CalendarState.currentMonth, CalendarState.currentDay || 1));
+    ws.setDate(ws.getDate() + 7);
+    CalendarState.currentMonth = ws.getMonth();
+    CalendarState.currentYear = ws.getFullYear();
+    CalendarState.currentDay = ws.getDate();
+  } else if (view === 'day') {
+    var dd = (CalendarState.currentDay || 1) + 1;
+    var maxDay = new Date(CalendarState.currentYear, CalendarState.currentMonth + 1, 0).getDate();
+    if (dd > maxDay) {
+      CalendarState.currentMonth++;
+      if (CalendarState.currentMonth > 11) { CalendarState.currentMonth = 0; CalendarState.currentYear++; }
+      dd = 1;
+    }
+    CalendarState.currentDay = dd;
+  } else {
+    if (++CalendarState.currentMonth > 11) { CalendarState.currentMonth = 0; CalendarState.currentYear++; }
+  }
   updateCalendarDisplay();
 }
 function goToToday() {
   var t = new Date();
   CalendarState.currentMonth = t.getMonth();
   CalendarState.currentYear  = t.getFullYear();
+  CalendarState.currentDay = t.getDate();
   updateCalendarDisplay();
-  showToast('Showing current month', 'info');
+  showToast('Showing today', 'info');
 }
 function setCalendarView(view) {
   CalendarState.currentView = view;
+  CalendarState.currentDay = CalendarState.currentDay || new Date().getDate();
   document.querySelectorAll('.calendar-view-toggle .btn-small').forEach(function(btn) {
     btn.classList.toggle('active', btn.getAttribute('data-view') === view);
   });
+  updateCalendarDisplay();
 }
 
 // ─── SHARED INIT (called by each role script's DOMContentLoaded) ──────────────
