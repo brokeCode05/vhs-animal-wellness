@@ -1284,7 +1284,7 @@ body.modal-open {
 
 /* ===== MODAL FORM BUTTONS ===== */
 .modal-content {
-  overflow: hidden;
+  overflow-x: hidden;
 }
 
 .modal-content .btn-primary,
@@ -1302,4 +1302,11 @@ body.modal-open {
   display: flex !important;
   gap: 0.75rem !important;
   margin-top: 0.5rem !important;
+}
+
+@media (max-width: 420px) {
+  .modal-content .btn-primary,
+  .modal-content .btn-secondary {
+    flex: 1 1 100% !important;
+  }
 }
