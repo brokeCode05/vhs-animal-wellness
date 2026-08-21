@@ -183,14 +183,42 @@
           <label class="form-label">Service <span style="color:#ef4444">*</span></label>
           <select class="form-select" id="adminBookService" required>
             <option value="">Choose a service</option>
-            <option value="vaccination">Vaccination</option>
-            <option value="grooming">Grooming</option>
-            <option value="check-up/consultation">Check-up / Consultation</option>
-            <option value="deworming">Deworming</option>
-            <option value="laboratory tests">Laboratory Tests</option>
-            <option value="dental cleaning">Dental Cleaning</option>
-            <option value="surgery">Surgery</option>
-            <option value="boarding">Boarding</option>
+            <optgroup label="Preventive & Wellness">
+              <option value="consultation">Consultation</option>
+              <option value="vaccination">Vaccination</option>
+              <option value="deworming">Deworming</option>
+              <option value="feline executive preventive care">Feline Executive Preventive Care</option>
+              <option value="health certificate">Health Certificate</option>
+              <option value="microchipping">Microchipping</option>
+            </optgroup>
+            <optgroup label="Diagnostics">
+              <option value="blood test">Blood Test</option>
+              <option value="fecalysis">Fecalysis</option>
+              <option value="microscopy">Microscopy</option>
+              <option value="urinalysis">Urinalysis</option>
+            </optgroup>
+            <optgroup label="Surgery & Procedures">
+              <option value="spay">Spay</option>
+              <option value="castration">Castration</option>
+              <option value="caesarean section">Caesarean Section (CS)</option>
+              <option value="cystotomy">Cystotomy</option>
+              <option value="cherry eye correction">Cherry Eye Correction</option>
+              <option value="wound repair">Wound Repair</option>
+              <option value="dental prophylaxis + kapon">Dental Prophylaxis + Kapon</option>
+              <option value="u catheterization">U Catheterization</option>
+              <option value="euthanasia">Euthanasia</option>
+              <option value="whelping assistance">Whelping Assistance</option>
+            </optgroup>
+            <optgroup label="Pet Care">
+              <option value="dog grooming">Dog Grooming</option>
+              <option value="cat grooming">Cat Grooming</option>
+              <option value="boarding">Boarding</option>
+              <option value="confinement">Confinement</option>
+            </optgroup>
+            <optgroup label="Specialized Care">
+              <option value="chemotherapy">Chemotherapy</option>
+              <option value="home service">Home Service</option>
+            </optgroup>
           </select>
         </div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1rem;">
