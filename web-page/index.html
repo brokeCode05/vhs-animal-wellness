@@ -63,12 +63,7 @@
     <main>
       <!-- HERO -->
       <section id="hero" class="hero">
-        <!-- Animated Background Elements -->
-        <div class="hero-bg">
-          <div class="blob blob-1"></div>
-          <div class="blob blob-2"></div>
-          <div class="blob blob-3"></div>
-        </div>
+        <div class="hero-bg"></div>
 
         <div class="hero-container">
           <!-- Hero Content -->
@@ -144,33 +139,6 @@
 
           <!-- Hero Visual -->
           <div class="hero-visual">
-            <div class="hero-shape">
-              <svg viewBox="0 0 500 500" xmlns="http://www.w3.org/2000/svg">
-                <defs>
-                  <linearGradient
-                    id="heroGradient"
-                    x1="0%"
-                    y1="0%"
-                    x2="100%"
-                    y2="100%"
-                  >
-                    <stop
-                      offset="0%"
-                      style="stop-color: #8b5cf6; stop-opacity: 0.35"
-                    />
-                    <stop
-                      offset="100%"
-                      style="stop-color: #b79cf9; stop-opacity: 0.3"
-                    />
-                  </linearGradient>
-                </defs>
-                <path
-                  fill="url(#heroGradient)"
-                  d="M432.5,305.5Q401,361,357,408Q313,455,250,455.5Q187,456,142,409.5Q97,363,69,306.5Q41,250,75.5,197Q110,144,159,107.5Q208,71,250,87Q292,103,339.5,121Q387,139,418,194.5Q449,250,432.5,305.5Z"
-                />
-              </svg>
-            </div>
-
             <div class="hero-image-wrapper">
               <img src="https://scontent.fmnl3-3.fna.fbcdn.net/v/t39.99422-6/722363986_2223147401843375_2523823657451228763_n.png?stp=dst-jpg_tt6&cstp=mx1080x1080&ctp=s1080x1080&_nc_cat=108&_nc_map=urlgen_bucketless&ccb=1-7&_nc_sid=127cfc&_nc_eui2=AeGhhqRaFxNsKgj5xC5j6y2cLZsKUtX-ndItmwpS1f6d0vxL-yp8EC-phkm9cs-GJWXiU-IaEpM4ndL2jY-gHkk0&_nc_ohc=kOJMaDTJ7VEQ7kNvwEsvJQo&_nc_oc=AdqFHSD4LKCMY6RYE2ZFgVgLsajCVYCH92Y-uGAoENyrImnJA4kJpogfe8oMICkMAAs&_nc_zt=14&_nc_ht=scontent.fmnl3-3.fna&_nc_gid=ael8JPEgQseJDTq564dBxQ&_nc_ss=7b2a8&oh=00_AQF4sS9n-n1NPuzbz7TUaWsCtKJ6lJUSFhF59Cwc1-DW3Q&oe=6A8DAC71" alt="VHS Clinic" class="hero-pet active" data-pet="0" />
               <img src="https://scontent.fmnl3-3.fna.fbcdn.net/v/t39.99422-6/724485205_2032507980984714_5712746157293841446_n.png?stp=dst-jpg_tt6&cstp=mx1080x1080&ctp=s1080x1080&_nc_cat=109&_nc_map=urlgen_bucketless&ccb=1-7&_nc_sid=127cfc&_nc_eui2=AeEHpfEZbEFIzy9ihGKSJK6MrRT09Z7IjVmtFPT1nsiNWTzT9erPWGvbYSZXft8bMutQzM_ChpPP8Sb45EhqWhSY&_nc_ohc=qcVn-sOY6WwQ7kNvwFdUkfJ&_nc_oc=Adp-Dj9HnelUvNsTiLBZSVdPbURqc7CbXGRxsn23xk845OpeffeDb_SaR-MBWcDbPFk&_nc_zt=14&_nc_ht=scontent.fmnl3-3.fna&_nc_gid=fAQhp_GAUHK2ihlXet2Fvg&_nc_ss=7b2a8&oh=00_AQGBEDuUGerfs3EZ-eR0CTfJSBBJlO_8RN3Kx2zhGDV8_w&oe=6A8DD620" alt="VHS Clinic" class="hero-pet" data-pet="1" />
@@ -181,121 +149,14 @@
           </div>
         </div>
 
-        <!-- Floating Badges -->
-        <div class="floating-badge badge-1">
-          <span class="badge-icon">
-            <svg
-              width="28"
-              height="28"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              aria-hidden="true"
-            >
-              <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
-            </svg>
-          </span>
-          <div class="badge-text">
-            <span class="badge-title">Licensed Vets</span>
-            <span class="badge-subtitle">PRC Registered</span>
-          </div>
+        <!-- Image Dots -->
+        <div class="hero-dots" id="heroDots">
+          <button class="hero-dot active" data-pet="0" aria-label="Image 1"></button>
+          <button class="hero-dot" data-pet="1" aria-label="Image 2"></button>
+          <button class="hero-dot" data-pet="2" aria-label="Image 3"></button>
+          <button class="hero-dot" data-pet="3" aria-label="Image 4"></button>
+          <button class="hero-dot" data-pet="4" aria-label="Image 5"></button>
         </div>
-
-        <div class="floating-badge badge-2">
-          <span class="badge-icon">
-            <svg
-              width="28"
-              height="28"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              aria-hidden="true"
-            >
-              <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
-              <circle cx="12" cy="10" r="3" />
-            </svg>
-          </span>
-          <div class="badge-text">
-            <span class="badge-title">Cubao, QC</span>
-            <span class="badge-subtitle">Quezon City</span>
-          </div>
-        </div>
-
-        <div class="floating-badge badge-3">
-          <span class="badge-icon">
-            <svg
-              width="28"
-              height="28"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              aria-hidden="true"
-            >
-              <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
-              <polyline points="22 4 12 14.01 9 11.01" />
-            </svg>
-          </span>
-          <div class="badge-text">
-            <span class="badge-title">Vet Clinic</span>
-            <span class="badge-subtitle">Cubao, QC</span>
-          </div>
-        </div>
-
-        <!-- Sparkle Effects -->
-        <span class="sparkle"></span>
-        <span class="sparkle"></span>
-        <span class="sparkle"></span>
-        <span class="sparkle"></span>
-
-        <!-- Paw Prints (decorative SVG) -->
-        <span class="paw-print" aria-hidden="true">
-          <svg
-            width="32"
-            height="32"
-            viewBox="0 0 24 24"
-            fill="currentColor"
-            opacity="0.15"
-          >
-            <path
-              d="M12 2a2 2 0 1 0 0 4 2 2 0 0 0 0-4zM7 4a1.5 1.5 0 1 0 0 3A1.5 1.5 0 0 0 7 4zm10 0a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3zM5 8a1.5 1.5 0 1 0 0 3A1.5 1.5 0 0 0 5 8zm14 0a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3zm-7 2c-2.5 0-5 2-5 5 0 1.5.5 2.5 1.5 3s2 .5 3.5.5 2.5 0 3.5-.5 1.5-1.5 1.5-3c0-3-2.5-5-5-5z"
-            />
-          </svg>
-        </span>
-        <span class="paw-print" aria-hidden="true">
-          <svg
-            width="32"
-            height="32"
-            viewBox="0 0 24 24"
-            fill="currentColor"
-            opacity="0.15"
-          >
-            <path
-              d="M12 2a2 2 0 1 0 0 4 2 2 0 0 0 0-4zM7 4a1.5 1.5 0 1 0 0 3A1.5 1.5 0 0 0 7 4zm10 0a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3zM5 8a1.5 1.5 0 1 0 0 3A1.5 1.5 0 0 0 5 8zm14 0a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3zm-7 2c-2.5 0-5 2-5 5 0 1.5.5 2.5 1.5 3s2 .5 3.5.5 2.5 0 3.5-.5 1.5-1.5 1.5-3c0-3-2.5-5-5-5z"
-            />
-          </svg>
-        </span>
-        <span class="paw-print" aria-hidden="true">
-          <svg
-            width="32"
-            height="32"
-            viewBox="0 0 24 24"
-            fill="currentColor"
-            opacity="0.15"
-          >
-            <path
-              d="M12 2a2 2 0 1 0 0 4 2 2 0 0 0 0-4zM7 4a1.5 1.5 0 1 0 0 3A1.5 1.5 0 0 0 7 4zm10 0a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3zM5 8a1.5 1.5 0 1 0 0 3A1.5 1.5 0 0 0 5 8zm14 0a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3zm-7 2c-2.5 0-5 2-5 5 0 1.5.5 2.5 1.5 3s2 .5 3.5.5 2.5 0 3.5-.5 1.5-1.5 1.5-3c0-3-2.5-5-5-5z"
-            />
-          </svg>
-        </span>
       </section>
 
       <!-- SERVICES -->

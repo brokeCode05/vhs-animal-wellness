@@ -116,24 +116,8 @@ header::after {
 
 /* ===== HERO ===== */
 .hero-bg {
-  background: radial-gradient(ellipse at 20% 20%, rgba(183, 156, 249, 0.4) 0%, transparent 55%),
-              radial-gradient(ellipse at 80% 75%, rgba(139, 92, 246, 0.25) 0%, transparent 50%),
-              radial-gradient(ellipse at 60% 30%, rgba(255, 234, 200, 0.45) 0%, transparent 60%);
-}
-
-.blob-1 {
-  background: linear-gradient(135deg, #b79cf9, #8b5cf6);
-  opacity: 0.4;
-}
-
-.blob-2 {
-  background: linear-gradient(135deg, #a78bfa, #6d4ab1);
-  opacity: 0.35;
-}
-
-.blob-3 {
-  background: linear-gradient(135deg, #ffe3a9, #ffd080);
-  opacity: 0.45;
+  background: radial-gradient(ellipse at 20% 20%, rgba(183, 156, 249, 0.25) 0%, transparent 55%),
+              radial-gradient(ellipse at 80% 75%, rgba(255, 234, 200, 0.15) 0%, transparent 50%);
 }
 
 .hero-label {
@@ -173,24 +157,12 @@ header::after {
   color: #8a7a9f;
 }
 
-/* Floating badges — white glass cards */
-.floating-badge {
-  background: rgba(255, 255, 255, 0.92);
-  border: 1px solid rgba(109, 74, 177, 0.12);
-  box-shadow: 0 8px 32px rgba(109, 74, 177, 0.18);
-  color: #3b2d4a;
+.hero-dot {
+  background: rgba(109, 74, 177, 0.25);
 }
 
-.floating-badge .badge-icon {
-  color: var(--primary);
-}
-
-.floating-badge .badge-title {
-  color: #3b2d4a;
-}
-
-.floating-badge .badge-subtitle {
-  color: #8a7a9f;
+.hero-dot.active {
+  background: #6d4ab1;
 }
 
 /* ===== ICON TILES =====

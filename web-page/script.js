@@ -88,19 +88,32 @@ if (header) {
 // ===== HERO PET CAROUSEL =====
 let heroPetIndex = 0;
 const heroPets = document.querySelectorAll(".hero-pet");
+const heroDots = document.querySelectorAll(".hero-dot");
+let heroTimer = null;
 
 function showHeroPet(index) {
   if (heroPets.length === 0) return;
+  heroPetIndex = (index + heroPets.length) % heroPets.length;
   heroPets.forEach((pet) => pet.classList.remove("active"));
-  heroPets[index].classList.add("active");
+  heroPets[heroPetIndex].classList.add("active");
+  heroDots.forEach((d, i) => d.classList.toggle("active", i === heroPetIndex));
+  restartHeroTimer();
 }
 
 function nextHeroPet() {
-  heroPetIndex = (heroPetIndex + 1) % heroPets.length;
-  showHeroPet(heroPetIndex);
+  showHeroPet(heroPetIndex + 1);
 }
 
-if (heroPets.length > 0) setInterval(nextHeroPet, 5000);
+function restartHeroTimer() {
+  if (heroTimer) clearInterval(heroTimer);
+  heroTimer = setInterval(nextHeroPet, 5000);
+}
+
+heroDots.forEach((dot) => {
+  dot.addEventListener("click", () => showHeroPet(parseInt(dot.dataset.pet, 10)));
+});
+
+if (heroPets.length > 0) restartHeroTimer();
 
 // Hero Sign Up Button
 document.getElementById("heroSignupBtn")?.addEventListener("click", () => {
@@ -1265,45 +1278,4 @@ if (chatbotInput) {
   });
 }
 
-// ===== INTERACTIVE BUBBLE POP EFFECT =====
-const floatingBadges = document.querySelectorAll(".floating-badge");
 
-floatingBadges.forEach((badge) => {
-  let isPopped = false;
-  let reappearTimeout = null;
-
-  badge.addEventListener("click", function () {
-    // Prevent multiple clicks while animating
-    if (isPopped) return;
-
-    isPopped = true;
-
-    // Add popping animation
-    badge.classList.add("popping");
-
-    // After pop animation completes, hide the badge
-    setTimeout(() => {
-      badge.classList.remove("popping");
-      badge.classList.add("hidden");
-
-      // Reappear after 10 seconds
-      reappearTimeout = setTimeout(() => {
-        badge.classList.remove("hidden");
-        badge.classList.add("reappearing");
-
-        // Remove reappearing class after animation
-        setTimeout(() => {
-          badge.classList.remove("reappearing");
-          isPopped = false;
-        }, 800);
-      }, 10000); // 10 seconds
-    }, 600); // Duration of pop animation
-  });
-
-  // Cleanup on page unload
-  window.addEventListener("beforeunload", () => {
-    if (reappearTimeout) {
-      clearTimeout(reappearTimeout);
-    }
-  });
-});

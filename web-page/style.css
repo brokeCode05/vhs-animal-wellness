@@ -651,53 +651,8 @@ header.nav-visible {
   inset: 0;
   z-index: 0;
   overflow: hidden;
-}
-
-.blob {
-  position: absolute;
-  border-radius: 50%;
-  filter: blur(80px);
-  opacity: 0.3;
-  animation: blobFloat 20s ease-in-out infinite;
-}
-
-.blob-1 {
-  width: 500px;
-  height: 500px;
-  background: linear-gradient(135deg, var(--primary), var(--primary-light));
-  top: -10%;
-  left: -10%;
-  animation-delay: 0s;
-}
-
-.blob-2 {
-  width: 400px;
-  height: 400px;
-  background: linear-gradient(135deg, var(--primary-light), var(--text-dim));
-  bottom: -10%;
-  right: -5%;
-  animation-delay: 7s;
-}
-
-.blob-3 {
-  width: 350px;
-  height: 350px;
-  background: linear-gradient(135deg, var(--secondary), var(--secondary-dark));
-  top: 50%;
-  right: 20%;
-  animation-delay: 14s;
-}
-
-@keyframes blobFloat {
-  0%, 100% {
-    transform: translate(0, 0) scale(1);
-  }
-  33% {
-    transform: translate(30px, -50px) scale(1.1);
-  }
-  66% {
-    transform: translate(-20px, 20px) scale(0.9);
-  }
+  background: radial-gradient(ellipse at 20% 30%, rgba(139, 92, 246, 0.15) 0%, transparent 55%),
+              radial-gradient(ellipse at 80% 70%, rgba(255, 170, 0, 0.08) 0%, transparent 50%);
 }
 
 /* Hero Container */
@@ -912,26 +867,6 @@ header.nav-visible {
   }
 }
 
-.hero-shape {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  animation: rotate 30s linear infinite;
-}
-
-@keyframes rotate {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
-}
-
-.hero-shape svg {
-  width: 100%;
-  height: 100%;
-  filter: blur(1px);
-}
-
 .hero-image-wrapper {
   position: absolute;
   inset: 0;
@@ -972,253 +907,36 @@ header.nav-visible {
   }
 }
 
-/* Floating Badges */
-.floating-badge {
+/* Hero Image Dots */
+.hero-dots {
   position: absolute;
-  background: rgba(255, 255, 255, 0.15);
-  backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 255, 255, 0.3);
-  border-radius: 1rem;
-  padding: 1rem 1.5rem;
+  bottom: 1.5rem;
+  left: 50%;
+  transform: translateX(-50%);
   display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
-  animation: floatBadge 3s ease-in-out infinite;
-  z-index: 5;
-  cursor: pointer;
-  user-select: none;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  opacity: 1;
-  transform-origin: center;
+  gap: 0.5rem;
+  z-index: 10;
 }
 
-.floating-badge:hover {
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.2);
-  transform: scale(1.05);
-  animation: none;
-}
-
-.floating-badge:active {
-  transform: scale(0.95);
-}
-
-/* Bubble Pop Animation */
-.floating-badge.popping {
-  animation: bubblePop 0.6s cubic-bezier(0.4, 0, 0.2, 1) forwards;
-  pointer-events: none;
-}
-
-@keyframes bubblePop {
-  0% {
-    transform: scale(1);
-    opacity: 1;
-  }
-  50% {
-    transform: scale(1.2);
-    opacity: 0.8;
-  }
-  100% {
-    transform: scale(0);
-    opacity: 0;
-  }
-}
-
-/* Pop particles effect */
-.floating-badge.popping::before,
-.floating-badge.popping::after {
-  content: '';
-  position: absolute;
-  width: 100%;
-  height: 100%;
-  border-radius: 1rem;
-  border: 2px solid rgba(255, 255, 255, 0.6);
-  top: 0;
-  left: 0;
-  animation: popRipple 0.6s ease-out forwards;
-}
-
-.floating-badge.popping::after {
-  animation-delay: 0.1s;
-}
-
-@keyframes popRipple {
-  0% {
-    transform: scale(1);
-    opacity: 0.8;
-  }
-  100% {
-    transform: scale(1.8);
-    opacity: 0;
-  }
-}
-
-/* Bubble Reappear Animation */
-.floating-badge.reappearing {
-  animation: bubbleReappear 0.8s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
-}
-
-@keyframes bubbleReappear {
-  0% {
-    transform: scale(0);
-    opacity: 0;
-  }
-  60% {
-    transform: scale(1.1);
-    opacity: 1;
-  }
-  100% {
-    transform: scale(1);
-    opacity: 1;
-  }
-}
-
-/* Hidden state */
-.floating-badge.hidden {
-  opacity: 0;
-  transform: scale(0);
-  pointer-events: none;
-}
-
-.floating-badge.badge-1 {
-  top: 15%;
-  left: 3%;
-  animation-delay: 0s;
-}
-
-.floating-badge.badge-2 {
-  top: 12%;
-  right: 3%;
-  animation-delay: 1s;
-}
-
-.floating-badge.badge-3 {
-  bottom: 20%;
-  right: 5%;
-  animation-delay: 2s;
-}
-
-@keyframes floatBadge {
-  0%, 100% {
-    transform: translateY(0px);
-  }
-  50% {
-    transform: translateY(-15px);
-  }
-}
-
-.floating-badge .badge-icon {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 2.5rem;
-  height: 2.5rem;
-  color: var(--secondary);
-  filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.2));
-  flex-shrink: 0;
-}
-
-.floating-badge .badge-text {
-  display: flex;
-  flex-direction: column;
-}
-
-.floating-badge .badge-title {
-  font-weight: 700;
-  font-size: 1.1rem;
-  color: var(--secondary);
-  line-height: 1.2;
-}
-
-.floating-badge .badge-subtitle {
-  font-size: 0.85rem;
-  color: var(--text-dim);
-  line-height: 1.2;
-}
-
-/* Sparkle Effects */
-.sparkle {
-  position: absolute;
+.hero-dot {
   width: 8px;
   height: 8px;
-  background: var(--secondary);
   border-radius: 50%;
-  box-shadow: 0 0 20px var(--secondary);
-  animation: sparkleFloat 4s ease-in-out infinite;
-  z-index: 3;
+  border: none;
+  padding: 0;
+  background: rgba(255, 255, 255, 0.35);
+  cursor: pointer;
+  transition: all 0.3s ease;
 }
 
-.sparkle:nth-child(1) {
-  top: 20%;
-  left: 15%;
-  animation-delay: 0s;
+.hero-dot.active {
+  background: #ffaa00;
+  width: 24px;
+  border-radius: 4px;
 }
 
-.sparkle:nth-child(2) {
-  top: 60%;
-  right: 20%;
-  animation-delay: 1.5s;
-}
-
-.sparkle:nth-child(3) {
-  bottom: 30%;
-  right: 10%;
-  animation-delay: 3s;
-}
-
-.sparkle:nth-child(4) {
-  top: 40%;
-  left: 10%;
-  animation-delay: 2s;
-}
-
-@keyframes sparkleFloat {
-  0%, 100% {
-    transform: translateY(0) scale(1);
-    opacity: 0.6;
-  }
-  50% {
-    transform: translateY(-30px) scale(1.5);
-    opacity: 1;
-  }
-}
-
-/* Paw Prints */
-.paw-print {
-  position: absolute;
-  font-size: 2rem;
-  opacity: 0.15;
-  animation: pawFloat 6s ease-in-out infinite;
-  z-index: 2;
-}
-
-.paw-print:nth-child(1) {
-  top: 10%;
-  right: 15%;
-  animation-delay: 0s;
-}
-
-.paw-print:nth-child(2) {
-  bottom: 15%;
-  right: 25%;
-  animation-delay: 2s;
-}
-
-.paw-print:nth-child(3) {
-  top: 50%;
-  left: 5%;
-  animation-delay: 4s;
-}
-
-@keyframes pawFloat {
-  0%, 100% {
-    transform: translateY(0) rotate(0deg);
-    opacity: 0.1;
-  }
-  50% {
-    transform: translateY(-20px) rotate(10deg);
-    opacity: 0.2;
-  }
+.hero-dot:hover {
+  background: rgba(255, 255, 255, 0.6);
 }/* ===== SECTIONS ===== */
 .section {
   max-width: var(--max-width);
@@ -2475,53 +2193,7 @@ footer a:hover {
     max-height: 300px;
   }
 
-  .floating-element {
-    display: none;
-  }
 
-  /* Show floating badges on mobile with better positioning */
-  .floating-badge {
-    display: flex;
-    padding: 0.75rem 1rem;
-    font-size: 0.85rem;
-  }
-
-  .floating-badge .badge-icon {
-    width: 2rem;
-    height: 2rem;
-  }
-
-  .floating-badge .badge-icon svg {
-    width: 1.5rem;
-    height: 1.5rem;
-  }
-
-  .floating-badge .badge-title {
-    font-size: 0.9rem;
-  }
-
-  .floating-badge .badge-subtitle {
-    font-size: 0.75rem;
-  }
-
-  .floating-badge.badge-1 {
-    top: 5%;
-    left: 2%;
-    right: auto;
-  }
-
-  .floating-badge.badge-2 {
-    top: 5%;
-    right: 2%;
-    left: auto;
-  }
-
-  .floating-badge.badge-3 {
-    bottom: auto;
-    top: 50%;
-    left: 2%;
-    transform: translateY(-50%);
-  }
 
   /* Team - Horizontal scroll on mobile */
   .team-section-title {
@@ -2593,29 +2265,7 @@ footer a:hover {
     min-width: 16rem;
   }
 
-  .sparkle,
-  .paw-print {
-    display: none;
-  }
 
-  .blob {
-    filter: blur(60px);
-  }
-
-  .blob-1 {
-    width: 350px;
-    height: 350px;
-  }
-
-  .blob-2 {
-    width: 300px;
-    height: 300px;
-  }
-
-  .blob-3 {
-    width: 250px;
-    height: 250px;
-  }
 
   /* Sections */
   .section {
@@ -2715,31 +2365,7 @@ footer a:hover {
     justify-content: center;
   }
 
-  .floating-badge {
-    padding: 0.6rem 0.85rem;
-  }
 
-  .floating-badge .badge-icon {
-    width: 1.75rem;
-    height: 1.75rem;
-  }
-
-  .floating-badge .badge-icon svg {
-    width: 1.3rem;
-    height: 1.3rem;
-  }
-
-  .floating-badge .badge-title {
-    font-size: 0.8rem;
-  }
-
-  .floating-badge .badge-subtitle {
-    font-size: 0.7rem;
-  }
-
-  .floating-badge.badge-3 {
-    display: none;
-  }
 
   .section h2,
   .about-content h2 {
