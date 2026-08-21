@@ -3,12 +3,15 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
   <title>Appointments - VHS Clerk</title>
-  <link rel="stylesheet" href="clerk-style.css?v=2">
-  <link rel="stylesheet" href="../shared/dashboard-theme.css?v=2">
-  <link rel="stylesheet" href="clerk-accent.css?v=2">
-  <link rel="stylesheet" href="../shared/vhs-ui.css?v=2">
-  <link rel="stylesheet" href="../shared/dashboard-icons.css?v=2">
+  <link rel="stylesheet" href="clerk-style.css?v=3">
+  <link rel="stylesheet" href="../shared/dashboard-theme.css?v=3">
+  <link rel="stylesheet" href="clerk-accent.css?v=3">
+  <link rel="stylesheet" href="../shared/vhs-ui.css?v=3">
+  <link rel="stylesheet" href="../shared/dashboard-icons.css?v=3">
 </head>
 <body>
   <nav class="top-navbar">
@@ -113,9 +116,9 @@
     </main>
   </div>
 
-  <script src="../shared/vhs-ui.js?v=2"></script>
-  <script src="../shared/dashboard-shared.js?v=2"></script>
-  <script src="clerk-script.js?v=2"></script>
+  <script src="../shared/vhs-ui.js?v=3"></script>
+  <script src="../shared/dashboard-shared.js?v=3"></script>
+  <script src="clerk-script.js?v=3"></script>
 
   <!-- Clerk Book Appointment Modal -->
   <div class="modal-overlay" id="clerkBookModal" onclick="if (event.target === this) closeClerkBookModal()">
@@ -195,9 +198,9 @@
           <label class="form-label">Notes (optional)</label>
           <textarea class="form-textarea" id="clerkBookNotes" rows="2" placeholder="Any special instructions..."></textarea>
         </div>
-        <div style="display:flex;gap:0.75rem;">
-          <button type="submit" class="btn-primary" style="flex:1;">Book Appointment</button>
-          <button type="button" class="btn-secondary" onclick="closeClerkBookModal()" style="flex:1;">Cancel</button>
+        <div style="display:flex;gap:0.75rem;margin-top:0.5rem;">
+          <button type="submit" class="btn-primary" style="flex:1 1 0;min-width:0;padding:0.7rem 0.5rem;font-size:0.875rem;white-space:nowrap;">Book Appointment</button>
+          <button type="button" class="btn-secondary" onclick="closeClerkBookModal()" style="flex:1 1 0;min-width:0;padding:0.7rem 0.5rem;font-size:0.875rem;white-space:nowrap;">Cancel</button>
         </div>
       </form>
     </div>

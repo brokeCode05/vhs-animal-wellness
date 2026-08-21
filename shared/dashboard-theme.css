@@ -1202,10 +1202,10 @@ body.modal-open {
   .navbar {
     background: #fffdfe;
   }
-  .calendar-container { min-height: auto; }
+  .calendar-container { min-height: auto; overflow-x: auto; }
   .calendar-grid { min-height: auto !important; }
   .calendar-grid.week-view {
-    grid-template-columns: 42px repeat(7, 1fr);
+    grid-template-columns: 48px repeat(7, 1fr);
     font-size: 0.65rem;
   }
   .week-apt { font-size: 0.5rem; padding: 0.12rem 0.2rem; border-radius: 0.25rem; }
@@ -1222,26 +1222,26 @@ body.modal-open {
   .day-apt { font-size: 0.65rem; padding: 0.25rem 0.4rem; }
   .day-header { padding: 0.5rem; }
   .day-header-label { font-size: 0.6rem; }
-  /* Booking modal buttons on small screens */
-  .modal-content [style*="display:flex"] > .btn-primary,
-  .modal-content [style*="display:flex"] > .btn-secondary {
-    padding: 0.6rem 0.5rem;
-    font-size: 0.8rem;
+  /* Modal date/time grid stacks on mobile */
+  .modal-content [style*="grid-template-columns:1fr 1fr"] {
+    grid-template-columns: 1fr !important;
   }
 }
 
 @media (max-width: 480px) {
   .calendar-grid.week-view {
-    grid-template-columns: 36px repeat(7, 1fr);
+    grid-template-columns: 40px repeat(7, 1fr);
+    font-size: 0.6rem;
   }
   .week-day-name { font-size: 0.45rem; letter-spacing: 0; }
   .week-day-num { font-size: 0.6rem; }
+  .week-day-header { padding: 0.3rem 0.1rem; }
   .week-time-label { font-size: 0.5rem; min-height: 1.8rem; }
   .week-cell { min-height: 1.8rem; }
-  .week-apt { font-size: 0.45rem; }
+  .week-apt { font-size: 0.45rem; padding: 0.1rem 0.15rem; }
   .calendar-grid.day-view .day-row {
     grid-template-columns: 48px 1fr;
   }
   .day-time-label { font-size: 0.6rem; }
-  .day-apt { font-size: 0.6rem; }
+  .day-apt { font-size: 0.6rem; padding: 0.2rem 0.35rem; }
 }
