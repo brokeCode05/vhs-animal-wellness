@@ -126,12 +126,12 @@ function renderAllAppointmentsTable(all) {
 
 function addNewAppointment() { openAdminBookModal(); }
 
-// Clicking a calendar day opens booking modal with that date
-window.onCalendarDayClick = function(dateStr) {
-  openAdminBookModal(dateStr);
+// Clicking a calendar day or time cell opens booking modal with that date (and optionally time)
+window.onCalendarDayClick = function(dateStr, timeSlot) {
+  openAdminBookModal(dateStr, timeSlot);
 };
 
-function openAdminBookModal(prefilledDate) {
+function openAdminBookModal(prefilledDate, prefilledTime) {
   var modal = document.getElementById('adminBookModal');
   if (!modal) return;
   modal.classList.add('show');
@@ -143,7 +143,7 @@ function openAdminBookModal(prefilledDate) {
     dateInput.min = new Date().toISOString().split('T')[0];
     if (prefilledDate) {
       dateInput.value = prefilledDate;
-      refreshAdminTimeSlots();
+      refreshAdminTimeSlots(prefilledTime);
     }
   }
 
@@ -204,7 +204,7 @@ document.addEventListener('change', function(e) {
   }
 });
 
-function refreshAdminTimeSlots() {
+function refreshAdminTimeSlots(prefilledTime) {
   var dateInput  = document.getElementById('adminBookDate');
   var timeSelect = document.getElementById('adminBookTime');
   if (!timeSelect) return;
@@ -223,11 +223,17 @@ function refreshAdminTimeSlots() {
         return '<option value="' + slot + '"' + (isBooked ? ' disabled' : '') + '>' +
           slot + (isBooked ? ' (Unavailable)' : '') + '</option>';
       }).join('');
+      if (prefilledTime) {
+        timeSelect.value = prefilledTime;
+      }
     })
     .catch(function() {
       timeSelect.innerHTML = '<option value="">Select time</option>' + slots.map(function(slot) {
         return '<option value="' + slot + '">' + slot + '</option>';
       }).join('');
+      if (prefilledTime) {
+        timeSelect.value = prefilledTime;
+      }
     });
 }
 

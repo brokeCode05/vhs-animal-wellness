@@ -828,6 +828,21 @@ body.modal-open {
   background: var(--accent-bg-3);
 }
 
+.week-cell--closed {
+  background: var(--bg-muted, #f5f3f8);
+  cursor: default;
+  opacity: 0.5;
+}
+
+.week-cell--closed::after {
+  content: 'Closed';
+  font-size: 0.6rem;
+  color: var(--text-dim, #999);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin: auto;
+}
+
 .week-apt {
   font-size: 0.65rem;
   padding: 0.25rem 0.4rem;

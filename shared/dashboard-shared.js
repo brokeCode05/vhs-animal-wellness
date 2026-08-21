@@ -509,52 +509,84 @@ function generateWeekView() {
   var weekStart = getWeekStart(new Date(CalendarState.currentYear, CalendarState.currentMonth, CalendarState.currentDay || new Date().getDate()));
   var today = new Date();
   var dayNames = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
-  var slots = typeof VHS_TIME_SLOTS !== 'undefined' ? VHS_TIME_SLOTS : ['8:00 AM','9:00 AM','10:00 AM','11:00 AM','1:00 PM','2:00 PM','3:00 PM','4:00 PM','5:00 PM'];
+
+  // Build array of 7 date objects and their per-day slots
+  var days = [];
+  var daySlots = [];
+  for (var i = 0; i < 7; i++) {
+    var d = new Date(weekStart);
+    d.setDate(d.getDate() + i);
+    days.push(d);
+    var ds = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+    daySlots.push(typeof getVHSTimeSlots === 'function' ? getVHSTimeSlots(ds) : VHS_TIME_SLOTS);
+  }
+
+  // Union of all time slots across the week (to ensure consistent rows)
+  var allSlots = [
+    { label: '8:00 AM', hour: 8 },
+    { label: '9:00 AM', hour: 9 },
+    { label: '10:00 AM', hour: 10 },
+    { label: '11:00 AM', hour: 11 },
+    { label: '12:00 PM', hour: 12 },
+    { label: '1:00 PM', hour: 13 },
+    { label: '2:00 PM', hour: 14 },
+    { label: '3:00 PM', hour: 15 },
+    { label: '4:00 PM', hour: 16 },
+    { label: '5:00 PM', hour: 17 },
+    { label: '6:00 PM', hour: 18 },
+  ];
+  // Filter to only hours that at least one day in this week is open
+  var activeHours = [];
+  allSlots.forEach(function(s) {
+    for (var j = 0; j < 7; j++) {
+      if (daySlots[j].indexOf(s.label) !== -1) { activeHours.push(s); break; }
+    }
+  });
 
   // Header row: empty corner + 7 day columns
   var corner = document.createElement('div');
   corner.className = 'week-corner';
   grid.appendChild(corner);
 
-  var days = [];
   for (var i = 0; i < 7; i++) {
-    var d = new Date(weekStart);
-    d.setDate(d.getDate() + i);
-    days.push(d);
     var h = document.createElement('div');
     h.className = 'week-day-header';
-    var isToday = d.getDate() === today.getDate() && d.getMonth() === today.getMonth() && d.getFullYear() === today.getFullYear();
+    var isToday = days[i].getDate() === today.getDate() && days[i].getMonth() === today.getMonth() && days[i].getFullYear() === today.getFullYear();
     if (isToday) h.classList.add('today');
-    h.innerHTML = '<span class="week-day-name">' + dayNames[i] + '</span><span class="week-day-num">' + d.getDate() + '</span>';
+    h.innerHTML = '<span class="week-day-name">' + dayNames[i] + '</span><span class="week-day-num">' + days[i].getDate() + '</span>';
     grid.appendChild(h);
   }
 
-  // Time rows
-  slots.forEach(function(slot) {
+  // Time rows — only show hours where at least one day is open
+  activeHours.forEach(function(slot) {
     var timeLabel = document.createElement('div');
     timeLabel.className = 'week-time-label';
-    timeLabel.textContent = slot;
+    timeLabel.textContent = slot.label;
     grid.appendChild(timeLabel);
 
     for (var j = 0; j < 7; j++) {
       var cell = document.createElement('div');
-      cell.className = 'week-cell';
+      var isOpen = daySlots[j].indexOf(slot.label) !== -1;
+      cell.className = 'week-cell' + (isOpen ? '' : ' week-cell--closed');
       var dateStr = days[j].getFullYear() + '-' + String(days[j].getMonth() + 1).padStart(2, '0') + '-' + String(days[j].getDate()).padStart(2, '0');
-      var slotApts = CalendarState.appointments.filter(function(a) { return a.date === dateStr && a.time === slot; });
-      slotApts.forEach(function(apt) {
-        var item = document.createElement('div');
-        item.className = 'week-apt status-' + (apt.status || 'pending');
-        item.innerHTML = '<strong>' + apt.owner + '</strong><span>' + apt.pet + '</span>';
-        item.onclick = function() { showToast(apt.owner + ' · ' + apt.pet + ' · ' + apt.service + ' [' + apt.status + ']', 'info'); };
-        cell.appendChild(item);
-      });
-      cell.style.cursor = 'pointer';
-      (function(ds) {
-        cell.addEventListener('click', function(e) {
-          if (e.target.closest('.week-apt')) return;
-          if (typeof window.onCalendarDayClick === 'function') window.onCalendarDayClick(ds);
+
+      if (isOpen) {
+        var slotApts = CalendarState.appointments.filter(function(a) { return a.date === dateStr && a.time === slot.label; });
+        slotApts.forEach(function(apt) {
+          var item = document.createElement('div');
+          item.className = 'week-apt status-' + (apt.status || 'pending');
+          item.innerHTML = '<strong>' + apt.owner + '</strong><span>' + apt.pet + '</span>';
+          item.onclick = function() { showToast(apt.owner + ' · ' + apt.pet + ' · ' + apt.service + ' [' + apt.status + ']', 'info'); };
+          cell.appendChild(item);
         });
-      })(dateStr);
+        cell.style.cursor = 'pointer';
+        (function(ds, sl) {
+          cell.addEventListener('click', function(e) {
+            if (e.target.closest('.week-apt')) return;
+            if (typeof window.onCalendarDayClick === 'function') window.onCalendarDayClick(ds, sl);
+          });
+        })(dateStr, slot.label);
+      }
       grid.appendChild(cell);
     }
   });
@@ -569,9 +601,11 @@ function generateDayView(day) {
   grid.classList.remove('week-view');
 
   var today = new Date();
-  var slots = typeof VHS_TIME_SLOTS !== 'undefined' ? VHS_TIME_SLOTS : ['8:00 AM','9:00 AM','10:00 AM','11:00 AM','1:00 PM','2:00 PM','3:00 PM','4:00 PM','5:00 PM'];
   var dateStr = CalendarState.currentYear + '-' + String(CalendarState.currentMonth + 1).padStart(2, '0') + '-' + String(day).padStart(2, '0');
   var isToday = day === today.getDate() && CalendarState.currentMonth === today.getMonth() && CalendarState.currentYear === today.getFullYear();
+
+  // Use day-specific slots from the operating hours
+  var slots = typeof getVHSTimeSlots === 'function' ? getVHSTimeSlots(dateStr) : VHS_TIME_SLOTS;
 
   // Header
   var header = document.createElement('div');
@@ -600,12 +634,12 @@ function generateDayView(day) {
       cell.appendChild(item);
     });
     cell.style.cursor = 'pointer';
-    (function(ds) {
+    (function(ds, sl) {
       cell.addEventListener('click', function(e) {
         if (e.target.closest('.day-apt')) return;
-        if (typeof window.onCalendarDayClick === 'function') window.onCalendarDayClick(ds);
+        if (typeof window.onCalendarDayClick === 'function') window.onCalendarDayClick(ds, sl);
       });
-    })(dateStr);
+    })(dateStr, slot);
     row.appendChild(cell);
     grid.appendChild(row);
   });
