@@ -163,17 +163,22 @@ h1, h2, h3, h4, h5, h6,
 }
 
 .sidebar-avatar {
-  width: 56px;
-  height: 56px;
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
   background: linear-gradient(135deg, var(--accent) 0%, var(--accent-light) 100%);
   border: 3px solid #ffffff;
   box-shadow: 0 2px 8px var(--accent-shadow);
   margin-bottom: 0.65rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
 }
 
 .sidebar-avatar svg {
-  width: 26px;
-  height: 26px;
+  width: 30px;
+  height: 30px;
   color: #ffffff;
 }
 
