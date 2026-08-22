@@ -1840,19 +1840,9 @@ function _setAvatarDisplay(src, show) {
 
     sImg.style.display = "none";
 
-    sEmoji.style.display = "none";
+    sEmoji.style.display = "flex";
 
-    if (sInitials) {
-
-      sInitials.style.display = "flex";
-
-      if (sName && sName.textContent && sName.textContent !== "Pet Owner") {
-
-        sInitials.textContent = _getInitials(sName.textContent);
-
-      }
-
-    }
+    if (sInitials) sInitials.style.display = "none";
 
   }
 
