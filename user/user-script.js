@@ -1583,7 +1583,7 @@ function renderPetHistory(petId) {
   // Build timeline HTML
   var html = '<div class="med-timeline">';
 
-  visits.forEach(function (visit, idx) {
+  visits.forEach(function (visit) {
     var d = new Date(visit.date + 'T00:00:00');
     var formattedDate = d.toLocaleDateString('en-US', {
       year: 'numeric',
@@ -1593,26 +1593,25 @@ function renderPetHistory(petId) {
       month: 'short', day: 'numeric'
     });
 
-    html += '
-      <div class="med-timeline-item">
-        <div class="med-timeline-date">
-          <span class="med-timeline-date-full">' + formattedDate + '</span>
-          <span class="med-timeline-date-short">' + dateShort + '</span>
-        </div>
-        <div class="med-timeline-marker"></div>
-        <div class="med-timeline-card">
-          <div class="med-timeline-card-header">
-            <span class="med-timeline-service">' + escapeHtml(visit.service) + '</span>
-          </div>
-          <div class="med-timeline-card-body">
-            <div class="med-timeline-vet">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-              ' + escapeHtml(visit.vet) + '
-            </div>
-            <p class="med-timeline-notes">' + escapeHtml(visit.notes) + '</p>
-          </div>
-        </div>
-      </div>';
+    html += '<div class="med-timeline-item">'
+      + '<div class="med-timeline-date">'
+      + '<span class="med-timeline-date-full">' + formattedDate + '</span>'
+      + '<span class="med-timeline-date-short">' + dateShort + '</span>'
+      + '</div>'
+      + '<div class="med-timeline-marker"></div>'
+      + '<div class="med-timeline-card">'
+      + '<div class="med-timeline-card-header">'
+      + '<span class="med-timeline-service">' + escapeHtml(visit.service) + '</span>'
+      + '</div>'
+      + '<div class="med-timeline-card-body">'
+      + '<div class="med-timeline-vet">'
+      + '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>'
+      + escapeHtml(visit.vet)
+      + '</div>'
+      + '<p class="med-timeline-notes">' + escapeHtml(visit.notes) + '</p>'
+      + '</div>'
+      + '</div>'
+      + '</div>';
   });
 
   html += '</div>';
