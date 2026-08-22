@@ -1476,6 +1476,8 @@ function initDashboardShared() {
 
 // ─── CUSTOM SEARCHABLE DROPDOWN ───────────────────────────────────────────────
 
+var _cdAllPanels = [];  // global registry of all custom dropdowns
+
 function initCustomDropdown(selectId, opts) {
   opts = opts || {};
   var select = document.getElementById(selectId);
@@ -1571,6 +1573,10 @@ function initCustomDropdown(selectId, opts) {
   }
 
   function openPanel() {
+    // Close all other open panels first
+    _cdAllPanels.forEach(function(other) {
+      if (other.panel !== panel && other.isOpen()) other.close();
+    });
     isOpen = true;
     panel.classList.add('open');
     trigger.classList.add('active');
@@ -1608,6 +1614,9 @@ function initCustomDropdown(selectId, opts) {
     if (!trigger.contains(e.target) && !panel.contains(e.target)) closePanel();
   });
 
+  // Register in global registry
+  _cdAllPanels.push({ panel: panel, isOpen: function() { return isOpen; }, close: closePanel });
+
   // Sync initial display
   syncDisplay();
 
@@ -1623,10 +1632,10 @@ function initAllCustomDropdowns() {
   initCustomDropdown('adminBookService', { searchPlaceholder: 'Search services...', emptyText: 'No services found' });
   initCustomDropdown('adminClientSelect', { placeholder: 'Select client', searchPlaceholder: 'Search clients...', emptyText: 'No clients found' });
   initCustomDropdown('adminPetSelect', { placeholder: 'Select client first', searchPlaceholder: 'Search pets...', emptyText: 'No pets found' });
-  initCustomDropdown('adminBookTime', { placeholder: 'Select date first', searchPlaceholder: 'Search time...', emptyText: 'No slots available' });
+  initCustomDropdown('adminBookTime', { placeholder: 'Select time', searchPlaceholder: 'Search time...', emptyText: 'No slots available' });
 
   initCustomDropdown('clerkBookService', { searchPlaceholder: 'Search services...', emptyText: 'No services found' });
   initCustomDropdown('clerkClientSelect', { placeholder: 'Select client', searchPlaceholder: 'Search clients...', emptyText: 'No clients found' });
   initCustomDropdown('clerkPetSelect', { placeholder: 'Select client first', searchPlaceholder: 'Search pets...', emptyText: 'No pets found' });
-  initCustomDropdown('clerkBookTime', { placeholder: 'Select date first', searchPlaceholder: 'Search time...', emptyText: 'No slots available' });
+  initCustomDropdown('clerkBookTime', { placeholder: 'Select time', searchPlaceholder: 'Search time...', emptyText: 'No slots available' });
 }

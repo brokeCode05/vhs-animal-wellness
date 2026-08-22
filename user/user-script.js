@@ -2316,6 +2316,8 @@ function loadUserData() {
 
 // ─── CUSTOM SEARCHABLE DROPDOWN ─────────────────────────────────────────────
 
+var _cdAllPanels = [];  // global registry of all custom dropdowns
+
 function initCustomDropdown(selectId, opts) {
   opts = opts || {};
   var select = document.getElementById(selectId);
@@ -2406,6 +2408,9 @@ function initCustomDropdown(selectId, opts) {
   }
 
   function openPanel() {
+    _cdAllPanels.forEach(function(other) {
+      if (other.panel !== panel && other.isOpen()) other.close();
+    });
     isOpen = true;
     panel.classList.add('open');
     trigger.classList.add('active');
@@ -2460,7 +2465,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   initCustomDropdown('bookServiceSelect', { searchPlaceholder: 'Search services...', emptyText: 'No services found' });
   initCustomDropdown('bookPetSelect', { placeholder: 'Choose a pet', searchPlaceholder: 'Search pets...', emptyText: 'No pets found' });
-  initCustomDropdown('bookTimeSelect', { placeholder: 'Select date first', searchPlaceholder: 'Search time...', emptyText: 'No slots available' });
+  initCustomDropdown('bookTimeSelect', { placeholder: 'Select time', searchPlaceholder: 'Search time...', emptyText: 'No slots available' });
 
 
 
