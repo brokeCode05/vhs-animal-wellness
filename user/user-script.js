@@ -1317,118 +1317,56 @@ function previewPetPhoto(input) {
 
   reader.readAsDataURL(input.files[0]);
 
-}
+}function openEditPetModal(id) {
+  document.getElementById('petModalTitle').textContent = 'Edit Pet';
+  document.getElementById('petForm').reset();
 
-
-
-function openEditPetModal(id) {
-
-  document.getElementById("petModalTitle").textContent = "Edit Pet";
-
-  document.getElementById("petForm")?.reset();
-
-
-
-  // Reset photo preview
-
-  var preview = document.getElementById("petPhotoPreview");
-
+  var preview = document.getElementById('petPhotoPreview');
   if (preview)
-
-    preview.innerHTML =
-
-      '<span class="upload-icon"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg></span><span>Click to change photo</span>';
-
-
-
-  // Set user ID
+    preview.innerHTML = '<span class="upload-icon"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg></span><span>Click to change photo</span>';
 
   var user = _getSessionUser();
-
-  var hiddenId = document.getElementById("petUserId");
-
-  if (hiddenId) hiddenId.value = user.id || user.userId || "";
-
-
-
-  // Store pet ID on form for update
-
-  var form = document.getElementById("petForm");
-
+  var hiddenId = document.getElementById('petUserId');
+  if (hiddenId) hiddenId.value = user.id || user.userId || '';
+  var form = document.getElementById('petForm');
   if (form) form.dataset.editId = id;
 
+  // Resolve pet from loaded data (backend or mock)
+  function _populate(p) {
+    if (!p) { showToast('Pet not found.', 'error'); return; }
+    document.getElementById('petName').value = p.name || '';
+    document.getElementById('petSpecies').value = p.species || p.type || '';
+    document.getElementById('petBreed').value = p.breed || '';
+    document.getElementById('petAge').value = p.age || '';
+    document.getElementById('petGender').value = p.gender || '';
+    document.getElementById('petWeight').value = p.weight || '';
+    document.getElementById('petColor').value = p.color || '';
+    document.getElementById('petReproStatus').value = p.reproductiveStatus || '';
+    document.getElementById('petMicrochip').value = p.microchip || '';
+    document.getElementById('petAllergies').value = p.allergies || '';
+    document.getElementById('petChronic').value = p.chronicConditions || '';
+    document.getElementById('petNotes').value = p.notes || '';
+    if (p.photo && preview) {
+      preview.innerHTML = '<img src="' + p.photo + '" alt="Pet photo" style="width:100%;height:100%;object-fit:cover;position:absolute;inset:0;">';
+    }
+    openModal('petModal');
+  }
 
+  // Try mock data first (for GitHub Pages / no session)
+  var mockPet = _currentPets.find(function (x) { return x.id === id; })
+    || mockPetsData.find(function (x) { return x.id === id; });
+  if (mockPet) { _populate(mockPet); return; }
 
-  // Fetch pet data and populate form
-
-  fetch("get_pets_user.php?user_id=" + (user.id || user.userId || 0))
-
-    .then(function (r) {
-
-      return r.json();
-
-    })
-
+  // Try backend
+  var userId = user.id || user.userId;
+  if (!userId) { showToast('Session expired.', 'error'); return; }
+  fetch('get_pets_user.php?user_id=' + userId)
+    .then(function (r) { return r.json(); })
     .then(function (pets) {
-
-      var p = pets.find(function (x) {
-
-        return x.id === id;
-
-      });
-
-      if (!p) {
-
-        showToast("Pet not found.", "error");
-
-        return;
-
-      }
-
-
-
-      document.getElementById("petName").value = p.name || "";
-
-      document.getElementById("petSpecies").value = p.type || "";
-
-      document.getElementById("petBreed").value = p.breed || "";
-
-      document.getElementById("petAge").value = p.age || "";
-
-      document.getElementById("petGender").value = p.gender || "";
-
-      document.getElementById("petWeight").value = p.weight || "";
-
-      document.getElementById("petNotes").value = p.notes || "";
-
-
-
-      // Show existing photo if any
-
-      if (p.photo && preview) {
-
-        preview.innerHTML =
-
-          '<img src="' +
-
-          p.photo +
-
-          '" alt="Pet photo" style="width:100%;height:100%;object-fit:cover;position:absolute;inset:0;">';
-
-      }
-
-
-
-      openModal("petModal");
-
+      var p = pets.find(function (x) { return x.id === id; });
+      _populate(p);
     })
-
-    .catch(function () {
-
-      showToast("Failed to load pet data.", "error");
-
-    });
-
+    .catch(function () { showToast('Failed to load pet data.', 'error'); });
 }
 
 
@@ -1444,7 +1382,18 @@ const mockPetsData = [
     age: 3,
     gender: 'Female',
     weight: 4.2,
+    color: 'White with grey patches',
+    reproductiveStatus: 'Spayed',
+    microchip: 'PH-001-2023-LUNA',
+    allergies: 'None known yet',
+    chronicConditions: 'None known yet',
+    notes: 'Indoor cat. Slight sensitivity to certain flea treatments.',
     owner: { name: 'Maria Santos', phone: '0917-123-4567' },
+    vaccines: [
+      { name: 'FVRCP', date: '2026-05-22', nextDue: '2027-05-22', batchNo: 'FVR-2026-044', vet: 'Dr. Santos' },
+      { name: 'Rabies', date: '2025-11-05', nextDue: '2026-11-05', batchNo: 'RAB-2025-118', vet: 'Dr. Santos' },
+      { name: 'FVRCP (1st Dose)', date: '2025-06-10', nextDue: '2026-06-10', batchNo: 'FVR-2025-089', vet: 'Dr. Reyes' },
+    ],
     visits: [
       {
         id: 'v001',
@@ -1491,7 +1440,18 @@ const mockPetsData = [
     age: 5,
     gender: 'Male',
     weight: 31.5,
+    color: 'Golden blonde',
+    reproductiveStatus: 'Neutered',
+    microchip: 'PH-002-2021-BUDD',
+    allergies: 'None known yet',
+    chronicConditions: 'Mild hip dysplasia',
+    notes: 'Requires joint supplements. Avoid strenuous exercise.',
     owner: { name: 'Maria Santos', phone: '0917-123-4567' },
+    vaccines: [
+      { name: 'Rabies', date: '2025-11-05', nextDue: '2026-11-05', batchNo: 'RAB-2025-119', vet: 'Dr. Santos' },
+      { name: 'DHPPiL', date: '2025-08-15', nextDue: '2026-08-15', batchNo: 'DHP-2025-067', vet: 'Dr. Reyes' },
+      { name: 'Bordetella', date: '2025-08-15', nextDue: '2026-02-15', batchNo: 'BOR-2025-033', vet: 'Dr. Reyes' },
+    ],
     visits: [
       {
         id: 'v006',
@@ -1531,7 +1491,17 @@ const mockPetsData = [
     age: 2,
     gender: 'Male',
     weight: 3.8,
+    color: 'Seal point (cream body, dark face/ears/tail)',
+    reproductiveStatus: 'Neutered',
+    microchip: '',
+    allergies: 'Sensitive to poultry-based diets',
+    chronicConditions: 'None known yet',
+    notes: '',
     owner: { name: 'Maria Santos', phone: '0917-123-4567' },
+    vaccines: [
+      { name: 'FVRCP (1st Dose)', date: '2026-01-10', nextDue: '2026-02-10', batchNo: 'FVR-2026-012', vet: 'Dr. Santos' },
+      { name: 'Rabies', date: '2026-01-10', nextDue: '2027-01-10', batchNo: 'RAB-2026-005', vet: 'Dr. Santos' },
+    ],
     visits: [
       {
         id: 'v010',
@@ -1625,6 +1595,118 @@ function escapeHtml(text) {
   var div = document.createElement('div');
   div.appendChild(document.createTextNode(text));
   return div.innerHTML;
+}
+
+
+// ─── FULL PET PROFILE MODAL ──────────────────────────────────────────────────
+
+var _currentProfilePet = null;
+var _activeProfileTab = 'profile-medical';
+
+function showPetProfile(petId) {
+  var pet = _currentPets.find(function (p) { return p.id === petId; });
+  if (!pet) pet = mockPetsData.find(function (p) { return p.id === petId; });
+  if (!pet) return;
+  _currentProfilePet = pet;
+  _activeProfileTab = 'profile-medical';
+
+  // Set header
+  document.getElementById('profileModalTitle').textContent = pet.name;
+  document.getElementById('profileModalSubtitle').textContent = (pet.species || pet.type || '') + (pet.breed ? ' / ' + pet.breed : '');
+
+  // Build pet info header
+  var sp = pet.species || pet.type || '';
+  var photo = pet.photo
+    ? '<img src="' + pet.photo + '" alt="' + escapeHtml(pet.name) + '">'
+    : petEmoji(sp);
+  var owner = pet.owner || {};
+  var noneTag = '<span class="profile-notes-tag profile-none-tag">None known yet</span>';
+
+  document.getElementById('profilePetHeader').innerHTML = ''
+    + '<div class="profile-pet-avatar">' + photo + '</div>'
+    + '<div style="flex:1;min-width:0">'
+    + '<div class="profile-pet-info-grid">'
+    + '<div class="profile-pet-stat"><div class="profile-pet-stat-label">Species / Breed</div><div class="profile-pet-stat-val">' + escapeHtml(sp) + (pet.breed ? ' / ' + escapeHtml(pet.breed) : '') + '</div></div>'
+    + '<div class="profile-pet-stat"><div class="profile-pet-stat-label">Age</div><div class="profile-pet-stat-val">' + (pet.age ? pet.age + ' years' : '\u2014') + '</div></div>'
+    + '<div class="profile-pet-stat"><div class="profile-pet-stat-label">Weight</div><div class="profile-pet-stat-val">' + (pet.weight ? pet.weight + ' kg' : '\u2014') + '</div></div>'
+    + '<div class="profile-pet-stat"><div class="profile-pet-stat-label">Gender</div><div class="profile-pet-stat-val">' + escapeHtml(pet.gender || '\u2014') + '</div></div>'
+    + '<div class="profile-pet-stat"><div class="profile-pet-stat-label">Color / Markings</div><div class="profile-pet-stat-val">' + escapeHtml(pet.color || '\u2014') + '</div></div>'
+    + '<div class="profile-pet-stat"><div class="profile-pet-stat-label">Reproductive Status</div><div class="profile-pet-stat-val">' + escapeHtml(pet.reproductiveStatus || '\u2014') + '</div></div>'
+    + '<div class="profile-pet-stat"><div class="profile-pet-stat-label">Microchip ID</div><div class="profile-pet-stat-val">' + escapeHtml(pet.microchip || '\u2014') + '</div></div>'
+    + '<div class="profile-pet-stat"><div class="profile-pet-stat-label">Owner</div><div class="profile-pet-stat-val">' + escapeHtml(owner.name || '\u2014') + '</div></div>'
+    + '</div>'
+    + '<div style="display:flex;flex-wrap:wrap;gap:0.4rem;margin-top:0.5rem">'
+    + (pet.allergies
+      ? (pet.allergies.toLowerCase() === 'none known yet'
+        ? '<span class="profile-notes-tag profile-none-tag">No known allergies</span>'
+        : '<span class="profile-notes-tag">Allergies: ' + escapeHtml(pet.allergies) + '</span>')
+      : '')
+    + (pet.chronicConditions
+      ? (pet.chronicConditions.toLowerCase() === 'none known yet'
+        ? '<span class="profile-notes-tag profile-none-tag">No chronic conditions</span>'
+        : '<span class="profile-notes-tag">' + escapeHtml(pet.chronicConditions) + '</span>')
+      : '')
+    + (pet.notes ? '<span class="profile-notes-tag">Notes: ' + escapeHtml(pet.notes) + '</span>' : '')
+    + '</div>'
+    + '</div>';
+
+  // Render tabs
+  switchProfileTab('profile-medical');
+  openModal('petProfileModal');
+}
+
+
+function switchProfileTab(tabId) {
+  _activeProfileTab = tabId;
+  document.querySelectorAll('.profile-tab').forEach(function (t) {
+    t.classList.toggle('active', t.dataset.tab === tabId);
+  });
+  document.querySelectorAll('.profile-tab-content').forEach(function (c) {
+    c.classList.toggle('active', c.id === 'tab-' + tabId);
+  });
+  // Toggle export buttons
+  var medBtn = document.getElementById('profileExportMedBtn');
+  var vaxBtn = document.getElementById('profileExportVaxBtn');
+  if (medBtn) medBtn.style.display = tabId === 'profile-medical' ? '' : 'none';
+  if (vaxBtn) vaxBtn.style.display = tabId === 'profile-vaccines' ? '' : 'none';
+
+  // Render content for the active tab
+  if (tabId === 'profile-medical' && _currentProfilePet) {
+    renderPetHistory(_currentProfilePet);
+  } else if (tabId === 'profile-vaccines' && _currentProfilePet) {
+    renderVaccinePassport(_currentProfilePet);
+  }
+}
+
+
+function renderVaccinePassport(pet) {
+  var container = document.getElementById('profileVaccineTable');
+  if (!container) return;
+  if (!pet) { container.innerHTML = '<p class="med-hist-empty">No pet selected.</p>'; return; }
+
+  var vaccines = pet.vaccines || [];
+  if (!vaccines.length) {
+    container.innerHTML = '<p class="med-hist-empty">No vaccination records found for ' + escapeHtml(pet.name) + '.</p>';
+    return;
+  }
+
+  var rows = vaccines.map(function (v) {
+    var d = new Date(v.date + 'T00:00:00');
+    var dateStr = d.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+    var nextDue = v.nextDue ? new Date(v.nextDue + 'T00:00:00').toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) : '\u2014';
+    return '<tr>'
+      + '<td>' + escapeHtml(dateStr) + '</td>'
+      + '<td>' + escapeHtml(v.name) + '</td>'
+      + '<td>' + escapeHtml(nextDue) + '</td>'
+      + '<td>' + escapeHtml(v.batchNo || '\u2014') + '</td>'
+      + '<td>' + escapeHtml(v.vet || '\u2014') + '</td>'
+      + '</tr>';
+  }).join('');
+
+  container.innerHTML = '<table class="vaccine-table">'
+    + '<thead><tr><th>Date Administered</th><th>Vaccine</th><th>Next Due</th><th>Batch No.</th><th>Administered By</th></tr></thead>'
+    + '<tbody>' + rows + '</tbody>'
+    + '</table>';
 }
 
 
@@ -1739,6 +1821,106 @@ function printPetHistory() {
 }
 
 
+// ─── PRINT VACCINE CERTIFICATE ───────────────────────────────────────────────
+
+function printVaccineCertificate() {
+  var pet = _currentProfilePet || _currentPrintPet;
+  if (!pet) return;
+
+  var now = new Date();
+  var datePrinted = now.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+  var owner = pet.owner || {};
+  var vaccines = (pet.vaccines || []).slice().sort(function (a, b) {
+    return new Date(b.date) - new Date(a.date);
+  });
+
+  var rows = vaccines.map(function (v) {
+    var d = new Date(v.date + 'T00:00:00');
+    var dateStr = d.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+    var nextDue = v.nextDue ? new Date(v.nextDue + 'T00:00:00').toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) : '\u2014';
+    return '<tr>'
+      + '<td>' + escapeHtml(dateStr) + '</td>'
+      + '<td>' + escapeHtml(v.name) + '</td>'
+      + '<td>' + escapeHtml(nextDue) + '</td>'
+      + '<td>' + escapeHtml(v.batchNo || '\u2014') + '</td>'
+      + '<td>' + escapeHtml(v.vet || '\u2014') + '</td>'
+      + '</tr>';
+  }).join('');
+
+  var logoPath = '../web-page/image/vhs-assets/vhs-logo.png';
+  var sp = pet.species || pet.type || '';
+
+  var html = ''
+    + '<div class="print-letterhead">'
+    + '<div class="print-letterhead-row">'
+    + '<img src="' + logoPath + '" alt="VHS Logo" class="print-logo" />'
+    + '<div class="print-clinic-info">'
+    + '<h1 class="print-clinic-name">VHS Animal Wellness Center</h1>'
+    + '<p class="print-clinic-detail">834 Aurora Blvd cor Driod St, Kaunlaran, Cubao, Quezon City, 1111</p>'
+    + '<p class="print-clinic-detail">Tel: (0917) 108-4174 &nbsp;|&nbsp; vhs.animalwellness@gmail.com</p>'
+    + '</div>'
+    + '</div>'
+    + '</div>'
+
+    + '<div class="print-vax-title">Official Vaccination Certificate</div>'
+    + '<div class="print-vax-subtitle">This certifies that the following vaccinations have been administered at VHS Animal Wellness Center.</div>'
+
+    + '<div class="print-meta-row">'
+    + '<span>Pet: ' + escapeHtml(pet.name) + ' &mdash; ' + escapeHtml(sp) + (pet.breed ? ' / ' + escapeHtml(pet.breed) : '') + '</span>'
+    + '<span>Owner: ' + escapeHtml(owner.name || '\u2014') + '</span>'
+    + '<span>Date Printed: ' + datePrinted + '</span>'
+    + '</div>'
+
+    + '<div class="print-section">'
+    + '<table class="print-vax-table">'
+    + '<thead><tr>'
+    + '<th>Date Administered</th>'
+    + '<th>Vaccine</th>'
+    + '<th>Next Due Date</th>'
+    + '<th>Batch No.</th>'
+    + '<th>Administered By</th>'
+    + '</tr></thead>'
+    + '<tbody>' + (rows || '<tr><td colspan="5" style="text-align:center;color:#888;">No vaccination records.</td></tr>') + '</tbody>'
+    + '</table>'
+    + '</div>'
+
+    + '<div class="print-vax-cert-notice">'
+    + 'This certificate is issued by VHS Animal Wellness Center. For verification, contact (0917) 108-4174. '
+    + 'This document does not replace the official government-issued vaccination tag.'
+    + '</div>'
+
+    + '<div class="print-footer">'
+    + '<div class="print-sig-block">'
+    + '<div class="print-sig-line"></div>'
+    + '<div class="print-sig-label">Attending Veterinarian Signature</div>'
+    + '<div class="print-sig-sub">Over printed name &amp; License No.</div>'
+    + '</div>'
+    + '<div class="print-sig-block">'
+    + '<div class="print-sig-line"></div>'
+    + '<div class="print-sig-label">License No.</div>'
+    + '<div class="print-sig-sub">PRC / Vet Board ID</div>'
+    + '</div>'
+    + '</div>'
+
+    + '<div class="print-notice">'
+    + 'This document is an official record of VHS Animal Wellness Center. '
+    + 'Unauthorized reproduction or distribution is prohibited. '
+    + 'For verification, contact (0917) 108-4174.'
+    + '</div>';
+
+  var printWrapper = document.createElement('div');
+  printWrapper.className = 'print-area';
+  printWrapper.innerHTML = html;
+  document.body.appendChild(printWrapper);
+
+  window.print();
+
+  setTimeout(function () {
+    if (printWrapper.parentNode) printWrapper.parentNode.removeChild(printWrapper);
+  }, 1500);
+}
+
+
 // ─── PET SPECIES ICON MAP (SVG) ───────────────────────────────────────────────
 
 function petEmoji(type) {
@@ -1774,7 +1956,6 @@ function petEmoji(type) {
 
 function _renderPetCards(pets, grid, dashGrid, petCount) {
   _currentPets = pets;
-  // Update stat counters
   if (petCount) petCount.textContent = pets.length;
   var statPets = document.getElementById('statPets');
   if (statPets) statPets.textContent = pets.length;
@@ -1783,11 +1964,11 @@ function _renderPetCards(pets, grid, dashGrid, petCount) {
   if (dashGrid) {
     dashGrid.innerHTML = pets.length
       ? pets.map(function (p) {
-          var subtitle = [p.breed, p.type, p.age ? p.age + ' yrs' : '', p.gender].filter(Boolean).join(' · ');
+          var subtitle = [p.breed, p.species || p.type, p.age ? p.age + ' yrs' : ''].filter(Boolean).join(' \u00b7 ');
           return (
             '<div class="pet-card" style="cursor:pointer" onclick="showSection(\'pets\')">'
-            + '<div class="pet-avatar">' + petEmoji(p.type) + '</div>'
-            + '<div class="pet-info" style="flex:1"><h3>' + p.name + '</h3><p>' + subtitle + '</p></div>'
+            + '<div class="pet-avatar">' + petEmoji(p.species || p.type) + '</div>'
+            + '<div class="pet-info" style="flex:1"><h3>' + escapeHtml(p.name) + '</h3><p>' + subtitle + '</p></div>'
             + '<button class="btn-small" onclick="event.stopPropagation();showSection(\'pets\')">View</button>'
             + '</div>'
           );
@@ -1803,32 +1984,43 @@ function _renderPetCards(pets, grid, dashGrid, petCount) {
   }
 
   grid.innerHTML = pets.map(function (p) {
-    var subtitle = [p.breed, p.type, p.gender].filter(Boolean).join(' · ');
+    var sp = p.species || p.type || '';
     var photo = p.photo
-      ? '<img src="' + p.photo + '" alt="' + p.name + '" style="width:100%;height:100%;object-fit:cover;border-radius:0.75rem;">'
-      : petEmoji(p.type);
+      ? '<img src="' + p.photo + '" alt="' + escapeHtml(p.name) + '" style="width:100%;height:100%;object-fit:cover;border-radius:0.75rem;">'
+      : petEmoji(sp);
+    var reproBadge = p.reproductiveStatus
+      ? '<span class="pet-card-badge">' + escapeHtml(p.reproductiveStatus) + '</span>'
+      : '';
+    var allergiesTag = (p.allergies && p.allergies.toLowerCase() !== 'none known yet')
+      ? '<span class="profile-notes-tag">Allergies: ' + escapeHtml(p.allergies) + '</span>'
+      : (p.allergies ? '<span class="profile-notes-tag profile-none-tag">No known allergies</span>' : '');
+    var chronicTag = (p.chronicConditions && p.chronicConditions.toLowerCase() !== 'none known yet')
+      ? '<span class="profile-notes-tag">' + escapeHtml(p.chronicConditions) + '</span>'
+      : (p.chronicConditions ? '<span class="profile-notes-tag profile-none-tag">No chronic conditions</span>' : '');
+
     return (
       '<div class="pet-full-card content-section">'
       + '<div class="pet-full-header">'
       + '<div class="pet-big-avatar">' + photo + '</div>'
       + '<div style="flex:1">'
-      + '<h3 style="font-size:1.3rem;font-weight:700;color:var(--text-dark);margin:0 0 0.2rem">' + p.name + '</h3>'
-      + '<p style="font-size:0.85rem;color:var(--text-dim);margin:0">' + (subtitle || '—') + '</p>'
+      + '<div style="display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap">'
+      + '<h3 style="font-size:1.25rem;font-weight:700;color:var(--text-dark);margin:0">' + escapeHtml(p.name) + '</h3>'
+      + reproBadge
       + '</div>'
-      + '<button class="btn-small" onclick="openEditPetModal(' + p.id + ')">Edit</button>'
+      + '<p style="font-size:0.85rem;color:var(--text-dim);margin:0.15rem 0 0">' + escapeHtml(sp) + (p.breed ? ' / ' + escapeHtml(p.breed) : '') + '</p>'
       + '</div>'
-      + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:0.75rem;margin-bottom:1rem">'
-      + '<div class="pet-stat-box"><div class="pet-stat-label">AGE</div><div class="pet-stat-val">' + (p.age ? p.age + ' years' : '—') + '</div></div>'
-      + '<div class="pet-stat-box"><div class="pet-stat-label">WEIGHT</div><div class="pet-stat-val">' + (p.weight ? p.weight + ' kg' : '—') + '</div></div>'
-      + '<div class="pet-stat-box"><div class="pet-stat-label">COLOR</div><div class="pet-stat-val">' + (p.color || '—') + '</div></div>'
-      + '<div class="pet-stat-box"><div class="pet-stat-label">MICROCHIP</div><div class="pet-stat-val">' + (p.microchip || '—') + '</div></div>'
+      + '<button class="btn-small" onclick="openEditPetModal(' + p.id + ')">Edit Profile</button>'
       + '</div>'
-      + (p.notes ? '<div class="pet-notes-box"><div class="pet-stat-label" style="margin-bottom:0.35rem">MEDICAL NOTES</div><p style="font-size:0.85rem;color:var(--text-dim);margin:0;line-height:1.6">' + p.notes + '</p></div>' : '')
-      + '<div style="border-top:1px solid var(--border);margin-top:1rem;padding-top:0.85rem">'
-      + '<button class="btn-link" style="font-size:0.85rem;color:var(--primary);background:none;border:none;cursor:pointer;padding:0;display:flex;align-items:center;gap:0.4rem" onclick="showMedicalHistory(' + p.id + ')">'
-      + '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>'
-      + ' Medical History'
-      + '</button>'
+      + '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:0.6rem;margin-bottom:0.75rem">'
+      + '<div class="pet-stat-box"><div class="pet-stat-label">AGE</div><div class="pet-stat-val">' + (p.age ? p.age + ' yrs' : '\u2014') + '</div></div>'
+      + '<div class="pet-stat-box"><div class="pet-stat-label">WEIGHT</div><div class="pet-stat-val">' + (p.weight ? p.weight + ' kg' : '\u2014') + '</div></div>'
+      + '<div class="pet-stat-box"><div class="pet-stat-label">COLOR</div><div class="pet-stat-val">' + (p.color || '\u2014') + '</div></div>'
+      + '<div class="pet-stat-box"><div class="pet-stat-label">MICROCHIP</div><div class="pet-stat-val">' + (p.microchip || '\u2014') + '</div></div>'
+      + '</div>'
+      + (allergiesTag || chronicTag ? '<div style="display:flex;flex-wrap:wrap;gap:0.4rem;margin-bottom:0.75rem">' + allergiesTag + chronicTag + '</div>' : '')
+      + (p.notes ? '<div class="pet-notes-box"><div class="pet-stat-label" style="margin-bottom:0.25rem">NOTES</div><p style="font-size:0.82rem;color:var(--text-dim);margin:0;line-height:1.5">' + escapeHtml(p.notes) + '</p></div>' : '')
+      + '<div style="border-top:1px solid var(--border);margin-top:0.75rem;padding-top:0.75rem;display:flex;gap:0.5rem;flex-wrap:wrap">'
+      + '<button class="btn-primary" style="font-size:0.82rem;padding:0.55rem 1rem" onclick="showPetProfile(' + p.id + ')">\ud83d\udcc4 View Full Profile & Records</button>'
       + '</div>'
       + '</div>'
     );
