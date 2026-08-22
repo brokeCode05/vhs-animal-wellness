@@ -1282,9 +1282,35 @@ body.modal-open {
   .day-apt { font-size: 0.6rem; padding: 0.2rem 0.35rem; }
 }
 
-/* ===== CALENDAR CONTROLS RESPONSIVE ===== */
+/* ===== CALENDAR CONTROLS TOOLBAR ===== */
 .calendar-controls {
-  min-width: 0;
+  background: #ffffff;
+  border: 1px solid var(--accent-border);
+  border-radius: 0.75rem;
+  padding: 0.6rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+
+.calendar-toolbar-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.calendar-toolbar-row:first-child {
+  padding-bottom: 0.4rem;
+  border-bottom: 1px solid var(--accent-border);
+}
+
+.calendar-nav {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
 }
 
 .calendar-controls .calendar-month {
@@ -1293,25 +1319,50 @@ body.modal-open {
   text-overflow: ellipsis;
   white-space: nowrap;
   flex-shrink: 1;
-  font-size: 1.1rem;
+  font-size: 1rem;
 }
 
-.calendar-controls .calendar-nav,
-.calendar-controls .calendar-view-toggle,
-.calendar-controls .calendar-actions {
-  flex-shrink: 0;
+.calendar-controls .calendar-nav .btn-secondary#calendarMonth {
+  font-size: 0.95rem;
+}
+
+.calendar-view-toggle {
+  display: flex;
+  gap: 0.2rem;
+  background: var(--bg-light, #f4f1f8);
+  padding: 0.2rem;
+  border-radius: 0.4rem;
+}
+
+.calendar-view-toggle .btn-small {
+  margin: 0;
+  background: transparent;
+  border: none;
+  padding: 0.3rem 0.65rem;
+  font-size: 0.75rem;
+  border-radius: 0.3rem;
+}
+
+.calendar-view-toggle .btn-small.active {
+  background: #ffffff;
+  color: var(--primary, #6b46c1);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+.calendar-actions {
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 0.75rem;
   flex-wrap: wrap;
 }
+
 .calendar-actions .form-select {
   min-width: 0;
   width: auto;
-  padding: 0.45rem 0.75rem;
-  font-size: 0.8rem;
-  border-radius: 0.5rem;
+  padding: 0.35rem 0.65rem;
+  font-size: 0.75rem;
+  border-radius: 0.4rem;
   border: 1.5px solid var(--accent-border);
   background: #fffdfe;
   color: var(--accent-dark, #3b2d4a);
