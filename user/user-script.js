@@ -1245,12 +1245,15 @@ function toggleHistory(id) {
 }
 
 
+var _currentPets = [];
+
 function showMedicalHistory(petId) {
   var titleEl = document.getElementById('medHistModalTitle');
   var subtitleEl = document.getElementById('medHistModalSubtitle');
-  var pet = mockPetsData.find(function (p) { return p.id === petId; });
+  var pet = _currentPets.find(function (p) { return p.id === petId; });
+  if (!pet) pet = mockPetsData.find(function (p) { return p.id === petId; });
   if (titleEl) titleEl.textContent = 'Medical History';
-  if (subtitleEl) subtitleEl.textContent = pet ? pet.name + ' — ' + pet.species + ', ' + (pet.breed || '') : '';
+  if (subtitleEl) subtitleEl.textContent = pet ? pet.name + ' — ' + (pet.type || pet.species || '') + ', ' + (pet.breed || '') : '';
   renderPetHistory(petId);
   openModal('medHistoryModal');
 }
@@ -1559,14 +1562,15 @@ function renderPetHistory(petId) {
     return;
   }
 
-  const pet = mockPetsData.find(function (p) { return p.id === petId; });
+  var pet = _currentPets.find(function (p) { return p.id === petId; });
+  if (!pet) pet = mockPetsData.find(function (p) { return p.id === petId; });
   if (!pet) {
     container.innerHTML = '<p class="med-hist-empty">Pet record not found.</p>';
     return;
   }
 
   // Sort visits newest-first
-  const visits = (pet.visits || []).slice().sort(function (a, b) {
+  var visits = (pet.visits || []).slice().sort(function (a, b) {
     return new Date(b.date) - new Date(a.date);
   });
 
@@ -1653,266 +1657,97 @@ function petEmoji(type) {
 
 // ─── LOAD PETS FROM DB ────────────────────────────────────────────────────────
 
+
+function _renderPetCards(pets, grid, dashGrid, petCount) {
+  _currentPets = pets;
+  // Update stat counters
+  if (petCount) petCount.textContent = pets.length;
+  var statPets = document.getElementById('statPets');
+  if (statPets) statPets.textContent = pets.length;
+
+  // ── Dashboard quick view (compact cards) ──
+  if (dashGrid) {
+    dashGrid.innerHTML = pets.length
+      ? pets.map(function (p) {
+          var subtitle = [p.breed, p.type, p.age ? p.age + ' yrs' : '', p.gender].filter(Boolean).join(' · ');
+          return (
+            '<div class="pet-card" style="cursor:pointer" onclick="showSection(\'pets\')">'
+            + '<div class="pet-avatar">' + petEmoji(p.type) + '</div>'
+            + '<div class="pet-info" style="flex:1"><h3>' + p.name + '</h3><p>' + subtitle + '</p></div>'
+            + '<button class="btn-small" onclick="event.stopPropagation();showSection(\'pets\')">View</button>'
+            + '</div>'
+          );
+        }).join('')
+      : '<p style="color:var(--text-muted,#888);padding:1rem 0">No pets registered yet. Add your first pet!</p>';
+  }
+
+  // ── My Pets full view ──
+  if (!grid) return;
+  if (!pets.length) {
+    grid.innerHTML = '<p style="color:var(--text-muted,#888);padding:1rem 0">No pets registered yet. Click "Add New Pet" to get started!</p>';
+    return;
+  }
+
+  grid.innerHTML = pets.map(function (p) {
+    var subtitle = [p.breed, p.type, p.gender].filter(Boolean).join(' · ');
+    var photo = p.photo
+      ? '<img src="' + p.photo + '" alt="' + p.name + '" style="width:100%;height:100%;object-fit:cover;border-radius:0.75rem;">'
+      : petEmoji(p.type);
+    return (
+      '<div class="pet-full-card content-section">'
+      + '<div class="pet-full-header">'
+      + '<div class="pet-big-avatar">' + photo + '</div>'
+      + '<div style="flex:1">'
+      + '<h3 style="font-size:1.3rem;font-weight:700;color:var(--text-dark);margin:0 0 0.2rem">' + p.name + '</h3>'
+      + '<p style="font-size:0.85rem;color:var(--text-dim);margin:0">' + (subtitle || '—') + '</p>'
+      + '</div>'
+      + '<button class="btn-small" onclick="openEditPetModal(' + p.id + ')">Edit</button>'
+      + '</div>'
+      + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:0.75rem;margin-bottom:1rem">'
+      + '<div class="pet-stat-box"><div class="pet-stat-label">AGE</div><div class="pet-stat-val">' + (p.age ? p.age + ' years' : '—') + '</div></div>'
+      + '<div class="pet-stat-box"><div class="pet-stat-label">WEIGHT</div><div class="pet-stat-val">' + (p.weight ? p.weight + ' kg' : '—') + '</div></div>'
+      + '<div class="pet-stat-box"><div class="pet-stat-label">COLOR</div><div class="pet-stat-val">' + (p.color || '—') + '</div></div>'
+      + '<div class="pet-stat-box"><div class="pet-stat-label">MICROCHIP</div><div class="pet-stat-val">' + (p.microchip || '—') + '</div></div>'
+      + '</div>'
+      + (p.notes ? '<div class="pet-notes-box"><div class="pet-stat-label" style="margin-bottom:0.35rem">MEDICAL NOTES</div><p style="font-size:0.85rem;color:var(--text-dim);margin:0;line-height:1.6">' + p.notes + '</p></div>' : '')
+      + '<div style="border-top:1px solid var(--border);margin-top:1rem;padding-top:0.85rem">'
+      + '<button class="btn-link" style="font-size:0.85rem;color:var(--primary);background:none;border:none;cursor:pointer;padding:0;display:flex;align-items:center;gap:0.4rem" onclick="showMedicalHistory(' + p.id + ')">'
+      + '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>'
+      + ' Medical History'
+      + '</button>'
+      + '</div>'
+      + '</div>'
+    );
+  }).join('');
+}
+
+
+
 function loadPets() {
-
   var user = _getSessionUser();
-
   var userId = user.id || user.userId;
 
-  if (!userId) return;
+  var grid = document.getElementById('petsGrid');
+  var dashGrid = document.getElementById('dashPetsGrid');
+  var petCount = document.getElementById('statPetCount');
 
+  // If no session (e.g. GitHub Pages), render mock data directly
+  if (!userId) {
+    _renderPetCards(mockPetsData, grid, dashGrid, petCount);
+    return;
+  }
 
+  if (grid) grid.innerHTML = '<p style="color:#888;padding:1rem 0">Loading pets...</p>';
 
-  var grid = document.getElementById("petsGrid");
-
-  var dashGrid = document.getElementById("dashPetsGrid");
-
-  var petCount = document.getElementById("statPetCount");
-
-
-
-  if (grid)
-
-    grid.innerHTML = '<p style="color:#888;padding:1rem 0">Loading pets...</p>';
-
-
-
-  fetch("get_pets_user.php?user_id=" + userId)
-
-    .then(function (r) {
-
-      return r.json();
-
-    })
-
+  fetch('get_pets_user.php?user_id=' + userId)
+    .then(function (r) { return r.json(); })
     .then(function (pets) {
-
-      // Update stat counter on dashboard
-
-      if (petCount) petCount.textContent = pets.length;
-
-      var statPets = document.getElementById("statPets");
-
-      if (statPets) statPets.textContent = pets.length;
-
-
-
-      // ── Dashboard quick view (compact cards) ──
-
-      if (dashGrid) {
-
-        dashGrid.innerHTML =
-
-          pets.length ?
-
-            pets
-
-              .map(function (p) {
-
-                var subtitle = [
-
-                  p.breed,
-
-                  p.type,
-
-                  p.age ? p.age + " yrs" : "",
-
-                  p.gender,
-
-                ]
-
-                  .filter(Boolean)
-
-                  .join(" · ");
-
-                return (
-
-                  '<div class="pet-card" style="cursor:pointer" onclick="showSection(\'pets\')">' +
-
-                  '<div class="pet-avatar">' +
-
-                  petEmoji(p.type) +
-
-                  "</div>" +
-
-                  '<div class="pet-info" style="flex:1">' +
-
-                  "<h3>" +
-
-                  p.name +
-
-                  "</h3>" +
-
-                  "<p>" +
-
-                  subtitle +
-
-                  "</p>" +
-
-                  "</div>" +
-
-                  '<button class="btn-small" onclick="event.stopPropagation();showSection(\'pets\')">View</button>' +
-
-                  "</div>"
-
-                );
-
-              })
-
-              .join("")
-
-          : '<p style="color:var(--text-muted,#888);padding:1rem 0">No pets registered yet. Add your first pet!</p>';
-
-      }
-
-
-
-      // ── My Pets full view ──
-
-      if (!grid) return;
-
-      if (!pets.length) {
-
-        grid.innerHTML =
-
-          '<p style="color:var(--text-muted,#888);padding:1rem 0">No pets registered yet. Click "Add New Pet" to get started!</p>';
-
-        return;
-
-      }
-
-      grid.innerHTML = pets
-
-        .map(function (p) {
-
-          var subtitle = [p.breed, p.type, p.gender]
-
-            .filter(Boolean)
-
-            .join(" · ");
-
-          var photo =
-
-            p.photo ?
-
-              '<img src="' +
-
-              p.photo +
-
-              '" alt="' +
-
-              p.name +
-
-              '" style="width:100%;height:100%;object-fit:cover;border-radius:0.75rem;">'
-
-            : petEmoji(p.type);
-
-          return (
-
-            '<div class="pet-full-card content-section">' +
-
-            '<div class="pet-full-header">' +
-
-            '<div class="pet-big-avatar">' +
-
-            photo +
-
-            "</div>" +
-
-            '<div style="flex:1">' +
-
-            '<h3 style="font-size:1.3rem;font-weight:700;color:var(--text-dark);margin:0 0 0.2rem">' +
-
-            p.name +
-
-            "</h3>" +
-
-            '<p style="font-size:0.85rem;color:var(--text-dim);margin:0">' +
-
-            (subtitle || "—") +
-
-            "</p>" +
-
-            "</div>" +
-
-            '<button class="btn-small" onclick="openEditPetModal(' +
-
-            p.id +
-
-            ')">Edit</button>' +
-
-            "</div>" +
-
-            '<div style="display:grid;grid-template-columns:1fr 1fr;gap:0.75rem;margin-bottom:1rem">' +
-
-            '<div class="pet-stat-box"><div class="pet-stat-label">AGE</div><div class="pet-stat-val">' +
-
-            (p.age ? p.age + " years" : "—") +
-
-            "</div></div>" +
-
-            '<div class="pet-stat-box"><div class="pet-stat-label">WEIGHT</div><div class="pet-stat-val">' +
-
-            (p.weight ? p.weight + " kg" : "—") +
-
-            "</div></div>" +
-
-            '<div class="pet-stat-box"><div class="pet-stat-label">COLOR</div><div class="pet-stat-val">' +
-
-            (p.color || "—") +
-
-            "</div></div>" +
-
-            '<div class="pet-stat-box"><div class="pet-stat-label">MICROCHIP</div><div class="pet-stat-val">' +
-
-            (p.microchip || "—") +
-
-            "</div></div>" +
-
-            "</div>" +
-
-            (p.notes ?
-
-              '<div class="pet-notes-box"><div class="pet-stat-label" style="margin-bottom:0.35rem">MEDICAL NOTES</div><p style="font-size:0.85rem;color:var(--text-dim);margin:0;line-height:1.6">' +
-
-              p.notes +
-
-              "</p></div>"
-
-            : "") +
-
-            '<div style="border-top:1px solid var(--border);margin-top:1rem;padding-top:0.85rem">' +
-
-            '<button class="btn-link" style="font-size:0.85rem;color:var(--primary);background:none;border:none;cursor:pointer;padding:0;display:flex;align-items:center;gap:0.4rem" onclick="showMedicalHistory(' + p.id + ')">' +
-
-            '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>' +
-
-            " Medical History" +
-
-            "</button>" +
-
-            "</div>" +
-
-            "</div>"
-
-          );
-
-        })
-
-        .join("");
-
+      _renderPetCards(pets, grid, dashGrid, petCount);
     })
-
     .catch(function () {
-
-      if (grid)
-
-        grid.innerHTML =
-
-          '<p style="color:red;padding:1rem 0">Failed to load pets.</p>';
-
+      // Fallback to mock data on error
+      _renderPetCards(mockPetsData, grid, dashGrid, petCount);
     });
-
 }
 
 
