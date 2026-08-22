@@ -92,6 +92,38 @@ h1, h2, h3, h4, h5, h6,
   color: #ffffff;
 }
 
+/* ===== NAVBAR DATETIME ===== */
+.navbar-datetime {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.4rem 0.85rem;
+  background: rgba(255, 255, 255, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 0.5rem;
+  color: #ffffff;
+  font-size: 0.78rem;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+  backdrop-filter: blur(4px);
+}
+
+.navbar-datetime .dt-date {
+  opacity: 0.9;
+}
+
+.navbar-datetime .dt-sep {
+  opacity: 0.4;
+}
+
+.navbar-datetime .dt-time {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: #ffffff;
+}
+
 /* ===== SIDEBAR ===== */
 .sidebar {
   background: linear-gradient(180deg, #ffffff 0%, #faf8ff 100%);
