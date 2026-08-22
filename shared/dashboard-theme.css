@@ -1300,6 +1300,21 @@ body.modal-open {
 .calendar-controls .calendar-view-toggle,
 .calendar-controls .calendar-actions {
   flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+.calendar-actions .form-select {
+  min-width: 0;
+  width: auto;
+  padding: 0.45rem 0.75rem;
+  font-size: 0.8rem;
+  border-radius: 0.5rem;
+  border: 1.5px solid var(--accent-border);
+  background: #fffdfe;
+  color: var(--accent-dark, #3b2d4a);
 }
 
 /* ===== MODAL FORM BUTTONS ===== */
@@ -1349,9 +1364,12 @@ body.modal-open {
 /* ===== CALENDAR LEGEND ===== */
 .calendar-legend {
   display: flex;
-  gap: 1rem;
+  align-items: center;
+  gap: 0.6rem;
   flex-wrap: wrap;
   justify-content: center;
+}
+.calendar-container > .calendar-legend {
   margin-bottom: 0.75rem;
   padding: 0.5rem 0.75rem;
   background: #ffffff;
@@ -1360,19 +1378,21 @@ body.modal-open {
 }
 
 .legend-item {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: 0.35rem;
-  font-size: 0.75rem;
-  font-weight: 600;
-  color: var(--text-dim, #888);
+  gap: 0.3rem;
+  font-size: 0.72rem;
+  font-weight: 500;
+  color: var(--text-dim, #777);
+  white-space: nowrap;
 }
 
 .legend-dot {
-  width: 8px;
-  height: 8px;
+  width: 7px;
+  height: 7px;
   border-radius: 50%;
   flex-shrink: 0;
+  display: inline-block;
 }
 
 .legend-dot.status-pending   { background: #f59e0b; }

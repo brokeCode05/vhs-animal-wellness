@@ -1616,35 +1616,7 @@ body {
   text-overflow: ellipsis;
 }
 
-/* ── Calendar legend ── */
-.calendar-legend {
-  display: flex;
-  gap: 1.25rem;
-  flex-wrap: wrap;
-  margin-bottom: 0.875rem;
-  padding: 0.625rem 0.875rem;
-  background: white;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-}
-.legend-item {
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
-  font-size: 0.8rem;
-  font-weight: 600;
-  color: var(--text-dim);
-}
-.legend-dot {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  flex-shrink: 0;
-}
-.legend-dot.status-pending   { background: #f59e0b; }
-.legend-dot.status-scheduled { background: #3b82f6; }
-.legend-dot.status-completed { background: #10b981; }
-.legend-dot.status-canceled  { background: #ef4444; }
+/* Calendar legend - handled by shared/dashboard-theme.css */
 
 /* Responsive Calendar */
 @media (max-width: 768px) {
