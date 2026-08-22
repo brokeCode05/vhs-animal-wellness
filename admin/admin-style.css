@@ -898,9 +898,9 @@ body {
 }
 
 .btn-primary {
-  background: linear-gradient(135deg, var(--secondary) 0%, var(--secondary-dark) 100%);
+  background: linear-gradient(135deg, #0d9488 0%, #0f766e 100%);
   color: white;
-  box-shadow: 0 6px 20px rgba(255, 170, 0, 0.35);
+  box-shadow: 0 4px 14px rgba(13, 148, 136, 0.3);
 }
 
 .btn-primary:hover {
@@ -913,9 +913,10 @@ body {
 }
 
 .btn-secondary {
-  background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
-  color: white;
-  box-shadow: 0 6px 20px rgba(109, 74, 177, 0.35);
+  background: #ffffff;
+  color: #475569;
+  border: 1.5px solid #e2e8f0;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
 }
 
 .btn-secondary:hover {
@@ -928,11 +929,11 @@ body {
 }
 
 .btn-approve {
-  background: linear-gradient(135deg, #34d399 0%, var(--success) 100%);
+  background: linear-gradient(135deg, #16a34a 0%, #15803d 100%);
   color: white;
   padding: 0.75rem 1.5rem;
   font-size: 0.875rem;
-  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.35);
+  box-shadow: 0 4px 14px rgba(22, 163, 74, 0.3);
   margin-right: 0.5rem;
 }
 
@@ -946,11 +947,11 @@ body {
 }
 
 .btn-reject {
-  background: linear-gradient(135deg, #f87171 0%, var(--error) 100%);
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
   color: white;
   padding: 0.75rem 1.5rem;
   font-size: 0.875rem;
-  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.35);
+  box-shadow: 0 4px 14px rgba(239, 68, 68, 0.3);
 }
 
 .btn-reject:hover {
@@ -963,9 +964,9 @@ body {
 }
 
 .btn-danger {
-  background: linear-gradient(135deg, #f87171 0%, var(--error) 100%);
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
   color: white;
-  box-shadow: 0 6px 20px rgba(239, 68, 68, 0.35);
+  box-shadow: 0 4px 14px rgba(239, 68, 68, 0.3);
 }
 
 .btn-danger:hover {

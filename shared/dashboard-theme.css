@@ -363,28 +363,113 @@ h1, h2, h3, h4, h5, h6,
   color: #a89ab8;
 }
 
-/* ===== BUTTONS ===== */
+/* ===== BUTTONS — Contextual Intent System ===== */
+/*
+ * Primary   = Book / Confirm / Main CTA — welcoming teal-green
+ * Secondary = Back / Close / Neutral — recedes, subtle
+ * Danger    = Cancel / Delete / Remove — caution red
+ * Urgent    = Emergency / Critical — amber attention
+ * Success   = Approved / Completed — positive green
+ */
+
+/* --- Primary: Book / Confirm --- */
 .btn-primary {
-  background: linear-gradient(135deg, var(--accent) 0%, var(--accent-dark) 100%);
+  background: linear-gradient(135deg, #0d9488 0%, #0f766e 100%);
   color: #ffffff;
-  box-shadow: 0 6px 20px var(--accent-shadow);
+  box-shadow: 0 4px 14px rgba(13, 148, 136, 0.3);
 }
-
 .btn-primary:hover {
-  background: linear-gradient(135deg, var(--accent-hover) 0%, var(--accent-hover-dark) 100%);
-  box-shadow: 0 8px 26px var(--accent-shadow);
+  background: linear-gradient(135deg, #14b8a6 0%, #0d9488 100%);
+  box-shadow: 0 6px 20px rgba(13, 148, 136, 0.4);
+  transform: translateY(-1px);
+}
+.btn-primary:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 8px rgba(13, 148, 136, 0.3);
+}
+.btn-primary:disabled {
+  background: #94a3b8;
+  box-shadow: none;
+  cursor: not-allowed;
+  transform: none;
 }
 
+/* --- Secondary: Neutral / Back / Close --- */
 .btn-secondary {
-  background: linear-gradient(135deg, var(--accent) 0%, var(--accent-dark) 100%);
-  color: #ffffff;
-  box-shadow: 0 6px 20px var(--accent-shadow);
+  background: #ffffff;
+  color: #475569;
+  border: 1.5px solid #e2e8f0;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
 }
-
 .btn-secondary:hover {
-  background: linear-gradient(135deg, var(--accent-hover) 0%, var(--accent-hover-dark) 100%);
+  background: #f8fafc;
+  border-color: #cbd5e1;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+}
+.btn-secondary:active {
+  background: #f1f5f9;
+}
+.btn-secondary:disabled {
+  background: #f8fafc;
+  color: #94a3b8;
+  border-color: #e2e8f0;
+  cursor: not-allowed;
 }
 
+/* --- Danger: Cancel / Delete / Remove --- */
+.btn-danger {
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+  color: #ffffff;
+  box-shadow: 0 4px 14px rgba(239, 68, 68, 0.3);
+}
+.btn-danger:hover {
+  background: linear-gradient(135deg, #f87171 0%, #ef4444 100%);
+  box-shadow: 0 6px 20px rgba(239, 68, 68, 0.4);
+  transform: translateY(-1px);
+}
+.btn-danger:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 8px rgba(239, 68, 68, 0.3);
+}
+.btn-danger:disabled {
+  background: #94a3b8;
+  box-shadow: none;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* --- Urgent: Emergency / Critical --- */
+.btn-urgent {
+  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+  color: #ffffff;
+  box-shadow: 0 4px 14px rgba(245, 158, 11, 0.3);
+}
+.btn-urgent:hover {
+  background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
+  box-shadow: 0 6px 20px rgba(245, 158, 11, 0.4);
+  transform: translateY(-1px);
+}
+.btn-urgent:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 8px rgba(245, 158, 11, 0.3);
+}
+
+/* --- Success: Approved / Completed --- */
+.btn-success {
+  background: linear-gradient(135deg, #16a34a 0%, #15803d 100%);
+  color: #ffffff;
+  box-shadow: 0 4px 14px rgba(22, 163, 74, 0.3);
+}
+.btn-success:hover {
+  background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
+  box-shadow: 0 6px 20px rgba(22, 163, 74, 0.4);
+  transform: translateY(-1px);
+}
+.btn-success:active {
+  transform: translateY(0);
+}
+
+/* --- Small / Utility --- */
 .btn-small {
   border-radius: 0.5rem;
 }
@@ -392,11 +477,9 @@ h1, h2, h3, h4, h5, h6,
 .btn-link {
   color: var(--accent);
 }
-
 .btn-link::after {
   background: var(--accent);
 }
-
 .btn-link:hover {
   color: var(--accent-dark);
 }
@@ -576,7 +659,7 @@ h1, h2, h3, h4, h5, h6,
    ============================================================ */
 
 /* Smooth everything */
-.btn-primary, .btn-secondary, .btn-small, .btn-link,
+.btn-primary, .btn-secondary, .btn-danger, .btn-urgent, .btn-success, .btn-small, .btn-link,
 .stat-card, .stat-icon,
 .content-section, .page-header, .table-wrapper,
 .form-input, .form-select, .form-textarea, .search-input,
@@ -588,6 +671,9 @@ h1, h2, h3, h4, h5, h6,
 /* Accessible focus rings */
 .btn-primary:focus-visible,
 .btn-secondary:focus-visible,
+.btn-danger:focus-visible,
+.btn-urgent:focus-visible,
+.btn-success:focus-visible,
 .btn-small:focus-visible,
 .btn-link:focus-visible,
 .tab-btn:focus-visible,
@@ -602,6 +688,9 @@ h1, h2, h3, h4, h5, h6,
 /* ===== BUTTONS — press states ===== */
 .btn-primary:active,
 .btn-secondary:active,
+.btn-danger:active,
+.btn-urgent:active,
+.btn-success:active,
 .btn-small:active {
   transform: translateY(1px) scale(0.98);
 }

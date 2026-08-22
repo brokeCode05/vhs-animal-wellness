@@ -94,24 +94,25 @@ header::after {
 
 /* ===== BUTTONS ===== */
 .btn-primary {
-  background: linear-gradient(135deg, #9a6ff8, #6d4ab1);
+  background: linear-gradient(135deg, #0d9488, #0f766e);
   color: #fff;
-  box-shadow: 0 10px 30px rgba(109, 74, 177, 0.35);
+  box-shadow: 0 4px 14px rgba(13, 148, 136, 0.3);
 }
 
 .btn-primary:hover {
-  box-shadow: 0 15px 40px rgba(109, 74, 177, 0.45);
+  box-shadow: 0 6px 20px rgba(13, 148, 136, 0.4);
+  transform: translateY(-2px);
 }
 
 .btn-secondary {
   background: #ffffff;
-  color: #4a3a5e;
-  border: 2px solid rgba(139, 92, 246, 0.5);
+  color: #475569;
+  border: 1.5px solid #e2e8f0;
 }
 
 .btn-secondary:hover {
-  background: rgba(139, 92, 246, 0.08);
-  border-color: var(--primary);
+  background: #f8fafc;
+  border-color: #cbd5e1;
 }
 
 /* ===== HERO ===== */
