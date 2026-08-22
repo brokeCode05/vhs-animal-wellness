@@ -1628,6 +1628,30 @@ function initCustomDropdown(selectId, opts) {
   select._cdRefresh = syncDisplay;
 }
 
+// ─── NAVBAR DATETIME UPDATER ──────────────────────────────────────────────
+function startNavbarDatetime() {
+  var el = document.getElementById("navbarDatetime");
+  if (!el) return;
+
+  var months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  var days = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+
+  function update() {
+    var now = new Date();
+    var dateStr = days[now.getDay()] + ", " + months[now.getMonth()] + " " + now.getDate() + ", " + now.getFullYear();
+    var h = now.getHours();
+    var m = now.getMinutes();
+    var s = now.getSeconds();
+    var ampm = h >= 12 ? "PM" : "AM";
+    h = h % 12 || 12;
+    var timeStr = h + ":" + (m < 10 ? "0" : "") + m + ":" + (s < 10 ? "0" : "") + s + " " + ampm;
+    el.innerHTML = "<span class="dt-date">" + dateStr + "</span><span class="dt-sep">|</span><span class="dt-time">" + timeStr + "</span>";
+  }
+
+  update();
+  setInterval(update, 1000);
+}
+
 function initAllCustomDropdowns() {
   initCustomDropdown('adminBookService', { searchPlaceholder: 'Search services...', emptyText: 'No services found' });
   initCustomDropdown('adminClientSelect', { placeholder: 'Select client', searchPlaceholder: 'Search clients...', emptyText: 'No clients found' });
