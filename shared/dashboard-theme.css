@@ -82,11 +82,6 @@ h1, h2, h3, h4, h5, h6,
   background: linear-gradient(90deg, transparent, var(--accent-shimmer), rgba(255, 255, 255, 0.55), transparent);
 }
 
-.navbar-badge {
-  background: rgba(255, 255, 255, 0.14);
-  border: 1px solid rgba(255, 255, 255, 0.3);
-  color: #ffffff;
-}
 
 .brand-name {
   color: #ffffff;
