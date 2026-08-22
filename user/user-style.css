@@ -2606,13 +2606,163 @@ body {
   border-bottom: none;
 }
 
+/* ──────────────────────────────────────────────────────────────
+   MOBILE RESPONSIVE — Pets Module & Profile Modal
+   ────────────────────────────────────────────────────────────── */
+
 @media (max-width: 768px) {
-  .profile-pet-info-grid {
-    grid-template-columns: repeat(2, 1fr);
+  /* ── Profile Modal: full-screen sheet ── */
+  .modal-overlay#petProfileModal {
+    padding: 0;
+    align-items: flex-end;
   }
+
+  .modal-overlay#petProfileModal .modal-content {
+    max-width: 100% !important;
+    width: 100% !important;
+    max-height: 92vh !important;
+    border-radius: 1rem 1rem 0 0;
+    padding: 1.25rem;
+    animation: slideUpSheet 0.3s ease-out;
+  }
+
+  @keyframes slideUpSheet {
+    from { transform: translateY(100%); }
+    to   { transform: translateY(0); }
+  }
+
+  /* ── Profile header: stack avatar + info vertically ── */
+  .profile-pet-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.75rem;
+  }
+
+  .profile-pet-avatar {
+    width: 48px;
+    height: 48px;
+  }
+
+  /* ── Profile info grid: 1 column ── */
+  .profile-pet-info-grid {
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
+
+  .profile-pet-info-grid .profile-pet-stat {
+    border-bottom: 1px solid var(--border);
+    border-radius: 0;
+    padding: 0.45rem 0;
+  }
+
+  .profile-pet-info-grid .profile-pet-stat:last-child {
+    border-bottom: none;
+  }
+
+  /* ── Health alerts: full-width stack ── */
+  .profile-health-row {
+    flex-direction: column;
+    gap: 0.15rem;
+  }
+
+  .profile-health-label {
+    min-width: 0;
+  }
+
+  /* ── Profile tabs: scrollable ── */
+  .profile-tabs {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    gap: 0;
+    flex-wrap: nowrap;
+    scrollbar-width: none;
+  }
+
+  .profile-tabs::-webkit-scrollbar { display: none; }
+
   .profile-tab {
     font-size: 0.78rem;
-    padding: 0.45rem 0.75rem;
+    padding: 0.5rem 0.75rem;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+
+  /* ── Timeline & vaccine tables: scrollable ── */
+  .med-history-scroll,
+  #profileTimeline,
+  #profileVaccineTable {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .vaccine-table {
+    min-width: 480px;
+  }
+
+  .med-timeline-item {
+    grid-template-columns: 1fr;
+    gap: 0.25rem;
+  }
+
+  .med-timeline-date {
+    text-align: left;
+    padding: 0;
+    grid-column: 1;
+  }
+
+  .med-timeline-date-full { display: none; }
+  .med-timeline-date-short { display: block; }
+
+  .med-timeline-marker {
+    display: none;
+  }
+
+  .med-timeline-card {
+    grid-column: 1;
+    margin-bottom: 0.75rem;
+  }
+
+  .med-timeline-item:not(:last-child)::before {
+    display: none;
+  }
+
+  /* ── Action buttons: full-width ── */
+  .form-actions {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .form-actions .btn-primary,
+  .form-actions .btn-secondary {
+    width: 100% !important;
+    justify-content: center;
+    padding: 12px 16px !important;
+    flex: none !important;
+  }
+}
+
+@media (max-width: 480px) {
+  /* ── Profile modal: tighter padding ── */
+  .modal-overlay#petProfileModal .modal-content {
+    padding: 1rem;
+    max-height: 95vh !important;
+  }
+
+  .profile-pet-stat-val {
+    font-size: 0.8rem;
+  }
+
+  .profile-tab {
+    font-size: 0.72rem;
+    padding: 0.4rem 0.6rem;
+  }
+
+  .med-timeline-service {
+    font-size: 0.85rem;
+  }
+
+  .med-timeline-notes {
+    font-size: 0.8rem;
   }
 }
 
