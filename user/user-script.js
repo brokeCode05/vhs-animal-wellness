@@ -2774,6 +2774,18 @@ function initCustomDropdown(selectId, opts) {
 
 document.addEventListener("DOMContentLoaded", () => {
 
+  // ── Virtual keyboard scroll-into-view for mobile inputs ──
+  // When the virtual keyboard opens on iOS/Android, ensure the focused
+  // input scrolls into view without being hidden behind sticky headers.
+  document.querySelectorAll('.form-input, .form-select, .form-textarea, .search-input').forEach(function(el) {
+    el.addEventListener('focus', function() {
+      var self = this;
+      setTimeout(function() {
+        self.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }, 300); // wait for keyboard animation
+    });
+  });
+
   loadUserData();
 
   initLogout();

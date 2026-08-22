@@ -40,9 +40,10 @@ body {
   background: var(--bg-light);
   color: var(--text-dark);
   line-height: 1.6;
-  font-size: 15px;
+  font-size: 16px;
   overflow-x: hidden;
   min-width: 320px;
+  -webkit-text-size-adjust: 100%;
 }
 
 /* === TOP NAVBAR === */
@@ -214,7 +215,8 @@ body {
 .main-wrapper {
   display: flex;
   margin-top: var(--navbar-height);
-  min-height: calc(100vh - var(--navbar-height));
+  min-height: calc(100dvh - var(--navbar-height));
+  min-height: calc(100vh - var(--navbar-height)); /* fallback */
   overflow-x: hidden;
 }
 
@@ -228,6 +230,8 @@ body {
   top: var(--navbar-height);
   bottom: 0;
   overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
   padding: 1.5rem 0;
   box-shadow: 2px 0 10px rgba(0,0,0,0.03);
   transition: all var(--transition);
@@ -475,6 +479,7 @@ body {
   border-radius: 0.75rem;
   font-weight: 700;
   font-size: 0.9rem;
+  min-height: 44px; /* touch target */
   cursor: pointer;
   border: none;
   text-decoration: none;
@@ -482,6 +487,7 @@ body {
   position: relative;
   overflow: hidden;
   white-space: nowrap;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .btn-primary {
@@ -533,17 +539,20 @@ body {
   padding: 0.75rem 1rem;
   border: 2px solid var(--border);
   border-radius: var(--radius-sm);
-  font-size: 0.9rem;
+  font-size: 16px; /* prevents iOS auto-zoom on focus */
   font-family: inherit;
   background: white;
   color: var(--text-dark);
   transition: all var(--transition);
+  min-height: 44px; /* touch target */
+  box-sizing: border-box;
 }
 
 .form-input:focus, .form-select:focus, .form-textarea:focus {
   outline: none;
   border-color: var(--primary);
   box-shadow: 0 0 0 4px rgba(109,74,177,0.1);
+  scroll-margin-bottom: 120px; /* keep in view when virtual keyboard opens */
 }
 
 .form-input:disabled { background: var(--bg-light); cursor: not-allowed; color: var(--text-dim); }
@@ -574,9 +583,11 @@ body {
   padding: 0.75rem 1rem;
   border: 2px solid var(--border);
   border-radius: var(--radius-sm);
-  font-size: 0.9rem;
+  font-size: 16px; /* prevents iOS auto-zoom */
+  min-height: 44px; /* touch target */
   background: white;
   transition: all var(--transition);
+  box-sizing: border-box;
 }
 
 .search-input:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 4px rgba(109,74,177,0.1); }
@@ -1256,6 +1267,7 @@ body {
   z-index: 2000;
   padding: 1rem;
   overflow: hidden;
+  overscroll-behavior: contain; /* prevent background scroll */
 }
 
 .modal-overlay.show { display: flex; animation: fadeIn 0.2s ease-out; }
@@ -1268,8 +1280,10 @@ body {
   padding: 2rem;
   max-width: 580px;
   width: 100%;
-  max-height: min(80vh, calc(100vh - 2rem));
+  max-height: min(80dvh, calc(100vh - 2rem));
+  max-height: min(80vh, calc(100vh - 2rem)); /* fallback */
   overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
   overscroll-behavior: contain;
   box-shadow: var(--shadow-xl);
   animation: slideUp 0.3s ease-out;
@@ -1279,7 +1293,9 @@ body {
    make the modal content scroll, not the form inside it */
 .modal-overlay .modal-content {
   overflow-y: auto !important;
-  max-height: min(80vh, calc(100vh - 2rem)) !important;
+  -webkit-overflow-scrolling: touch !important;
+  max-height: min(80dvh, calc(100vh - 2rem)) !important;
+  max-height: min(80vh, calc(100vh - 2rem)) !important; /* fallback */
 }
 
 .modal-overlay .modal-content form {
@@ -1961,6 +1977,7 @@ body {
 .chatbot-bubble {
   width: 60px;
   height: 60px;
+  min-height: 44px;
   border-radius: 50%;
   background: linear-gradient(135deg, var(--primary), var(--primary-dark));
   border: none;
@@ -1968,6 +1985,7 @@ body {
   cursor: pointer;
   display: flex;
   align-items: center;
+  -webkit-tap-highlight-color: transparent;
   justify-content: center;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   position: relative;
@@ -2667,10 +2685,12 @@ body {
     width: 100% !important;
     max-width: 100% !important;
     box-sizing: border-box;
-    max-height: 92vh !important;
+    max-height: 92dvh !important;
+    max-height: 92vh !important; /* fallback */
     border-radius: 1rem 1rem 0 0;
     padding: 16px !important;
     overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch !important;
     animation: slideUpSheet 0.3s ease-out;
   }
 
