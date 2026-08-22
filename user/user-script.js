@@ -299,77 +299,9 @@ function initLogout() {
 // ─── APPOINTMENTS ─────────────────────────────────────────────────────────────
 
 
-
 function loadUserAppointments() {
-
-  var user = _getSessionUser();
-
-  var userId = user.id || user.userId;
-
-  if (!userId) return;
-
-
-
-  fetch("get_user_appointments.php?user_id=" + userId)
-
-    .then(function (r) {
-
-      return r.json();
-
-    })
-
-    .then(function (data) {
-
-      if (data.status !== "success") return;
-
-      var appts = data.appointments;
-
-
-
-      // Update stat counter on dashboard
-
-      var upcoming = appts.filter(function (a) {
-
-        return a.status === "pending" || a.status === "scheduled";
-
-      });
-
-      var statEl = document.getElementById("statUpcoming");
-
-      if (statEl) statEl.textContent = upcoming.length;
-
-
-
-      var badge = document.getElementById("apptBadge");
-
-      if (badge) {
-
-        badge.textContent = upcoming.length;
-
-        badge.style.display = upcoming.length > 0 ? "" : "none";
-
-      }
-
-
-
-      // Render dashboard upcoming table (pending/scheduled only)
-
-      renderApptRows("dashApptBody", upcoming, 5 /* cols */);
-
-
-
-      // Render full My Appointments table
-
-      renderApptRows("apptTableBody", appts, 7 /* cols */);
-
-    })
-
-    .catch(function (err) {
-
-      console.error("loadUserAppointments error:", err);
-
-    });
-
+  // Use mock data for rendering the new card-based appointments view
+  renderAppointmentCards();
 }
 
 
@@ -1951,6 +1883,228 @@ function petEmoji(type) {
 
 }
 
+
+
+// ─── MOCK APPOINTMENTS DATA ─────────────────────────────────────────────────
+
+var mockAppointmentsData = [
+  {
+    id: 'apt001', pet_id: 1, pet_name: 'Luna', pet_type: 'Cat', pet_breed: 'Persian',
+    service: 'General Consultation', date: '2026-09-15', time: '10:30 AM',
+    status: 'scheduled', notes: 'Annual wellness check',
+    reference_no: 'VHS-2026-0915-001'
+  },
+  {
+    id: 'apt002', pet_id: 2, pet_name: 'Buddy', pet_type: 'Dog', pet_breed: 'Golden Retriever',
+    service: 'Grooming', date: '2026-09-20', time: '02:00 PM',
+    status: 'scheduled', notes: 'Full groom package',
+    reference_no: 'VHS-2026-0920-002'
+  },
+  {
+    id: 'apt003', pet_id: 1, pet_name: 'Luna', pet_type: 'Cat', pet_breed: 'Persian',
+    service: 'Vaccination — FVRCP Booster', date: '2026-10-05', time: '11:00 AM',
+    status: 'pending', notes: '',
+    reference_no: 'VHS-2026-1005-003'
+  },
+  {
+    id: 'apt004', pet_id: 3, pet_name: 'Mochi', pet_type: 'Cat', pet_breed: 'Siamese',
+    service: 'Blood Test — CBC', date: '2026-08-28', time: '09:00 AM',
+    status: 'completed', notes: 'Routine bloodwork',
+    reference_no: 'VHS-2026-0828-004'
+  },
+  {
+    id: 'apt005', pet_id: 2, pet_name: 'Buddy', pet_type: 'Dog', pet_breed: 'Golden Retriever',
+    service: 'Dental Prophylaxis', date: '2026-07-10', time: '08:30 AM',
+    status: 'completed', notes: 'Dental cleaning under sedation',
+    reference_no: 'VHS-2026-0710-005'
+  },
+  {
+    id: 'apt006', pet_id: 1, pet_name: 'Luna', pet_type: 'Cat', pet_breed: 'Persian',
+    service: 'Deworming', date: '2026-06-01', time: '03:30 PM',
+    status: 'completed', notes: '',
+    reference_no: 'VHS-2026-0601-006'
+  },
+  {
+    id: 'apt007', pet_id: 3, pet_name: 'Mochi', pet_type: 'Cat', pet_breed: 'Siamese',
+    service: 'Consultation — Limping', date: '2026-05-15', time: '01:00 PM',
+    status: 'canceled', notes: 'Owner rescheduled then cancelled',
+    reference_no: 'VHS-2026-0515-007'
+  },
+  {
+    id: 'apt008', pet_id: 2, pet_name: 'Buddy', pet_type: 'Dog', pet_breed: 'Golden Retriever',
+    service: 'Vaccination — Rabies', date: '2026-11-05', time: '10:00 AM',
+    status: 'scheduled', notes: '',
+    reference_no: 'VHS-2026-1105-008'
+  },
+];
+
+
+// ─── APPOINTMENTS RENDERER ───────────────────────────────────────────────────
+
+function _fmtApptDateShort(dateStr) {
+  if (!dateStr) return '\u2014';
+  var parts = dateStr.split('-');
+  var d = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+function _apptStatusBadge(status) {
+  var map = { pending: 'pending', scheduled: 'confirmed', completed: 'completed', canceled: 'cancelled', cancelled: 'cancelled' };
+  var cls = map[status] || 'pending';
+  var label = status ? status.charAt(0).toUpperCase() + status.slice(1) : '\u2014';
+  if (status === 'scheduled') label = 'Confirmed';
+  return '<span class="status-badge ' + cls + '">' + label + '</span>';
+}
+
+function renderAppointmentCards() {
+  var now = new Date();
+  var upcoming = mockAppointmentsData.filter(function(a) {
+    return a.status === 'pending' || a.status === 'scheduled';
+  }).sort(function(a, b) { return new Date(a.date) - new Date(b.date); });
+  var past = mockAppointmentsData.filter(function(a) {
+    return a.status === 'completed' || a.status === 'canceled' || a.status === 'cancelled';
+  }).sort(function(a, b) { return new Date(b.date) - new Date(a.date); });
+
+  // Update dashboard stat
+  var statEl = document.getElementById('statUpcoming');
+  if (statEl) statEl.textContent = upcoming.length;
+  var badge = document.getElementById('apptBadge');
+  if (badge) { badge.textContent = upcoming.length; badge.style.display = upcoming.length > 0 ? '' : 'none'; }
+
+  _renderApptList('apptUpcoming', upcoming, 'upcoming');
+  _renderApptList('apptPast', past, 'past');
+}
+
+function _renderApptList(containerId, appts, mode) {
+  var container = document.getElementById(containerId);
+  if (!container) return;
+  if (!appts.length) {
+    container.innerHTML = '<div class="appt-empty"><p>' + (mode === 'upcoming' ? 'No upcoming appointments. Book one to get started!' : 'No past appointments.') + '</p></div>';
+    return;
+  }
+  container.innerHTML = appts.map(function(a) {
+    var dateStr = _fmtApptDateShort(a.date);
+    var canAct = a.status === 'pending' || a.status === 'scheduled';
+    return (
+      '<div class="appt-card">'
+      + '<div class="appt-card-header">'
+      + '<span class="appt-datetime">' + dateStr + ' \u2022 ' + escapeHtml(a.time || '\u2014') + '</span>'
+      + _apptStatusBadge(a.status)
+      + '</div>'
+      + '<div class="appt-card-body">'
+      + '<div class="appt-card-pet">'
+      + '<div class="appt-pet-avatar">' + petEmoji(a.pet_type) + '</div>'
+      + '<div><div class="appt-pet-name">' + escapeHtml(a.pet_name) + '</div>'
+      + '<div class="appt-pet-breed">' + escapeHtml(a.pet_type) + (a.pet_breed ? ' / ' + escapeHtml(a.pet_breed) : '') + '</div></div>'
+      + '</div>'
+      + '<div class="appt-card-service">' + escapeHtml(a.service) + '</div>'
+      + (a.notes ? '<div class="appt-card-notes">' + escapeHtml(a.notes) + '</div>' : '')
+      + (a.reference_no ? '<div class="appt-card-ref">Ref: ' + escapeHtml(a.reference_no) + '</div>' : '')
+      + '</div>'
+      + '<div class="appt-card-footer">'
+      + (canAct
+        ? '<button class="btn-small" onclick="openRescheduleModal(\'' + a.id + '\')">Reschedule</button>'
+        + '<button class="btn-small btn-danger" onclick="openCancelModal(\'' + a.id + '\')">Cancel</button>'
+        : '')
+      + '<button class="btn-small btn-link" onclick="viewAppt(\'' + a.id + '\')">View Details</button>'
+      + '</div>'
+      + '</div>'
+    );
+  }).join('');
+}
+
+function switchApptTab(tab) {
+  document.querySelectorAll('.appt-tab').forEach(function(t) {
+    t.classList.toggle('active', t.dataset.tab === tab);
+  });
+  document.getElementById('apptUpcoming').classList.toggle('active', tab === 'upcoming');
+  document.getElementById('apptPast').classList.toggle('active', tab === 'past');
+}
+
+// ─── RESCHEDULE ──────────────────────────────────────────────────────────────
+
+function openRescheduleModal(apptId) {
+  var appt = mockAppointmentsData.find(function(a) { return a.id === apptId; });
+  if (!appt) return;
+  document.getElementById('rescheduleApptId').value = apptId;
+  document.getElementById('rescheduleDate').value = '';
+  document.getElementById('rescheduleTime').value = '';
+  document.getElementById('rescheduleReason').value = '';
+  var info = document.getElementById('rescheduleInfo');
+  if (info) {
+    info.innerHTML = '<div class="reschedule-current">'
+      + '<div class="reschedule-current-label">Current Appointment</div>'
+      + '<div class="reschedule-current-row"><span>Date</span><span>' + _fmtApptDateShort(appt.date) + '</span></div>'
+      + '<div class="reschedule-current-row"><span>Time</span><span>' + escapeHtml(appt.time) + '</span></div>'
+      + '<div class="reschedule-current-row"><span>Pet</span><span>' + escapeHtml(appt.pet_name) + ' (' + escapeHtml(appt.pet_type) + ')</span></div>'
+      + '<div class="reschedule-current-row"><span>Service</span><span>' + escapeHtml(appt.service) + '</span></div>'
+      + '</div>';
+  }
+  var today = new Date().toISOString().split('T')[0];
+  document.getElementById('rescheduleDate').setAttribute('min', today);
+  _populateRescheduleSlots();
+  openModal('rescheduleModal');
+}
+
+function _populateRescheduleSlots() {
+  var timeSelect = document.getElementById('rescheduleTime');
+  if (!timeSelect) return;
+  var slots = ['08:00 AM','08:30 AM','09:00 AM','09:30 AM','10:00 AM','10:30 AM','11:00 AM','11:30 AM','01:00 PM','01:30 PM','02:00 PM','02:30 PM','03:00 PM','03:30 PM','04:00 PM','04:30 PM','05:00 PM'];
+  timeSelect.innerHTML = '<option value="">Select time</option>' + slots.map(function(s) {
+    return '<option value="' + s + '">' + s + '</option>';
+  }).join('');
+}
+
+function submitReschedule(e) {
+  e.preventDefault();
+  var apptId = document.getElementById('rescheduleApptId').value;
+  var newDate = document.getElementById('rescheduleDate').value;
+  var newTime = document.getElementById('rescheduleTime').value;
+  var reason = document.getElementById('rescheduleReason').value;
+  if (!newDate || !newTime) { showToast('Please select a new date and time.', 'warning'); return; }
+  var appt = mockAppointmentsData.find(function(a) { return a.id === apptId; });
+  if (appt) {
+    appt.date = newDate;
+    appt.time = newTime;
+    appt.notes = (appt.notes ? appt.notes + ' | ' : '') + 'Rescheduled' + (reason ? ' — ' + reason : '');
+  }
+  closeModal('rescheduleModal');
+  showToast('Appointment rescheduled to ' + _fmtApptDateShort(newDate) + ' at ' + newTime + '.', 'success');
+  renderAppointmentCards();
+}
+
+// ─── CANCEL ──────────────────────────────────────────────────────────────────
+
+function openCancelModal(apptId) {
+  var appt = mockAppointmentsData.find(function(a) { return a.id === apptId; });
+  if (!appt) return;
+  document.getElementById('cancelApptId').value = apptId;
+  document.getElementById('cancelReason').value = '';
+  var info = document.getElementById('cancelInfo');
+  if (info) {
+    info.innerHTML = '<div class="cancel-current">'
+      + '<div class="cancel-current-row"><span>Pet</span><span>' + escapeHtml(appt.pet_name) + ' (' + escapeHtml(appt.pet_type) + ')</span></div>'
+      + '<div class="cancel-current-row"><span>Service</span><span>' + escapeHtml(appt.service) + '</span></div>'
+      + '<div class="cancel-current-row"><span>Date & Time</span><span>' + _fmtApptDateShort(appt.date) + ' \u2022 ' + escapeHtml(appt.time) + '</span></div>'
+      + '</div>';
+  }
+  openModal('cancelModal');
+}
+
+function submitCancel(e) {
+  e.preventDefault();
+  var apptId = document.getElementById('cancelApptId').value;
+  var reason = document.getElementById('cancelReason').value;
+  if (!reason) { showToast('Please select a cancellation reason.', 'warning'); return; }
+  var appt = mockAppointmentsData.find(function(a) { return a.id === apptId; });
+  if (appt) {
+    appt.status = 'canceled';
+    appt.notes = (appt.notes ? appt.notes + ' | ' : '') + 'Cancelled — ' + reason;
+  }
+  closeModal('cancelModal');
+  showToast('Appointment cancelled.', 'warning');
+  renderAppointmentCards();
+}
 
 
 // ─── LOAD PETS FROM DB ────────────────────────────────────────────────────────

@@ -1071,6 +1071,288 @@ body {
 
 }
 
+/* === APPOINTMENTS MODULE === */
+
+.appt-tabs {
+  display: flex;
+  gap: 4px;
+  background: var(--bg-light, #f4f3f8);
+  border-radius: 10px;
+  padding: 3px;
+}
+
+.appt-tab {
+  padding: 0.55rem 1.25rem;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--text-dim);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-family: inherit;
+}
+
+.appt-tab.active {
+  background: #fff;
+  color: var(--accent-dark, #6d4ab1);
+  box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+}
+
+.appt-tab:hover:not(.active) {
+  color: var(--accent-dark);
+}
+
+.appt-tab-content {
+  display: none;
+}
+
+.appt-tab-content.active {
+  display: block;
+}
+
+.appt-empty {
+  text-align: center;
+  padding: 2.5rem 1rem;
+  color: var(--text-dim);
+}
+
+.appt-empty p {
+  font-size: 0.95rem;
+  margin: 0;
+}
+
+.appt-card {
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  margin-bottom: 0.875rem;
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+  transition: box-shadow 0.2s, border-color 0.2s;
+}
+
+.appt-card:hover {
+  box-shadow: var(--shadow-md);
+  border-color: var(--accent-border, rgba(109,74,177,0.14));
+}
+
+.appt-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.75rem 1rem;
+  background: linear-gradient(135deg, var(--accent-bg, #f5eefc), var(--accent-bg-2, #efe7fb));
+  border-bottom: 1px solid var(--border);
+}
+
+.appt-datetime {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--text-dark);
+}
+
+.appt-card-body {
+  padding: 1rem;
+}
+
+.appt-card-pet {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.65rem;
+}
+
+.appt-pet-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--accent-soft, #ede9fe), var(--accent-soft-2, #ddd6fe));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  overflow: hidden;
+}
+
+.appt-pet-avatar svg {
+  width: 22px;
+  height: 22px;
+  color: var(--accent, #8b5cf6);
+}
+
+.appt-pet-name {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--text-dark);
+}
+
+.appt-pet-breed {
+  font-size: 0.78rem;
+  color: var(--text-dim);
+}
+
+.appt-card-service {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text-dark);
+  padding: 0.4rem 0.65rem;
+  background: var(--bg-light, #f8f9fa);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  display: inline-block;
+  margin-bottom: 0.5rem;
+}
+
+.appt-card-notes {
+  font-size: 0.82rem;
+  color: var(--text-dim);
+  margin-top: 0.35rem;
+  line-height: 1.5;
+}
+
+.appt-card-ref {
+  font-size: 0.72rem;
+  color: var(--text-dim);
+  margin-top: 0.3rem;
+  font-family: monospace;
+  letter-spacing: 0.02em;
+}
+
+.appt-card-footer {
+  display: flex;
+  gap: 0.5rem;
+  padding: 0.65rem 1rem;
+  border-top: 1px solid var(--border);
+  background: var(--bg-light, #f8f9fa);
+  flex-wrap: wrap;
+}
+
+.btn-link {
+  background: none;
+  border: none;
+  color: var(--accent, #8b5cf6);
+  font-weight: 600;
+  font-size: 0.82rem;
+  cursor: pointer;
+  padding: 0;
+  font-family: inherit;
+}
+
+.btn-link:hover {
+  text-decoration: underline;
+}
+
+.btn-danger {
+  background: linear-gradient(135deg, #ef4444, #dc2626);
+  color: #fff;
+}
+
+.btn-danger:hover {
+  background: linear-gradient(135deg, #f87171, #ef4444);
+}
+
+/* ── Reschedule / Cancel Modal Info ── */
+
+.reschedule-info, .cancel-info {
+  margin-bottom: 1rem;
+}
+
+.reschedule-current, .cancel-current {
+  background: var(--bg-light, #f8f9fa);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.75rem;
+}
+
+.reschedule-current-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-dim);
+  margin-bottom: 0.5rem;
+}
+
+.reschedule-current-row, .cancel-current-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 0.3rem 0;
+  font-size: 0.85rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.reschedule-current-row:last-child, .cancel-current-row:last-child {
+  border-bottom: none;
+}
+
+.reschedule-current-row span:first-child, .cancel-current-row span:first-child {
+  color: var(--text-dim);
+  font-weight: 500;
+}
+
+.reschedule-current-row span:last-child, .cancel-current-row span:last-child {
+  color: var(--text-dark);
+  font-weight: 600;
+}
+
+.cancel-warning {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.65rem;
+  padding: 0.75rem;
+  background: #fffbeb;
+  border: 1px solid #fbbf24;
+  border-radius: 8px;
+  margin-bottom: 1rem;
+  font-size: 0.85rem;
+  color: #92400e;
+  line-height: 1.5;
+}
+
+.cancel-warning svg {
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+/* ── Appointments Responsive ── */
+
+@media (max-width: 768px) {
+  .appt-tabs {
+    width: 100%;
+  }
+
+  .appt-tab {
+    flex: 1;
+    text-align: center;
+    font-size: 0.82rem;
+    padding: 0.5rem 0.75rem;
+  }
+
+  .appt-card-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.35rem;
+  }
+
+  .appt-card-footer {
+    flex-direction: column;
+  }
+
+  .appt-card-footer .btn-small,
+  .appt-card-footer .btn-link {
+    width: 100%;
+    justify-content: center;
+    text-align: center;
+  }
+
+  .section-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}
+
 /* === PROFILE CARD === */
 .profile-card {
   width: 100%;
