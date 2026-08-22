@@ -1608,6 +1608,7 @@ function showPetProfile(petId) {
   if (!pet) pet = mockPetsData.find(function (p) { return p.id === petId; });
   if (!pet) return;
   _currentProfilePet = pet;
+  _currentPrintPet = pet;
   _activeProfileTab = 'profile-medical';
 
   // Set header
@@ -1998,11 +1999,11 @@ function _renderPetCards(pets, grid, dashGrid, petCount) {
       + '<div class="pet-full-header">'
       + '<div class="pet-big-avatar">' + photo + '</div>'
       + '<div style="flex:1;min-width:0">'
-      + '<div style="display:flex;align-items:center;gap:0.5rem;flex-wrap:nowrap">'
       + '<h3 style="font-size:1.25rem;font-weight:700;color:var(--text-dark);margin:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + escapeHtml(p.name) + '</h3>'
+      + '<div style="display:flex;align-items:center;gap:0.4rem;margin-top:0.15rem;flex-wrap:wrap">'
+      + '<p style="font-size:0.85rem;color:var(--text-dim);margin:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + escapeHtml(sp) + (p.breed ? ' / ' + escapeHtml(p.breed) : '') + '</p>'
       + reproBadge
       + '</div>'
-      + '<p style="font-size:0.85rem;color:var(--text-dim);margin:0.15rem 0 0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + escapeHtml(sp) + (p.breed ? ' / ' + escapeHtml(p.breed) : '') + '</p>'
       + '</div>'
       + '<button class="btn-small" onclick="openEditPetModal(' + p.id + ')">Edit Profile</button>'
       + '</div>'
