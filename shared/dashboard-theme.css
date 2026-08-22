@@ -1314,6 +1314,10 @@ body.modal-open {
   .modal-content [style*="grid-template-columns:1fr 1fr"] {
     grid-template-columns: 1fr !important;
   }
+  /* Navbar datetime responsive */
+  .navbar-datetime { font-size: 0.72rem; gap: 0.35rem; }
+  .navbar-datetime .dt-date { display: none; }
+  .navbar-datetime .dt-sep { display: none; }
 }
 
 @media (max-width: 480px) {
@@ -1333,6 +1337,7 @@ body.modal-open {
   }
   .day-time-label { font-size: 0.6rem; }
   .day-apt { font-size: 0.6rem; padding: 0.2rem 0.35rem; }
+  .navbar-datetime { font-size: 0.68rem; }
 }
 
 /* ===== CALENDAR CONTROLS TOOLBAR ===== */
