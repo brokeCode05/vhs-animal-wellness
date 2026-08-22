@@ -1774,9 +1774,8 @@ body {
   .content-section { padding: 1rem; }
 
   /* Calendar responsive */
-  .calendar-nav,
-  .calendar-view-toggle,
-  .calendar-actions { justify-content: center; }
+  .calendar-toolbar-row { justify-content: center; }
+  .calendar-actions { justify-content: space-between; }
   .calendar-month { text-align: center; font-size: 1.25rem; }
   .calendar-day { min-height: 60px; padding: 0.4rem; font-size: 0.8rem; }
   .calendar-day-header { padding: 0.5rem 0.25rem; font-size: 0.7rem; }

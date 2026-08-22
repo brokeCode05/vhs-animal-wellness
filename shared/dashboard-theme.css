@@ -1490,21 +1490,6 @@ body.modal-open {
   border-color: transparent;
 }
 
-/* ===== CALENDAR LEGEND ===== */
-.calendar-legend {
-  display: flex;
-  align-items: center;
-  gap: 0.6rem;
-  flex-wrap: wrap;
-  justify-content: center;
-}
-.calendar-container > .calendar-legend {
-  margin-bottom: 0.75rem;
-  padding: 0.5rem 0.75rem;
-  background: #ffffff;
-  border: 1px solid var(--accent-border);
-  border-radius: 0.5rem;
-}
 
 .legend-item {
   display: inline-flex;
