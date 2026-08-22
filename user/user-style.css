@@ -174,16 +174,7 @@ body {
 .hamburger-menu.active span:nth-child(3) { transform: rotate(-45deg) translate(5px, -5px); }
 
 /* === SIDEBAR PROFILE CARD === */
-.sidebar-profile {
-  display: flex;
-  align-items: center;
-  gap: 0.875rem;
-  padding: 1.25rem 1.5rem;
-  margin: 0 1rem 0.75rem;
-  background: linear-gradient(135deg, rgba(109,74,177,0.08), rgba(109,74,177,0.14));
-  border: 1px solid rgba(109,74,177,0.15);
-  border-radius: var(--radius);
-}
+/* sidebar-profile - handled by shared/dashboard-theme.css */
 
 .sidebar-avatar {
   font-size: 1.5rem;
@@ -1501,11 +1492,7 @@ body {
   box-shadow: 4px 0 24px rgba(109,74,177,0.08);
 }
 
-.sidebar-profile {
-  background: linear-gradient(135deg, rgba(109,74,177,0.1) 0%, rgba(109,74,177,0.06) 100%);
-  border: 1px solid rgba(109,74,177,0.18);
-  box-shadow: 0 2px 12px rgba(109,74,177,0.08);
-}
+
 
 .sidebar-avatar {
   background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%);
