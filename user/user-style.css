@@ -1263,10 +1263,16 @@ body {
   animation: slideUp 0.3s ease-out;
 }
 
-/* Override shared theme's overflow-y:visible on modals */
+/* Override shared theme's overflow-y:visible on modals —
+   make the modal content scroll, not the form inside it */
 .modal-overlay .modal-content {
   overflow-y: auto !important;
   max-height: min(80vh, calc(100vh - 2rem)) !important;
+}
+
+.modal-overlay .modal-content form {
+  max-height: none !important;
+  overflow-y: visible !important;
 }
 
 @keyframes slideUp {
