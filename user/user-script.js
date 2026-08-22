@@ -1246,12 +1246,13 @@ function toggleHistory(id) {
 
 
 function showMedicalHistory(petId) {
-  showSection('medical-history');
-  var sel = document.getElementById('medHistPetSelect');
-  if (sel) {
-    sel.value = petId;
-  }
+  var titleEl = document.getElementById('medHistModalTitle');
+  var subtitleEl = document.getElementById('medHistModalSubtitle');
+  var pet = mockPetsData.find(function (p) { return p.id === petId; });
+  if (titleEl) titleEl.textContent = 'Medical History';
+  if (subtitleEl) subtitleEl.textContent = pet ? pet.name + ' — ' + pet.species + ', ' + (pet.breed || '') : '';
   renderPetHistory(petId);
+  openModal('medHistoryModal');
 }
 
 
@@ -1550,17 +1551,11 @@ const mockPetsData = [
 // ─── PET MEDICAL HISTORY RENDERER ────────────────────────────────────────────
 
 function renderPetHistory(petId) {
-  const container = document.getElementById('medicalHistoryTimeline');
-  const petSelect = document.getElementById('medHistPetSelect');
+  const container = document.getElementById('medHistoryTimeline');
   if (!container) return;
 
-  // If no petId supplied, use the dropdown selection
-  if (!petId && petSelect) {
-    petId = parseInt(petSelect.value, 10);
-  }
-
   if (!petId) {
-    container.innerHTML = '<p class="med-hist-empty">Select a pet above to view their medical history.</p>';
+    container.innerHTML = '<p class="med-hist-empty">No pet selected.</p>';
     return;
   }
 
@@ -2657,54 +2652,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   showSection("dashboard");
 
-  autoLabelTables();
-
-
-  // Initialize Medical History pet selector
-  var medHistSel = document.getElementById('medHistPetSelect');
-  if (medHistSel) {
-    // Populate with pets from the DB fetch (same as loadPets)
-    var user = _getSessionUser();
-    var userId = user.id || user.userId;
-    if (userId) {
-      fetch('get_pets_user.php?user_id=' + userId)
-        .then(function(r) { return r.json(); })
-        .then(function(pets) {
-          medHistSel.innerHTML = '<option value="">Select a pet</option>' +
-            pets.map(function(p) {
-              return '<option value="' + p.id + '">' + p.name + ' (' + p.type + ')</option>';
-            }).join('') +
-            '<option value="_mock">--- Demo Pets ---</option>' +
-            mockPetsData.map(function(p) {
-              return '<option value="' + p.id + '">' + p.name + ' (' + p.species + ')</option>';
-            }).join('');
-        })
-        .catch(function() {
-          // Fallback to mock data only
-          medHistSel.innerHTML = '<option value="">Select a pet</option>' +
-            mockPetsData.map(function(p) {
-              return '<option value="' + p.id + '">' + p.name + ' (' + p.species + ')</option>';
-            }).join('');
-        });
-    } else {
-      medHistSel.innerHTML = '<option value="">Select a pet</option>' +
-        mockPetsData.map(function(p) {
-          return '<option value="' + p.id + '">' + p.name + ' (' + p.species + ')</option>';
-        }).join('');
-    }
-    medHistSel.addEventListener('change', function() {
-      var val = this.value;
-      if (val && val !== '_mock') {
-        renderPetHistory(parseInt(val, 10));
-      } else {
-        renderPetHistory(null);
-      }
-    });
-  }
-
-
-
-  // Initialize custom searchable dropdown for service select
+  autoLabelTables();  // Initialize custom searchable dropdown for service select
 
   initCustomDropdown('bookServiceSelect', { searchPlaceholder: 'Search services...', emptyText: 'No services found' });
   initCustomDropdown('bookPetSelect', { placeholder: 'Choose a pet', searchPlaceholder: 'Search pets...', emptyText: 'No pets found' });

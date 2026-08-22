@@ -875,12 +875,6 @@ body {
 .pet-history.hidden { display: none; }
 
 /* === MEDICAL HISTORY TIMELINE === */
-.med-hist-selector {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-}
-
 .med-hist-empty {
   text-align: center;
   padding: 2rem;
@@ -1040,14 +1034,6 @@ body {
     left: 12px;
   }
 
-  .med-hist-selector {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  .med-hist-selector .form-select {
-    width: 100%;
-  }
 }
 
 /* === PROFILE CARD === */
