@@ -1246,11 +1246,13 @@ function toggleHistory(id) {
 
 
 var _currentPets = [];
+var _currentPrintPet = null;
 
 function showMedicalHistory(petId) {
   // Resolve pet from loaded data (backend or mock)
   var pet = _currentPets.find(function (p) { return p.id === petId; });
   if (!pet) pet = mockPetsData.find(function (p) { return p.id === petId; });
+  _currentPrintPet = pet;
 
   var titleEl = document.getElementById('medHistModalTitle');
   var subtitleEl = document.getElementById('medHistModalSubtitle');
@@ -1442,6 +1444,7 @@ const mockPetsData = [
     age: 3,
     gender: 'Female',
     weight: 4.2,
+    owner: { name: 'Maria Santos', phone: '0917-123-4567' },
     visits: [
       {
         id: 'v001',
@@ -1488,6 +1491,7 @@ const mockPetsData = [
     age: 5,
     gender: 'Male',
     weight: 31.5,
+    owner: { name: 'Maria Santos', phone: '0917-123-4567' },
     visits: [
       {
         id: 'v006',
@@ -1527,6 +1531,7 @@ const mockPetsData = [
     age: 2,
     gender: 'Male',
     weight: 3.8,
+    owner: { name: 'Maria Santos', phone: '0917-123-4567' },
     visits: [
       {
         id: 'v010',
@@ -1626,31 +1631,111 @@ function escapeHtml(text) {
 // ─── PRINT / EXPORT PDF ──────────────────────────────────────────────────────
 
 function printPetHistory() {
-  var modal = document.getElementById('medHistoryModal');
-  if (!modal) return;
+  var pet = _currentPrintPet;
+  if (!pet) return;
 
-  var title = document.getElementById('medHistModalTitle');
-  var subtitle = document.getElementById('medHistModalSubtitle');
   var timeline = document.getElementById('medHistoryTimeline');
+  var now = new Date();
+  var datePrinted = now.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+  var owner = pet.owner || {};
 
-  // Build a print wrapper with just the content we want
+  // Sort visits newest-first for the table
+  var visits = (pet.visits || []).slice().sort(function (a, b) {
+    return new Date(b.date) - new Date(a.date);
+  });
+
+  // Build visit rows
+  var rows = visits.map(function (v) {
+    var d = new Date(v.date + 'T00:00:00');
+    var dateStr = d.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+    return '<tr>'
+      + '<td>' + escapeHtml(dateStr) + '</td>'
+      + '<td>' + escapeHtml(v.service) + '</td>'
+      + '<td>' + escapeHtml(v.notes) + '</td>'
+      + '<td>' + escapeHtml(v.vet) + '</td>'
+      + '</tr>';
+  }).join('');
+
+  var logoPath = '../web-page/image/vhs-assets/vhs-logo.png';
+
+  var html = ''
+    // ── LETTERHEAD ──
+    + '<div class="print-letterhead">'
+    + '<div class="print-letterhead-row">'
+    + '<img src="' + logoPath + '" alt="VHS Logo" class="print-logo" />'
+    + '<div class="print-clinic-info">'
+    + '<h1 class="print-clinic-name">VHS Animal Wellness Center</h1>'
+    + '<p class="print-clinic-detail">834 Aurora Blvd cor Driod St, Kaunlaran, Cubao, Quezon City, 1111</p>'
+    + '<p class="print-clinic-detail">Tel: (0917) 108-4174 &nbsp;|&nbsp; vhs.animalwellness@gmail.com</p>'
+    + '</div>'
+    + '</div>'
+    + '<div class="print-doc-title">Official Pet Medical &amp; Vaccination Record</div>'
+    + '<div class="print-meta-row">'
+    + '<span>Date Printed: ' + datePrinted + '</span>'
+    + '<span>Document Ref: VHS-MR-' + pet.id + '-' + now.getFullYear() + '</span>'
+    + '</div>'
+    + '</div>'
+
+    // ── PET & OWNER INFO ──
+    + '<div class="print-section">'
+    + '<div class="print-section-title">Patient &amp; Owner Information</div>'
+    + '<div class="print-info-grid">'
+    + '<div class="print-info-item"><span class="print-info-label">Pet Name</span><span class="print-info-value">' + escapeHtml(pet.name) + '</span></div>'
+    + '<div class="print-info-item"><span class="print-info-label">Species / Breed</span><span class="print-info-value">' + escapeHtml(pet.species || pet.type || '') + ' / ' + escapeHtml(pet.breed || '') + '</span></div>'
+    + '<div class="print-info-item"><span class="print-info-label">Age</span><span class="print-info-value">' + (pet.age ? pet.age + ' years' : '\u2014') + '</span></div>'
+    + '<div class="print-info-item"><span class="print-info-label">Gender</span><span class="print-info-value">' + escapeHtml(pet.gender || '') + '</span></div>'
+    + '<div class="print-info-item"><span class="print-info-label">Weight</span><span class="print-info-value">' + (pet.weight ? pet.weight + ' kg' : '\u2014') + '</span></div>'
+    + '<div class="print-info-item"><span class="print-info-label">Owner Name</span><span class="print-info-value">' + escapeHtml(owner.name || '\u2014') + '</span></div>'
+    + '<div class="print-info-item"><span class="print-info-label">Contact Number</span><span class="print-info-value">' + escapeHtml(owner.phone || '\u2014') + '</span></div>'
+    + '<div class="print-info-item"><span class="print-info-label">Medical Notes</span><span class="print-info-value">' + escapeHtml(pet.notes || 'None on file') + '</span></div>'
+    + '</div>'
+    + '</div>'
+
+    // ── VISIT HISTORY TABLE ──
+    + '<div class="print-section">'
+    + '<div class="print-section-title">Visit History</div>'
+    + '<table class="print-table">'
+    + '<thead><tr>'
+    + '<th>Date</th>'
+    + '<th>Service / Reason for Visit</th>'
+    + '<th>Clinical Notes &amp; Diagnosis</th>'
+    + '<th>Attending Veterinarian</th>'
+    + '</tr></thead>'
+    + '<tbody>' + rows + '</tbody>'
+    + '</table>'
+    + '</div>'
+
+    // ── SIGNATURE FOOTER ──
+    + '<div class="print-footer">'
+    + '<div class="print-sig-block">'
+    + '<div class="print-sig-line"></div>'
+    + '<div class="print-sig-label">Attending Veterinarian Signature</div>'
+    + '<div class="print-sig-sub">Over printed name &amp; License No.</div>'
+    + '</div>'
+    + '<div class="print-sig-block">'
+    + '<div class="print-sig-line"></div>'
+    + '<div class="print-sig-label">License No.</div>'
+    + '<div class="print-sig-sub">PRC / Vet Board ID</div>'
+    + '</div>'
+    + '</div>'
+
+    // ── CONFIDENTIALITY NOTICE ──
+    + '<div class="print-notice">'
+    + 'This document is an official record of VHS Animal Wellness Center. '
+    + 'Unauthorized reproduction or distribution is prohibited. '
+    + 'For verification, contact (0917) 108-4174.'
+    + '</div>';
+
   var printWrapper = document.createElement('div');
   printWrapper.className = 'print-area';
-  printWrapper.innerHTML = ''
-    + '<h1 style="font-size:1.5rem;font-weight:700;margin:0 0 0.25rem;color:#111;">'
-    + (title ? title.textContent : 'Medical History') + '</h1>'
-    + '<p style="font-size:0.9rem;color:#555;margin:0 0 1rem;">'
-    + (subtitle ? subtitle.textContent : '') + '</p>'
-    + (timeline ? timeline.innerHTML : '')
-    + '<p style="font-size:0.7rem;color:#999;margin-top:1.5rem;border-top:1px solid #ddd;padding-top:0.5rem;">VHS Animal Wellness Center \u2014 Printed ' + new Date().toLocaleDateString('en-US', { year:'numeric', month:'long', day:'numeric' }) + '</p>';
-
+  printWrapper.innerHTML = html;
   document.body.appendChild(printWrapper);
+
   window.print();
 
-  // Clean up after print dialog closes
   setTimeout(function () {
     if (printWrapper.parentNode) printWrapper.parentNode.removeChild(printWrapper);
-  }, 1000);
+  }, 1500);
 }
 
 
