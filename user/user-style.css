@@ -874,6 +874,182 @@ body {
 .pet-history { margin-top: 0.5rem; }
 .pet-history.hidden { display: none; }
 
+/* === MEDICAL HISTORY TIMELINE === */
+.med-hist-selector {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.med-hist-empty {
+  text-align: center;
+  padding: 2rem;
+  color: var(--text-dim);
+  font-size: 0.95rem;
+}
+
+.med-timeline {
+  position: relative;
+  padding-left: 0;
+}
+
+.med-timeline-item {
+  display: grid;
+  grid-template-columns: 160px 24px 1fr;
+  gap: 0;
+  align-items: start;
+  position: relative;
+}
+
+/* Vertical connecting line */
+.med-timeline-item:not(:last-child)::before {
+  content: '';
+  position: absolute;
+  left: calc(160px + 12px);
+  top: 10px;
+  bottom: -1px;
+  width: 2px;
+  background: var(--border);
+}
+
+/* Date column */
+.med-timeline-date {
+  text-align: right;
+  padding-right: 1.25rem;
+  padding-top: 0.3rem;}
+
+.med-timeline-date-full {
+  display: block;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--text-dark);
+}
+
+.med-timeline-date-short {
+  display: none;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-dark);
+}
+
+/* Center dot marker */
+.med-timeline-marker {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--accent, #8b5cf6);
+  border: 3px solid var(--bg-white, #ffffff);
+  box-shadow: 0 0 0 2px var(--accent, #8b5cf6);
+  margin-top: 0.35rem;
+  position: relative;
+  z-index: 1;
+  flex-shrink: 0;
+  justify-self: center;
+}
+
+/* Visit card */
+.med-timeline-card {
+  background: white;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1rem 1.25rem;
+  margin-bottom: 1.25rem;
+  box-shadow: var(--shadow-sm);
+  transition: box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.med-timeline-card:hover {
+  box-shadow: var(--shadow-md);
+  border-color: var(--accent-border, rgba(109,74,177,0.14));
+}
+
+.med-timeline-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.5rem;
+  gap: 0.5rem;
+}
+
+.med-timeline-service {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--text-dark);
+}
+
+.med-timeline-card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.med-timeline-vet {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-dim);
+  background: var(--accent-bg, #f5eefc);
+  padding: 0.3rem 0.65rem;
+  border-radius: 6px;
+  width: fit-content;
+}
+
+.med-timeline-vet svg {
+  color: var(--accent, #8b5cf6);
+  flex-shrink: 0;
+}
+
+.med-timeline-notes {
+  font-size: 0.875rem;
+  color: var(--text-dim);
+  line-height: 1.6;
+  margin: 0;
+}
+
+/* Timeline responsive: single-column stacked on mobile */
+@media (max-width: 768px) {
+  .med-timeline-item {
+    grid-template-columns: 24px 1fr;
+  }
+
+  .med-timeline-date {
+    grid-column: 2;
+    text-align: left;
+    padding: 0 0 0 0.5rem;
+    padding-top: 0;
+  }
+
+  .med-timeline-date-full { display: none; }
+  .med-timeline-date-short { display: block; }
+
+  .med-timeline-marker {
+    grid-row: 1 / 3;
+    grid-column: 1;
+    align-self: start;
+    margin-top: 0.2rem;
+  }
+
+  .med-timeline-card {
+    grid-column: 2;
+    margin-bottom: 1rem;
+  }
+
+  .med-timeline-item:not(:last-child)::before {
+    left: 12px;
+  }
+
+  .med-hist-selector {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .med-hist-selector .form-select {
+    width: 100%;
+  }
+}
+
 /* === PROFILE CARD === */
 .profile-card {
   width: 100%;

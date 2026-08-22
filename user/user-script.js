@@ -1241,9 +1241,17 @@ document.getElementById("filterApptStatus")?.addEventListener("change", (e) => {
 
 
 function toggleHistory(id) {
-
   document.getElementById(id)?.classList.toggle("hidden");
+}
 
+
+function showMedicalHistory(petId) {
+  showSection('medical-history');
+  var sel = document.getElementById('medHistPetSelect');
+  if (sel) {
+    sel.value = petId;
+  }
+  renderPetHistory(petId);
 }
 
 
@@ -1414,6 +1422,209 @@ function openEditPetModal(id) {
 
 }
 
+
+
+// ─── MOCK PET MEDICAL HISTORY DATA ───────────────────────────────────────────
+
+const mockPetsData = [
+  {
+    id: 1,
+    name: 'Luna',
+    species: 'Cat',
+    breed: 'Persian',
+    age: 3,
+    gender: 'Female',
+    weight: 4.2,
+    visits: [
+      {
+        id: 'v001',
+        date: '2026-08-10',
+        service: 'Annual Check-up',
+        vet: 'Dr. Reyes',
+        notes: 'Routine physical exam. Weight stable. No abnormalities detected. Teeth in good condition. Recommended continued dental chews.',
+      },
+      {
+        id: 'v002',
+        date: '2026-05-22',
+        service: 'Vaccination — FVRCP Booster',
+        vet: 'Dr. Santos',
+        notes: 'FVRCP booster administered. Mild lethargy for 24 hours post-vaccination is normal. No adverse reactions observed during 30-minute observation period.',
+      },
+      {
+        id: 'v003',
+        date: '2026-03-05',
+        service: 'Deworming',
+        vet: 'Dr. Reyes',
+        notes: 'Panacur administered orally. No parasites observed in recent stool samples. Next deworming due in 3 months.',
+      },
+      {
+        id: 'v004',
+        date: '2025-12-18',
+        service: 'Blood Test — CBC',
+        vet: 'Dr. Santos',
+        notes: 'Complete blood count within normal ranges. White blood cell count: 8.2 (ref 5.0–19.5). Hematocrit: 38% (ref 30–45%). Follow-up not needed.',
+      },
+      {
+        id: 'v005',
+        date: '2025-09-14',
+        service: 'Consultation — Skin Irritation',
+        vet: 'Dr. Reyes',
+        notes: 'Mild dermatitis on left ear. Prescribed topical clotrimazole cream for 7 days. Advised to keep ears dry and clean weekly.',
+      },
+    ],
+  },
+  {
+    id: 2,
+    name: 'Buddy',
+    species: 'Dog',
+    breed: 'Golden Retriever',
+    age: 5,
+    gender: 'Male',
+    weight: 31.5,
+    visits: [
+      {
+        id: 'v006',
+        date: '2026-07-30',
+        service: 'Grooming + Nail Trim',
+        vet: 'Dr. Cruz',
+        notes: 'Full groom with deshedding treatment. Nails trimmed to appropriate length. Ears cleaned. Skin and coat in good condition.',
+      },
+      {
+        id: 'v007',
+        date: '2026-06-12',
+        service: 'Fecalysis',
+        vet: 'Dr. Santos',
+        notes: 'Stool sample examined. No parasites, bacteria, or abnormalities detected. Result: Negative for roundworms, hookworms, and giardia.',
+      },
+      {
+        id: 'v008',
+        date: '2026-02-20',
+        service: 'Dental Prophylaxis',
+        vet: 'Dr. Reyes',
+        notes: 'Dental cleaning under sedation. Grade 2 tartar removed from upper premolars. Two teeth showed mild wear — no extraction needed. Post-op recovery uneventful.',
+      },
+      {
+        id: 'v009',
+        date: '2025-11-05',
+        service: 'Vaccination — Rabies',
+        vet: 'Dr. Santos',
+        notes: 'Rabies vaccine administered. Valid for 1 year. Certificate issued. No adverse reactions during observation.',
+      },
+    ],
+  },
+  {
+    id: 3,
+    name: 'Mochi',
+    species: 'Cat',
+    breed: 'Siamese',
+    age: 2,
+    gender: 'Male',
+    weight: 3.8,
+    visits: [
+      {
+        id: 'v010',
+        date: '2026-08-01',
+        service: 'Consultation — Limping',
+        vet: 'Dr. Cruz',
+        notes: 'Mild right forelimb lameness. X-ray showed no fracture. Likely soft tissue strain. Prescribed rest and Metacam for 5 days. Recheck in 1 week.',
+      },
+      {
+        id: 'v011',
+        date: '2026-04-15',
+        service: 'Castration',
+        vet: 'Dr. Reyes',
+        notes: 'Routine castration performed under general anesthesia. Surgery duration: 25 minutes. Recovery smooth. Suture removal not needed (absorbable sutures used).',
+      },
+      {
+        id: 'v012',
+        date: '2026-01-10',
+        service: 'Initial Registration + Vaccination',
+        vet: 'Dr. Santos',
+        notes: 'First visit. Registered as new patient. FVRCP vaccine (1st dose) and Deworming administered. Microchip implanted. Estimated DOB: Nov 2023.',
+      },
+    ],
+  },
+];
+
+
+// ─── PET MEDICAL HISTORY RENDERER ────────────────────────────────────────────
+
+function renderPetHistory(petId) {
+  const container = document.getElementById('medicalHistoryTimeline');
+  const petSelect = document.getElementById('medHistPetSelect');
+  if (!container) return;
+
+  // If no petId supplied, use the dropdown selection
+  if (!petId && petSelect) {
+    petId = parseInt(petSelect.value, 10);
+  }
+
+  if (!petId) {
+    container.innerHTML = '<p class="med-hist-empty">Select a pet above to view their medical history.</p>';
+    return;
+  }
+
+  const pet = mockPetsData.find(function (p) { return p.id === petId; });
+  if (!pet) {
+    container.innerHTML = '<p class="med-hist-empty">Pet record not found.</p>';
+    return;
+  }
+
+  // Sort visits newest-first
+  const visits = (pet.visits || []).slice().sort(function (a, b) {
+    return new Date(b.date) - new Date(a.date);
+  });
+
+  if (!visits.length) {
+    container.innerHTML = '<p class="med-hist-empty">No visit history found for ' + pet.name + '.</p>';
+    return;
+  }
+
+  // Build timeline HTML
+  var html = '<div class="med-timeline">';
+
+  visits.forEach(function (visit, idx) {
+    var d = new Date(visit.date + 'T00:00:00');
+    var formattedDate = d.toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'long', day: 'numeric'
+    });
+    var dateShort = d.toLocaleDateString('en-US', {
+      month: 'short', day: 'numeric'
+    });
+
+    html += '
+      <div class="med-timeline-item">
+        <div class="med-timeline-date">
+          <span class="med-timeline-date-full">' + formattedDate + '</span>
+          <span class="med-timeline-date-short">' + dateShort + '</span>
+        </div>
+        <div class="med-timeline-marker"></div>
+        <div class="med-timeline-card">
+          <div class="med-timeline-card-header">
+            <span class="med-timeline-service">' + escapeHtml(visit.service) + '</span>
+          </div>
+          <div class="med-timeline-card-body">
+            <div class="med-timeline-vet">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+              ' + escapeHtml(visit.vet) + '
+            </div>
+            <p class="med-timeline-notes">' + escapeHtml(visit.notes) + '</p>
+          </div>
+        </div>
+      </div>';
+  });
+
+  html += '</div>';
+  container.innerHTML = html;
+}
+
+
+function escapeHtml(text) {
+  var div = document.createElement('div');
+  div.appendChild(document.createTextNode(text));
+  return div.innerHTML;
+}
 
 
 // ─── PET SPECIES ICON MAP (SVG) ───────────────────────────────────────────────
@@ -1678,11 +1889,11 @@ function loadPets() {
 
             '<div style="border-top:1px solid var(--border);margin-top:1rem;padding-top:0.85rem">' +
 
-            '<button class="btn-link" style="font-size:0.85rem;color:var(--primary);background:none;border:none;cursor:pointer;padding:0;display:flex;align-items:center;gap:0.4rem" onclick="showUnderWork(\'Appointment history\')">' +
+            '<button class="btn-link" style="font-size:0.85rem;color:var(--primary);background:none;border:none;cursor:pointer;padding:0;display:flex;align-items:center;gap:0.4rem" onclick="showMedicalHistory(' + p.id + ')">' +
 
             '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>' +
 
-            " View Appointment History" +
+            " Medical History" +
 
             "</button>" +
 
@@ -2448,6 +2659,49 @@ document.addEventListener("DOMContentLoaded", () => {
   showSection("dashboard");
 
   autoLabelTables();
+
+
+  // Initialize Medical History pet selector
+  var medHistSel = document.getElementById('medHistPetSelect');
+  if (medHistSel) {
+    // Populate with pets from the DB fetch (same as loadPets)
+    var user = _getSessionUser();
+    var userId = user.id || user.userId;
+    if (userId) {
+      fetch('get_pets_user.php?user_id=' + userId)
+        .then(function(r) { return r.json(); })
+        .then(function(pets) {
+          medHistSel.innerHTML = '<option value="">Select a pet</option>' +
+            pets.map(function(p) {
+              return '<option value="' + p.id + '">' + p.name + ' (' + p.type + ')</option>';
+            }).join('') +
+            '<option value="_mock">--- Demo Pets ---</option>' +
+            mockPetsData.map(function(p) {
+              return '<option value="' + p.id + '">' + p.name + ' (' + p.species + ')</option>';
+            }).join('');
+        })
+        .catch(function() {
+          // Fallback to mock data only
+          medHistSel.innerHTML = '<option value="">Select a pet</option>' +
+            mockPetsData.map(function(p) {
+              return '<option value="' + p.id + '">' + p.name + ' (' + p.species + ')</option>';
+            }).join('');
+        });
+    } else {
+      medHistSel.innerHTML = '<option value="">Select a pet</option>' +
+        mockPetsData.map(function(p) {
+          return '<option value="' + p.id + '">' + p.name + ' (' + p.species + ')</option>';
+        }).join('');
+    }
+    medHistSel.addEventListener('change', function() {
+      var val = this.value;
+      if (val && val !== '_mock') {
+        renderPetHistory(parseInt(val, 10));
+      } else {
+        renderPetHistory(null);
+      }
+    });
+  }
 
 
 
