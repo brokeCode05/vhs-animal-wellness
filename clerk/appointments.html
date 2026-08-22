@@ -3,15 +3,15 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta http-equiv=1787384175"Cache-Control" content="no-cache, no-store, must-revalidate">
-  <meta http-equiv=1787384175"Pragma" content="no-cache">
-  <meta http-equiv=1787384175"Expires" content="0">
+  <meta http-equiv=1787384581"Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv=1787384581"Pragma" content="no-cache">
+  <meta http-equiv=1787384581"Expires" content="0">
   <title>Appointments - VHS Clerk</title>
-  <link rel="stylesheet" href="clerk-style.css?v=1787384175">
-  <link rel="stylesheet" href="../shared/dashboard-theme.css?v=1787384175">
-  <link rel="stylesheet" href="clerk-accent.css?v=1787384175">
-  <link rel="stylesheet" href="../shared/vhs-ui.css?v=1787384175">
-  <link rel="stylesheet" href="../shared/dashboard-icons.css?v=1787384175">
+  <link rel="stylesheet" href="clerk-style.css?v=1787384581">
+  <link rel="stylesheet" href="../shared/dashboard-theme.css?v=1787384581">
+  <link rel="stylesheet" href="clerk-accent.css?v=1787384581">
+  <link rel="stylesheet" href="../shared/vhs-ui.css?v=1787384581">
+  <link rel="stylesheet" href="../shared/dashboard-icons.css?v=1787384581">
 </head>
 <body>
   <nav class="top-navbar">
@@ -53,20 +53,22 @@
         <div class="calendar-header">
           <h2 class="section-title">Appointment Calendar</h2>
           <p class="page-subtitle">View all scheduled appointments.</p>
-          <div class="calendar-controls">
-            <div class="calendar-toolbar-row">
+                    <div class="calendar-controls">
+            <div class="calendar-toolbar-row calendar-toolbar-center">
               <div class="calendar-nav">
                 <button class="btn-small" onclick="previousMonth()">‹</button>
                 <button class="btn-secondary" onclick="goToToday()" id="calendarMonth"></button>
                 <button class="btn-small" onclick="nextMonth()">›</button>
               </div>
+            </div>
+            <div class="calendar-toolbar-row calendar-toolbar-center">
               <div class="calendar-view-toggle">
                 <button class="btn-small active" data-view="month" onclick="setCalendarView('month')">Month</button>
                 <button class="btn-small" data-view="week" onclick="setCalendarView('week')">Week</button>
                 <button class="btn-small" data-view="day" onclick="setCalendarView('day')">Day</button>
               </div>
             </div>
-            <div class="calendar-toolbar-row">
+            <div class="calendar-toolbar-row calendar-toolbar-between">
               <div class="calendar-actions">
                 <select class="form-select" id="statusFilter" onchange="filterAppointments()">
                   <option value="all">All Status</option>
@@ -82,8 +84,7 @@
                 </div>
               </div>
             </div>
-          </div>
-        </div>
+          </div>iv>
         <div class="calendar-container">
           <div class="calendar-grid" id="calendarGrid" style="min-height:520px;"></div>
         </div>
@@ -124,9 +125,9 @@
     </main>
   </div>
 
-  <script src="../shared/vhs-ui.js?v=1787384175"></script>
-  <script src="../shared/dashboard-shared.js?v=1787384175"></script>
-  <script src="clerk-script.js?v=1787384175"></script>
+  <script src="../shared/vhs-ui.js?v=1787384581"></script>
+  <script src="../shared/dashboard-shared.js?v=1787384581"></script>
+  <script src="clerk-script.js?v=1787384581"></script>
 
   <!-- Clerk Book Appointment Modal -->
   <div class="modal-overlay" id="clerkBookModal" onclick="if (event.target === this) closeClerkBookModal()">
