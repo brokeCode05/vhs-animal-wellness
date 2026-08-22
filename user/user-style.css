@@ -1257,10 +1257,16 @@ body {
   max-width: 580px;
   width: 100%;
   max-height: min(80vh, calc(100vh - 2rem));
-  overflow-y: auto !important;
+  overflow-y: auto;
   overscroll-behavior: contain;
   box-shadow: var(--shadow-xl);
   animation: slideUp 0.3s ease-out;
+}
+
+/* Override shared theme's overflow-y:visible on modals */
+.modal-overlay .modal-content {
+  overflow-y: auto !important;
+  max-height: min(80vh, calc(100vh - 2rem)) !important;
 }
 
 @keyframes slideUp {
@@ -2400,9 +2406,8 @@ body {
 }
 
 /* === MEDICAL HISTORY SCROLL CONTAINER === */
+/* Nested scroll disabled — modal-content handles all scrolling */
 .med-history-scroll {
-  max-height: 55vh;
-  overflow-y: auto;
   padding-right: 0.25rem;
 }
 
