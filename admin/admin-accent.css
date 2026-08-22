@@ -1,28 +1,28 @@
 /* ============================================================
-   ADMIN ACCENT — yellowish orange (logo gold #fec94b family)
+   ADMIN ACCENT — blue (#3977b4 family)
    Loaded after shared/dashboard-theme.css
    ============================================================ */
 
 :root {
-  --accent: #f0a830;
-  --accent-dark: #d18a12;
-  --accent-deep: #a86e0a;
-  --accent-light: #ffd98c;
-  --accent-hover: #f7b94d;
-  --accent-hover-dark: #db9215;
-  --accent-soft: rgba(240, 168, 48, 0.14);
-  --accent-soft-2: rgba(209, 138, 18, 0.09);
-  --accent-border: rgba(209, 138, 18, 0.18);
-  --accent-shadow: rgba(168, 110, 10, 0.32);
-  --accent-glow: rgba(255, 217, 140, 0.2);
-  --accent-shimmer: rgba(255, 230, 170, 0.85);
-  --accent-bg: #fdf6ea;
-  --accent-bg-2: #fbefd6;
-  --accent-bg-3: #fefbf4;
-  --accent-bg-4: #fcf3e2;
-  --accent-badge-bg: #fdf0d4;
-  --accent-badge-bg-2: #fbe3b2;
-  --accent-badge-border: #f2cd82;
-  --accent-sched-bg: #fdf4e2;
-  --accent-sched-bg-2: #faebcc;
+  --accent: #3977b4;
+  --accent-dark: #2d5f94;
+  --accent-deep: #234a73;
+  --accent-light: #8ab4e3;
+  --accent-hover: #4a87c6;
+  --accent-hover-dark: #33689c;
+  --accent-soft: rgba(57, 119, 180, 0.13);
+  --accent-soft-2: rgba(45, 95, 148, 0.09);
+  --accent-border: rgba(45, 95, 148, 0.17);
+  --accent-shadow: rgba(35, 74, 115, 0.32);
+  --accent-glow: rgba(138, 180, 227, 0.18);
+  --accent-shimmer: rgba(205, 225, 245, 0.85);
+  --accent-bg: #eef4fb;
+  --accent-bg-2: #e2ecf7;
+  --accent-bg-3: #f5f9fd;
+  --accent-bg-4: #e8f0fa;
+  --accent-badge-bg: #dce8f5;
+  --accent-badge-bg-2: #c8daf0;
+  --accent-badge-border: #a3c1e3;
+  --accent-sched-bg: #e5eef8;
+  --accent-sched-bg-2: #d4e3f2;
 }
