@@ -1259,7 +1259,7 @@ function showMedicalHistory(petId) {
   if (titleEl) titleEl.textContent = 'Medical History';
   if (subtitleEl) subtitleEl.textContent = pet ? pet.name + ' \u2014 ' + (pet.type || pet.species || '') + ', ' + (pet.breed || '') : '';
 
-  renderPetHistory(pet);
+  renderPetHistory(pet, 'medHistoryTimeline');
   openModal('medHistoryModal');
 }
 
@@ -1534,8 +1534,8 @@ const mockPetsData = [
 // renderPetHistory(pet) — accepts a pet object: { name, visits[] }
 // Each visit: { date, service, vet, notes }
 // Fully decoupled from data source; caller resolves the pet.
-function renderPetHistory(pet) {
-  var container = document.getElementById('medHistoryTimeline');
+function renderPetHistory(pet, containerId) {
+  var container = document.getElementById(containerId || 'profileTimeline') || document.getElementById('medHistoryTimeline');
   if (!container) return;
 
   if (!pet) {
@@ -1635,18 +1635,19 @@ function showPetProfile(petId) {
     + '<div class="profile-pet-stat"><div class="profile-pet-stat-label">Microchip ID</div><div class="profile-pet-stat-val">' + escapeHtml(pet.microchip || '\u2014') + '</div></div>'
     + '<div class="profile-pet-stat"><div class="profile-pet-stat-label">Owner</div><div class="profile-pet-stat-val">' + escapeHtml(owner.name || '\u2014') + '</div></div>'
     + '</div>'
-    + '<div style="display:flex;flex-wrap:wrap;gap:0.4rem;margin-top:0.5rem">'
-    + (pet.allergies
-      ? (pet.allergies.toLowerCase() === 'none known yet'
-        ? '<span class="profile-notes-tag profile-none-tag">No known allergies</span>'
-        : '<span class="profile-notes-tag">Allergies: ' + escapeHtml(pet.allergies) + '</span>')
-      : '')
-    + (pet.chronicConditions
-      ? (pet.chronicConditions.toLowerCase() === 'none known yet'
-        ? '<span class="profile-notes-tag profile-none-tag">No chronic conditions</span>'
-        : '<span class="profile-notes-tag">' + escapeHtml(pet.chronicConditions) + '</span>')
-      : '')
-    + (pet.notes ? '<span class="profile-notes-tag">Notes: ' + escapeHtml(pet.notes) + '</span>' : '')
+    + '<div class="profile-health-alerts">'
+    + '<div class="profile-health-row">'
+    + '<span class="profile-health-label">Known Allergies</span>'
+    + '<span class="profile-health-val">' + (pet.allergies && pet.allergies.toLowerCase() !== 'none known yet' ? escapeHtml(pet.allergies) : '<span class="profile-none-tag">None known yet</span>') + '</span>'
+    + '</div>'
+    + '<div class="profile-health-row">'
+    + '<span class="profile-health-label">Chronic Conditions</span>'
+    + '<span class="profile-health-val">' + (pet.chronicConditions && pet.chronicConditions.toLowerCase() !== 'none known yet' ? escapeHtml(pet.chronicConditions) : '<span class="profile-none-tag">None known yet</span>') + '</span>'
+    + '</div>'
+    + (pet.notes ? '<div class="profile-health-row">'
+    + '<span class="profile-health-label">Additional Notes</span>'
+    + '<span class="profile-health-val">' + escapeHtml(pet.notes) + '</span>'
+    + '</div>' : '')
     + '</div>'
     + '</div>';
 
@@ -1991,36 +1992,26 @@ function _renderPetCards(pets, grid, dashGrid, petCount) {
     var reproBadge = p.reproductiveStatus
       ? '<span class="pet-card-badge">' + escapeHtml(p.reproductiveStatus) + '</span>'
       : '';
-    var allergiesTag = (p.allergies && p.allergies.toLowerCase() !== 'none known yet')
-      ? '<span class="profile-notes-tag">Allergies: ' + escapeHtml(p.allergies) + '</span>'
-      : (p.allergies ? '<span class="profile-notes-tag profile-none-tag">No known allergies</span>' : '');
-    var chronicTag = (p.chronicConditions && p.chronicConditions.toLowerCase() !== 'none known yet')
-      ? '<span class="profile-notes-tag">' + escapeHtml(p.chronicConditions) + '</span>'
-      : (p.chronicConditions ? '<span class="profile-notes-tag profile-none-tag">No chronic conditions</span>' : '');
 
     return (
       '<div class="pet-full-card content-section">'
       + '<div class="pet-full-header">'
       + '<div class="pet-big-avatar">' + photo + '</div>'
-      + '<div style="flex:1">'
-      + '<div style="display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap">'
-      + '<h3 style="font-size:1.25rem;font-weight:700;color:var(--text-dark);margin:0">' + escapeHtml(p.name) + '</h3>'
+      + '<div style="flex:1;min-width:0">'
+      + '<div style="display:flex;align-items:center;gap:0.5rem;flex-wrap:nowrap">'
+      + '<h3 style="font-size:1.25rem;font-weight:700;color:var(--text-dark);margin:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + escapeHtml(p.name) + '</h3>'
       + reproBadge
       + '</div>'
-      + '<p style="font-size:0.85rem;color:var(--text-dim);margin:0.15rem 0 0">' + escapeHtml(sp) + (p.breed ? ' / ' + escapeHtml(p.breed) : '') + '</p>'
+      + '<p style="font-size:0.85rem;color:var(--text-dim);margin:0.15rem 0 0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + escapeHtml(sp) + (p.breed ? ' / ' + escapeHtml(p.breed) : '') + '</p>'
       + '</div>'
       + '<button class="btn-small" onclick="openEditPetModal(' + p.id + ')">Edit Profile</button>'
       + '</div>'
-      + '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:0.6rem;margin-bottom:0.75rem">'
+      + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:0.6rem;margin-bottom:0.75rem">'
       + '<div class="pet-stat-box"><div class="pet-stat-label">AGE</div><div class="pet-stat-val">' + (p.age ? p.age + ' yrs' : '\u2014') + '</div></div>'
       + '<div class="pet-stat-box"><div class="pet-stat-label">WEIGHT</div><div class="pet-stat-val">' + (p.weight ? p.weight + ' kg' : '\u2014') + '</div></div>'
-      + '<div class="pet-stat-box"><div class="pet-stat-label">COLOR</div><div class="pet-stat-val">' + (p.color || '\u2014') + '</div></div>'
-      + '<div class="pet-stat-box"><div class="pet-stat-label">MICROCHIP</div><div class="pet-stat-val">' + (p.microchip || '\u2014') + '</div></div>'
       + '</div>'
-      + (allergiesTag || chronicTag ? '<div style="display:flex;flex-wrap:wrap;gap:0.4rem;margin-bottom:0.75rem">' + allergiesTag + chronicTag + '</div>' : '')
-      + (p.notes ? '<div class="pet-notes-box"><div class="pet-stat-label" style="margin-bottom:0.25rem">NOTES</div><p style="font-size:0.82rem;color:var(--text-dim);margin:0;line-height:1.5">' + escapeHtml(p.notes) + '</p></div>' : '')
-      + '<div style="border-top:1px solid var(--border);margin-top:0.75rem;padding-top:0.75rem;display:flex;gap:0.5rem;flex-wrap:wrap">'
-      + '<button class="btn-primary" style="font-size:0.82rem;padding:0.55rem 1rem" onclick="showPetProfile(' + p.id + ')">\ud83d\udcc4 View Full Profile & Records</button>'
+      + '<div style="border-top:1px solid var(--border);padding-top:0.75rem;display:flex;gap:0.5rem;flex-wrap:wrap">'
+      + '<button class="btn-primary" style="font-size:0.82rem;padding:0.55rem 1rem;flex:1;justify-content:center" onclick="showPetProfile(' + p.id + ')">\ud83d\udcc4 View Full Profile & Records</button>'
       + '</div>'
       + '</div>'
     );

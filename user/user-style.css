@@ -1243,6 +1243,7 @@ body {
   justify-content: center;
   z-index: 2000;
   padding: 1rem;
+  overflow: hidden;
 }
 
 .modal-overlay.show { display: flex; animation: fadeIn 0.2s ease-out; }
@@ -1255,8 +1256,9 @@ body {
   padding: 2rem;
   max-width: 580px;
   width: 100%;
-  max-height: 90vh;
-  overflow-y: auto;
+  max-height: min(80vh, calc(100vh - 2rem));
+  overflow-y: auto !important;
+  overscroll-behavior: contain;
   box-shadow: var(--shadow-xl);
   animation: slideUp 0.3s ease-out;
 }
@@ -2475,6 +2477,39 @@ body {
 .profile-none-tag {
   background: #f3f4f6;
   color: #6b7280;
+}
+
+.profile-health-alerts {
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.profile-health-row {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+  line-height: 1.5;
+}
+
+.profile-health-label {
+  font-weight: 700;
+  font-size: 0.78rem;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  min-width: 140px;
+  flex-shrink: 0;
+}
+
+.profile-health-val {
+  color: var(--text-dark);
+  word-break: break-word;
 }
 
 /* ── Profile Tabs ── */
