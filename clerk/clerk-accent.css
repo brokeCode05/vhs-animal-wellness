@@ -27,3 +27,24 @@
   --accent-sched-bg: #f5eed9;
   --accent-sched-bg-2: #ede2c5;
 }
+
+/* Button overrides — match yellow accent */
+.btn-primary {
+  background: linear-gradient(135deg, #c9973a 0%, #a87c2a 100%) !important;
+  color: white !important;
+  box-shadow: 0 4px 14px rgba(201, 151, 58, 0.3) !important;
+}
+.btn-primary:hover {
+  background: linear-gradient(135deg, #d4a84a 0%, #c9973a 100%) !important;
+  box-shadow: 0 6px 20px rgba(201, 151, 58, 0.4) !important;
+}
+.btn-secondary {
+  background: #ffffff !important;
+  color: #475569 !important;
+  border: 1.5px solid #e2e8f0 !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06) !important;
+}
+.btn-secondary:hover {
+  background: #f8fafc !important;
+  border-color: #cbd5e1 !important;
+}

@@ -26,3 +26,24 @@
   --accent-sched-bg: #e5eef8;
   --accent-sched-bg-2: #d4e3f2;
 }
+
+/* Button overrides — match blue accent */
+.btn-primary {
+  background: linear-gradient(135deg, #3977b4 0%, #2d5f94 100%) !important;
+  color: white !important;
+  box-shadow: 0 4px 14px rgba(57, 119, 180, 0.3) !important;
+}
+.btn-primary:hover {
+  background: linear-gradient(135deg, #4a87c6 0%, #3977b4 100%) !important;
+  box-shadow: 0 6px 20px rgba(57, 119, 180, 0.4) !important;
+}
+.btn-secondary {
+  background: #ffffff !important;
+  color: #475569 !important;
+  border: 1.5px solid #e2e8f0 !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06) !important;
+}
+.btn-secondary:hover {
+  background: #f8fafc !important;
+  border-color: #cbd5e1 !important;
+}
