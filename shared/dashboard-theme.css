@@ -427,7 +427,10 @@ h1, h2, h3, h4, h5, h6,
 
 /* ===== CALENDAR ===== */
 .calendar-day-header {
-  color: var(--accent-dark);
+  background: linear-gradient(135deg, var(--accent-dark) 0%, var(--primary, #6b46c1) 100%);
+  color: #ffffff;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
 }
 
 .calendar-day.today {
