@@ -1332,13 +1332,18 @@ body.modal-open {
 }
 
 /* ===== CALENDAR DATE DISPLAY ===== */
-.calendar-date {
-  text-align: center;
+.calendar-nav .btn-secondary#calendarMonth {
+  background: transparent;
+  color: var(--accent-dark, #3b2d4a);
   font-size: 1rem;
   font-weight: 600;
-  color: var(--accent-dark, #3b2d4a);
-  margin: 0;
-  padding: 0.25rem 0;
+  padding: 0.35rem 0.75rem;
+  border: none;
+  letter-spacing: 0.01em;
+}
+.calendar-nav .btn-secondary#calendarMonth:hover {
+  background: rgba(139, 92, 246, 0.08);
+  border-color: transparent;
 }
 
 /* ===== CALENDAR LEGEND ===== */

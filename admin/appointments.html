@@ -3,15 +3,15 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta http-equiv=1787322839"Cache-Control" content="no-cache, no-store, must-revalidate">
-  <meta http-equiv=1787322839"Pragma" content="no-cache">
-  <meta http-equiv=1787322839"Expires" content="0">
+  <meta http-equiv=1787383558"Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv=1787383558"Pragma" content="no-cache">
+  <meta http-equiv=1787383558"Expires" content="0">
   <title>Appointments - VHS Admin</title>
-  <link rel="stylesheet" href="admin-style.css?v=1787322839">
-  <link rel="stylesheet" href="../shared/dashboard-theme.css?v=1787322839">
-  <link rel="stylesheet" href="admin-accent.css?v=1787322839">
-  <link rel="stylesheet" href="../shared/vhs-ui.css?v=1787322839">
-  <link rel="stylesheet" href="../shared/dashboard-icons.css?v=1787322839">
+  <link rel="stylesheet" href="admin-style.css?v=1787383558">
+  <link rel="stylesheet" href="../shared/dashboard-theme.css?v=1787383558">
+  <link rel="stylesheet" href="admin-accent.css?v=1787383558">
+  <link rel="stylesheet" href="../shared/vhs-ui.css?v=1787383558">
+  <link rel="stylesheet" href="../shared/dashboard-icons.css?v=1787383558">
 </head>
 <body>
   <!-- Top Navbar -->
@@ -78,10 +78,9 @@
           <div class="calendar-controls">
             <div class="calendar-nav">
               <button class="btn-small" onclick="previousMonth()">‹</button>
-              <button class="btn-secondary" onclick="goToToday()">Today</button>
+              <button class="btn-secondary" onclick="goToToday()" id="calendarMonth"></button>
               <button class="btn-small" onclick="nextMonth()">›</button>
             </div>
-            <h3 class="calendar-date" id="calendarMonth"></h3>
             <div class="calendar-view-toggle">
               <button class="btn-small active" data-view="month" onclick="setCalendarView('month')">Month</button>
               <button class="btn-small" data-view="week" onclick="setCalendarView('week')">Week</button>
@@ -159,9 +158,9 @@
     </main>
   </div>
 
-  <script src="../shared/vhs-ui.js?v=1787322839"></script>
-  <script src="../shared/dashboard-shared.js?v=1787322839"></script>
-  <script src="admin-script.js?v=1787322839"></script>
+  <script src="../shared/vhs-ui.js?v=1787383558"></script>
+  <script src="../shared/dashboard-shared.js?v=1787383558"></script>
+  <script src="admin-script.js?v=1787383558"></script>
 
   <!-- Admin Book Appointment Modal -->
   <div class="modal-overlay" id="adminBookModal" onclick="if (event.target === this) closeAdminBookModal()">
