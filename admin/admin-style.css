@@ -898,9 +898,9 @@ body {
 }
 
 .btn-primary {
-  background: linear-gradient(135deg, #0d9488 0%, #0f766e 100%);
+  background: linear-gradient(135deg, #3977b4 0%, #2d5f94 100%);
   color: white;
-  box-shadow: 0 4px 14px rgba(13, 148, 136, 0.3);
+  box-shadow: 0 4px 14px rgba(57, 119, 180, 0.3);
 }
 
 .btn-primary:hover {
