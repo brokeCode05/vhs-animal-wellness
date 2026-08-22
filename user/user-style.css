@@ -2459,7 +2459,7 @@ body {
 
 .profile-pet-info-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
   gap: 0.6rem;
   margin-bottom: 0.5rem;
 }
@@ -2618,14 +2618,45 @@ body {
 }
 
 /* ──────────────────────────────────────────────────────────────
-   MOBILE RESPONSIVE — Pets Module & Profile Modal
+   RESPONSIVE — Pets Module & Profile Modal
+   Breakpoints: 576px (mobile), 768px (foldable/small tablet),
+                992px (tablet), base (desktop)
    ────────────────────────────────────────────────────────────── */
 
-@media (max-width: 768px) {
-  /* ══════════════════════════════════════════════════════════
-     PROFILE MODAL — Mobile-Native Sheet (<= 768px)
-     ══════════════════════════════════════════════════════════ */
+/* ── Large Screens (> 992px): 4-column grid ── */
+/* Base styles already use repeat(auto-fit, minmax(180px, 1fr))
+   which resolves to 4 columns on wide screens. */
 
+/* ── Tablets / Foldables (577px – 992px): 3-column fluid grid ── */
+@media (min-width: 577px) and (max-width: 992px) {
+  .modal-overlay#petProfileModal .modal-content {
+    width: 100% !important;
+    max-width: 700px !important;
+    margin: 0 auto !important;
+    padding: 24px !important;
+    box-sizing: border-box;
+    max-height: min(85vh, calc(100vh - 3rem)) !important;
+  }
+
+  .profile-pet-info-grid {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+  }
+
+  .profile-health-row {
+    flex-direction: row;
+    align-items: baseline;
+    gap: 0.5rem;
+  }
+
+  .profile-health-label {
+    min-width: 140px;
+    flex-shrink: 0;
+  }
+}
+
+/* ── Mobile / Foldable (<= 576px): 2-column tiles, bottom sheet ── */
+@media (max-width: 576px) {
   /* ── Full-screen bottom sheet ── */
   .modal-overlay#petProfileModal {
     padding: 0;
@@ -2638,7 +2669,7 @@ body {
     box-sizing: border-box;
     max-height: 92vh !important;
     border-radius: 1rem 1rem 0 0;
-    padding: 1rem;
+    padding: 16px !important;
     overflow-y: auto !important;
     animation: slideUpSheet 0.3s ease-out;
   }
@@ -2648,107 +2679,106 @@ body {
     to   { transform: translateY(0); }
   }
 
-  /* ── Header: avatar + name + subtitle ── */
+  /* ── Header ── */
   .modal-overlay#petProfileModal .modal-header {
-    padding: 0 0 0.75rem 0;
+    padding: 0 0 0.5rem 0;
     margin-bottom: 0;
   }
 
   .profile-pet-header {
     flex-direction: column;
     align-items: flex-start;
-    gap: 0.75rem;
-    padding: 0 0 0.75rem 0;
-    margin-bottom: 0.75rem;
+    gap: 0.5rem;
+    padding: 0 0 0.5rem 0;
+    margin-bottom: 0.5rem;
   }
 
   .profile-pet-avatar {
-    width: 48px;
-    height: 48px;
+    width: 44px;
+    height: 44px;
   }
 
-  /* ── 2-Column Mobile Data Tiles ── */
+  /* ── 2-Column Mobile Tiles ── */
   .profile-pet-info-grid {
-    display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 8px;
-    margin-bottom: 0.75rem;
+    margin-bottom: 0.5rem;
   }
 
   .profile-pet-info-grid .profile-pet-stat {
     background: #f4f3ff;
     border: 1px solid var(--border);
     border-radius: 8px;
-    padding: 0.55rem 0.65rem;
+    padding: 0.5rem 0.6rem;
   }
 
   .profile-pet-stat-label {
-    font-size: 0.62rem;
+    font-size: 0.6rem;
     letter-spacing: 0.06em;
   }
 
   .profile-pet-stat-val {
-    font-size: 0.85rem;
+    font-size: 0.82rem;
   }
 
-  /* ── Health Alerts: full-width cards ── */
+  /* ── Health Alerts: full-width stacked cards ── */
   .profile-health-alerts {
     margin-top: 0;
-    padding-top: 0.75rem;
+    padding-top: 0.5rem;
     border-top: 1px solid var(--border);
     display: flex;
     flex-direction: column;
-    gap: 0.6rem;
-    margin-bottom: 0.75rem;
+    gap: 0.5rem;
+    margin-bottom: 0.5rem;
   }
 
   .profile-health-row {
     background: #f4f3ff;
     border: 1px solid var(--border);
     border-radius: 8px;
-    padding: 0.6rem 0.75rem;
+    padding: 0.5rem 0.65rem;
     display: flex;
     flex-direction: column;
-    gap: 0.15rem;
+    gap: 0.1rem;
   }
 
   .profile-health-label {
     min-width: 0;
-    font-size: 0.65rem;
+    font-size: 0.6rem;
   }
 
   .profile-health-val {
-    font-size: 0.85rem;
+    font-size: 0.82rem;
   }
 
   /* ── Pet card header: wrap ── */
   .pet-full-header {
     flex-wrap: wrap;
-    gap: 0.75rem;
+    gap: 0.5rem;
   }
 
   .pet-full-header .pet-big-avatar {
-    width: 48px;
-    height: 48px;
+    width: 44px;
+    height: 44px;
   }
 
   /* ── Tabs: pill-style toggle ── */
   .profile-tabs {
     display: flex;
-    gap: 0.5rem;
-    margin-bottom: 0.75rem;
+    gap: 4px;
+    margin-bottom: 0.5rem;
     border-bottom: none;
     padding-bottom: 0;
     background: var(--bg-light, #f4f3f8);
     border-radius: 10px;
-    padding: 4px;
+    padding: 3px;
   }
 
   .profile-tab {
     flex: 1;
     justify-content: center;
-    font-size: 0.78rem;
-    padding: 0.55rem 0.5rem;
+    font-size: 0.75rem;
+    padding: 0.5rem 0.4rem;
     border-radius: 8px;
     border-bottom: none;
     margin-bottom: 0;
@@ -2763,7 +2793,7 @@ body {
     border-bottom: none;
   }
 
-  /* ── Timeline: clean mobile cards ── */
+  /* ── Timeline: simplified mobile cards ── */
   .med-history-scroll,
   #profileTimeline,
   #profileVaccineTable {
@@ -2782,39 +2812,39 @@ body {
   }
 
   .med-timeline-date-full { display: none; }
-  .med-timeline-date-short { display: block; font-size: 0.75rem; }
+  .med-timeline-date-short { display: block; font-size: 0.72rem; }
 
   .med-timeline-marker { display: none; }
 
   .med-timeline-card {
     grid-column: 1;
-    margin-bottom: 0.65rem;
-    padding: 0.75rem;
+    margin-bottom: 0.5rem;
+    padding: 0.65rem;
   }
 
   .med-timeline-item:not(:last-child)::before { display: none; }
 
   .vaccine-table {
     min-width: 100%;
-    font-size: 0.78rem;
+    font-size: 0.75rem;
   }
 
   .vaccine-table th {
-    font-size: 0.65rem;
-    padding: 0.5rem 0.5rem;
+    font-size: 0.62rem;
+    padding: 0.45rem 0.45rem;
   }
 
   .vaccine-table td {
-    padding: 0.5rem 0.5rem;
-    font-size: 0.78rem;
+    padding: 0.45rem 0.45rem;
+    font-size: 0.75rem;
   }
 
   /* ── Action buttons: full-width stacked ── */
   .modal-overlay#petProfileModal .form-actions {
     flex-direction: column;
     gap: 0.5rem;
-    margin-top: 0.75rem;
-    padding-top: 0.75rem;
+    margin-top: 0.5rem;
+    padding-top: 0.5rem;
     border-top: 1px solid var(--border);
   }
 
@@ -2824,33 +2854,27 @@ body {
     justify-content: center;
     padding: 12px 16px !important;
     flex: none !important;
-    font-size: 0.9rem;
+    font-size: 0.88rem;
   }
 }
 
 @media (max-width: 480px) {
-  /* ── Profile modal: tighter padding ── */
   .modal-overlay#petProfileModal .modal-content {
-    padding: 1rem;
+    padding: 12px !important;
     max-height: 95vh !important;
   }
 
   .profile-pet-stat-val {
-    font-size: 0.8rem;
+    font-size: 0.78rem;
   }
 
   .profile-tab {
-    font-size: 0.72rem;
-    padding: 0.4rem 0.6rem;
+    font-size: 0.7rem;
+    padding: 0.4rem 0.5rem;
   }
 
-  .med-timeline-service {
-    font-size: 0.85rem;
-  }
-
-  .med-timeline-notes {
-    font-size: 0.8rem;
-  }
+  .med-timeline-service { font-size: 0.82rem; }
+  .med-timeline-notes { font-size: 0.78rem; }
 }
 
 /* === PRINT DOCUMENT BASE (hidden on screen) === */
