@@ -1990,19 +1990,18 @@ function _renderPetCards(pets, grid, dashGrid, petCount) {
     var photo = p.photo
       ? '<img src="' + p.photo + '" alt="' + escapeHtml(p.name) + '" style="width:100%;height:100%;object-fit:cover;border-radius:0.75rem;">'
       : petEmoji(sp);
-    var reproBadge = p.reproductiveStatus
-      ? '<span class="pet-card-badge">' + escapeHtml(p.reproductiveStatus) + '</span>'
-      : '';
+    // reproBadge rendered inline below species/breed
 
     return (
       '<div class="pet-full-card content-section">'
       + '<div class="pet-full-header">'
       + '<div class="pet-big-avatar">' + photo + '</div>'
       + '<div style="flex:1;min-width:0">'
-      + '<h3 style="font-size:1.25rem;font-weight:700;color:var(--text-dark);margin:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + escapeHtml(p.name) + '</h3>'
-      + '<div style="display:flex;align-items:center;gap:0.4rem;margin-top:0.15rem;flex-wrap:wrap">'
-      + '<p style="font-size:0.85rem;color:var(--text-dim);margin:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + escapeHtml(sp) + (p.breed ? ' / ' + escapeHtml(p.breed) : '') + '</p>'
-      + reproBadge
+      + '<h3 style="font-size:1.25rem;font-weight:700;color:var(--text-dark);margin:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + escapeHtml(p.name) + '</h3>'
+      + '<div style="margin-top:0.2rem">'
+      + '<span class="pet-card-species-badge">' + escapeHtml(sp) + '</span>'
+      + (p.breed ? '<p style="font-size:0.85rem;color:var(--text-dim);margin:0.15rem 0 0;line-height:1.35">' + escapeHtml(p.breed) + '</p>' : '')
+      + (p.reproductiveStatus ? '<span class="pet-card-badge" style="margin-top:0.2rem;display:inline-block">' + escapeHtml(p.reproductiveStatus) + '</span>' : '')
       + '</div>'
       + '</div>'
       + '<button class="btn-small" onclick="openEditPetModal(' + p.id + ')">Edit Profile</button>'
