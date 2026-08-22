@@ -1645,7 +1645,7 @@ function startNavbarDatetime() {
     var ampm = h >= 12 ? "PM" : "AM";
     h = h % 12 || 12;
     var timeStr = h + ":" + (m < 10 ? "0" : "") + m + ":" + (s < 10 ? "0" : "") + s + " " + ampm;
-    el.innerHTML = "<span class="dt-date">" + dateStr + "</span><span class="dt-sep">|</span><span class="dt-time">" + timeStr + "</span>";
+    el.innerHTML = '<span class="dt-date">' + dateStr + '</span><span class="dt-sep">|</span><span class="dt-time">' + timeStr + '</span>';
   }
 
   update();
