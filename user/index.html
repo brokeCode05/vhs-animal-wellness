@@ -7,7 +7,7 @@
     <meta http-equiv=1787393620"Pragma" content="no-cache" />
     <meta http-equiv=1787393620"Expires" content="0" />
     <title>My Dashboard - VHS</title>
-    <link rel="stylesheet" href="user-style.css?v=1787393620" />
+    <link rel="stylesheet" href="user-style.css?v=1753240200" />
     <link rel="stylesheet" href="../shared/dashboard-theme.css?v=1787393620" />
     <link rel="stylesheet" href="user-accent.css?v=1787393620" />
     <link rel="stylesheet" href="../shared/vhs-ui.css?v=1787393620" />
@@ -1102,8 +1102,12 @@
           </div>
           <button class="modal-close" onclick="closeModal('medHistoryModal')">&times;</button>
         </div>
-        <div id="medHistoryTimeline" style="max-height:60vh;overflow-y:auto;padding-right:0.25rem;"></div>
+        <div id="medHistoryTimeline" class="med-history-scroll"></div>
         <div class="form-actions" style="margin-top:1.25rem;">
+          <button class="btn-primary" onclick="printPetHistory()">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+            Print / Export PDF
+          </button>
           <button class="btn-secondary" onclick="closeModal('medHistoryModal')">Close</button>
         </div>
       </div>
@@ -1181,7 +1185,7 @@
     </div>
     <!-- END VHS ASSISTANT CHATBOT -->
 
-    <script src="../shared/vhs-ui.js?v=1753240100"></script>
-    <script src="user-script.js?v=1753240100"></script>
+    <script src="../shared/vhs-ui.js?v=1753240200"></script>
+    <script src="user-script.js?v=1753240200"></script>
   </body>
 </html>

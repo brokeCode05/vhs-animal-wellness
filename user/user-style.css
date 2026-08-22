@@ -2384,3 +2384,96 @@ body {
 .announcement-dots .dot:hover {
   background: rgba(109, 74, 177, 0.5);
 }
+
+/* === MEDICAL HISTORY SCROLL CONTAINER === */
+.med-history-scroll {
+  max-height: 60vh;
+  overflow-y: auto;
+  padding-right: 0.25rem;
+}
+
+/* === PRINT STYLES === */
+@media print {
+  /* Hide everything except the print area */
+  body > *:not(.print-area) {
+    display: none !important;
+  }
+
+  body {
+    background: #fff !important;
+    margin: 0;
+    padding: 0;
+  }
+
+  .print-area {
+    display: block !important;
+    position: static !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 1.5rem !important;
+    box-shadow: none !important;
+    border: none !important;
+    border-radius: 0 !important;
+  }
+
+  .print-area .form-actions,
+  .print-area .modal-close {
+    display: none !important;
+  }
+
+  .print-area .page-subtitle {
+    color: #555 !important;
+    margin-bottom: 1rem;
+  }
+
+  /* Timeline — print-friendly */
+  .med-history-scroll {
+    max-height: none !important;
+    overflow: visible !important;
+  }
+
+  .med-timeline-item {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .med-timeline-card {
+    box-shadow: none !important;
+    border: 1px solid #ccc !important;
+  }
+
+  .med-timeline-marker {
+    background: #555 !important;
+    box-shadow: none !important;
+    border-color: #fff !important;
+  }
+
+  .med-timeline-item:not(:last-child)::before {
+    background: #ccc !important;
+  }
+
+  .med-timeline-vet {
+    background: #f0f0f0 !important;
+    color: #333 !important;
+  }
+
+  .med-timeline-vet svg {
+    color: #555 !important;
+  }
+
+  .med-timeline-service {
+    color: #111 !important;
+  }
+
+  .med-timeline-notes {
+    color: #333 !important;
+  }
+
+  .med-timeline-date-full {
+    color: #111 !important;
+  }
+}
+
+/* When printing, show only the print wrapper */
+.print-area { display: none; }

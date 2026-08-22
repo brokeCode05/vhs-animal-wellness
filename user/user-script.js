@@ -1248,13 +1248,16 @@ function toggleHistory(id) {
 var _currentPets = [];
 
 function showMedicalHistory(petId) {
-  var titleEl = document.getElementById('medHistModalTitle');
-  var subtitleEl = document.getElementById('medHistModalSubtitle');
+  // Resolve pet from loaded data (backend or mock)
   var pet = _currentPets.find(function (p) { return p.id === petId; });
   if (!pet) pet = mockPetsData.find(function (p) { return p.id === petId; });
+
+  var titleEl = document.getElementById('medHistModalTitle');
+  var subtitleEl = document.getElementById('medHistModalSubtitle');
   if (titleEl) titleEl.textContent = 'Medical History';
-  if (subtitleEl) subtitleEl.textContent = pet ? pet.name + ' — ' + (pet.type || pet.species || '') + ', ' + (pet.breed || '') : '';
-  renderPetHistory(petId);
+  if (subtitleEl) subtitleEl.textContent = pet ? pet.name + ' \u2014 ' + (pet.type || pet.species || '') + ', ' + (pet.breed || '') : '';
+
+  renderPetHistory(pet);
   openModal('medHistoryModal');
 }
 
@@ -1553,29 +1556,24 @@ const mockPetsData = [
 
 // ─── PET MEDICAL HISTORY RENDERER ────────────────────────────────────────────
 
-function renderPetHistory(petId) {
-  const container = document.getElementById('medHistoryTimeline');
+// renderPetHistory(pet) — accepts a pet object: { name, visits[] }
+// Each visit: { date, service, vet, notes }
+// Fully decoupled from data source; caller resolves the pet.
+function renderPetHistory(pet) {
+  var container = document.getElementById('medHistoryTimeline');
   if (!container) return;
 
-  if (!petId) {
+  if (!pet) {
     container.innerHTML = '<p class="med-hist-empty">No pet selected.</p>';
     return;
   }
 
-  var pet = _currentPets.find(function (p) { return p.id === petId; });
-  if (!pet) pet = mockPetsData.find(function (p) { return p.id === petId; });
-  if (!pet) {
-    container.innerHTML = '<p class="med-hist-empty">Pet record not found.</p>';
-    return;
-  }
-
-  // Sort visits newest-first
   var visits = (pet.visits || []).slice().sort(function (a, b) {
     return new Date(b.date) - new Date(a.date);
   });
 
   if (!visits.length) {
-    container.innerHTML = '<p class="med-hist-empty">No visit history found for ' + pet.name + '.</p>';
+    container.innerHTML = '<p class="med-hist-empty">No visit history found for ' + escapeHtml(pet.name) + '.</p>';
     return;
   }
 
@@ -1622,6 +1620,37 @@ function escapeHtml(text) {
   var div = document.createElement('div');
   div.appendChild(document.createTextNode(text));
   return div.innerHTML;
+}
+
+
+// ─── PRINT / EXPORT PDF ──────────────────────────────────────────────────────
+
+function printPetHistory() {
+  var modal = document.getElementById('medHistoryModal');
+  if (!modal) return;
+
+  var title = document.getElementById('medHistModalTitle');
+  var subtitle = document.getElementById('medHistModalSubtitle');
+  var timeline = document.getElementById('medHistoryTimeline');
+
+  // Build a print wrapper with just the content we want
+  var printWrapper = document.createElement('div');
+  printWrapper.className = 'print-area';
+  printWrapper.innerHTML = ''
+    + '<h1 style="font-size:1.5rem;font-weight:700;margin:0 0 0.25rem;color:#111;">'
+    + (title ? title.textContent : 'Medical History') + '</h1>'
+    + '<p style="font-size:0.9rem;color:#555;margin:0 0 1rem;">'
+    + (subtitle ? subtitle.textContent : '') + '</p>'
+    + (timeline ? timeline.innerHTML : '')
+    + '<p style="font-size:0.7rem;color:#999;margin-top:1.5rem;border-top:1px solid #ddd;padding-top:0.5rem;">VHS Animal Wellness Center \u2014 Printed ' + new Date().toLocaleDateString('en-US', { year:'numeric', month:'long', day:'numeric' }) + '</p>';
+
+  document.body.appendChild(printWrapper);
+  window.print();
+
+  // Clean up after print dialog closes
+  setTimeout(function () {
+    if (printWrapper.parentNode) printWrapper.parentNode.removeChild(printWrapper);
+  }, 1000);
 }
 
 
