@@ -7,7 +7,7 @@
     <meta http-equiv=1787393620"Pragma" content="no-cache" />
     <meta http-equiv=1787393620"Expires" content="0" />
     <title>My Dashboard - VHS</title>
-    <link rel="stylesheet" href="user-style.css?v=1753241300" />
+    <link rel="stylesheet" href="user-style.css?v=1824404000" />
     <link rel="stylesheet" href="../shared/dashboard-theme.css?v=1787393620" />
     <link rel="stylesheet" href="user-accent.css?v=1787393620" />
     <link rel="stylesheet" href="../shared/vhs-ui.css?v=1787393620" />
@@ -1078,20 +1078,27 @@
       </div>
     </div>
 
-    <!-- View Appointment Modal -->
+    <!-- View Appointment Details & QR Intake Modal -->
     <div class="modal-overlay" id="viewApptModal">
-      <div class="modal-content">
+      <div class="modal-content" style="max-width:520px;">
         <div class="modal-header">
           <h2 class="modal-title">Appointment Details</h2>
           <button class="modal-close" onclick="closeModal('viewApptModal')">
             &times;
           </button>
         </div>
-        <div id="apptDetails" class="detail-grid"></div>
-        <div class="form-actions" style="margin-top: 1.5rem">
-          <button class="btn-secondary" onclick="closeModal('viewApptModal')">
-            Close
-          </button>
+
+        <!-- QR Intake Tile -->
+        <div class="appt-qr-section">
+          <div class="appt-qr-wrap" id="apptQrCode"></div>
+          <p class="appt-qr-hint">Present this QR code to the receptionist upon arrival for rapid intake.</p>
+        </div>
+
+        <!-- Appointment Summary -->
+        <div class="appt-detail-summary" id="apptDetails"></div>
+
+        <div class="form-actions" style="margin-top: 1.25rem;">
+          <button class="btn-secondary" onclick="closeModal('viewApptModal')">Close</button>
         </div>
       </div>
     </div>
@@ -1124,7 +1131,7 @@
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1rem;">
             <div class="form-group">
               <label class="form-label">New Date <span class="required">*</span></label>
-              <input type="date" class="form-input" id="rescheduleDate" required />
+              <input type="date" class="form-input" id="rescheduleDate" required onchange="_onRescheduleDateChange()" />
             </div>
             <div class="form-group">
               <label class="form-label">New Time <span class="required">*</span></label>
@@ -1329,6 +1336,6 @@
     <!-- END VHS ASSISTANT CHATBOT -->
 
     <script src="../shared/vhs-ui.js?v=1753241300"></script>
-    <script src="user-script.js?v=1753241300"></script>
+    <script src="user-script.js?v=1824404000"></script>
   </body>
 </html>

@@ -463,12 +463,19 @@ body {
   text-transform: uppercase;
   letter-spacing: 0.03em;
   white-space: nowrap;
-}
-
-.status-badge.pending { background: linear-gradient(135deg, #fef3c7, #fde68a); color: #92400e; border: 1px solid var(--secondary); }
-.status-badge.confirmed { background: linear-gradient(135deg, #cffafe, #a5f3fc); color: #164e63; border: 1px solid #22d3ee; }
-.status-badge.completed { background: linear-gradient(135deg, #d1fae5, #a7f3d0); color: #065f46; border: 1px solid var(--success); }
-.status-badge.cancelled { background: linear-gradient(135deg, #fee2e2, #fecaca); color: #991b1b; border: 1px solid #f87171; }
+}  .status-badge.pending,
+  .status-badge.scheduled {
+    background: #fef3c7; color: #92400e; border: 1px solid #fbbf24;
+  }
+  .status-badge.confirmed {
+    background: var(--accent-soft, rgba(109,74,177,0.12)); color: var(--accent-dark, #6d4ab1); border: 1px solid var(--accent-badge-border, #c3b3ef);
+  }
+  .status-badge.completed {
+    background: #d1fae5; color: #065f46; border: 1px solid #34d399;
+  }
+  .status-badge.cancelled {
+    background: #f3f4f6; color: #6b7280; border: 1px solid #d1d5db;
+  }
 
 /* === BUTTONS === */
 .btn-primary, .btn-secondary, .btn-small {
@@ -1316,6 +1323,67 @@ body {
   margin-top: 2px;
 }
 
+/* ── QR Intake Section ── */
+
+.appt-qr-section {
+  text-align: center;
+  padding: 1.25rem 1rem;
+  background: var(--bg-light, #f8f9fa);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  margin-bottom: 1rem;
+}
+
+.appt-qr-wrap {
+  display: inline-block;
+  margin-bottom: 0.65rem;
+}
+
+.appt-qr-hint {
+  font-size: 0.78rem;
+  color: var(--text-dim);
+  margin: 0;
+  line-height: 1.5;
+}
+
+/* ── Appointment Detail Summary ── */
+
+.appt-detail-summary {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.appt-detail-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: 0.6rem 1rem;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.88rem;
+}
+
+.appt-detail-row:last-child {
+  border-bottom: none;
+}
+
+.appt-detail-label {
+  font-weight: 600;
+  color: var(--text-dim);
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  min-width: 110px;
+  flex-shrink: 0;
+}
+
+.appt-detail-val {
+  color: var(--text-dark);
+  font-weight: 500;
+  text-align: right;
+  word-break: break-word;
+}
+
 /* ── Appointments Responsive ── */
 
 @media (max-width: 768px) {
@@ -1350,6 +1418,20 @@ body {
   .section-header {
     flex-direction: column;
     align-items: stretch;
+  }
+
+  .appt-detail-row {
+    flex-direction: column;
+    gap: 0.15rem;
+    padding: 0.55rem 0.85rem;
+  }
+
+  .appt-detail-label {
+    min-width: auto;
+  }
+
+  .appt-detail-val {
+    text-align: left;
   }
 }
 

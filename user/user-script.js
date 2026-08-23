@@ -306,37 +306,7 @@ function loadUserAppointments() {
 
 
 
-function _apptStatusBadge(status) {
-
-  var map = {
-
-    pending: "info",
-
-    scheduled: "info",
-
-    completed: "completed",
-
-    canceled: "rejected",
-
-    cancelled: "rejected",
-
-  };
-
-  var cls = map[status] || "info";
-
-  // Show "Scheduled" for both pending and scheduled since booking is now auto-confirmed
-
-  var label =
-
-    status === "pending" ? "Scheduled"
-
-    : status ? status.charAt(0).toUpperCase() + status.slice(1)
-
-    : "—";
-
-  return '<span class="status-badge ' + cls + '">' + label + "</span>";
-
-}
+// _apptStatusBadge defined later (near renderAppointmentCards)
 
 
 
@@ -1030,14 +1000,95 @@ document.addEventListener("change", function (e) {
 
   }
 
-});
+});function viewAppt(id) {
+  var appt = mockAppointmentsData.find(function(a) { return a.id === id; });
+  if (!appt) return;
 
+  // Populate detail summary
+  var detailEl = document.getElementById('apptDetails');
+  if (detailEl) {
+    var statusMap = { pending: 'Scheduled', scheduled: 'Confirmed', completed: 'Completed', canceled: 'Cancelled', cancelled: 'Cancelled' };
+    detailEl.innerHTML =
+      '<div class="appt-detail-row"><span class="appt-detail-label">Reference No.</span><span class="appt-detail-val">' + escapeHtml(appt.reference_no || '—') + '</span></div>'
+      + '<div class="appt-detail-row"><span class="appt-detail-label">Pet</span><span class="appt-detail-val">' + escapeHtml(appt.pet_name) + ' (' + escapeHtml(appt.pet_type) + (appt.pet_breed ? ' / ' + escapeHtml(appt.pet_breed) : '') + ')</span></div>'
+      + '<div class="appt-detail-row"><span class="appt-detail-label">Service</span><span class="appt-detail-val">' + escapeHtml(appt.service) + '</span></div>'
+      + '<div class="appt-detail-row"><span class="appt-detail-label">Date</span><span class="appt-detail-val">' + _fmtApptDateShort(appt.date) + '</span></div>'
+      + '<div class="appt-detail-row"><span class="appt-detail-label">Time</span><span class="appt-detail-val">' + escapeHtml(appt.time || '—') + '</span></div>'
+      + '<div class="appt-detail-row"><span class="appt-detail-label">Status</span><span class="appt-detail-val">' + _apptStatusBadge(appt.status) + '</span></div>'
+      + (appt.notes ? '<div class="appt-detail-row"><span class="appt-detail-label">Notes</span><span class="appt-detail-val">' + escapeHtml(appt.notes) + '</span></div>' : '');
+  }
 
+  // Render QR code for reference_no
+  var qrWrap = document.getElementById('apptQrCode');
+  if (qrWrap) {
+    var refText = appt.reference_no || appt.id;
+    qrWrap.innerHTML = _generateQRSVG(refText);
+  }
 
-function viewAppt(id) {
+  openModal('viewApptModal');
+}
 
-  showUnderWork("Appointment detail view");
+// ── Simple QR Code SVG Generator ──
+// Generates a grid-based QR-like pattern from a string.
+// For production, swap this with a real QR library.
+function _generateQRSVG(text) {
+  var size = 21;
+  var cellSize = 5;
+  var total = size * cellSize;
 
+  // Seed a simple hash from the text
+  var hash = 0;
+  for (var i = 0; i < text.length; i++) {
+    hash = ((hash << 5) - hash) + text.charCodeAt(i);
+    hash = hash & hash;
+  }
+
+  // Generate deterministic grid
+  var cells = [];
+  for (var r = 0; r < size; r++) {
+    for (var c = 0; c < size; c++) {
+      // Fixed finder patterns in 3 corners
+      if (_isFinderPattern(r, c, size)) {
+        cells.push({ r: r, c: c, dark: _finderCell(r, c, size) });
+      } else {
+        // Deterministic pseudo-random
+        hash = ((hash << 13) ^ hash) >>> 0;
+        var v = (hash * 2654435761) >>> 0;
+        cells.push({ r: r, c: c, dark: (v % 3) === 0 });
+      }
+    }
+  }
+
+  var rects = cells.filter(function(c) { return c.dark; }).map(function(c) {
+    return '<rect x="' + (c.c * cellSize) + '" y="' + (c.r * cellSize) + '" width="' + cellSize + '" height="' + cellSize + '" fill="#1a1a2e" />';
+  }).join('');
+
+  return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ' + total + ' ' + total + '" width="140" height="140" style="background:#fff;padding:8px;border-radius:8px;border:1px solid var(--border,#e2e8f0);display:block;margin:0 auto;">'
+    + '<rect width="' + total + '" height="' + total + '" fill="#ffffff" />'
+    + rects
+    + '</svg>';
+}
+
+function _isFinderPattern(r, c, size) {
+  // Top-left 7x7
+  if (r < 7 && c < 7) return true;
+  // Top-right 7x7
+  if (r < 7 && c >= size - 7) return true;
+  // Bottom-left 7x7
+  if (r >= size - 7 && c < 7) return true;
+  return false;
+}
+
+function _finderCell(r, c, size) {
+  // Normalize coordinates within the 7x7 finder
+  var nr = r < 7 ? r : r - (size - 7);
+  var nc = c < 7 ? c : c - (size - 7);
+  // Outer border
+  if (nr === 0 || nr === 6 || nc === 0 || nc === 6) return true;
+  // Inner border
+  if (nr === 1 || nr === 5 || nc === 1 || nc === 5) return false;
+  // Center
+  return true;
 }
 
 
@@ -2041,18 +2092,28 @@ function openRescheduleModal(apptId) {
       + '</div>';
   }
   var today = new Date().toISOString().split('T')[0];
-  document.getElementById('rescheduleDate').setAttribute('min', today);
+  var dateInput = document.getElementById('rescheduleDate');
+  dateInput.setAttribute('min', today);
+  dateInput.value = '';
+  dateInput.onchange = _onRescheduleDateChange;
   _populateRescheduleSlots();
   openModal('rescheduleModal');
 }
 
-function _populateRescheduleSlots() {
+function _populateRescheduleSlots(dateStr) {
   var timeSelect = document.getElementById('rescheduleTime');
   if (!timeSelect) return;
-  var slots = ['08:00 AM','08:30 AM','09:00 AM','09:30 AM','10:00 AM','10:30 AM','11:00 AM','11:30 AM','01:00 PM','01:30 PM','02:00 PM','02:30 PM','03:00 PM','03:30 PM','04:00 PM','04:30 PM','05:00 PM'];
+  var slots = getVHSTimeSlots(dateStr || new Date().toISOString().split('T')[0]);
   timeSelect.innerHTML = '<option value="">Select time</option>' + slots.map(function(s) {
     return '<option value="' + s + '">' + s + '</option>';
   }).join('');
+}
+
+function _onRescheduleDateChange() {
+  var dateInput = document.getElementById('rescheduleDate');
+  if (dateInput && dateInput.value) {
+    _populateRescheduleSlots(dateInput.value);
+  }
 }
 
 function submitReschedule(e) {
