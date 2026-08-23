@@ -196,29 +196,19 @@ function closeModal(id) {
 
 
 
-document.querySelectorAll(".modal-overlay").forEach((m) => {
-
-  m.addEventListener("click", (e) => {
-
-    if (e.target === m) closeModal(m.id);
-
-  });
-
-});
-
+/*
+ * BACKEND HANDOFF: Modal backdrop protection
+ * Modals must ONLY be dismissed through explicit user actions:
+ *   a) Clicking the top-right "X" close icon (.modal-close)
+ *   b) Clicking Cancel / secondary action button
+ *   c) Successful form submission
+ * Backdrop click and drag are intentionally NOT wired to close.
+ */
 
 
-document.addEventListener("keydown", (e) => {
 
-  if (e.key === "Escape") {
-
-    const open = document.querySelector(".modal-overlay.show");
-
-    if (open) closeModal(open.id);
-
-  }
-
-});
+/* Escape key handler intentionally removed — modals close only via
+   explicit X button, Cancel button, or form submit. */
 
 
 
@@ -2350,7 +2340,7 @@ function _renderPetCards(pets, grid, dashGrid, petCount) {
       + '<h3 style="font-size:1.25rem;font-weight:700;color:var(--text-dark);margin:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + escapeHtml(p.name) + '</h3>'
       + '<div style="margin-top:0.2rem">'
       + '<span class="pet-card-species-badge">' + escapeHtml(sp) + '</span>'
-      + (p.breed ? '<p style="font-size:0.85rem;color:var(--text-dim);margin:0.15rem 0 0;line-height:1.35">' + escapeHtml(p.breed) + '</p>' : '')
+      + (p.breed ? '<p class="pet-breed-text">' + escapeHtml(p.breed) + '</p>' : '')
       + (p.reproductiveStatus ? '<span class="pet-card-badge" style="margin-top:0.2rem;display:inline-block">' + escapeHtml(p.reproductiveStatus) + '</span>' : '')
       + '</div>'
       + '</div>'
