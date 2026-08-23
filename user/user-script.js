@@ -671,23 +671,40 @@ function _refreshBookSlots() {
     : '<option value="">No available slots</option>';
 }
 
+
 /*
- * BACKEND HANDOFF: Book Appointment
- * Endpoint: POST ../php_files/book-appointment.php
- * Encoding: application/json
- * Payload: { user_id, pet_id, service, appointment_date,
- *   appointment_time, visit_reason, visit_reason_custom, notes }
- * Response: { status: "success", message: "...", reference_no: "VHS-..." }
+ * ==========================================================================
+ * BACKEND HANDOFF: Create Appointment & OTP Flow
+ * ==========================================================================
+ * FRONTEND MOCK BEHAVIOR:
+ * - Currently pushing new appointment payload to local appointments array.
+ * - Triggers OTP modal and success QR generation on client side.
+ *
+ * BACKEND INTEGRATION INSTRUCTIONS:
+ * 1. REMOVE/COMMENT OUT local array .push() and UI re-render triggers.
+ * 2. UNCOMMENT API fetch requests below.
+ *
+ * TARGET ENDPOINTS:
+ * - Request OTP : POST ../api/appointments/request_otp.php
+ *   Payload: { phone, email }
+ * - Verify OTP  : POST ../api/appointments/verify_otp.php
+ *   Payload: { otp_code, appointment_data }
+ *
+ * EXPECTED RESPONSE:
+ * { success: true, reference_no: "VHS-2026-8921", status: "Confirmed" }
+ * ==========================================================================
  */
+var _pendingBookingPayload = null;
+
 async function submitBooking(e) {
   e.preventDefault();
   var submitBtn = document.querySelector('#bookForm #wizardSubmitBtn');
   if (submitBtn && submitBtn.disabled) return;
-  if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = 'Booking...'; }
+  if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = 'Verifying...'; }
 
   var user = _getSessionUser();
   var userId = user.id || user.userId;
-  if (!userId) { userId = 0; }
+  if (!userId) userId = 0;
 
   var petId = document.getElementById('pet_id').value;
   var service = document.getElementById('service_id').value;
@@ -697,7 +714,6 @@ async function submitBooking(e) {
   var visitReasonCustom = document.getElementById('visit_reason_custom').value.trim();
   var appNotes = document.getElementById('bookNotes').value.trim();
 
-  // Resolve custom notes for Other / Showing Mild Symptoms
   if ((visitReason === 'Other' || visitReason === 'Showing Mild Symptoms') && visitReasonCustom) visitReason = visitReasonCustom;
 
   if (!petId) { showToast('Please select a pet.', 'warning'); _wizardStep = 1; _renderWizard(); if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Confirm Booking'; } return; }
@@ -705,7 +721,7 @@ async function submitBooking(e) {
   if (!appDate) { showToast('Please select a date.', 'warning'); _wizardStep = 2; _renderWizard(); if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Confirm Booking'; } return; }
   if (!appTime) { showToast('Please select a time slot.', 'warning'); _wizardStep = 2; _renderWizard(); if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Confirm Booking'; } return; }
 
-  var payload = {
+  _pendingBookingPayload = {
     user_id: parseInt(userId) || 0,
     pet_id: parseInt(petId) || 0,
     service: service,
@@ -716,46 +732,130 @@ async function submitBooking(e) {
     notes: appNotes
   };
 
-  try {
-    var response = await fetch('../php_files/book-appointment.php', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    });
-    var data = await response.json();
-    if (data.status === 'success') {
-      showToast(data.message + '\nReference No: ' + (data.reference_no || 'N/A'), 'success');
-      closeModal('bookModal');
-      loadUserAppointments();
-    } else {
-      showToast('Booking Failed: ' + data.message, 'error');
+  if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Confirm Booking'; }
+  closeModal('bookModal');
+  openOtpModal();
+}
+
+// ─── OTP VERIFICATION ────────────────────────────────────────────────────────
+var _otpTimerInterval = null;
+var _otpSecondsLeft = 59;
+
+function openOtpModal() {
+  var boxes = document.querySelectorAll('#otpInputs .otp-box');
+  boxes.forEach(function(box) { box.value = ''; });
+  if (boxes.length) boxes[0].focus();
+  _otpSecondsLeft = 59;
+  _startOtpCountdown();
+  openModal('otpModal');
+}
+
+function closeOtpModal() {
+  if (_otpTimerInterval) clearInterval(_otpTimerInterval);
+  closeModal('otpModal');
+}
+
+function _startOtpCountdown() {
+  var countdownEl = document.getElementById('otpCountdown');
+  if (_otpTimerInterval) clearInterval(_otpTimerInterval);
+  _otpSecondsLeft = 59;
+  _otpTimerInterval = setInterval(function() {
+    _otpSecondsLeft--;
+    if (countdownEl) countdownEl.textContent = '0:' + String(_otpSecondsLeft).padStart(2, '0');
+    if (_otpSecondsLeft <= 0) {
+      clearInterval(_otpTimerInterval);
+      if (countdownEl && countdownEl.parentElement) {
+        countdownEl.parentElement.innerHTML = '<a href="#" onclick="_resendOtp();return false;" style="color:var(--accent,#6d4ab1);font-weight:600;">Resend Code</a>';
+      }
     }
-  } catch (error) {
-    // Offline / mock mode — add to local mock data
-    var _petOpt = document.getElementById('pet_id').selectedOptions[0];
-    var _petDisplay = _petOpt ? _petOpt.text : 'Pet';
-    var _petName = _petDisplay.replace(/\s*\([^)]*\)$/, '').trim() || 'Pet';
-    var _petObj = mockPetsData.find(function(p) { return String(p.id) === String(payload.pet_id); });
-    var newApt = {
-      id: 'apt' + String(mockAppointmentsData.length + 1).padStart(3, '0'),
-      pet_id: payload.pet_id,
-      pet_name: _petName,
-      pet_type: _petObj ? (_petObj.species || _petObj.type || '') : '',
-      pet_breed: _petObj ? (_petObj.breed || '') : '',
-      service: payload.service,
-      date: payload.appointment_date,
-      time: payload.appointment_time,
-      status: 'scheduled',
-      notes: payload.visit_reason + (payload.notes ? ' | ' + payload.notes : ''),
-      reference_no: 'VHS-' + payload.appointment_date.replace(/-/g, '') + '-' + String(mockAppointmentsData.length + 1).padStart(3, '0')
-    };
-    mockAppointmentsData.push(newApt);
-    showToast('Appointment booked! Ref: ' + newApt.reference_no, 'success');
-    closeModal('bookModal');
-    renderAppointmentCards();
-  } finally {
-    if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Confirm Booking'; }
+  }, 1000);
+}
+
+function _resendOtp() {
+  _otpSecondsLeft = 59;
+  var timerEl = document.getElementById('otpTimer');
+  if (timerEl) timerEl.innerHTML = 'Resend code in <span id="otpCountdown">0:59</span>';
+  _startOtpCountdown();
+  showToast('Verification code resent.', 'info');
+}
+
+function verifyOtp() {
+  var boxes = document.querySelectorAll('#otpInputs .otp-box');
+  var code = '';
+  boxes.forEach(function(box) { code += box.value; });
+  if (code.length < 6) {
+    showToast('Please enter the complete 6-digit code.', 'warning');
+    return;
   }
+  // Mock mode: any 6 digits accepted
+  closeOtpModal();
+  _finalizeBooking();
+}
+
+function _finalizeBooking() {
+  var payload = _pendingBookingPayload;
+  if (!payload) return;
+
+  var refNo = 'VHS-' + payload.appointment_date.replace(/-/g, '') + '-' + String(mockAppointmentsData.length + 1).padStart(4, '0');
+
+  var _petOpt = document.getElementById('pet_id') ? document.getElementById('pet_id').selectedOptions[0] : null;
+  var _petDisplay = _petOpt ? _petOpt.text : 'Pet';
+  var _petName = _petDisplay.replace(/\s*\([^)]*\)$/, '').trim() || 'Pet';
+  var _petObj = mockPetsData.find(function(p) { return String(p.id) === String(payload.pet_id); });
+
+  var newApt = {
+    id: 'apt' + String(mockAppointmentsData.length + 1).padStart(3, '0'),
+    pet_id: payload.pet_id,
+    pet_name: _petName,
+    pet_type: _petObj ? (_petObj.species || _petObj.type || '') : '',
+    pet_breed: _petObj ? (_petObj.breed || '') : '',
+    service: payload.service,
+    date: payload.appointment_date,
+    time: payload.appointment_time,
+    status: 'scheduled',
+    notes: payload.visit_reason + (payload.notes ? ' | ' + payload.notes : ''),
+    reference_no: refNo
+  };
+
+  mockAppointmentsData.push(newApt);
+  _pendingBookingPayload = null;
+  _showBookingSuccess(refNo, newApt);
+}
+
+function _showBookingSuccess(refNo) {
+  document.getElementById('successRefNo').textContent = refNo;
+  var qrWrap = document.getElementById('successQrCode');
+  if (qrWrap) {
+    qrWrap.innerHTML = '';
+    try {
+      new QRCode(qrWrap, {
+        text: refNo,
+        width: 150,
+        height: 150,
+        colorDark: '#4c1d95',
+        colorLight: '#ffffff',
+        correctLevel: QRCode.CorrectLevel.H
+      });
+    } catch (e) {
+      qrWrap.innerHTML = '<p style="color:var(--text-dim);font-size:0.85rem;">QR unavailable</p>';
+    }
+  }
+  openModal('bookingSuccessModal');
+}
+
+function printSuccessRef() {
+  var refNo = document.getElementById('successRefNo').textContent;
+  var printWin = window.open('', '_blank', 'width=400,height=300');
+  if (printWin) {
+    printWin.document.write('<html><head><title>Appointment Reference</title><style>body{font-family:Segoe UI,sans-serif;text-align:center;padding:2rem;}h2{color:#4c1d95;margin-bottom:0.5rem;}.ref{font-size:1.5rem;font-weight:700;letter-spacing:0.05em;margin:1rem 0;}.hint{font-size:0.85rem;color:#666;}</style></head><body><h2>VHS Animal Wellness Center</h2><p>Appointment Reference</p><div class="ref">' + refNo + '</div><p class="hint">Present this code to the receptionist upon arrival.</p><script>setTimeout(function(){window.print();},500);<\/script></body></html>');
+    printWin.document.close();
+  }
+}
+
+function closeSuccessAndScroll() {
+  closeModal('bookingSuccessModal');
+  renderAppointmentCards();
+  showSection('appointments');
 }
 
 function _initBookReasonOther() {
@@ -768,6 +868,37 @@ function _initBookReasonOther() {
     inp.value = '';
     inp.required = false;
     if (showCustom) inp.focus();
+  });
+}
+
+function _initOtpInputs() {
+  var boxes = document.querySelectorAll('#otpInputs .otp-box');
+  boxes.forEach(function(box, idx) {
+    box.addEventListener('input', function(e) {
+      var val = e.target.value.replace(/\D/g, '');
+      e.target.value = val.slice(0, 1);
+      if (val && idx < boxes.length - 1) {
+        boxes[idx + 1].focus();
+      }
+    });
+    box.addEventListener('keydown', function(e) {
+      if (e.key === 'Backspace' && !e.target.value && idx > 0) {
+        boxes[idx - 1].focus();
+        boxes[idx - 1].value = '';
+      }
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        verifyOtp();
+      }
+    });
+    box.addEventListener('paste', function(e) {
+      e.preventDefault();
+      var text = (e.clipboardData || window.clipboardData).getData('text').replace(/\D/g, '').slice(0, 6);
+      text.split('').forEach(function(ch, i) {
+        if (boxes[i]) boxes[i].value = ch;
+      });
+      if (text.length > 0) boxes[Math.min(text.length, boxes.length) - 1].focus();
+    });
   });
 }
 
@@ -3015,6 +3146,7 @@ document.addEventListener("DOMContentLoaded", () => {
   // ── Initialize 'Other' conditional text inputs ──
   _initOtherInputs();
   _initBookReasonOther();
+  _initOtpInputs();
 
   // ── Profile field input restrictions ──────────────────────────────────────
 

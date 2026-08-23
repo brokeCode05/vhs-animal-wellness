@@ -7,10 +7,10 @@
     <meta http-equiv="Pragma" content="no-cache" />
     <meta http-equiv="Expires" content="0" />
     <title>My Dashboard - VHS</title>
-    <link rel="stylesheet" href="user-style.css?v=2.2.2" />
-    <link rel="stylesheet" href="../shared/dashboard-theme.css?v=2.2.2" />
-    <link rel="stylesheet" href="user-accent.css?v=2.2.2" />
-    <link rel="stylesheet" href="../shared/vhs-ui.css?v=2.2.2" />
+    <link rel="stylesheet" href="user-style.css?v=2.3.0" />
+    <link rel="stylesheet" href="../shared/dashboard-theme.css?v=2.3.0" />
+    <link rel="stylesheet" href="user-accent.css?v=2.3.0" />
+    <link rel="stylesheet" href="../shared/vhs-ui.css?v=2.3.0" />
   </head>
   <body>
     <!-- TOP NAVBAR -->
@@ -902,6 +902,52 @@
       </div>
     </div>
 
+    <!-- OTP Verification Modal -->
+    <div class="modal-overlay" id="otpModal">
+      <div class="modal-content" style="max-width:440px;">
+        <div class="modal-header">
+          <h2 class="modal-title">Enter Verification Code</h2>
+          <button class="modal-close" onclick="closeOtpModal()">&times;</button>
+        </div>
+        <p class="otp-subtext">A 6-digit verification code has been sent to your registered phone / email.</p>
+        <div class="otp-inputs" id="otpInputs">
+          <input type="tel" class="otp-box" maxlength="1" inputmode="numeric" pattern="[0-9]" autocomplete="one-time-code" />
+          <input type="tel" class="otp-box" maxlength="1" inputmode="numeric" pattern="[0-9]" />
+          <input type="tel" class="otp-box" maxlength="1" inputmode="numeric" pattern="[0-9]" />
+          <input type="tel" class="otp-box" maxlength="1" inputmode="numeric" pattern="[0-9]" />
+          <input type="tel" class="otp-box" maxlength="1" inputmode="numeric" pattern="[0-9]" />
+          <input type="tel" class="otp-box" maxlength="1" inputmode="numeric" pattern="[0-9]" />
+        </div>
+        <div class="otp-timer" id="otpTimer">Resend code in <span id="otpCountdown">0:59</span></div>
+        <div class="form-actions" style="justify-content:center;gap:0.75rem;">
+          <button type="button" class="btn-primary" id="otpVerifyBtn" onclick="verifyOtp()">Verify & Confirm</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Booking Success Confirmation Modal -->
+    <div class="modal-overlay" id="bookingSuccessModal">
+      <div class="modal-content" style="max-width:460px;text-align:center;">
+        <div class="modal-header" style="justify-content:center;">
+          <h2 class="modal-title">Appointment Successfully Booked!</h2>
+        </div>
+        <div class="success-icon-wrap">
+          <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9 12l2 2 4-4"/></svg>
+        </div>
+        <p class="success-ref-label">Reference ID</p>
+        <p class="success-ref-value" id="successRefNo">—</p>
+        <div class="success-qr-wrap" id="successQrCode"></div>
+        <p class="success-qr-hint">Present this QR code to the receptionist upon arrival for rapid intake.</p>
+        <div class="form-actions" style="justify-content:center;gap:0.75rem;flex-wrap:wrap;">
+          <button type="button" class="btn-secondary" onclick="printSuccessRef()">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+            Download / Print
+          </button>
+          <button type="button" class="btn-primary" onclick="closeSuccessAndScroll()">View My Appointments</button>
+        </div>
+      </div>
+    </div>
+
     <!-- Add / Edit Pet Modal -->
     <!--
       BACKEND HANDOFF: Add / Edit Pet Modal
@@ -1321,7 +1367,7 @@
     <!-- END VHS ASSISTANT CHATBOT -->
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-    <script src="../shared/vhs-ui.js?v=2.2.2"></script>
-    <script src="user-script.js?v=2.2.2"></script>
+    <script src="../shared/vhs-ui.js?v=2.3.0"></script>
+    <script src="user-script.js?v=2.3.0"></script>
   </body>
 </html>

@@ -1580,6 +1580,118 @@ body {
   opacity: 1;
 }
 
+/* ── OTP Verification Modal ── */
+
+.otp-subtext {
+  font-size: 0.88rem;
+  color: var(--text-dim);
+  text-align: center;
+  margin-bottom: 1.25rem;
+  line-height: 1.5;
+}
+
+.otp-inputs {
+  display: flex;
+  gap: 0.6rem;
+  justify-content: center;
+  margin-bottom: 1rem;
+}
+
+.otp-box {
+  width: 48px;
+  height: 56px;
+  text-align: center;
+  font-size: 1.5rem;
+  font-weight: 700;
+  font-family: 'SF Mono', 'Consolas', monospace;
+  border: 2px solid var(--border, #e5e7eb);
+  border-radius: 10px;
+  background: #fff;
+  color: var(--text-dark);
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  -webkit-text-size-adjust: 100%;
+}
+
+.otp-box:focus {
+  border-color: var(--accent, #6d4ab1);
+  box-shadow: 0 0 0 3px rgba(109, 74, 177, 0.15);
+}
+
+.otp-timer {
+  text-align: center;
+  font-size: 0.85rem;
+  color: var(--text-dim);
+  margin-bottom: 1.25rem;
+}
+
+.otp-timer a {
+  color: var(--accent, #6d4ab1);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.otp-timer a:hover {
+  text-decoration: underline;
+}
+
+/* ── Booking Success Modal ── */
+
+.success-icon-wrap {
+  margin: 0.5rem auto 1rem;
+  display: flex;
+  justify-content: center;
+}
+
+.success-icon-wrap svg {
+  animation: successPop 0.4s ease-out;
+}
+
+@keyframes successPop {
+  0% { transform: scale(0.5); opacity: 0; }
+  70% { transform: scale(1.1); }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+.success-ref-label {
+  font-size: 0.78rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-dim);
+  margin-bottom: 0.25rem;
+}
+
+.success-ref-value {
+  font-size: 1.35rem;
+  font-weight: 700;
+  font-family: 'SF Mono', 'Consolas', monospace;
+  color: var(--accent-dark, #563aa4);
+  letter-spacing: 0.04em;
+  margin-bottom: 1rem;
+}
+
+.success-qr-wrap {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 0.75rem;
+}
+
+.success-qr-wrap canvas,
+.success-qr-wrap img {
+  border-radius: 8px;
+  border: 3px solid #fff;
+  box-shadow: 0 2px 8px rgba(76, 29, 149, 0.12);
+}
+
+.success-qr-hint {
+  font-size: 0.78rem;
+  color: var(--text-dim);
+  text-align: center;
+  margin-bottom: 1.25rem;
+  line-height: 1.5;
+}
+
 /* ── Booking Summary Card ── */
 
 .book-summary {
