@@ -513,484 +513,256 @@ function renderApptRows(tbodyId, appts, cols) {
 
 
 function openBookModal(serviceName) {
-
-  openModal("bookModal");
-
-
+  _wizardStep = 1;
+  _renderWizard();
+  openModal('bookModal');
 
   var user = _getSessionUser();
 
-  var userId = user.id || user.userId;
-
-
+  // Load user's pets into pet_id select
+  var petSelect = document.getElementById('pet_id');
+  if (petSelect) {
+    var pets = _currentPets.length ? _currentPets : mockPetsData;
+    petSelect.innerHTML = pets.length
+      ? '<option value="">Choose a pet</option>' + pets.map(function(p) {
+          return '<option value="' + p.id + '">' + escapeHtml(p.name) + ' (' + escapeHtml(p.species || p.type || '') + ')</option>';
+        }).join('')
+      : '<option value="">No pets registered yet</option>';
+  }
 
   // Pre-select service if provided
-
   if (serviceName) {
-
-    var svcSelect = document.getElementById("bookServiceSelect");
-
-    if (svcSelect) {
-
-      svcSelect.value = serviceName;
-
-      // Sync custom dropdown trigger text
-
-      var trigger = svcSelect.parentNode.querySelector('.cd-trigger-text');
-
-      if (trigger) {
-
-        var selOpt = svcSelect.options[svcSelect.selectedIndex];
-
-        trigger.textContent = selOpt ? selOpt.text : 'Choose a service';
-
-      }
-
-    }
-
+    var svcSelect = document.getElementById('service_id');
+    if (svcSelect) svcSelect.value = serviceName;
   }
 
-
-
-  // Load user's pets
-
-  var petSelect = document.getElementById("bookPetSelect");
-
-  if (petSelect && userId) {
-
-    petSelect.innerHTML = '<option value="">Loading pets...</option>';
-
-    fetch("get_pets_user.php?user_id=" + userId)
-
-      .then(function (r) {
-
-        return r.json();
-
-      })
-
-      .then(function (pets) {
-
-        petSelect.innerHTML =
-
-          pets.length ?
-
-            '<option value="">Choose a pet</option>' +
-
-            pets
-
-              .map(function (p) {
-
-                return (
-
-                  '<option value="' +
-
-                  p.id +
-
-                  '">' +
-
-                  p.name +
-
-                  " (" +
-
-                  p.type +
-
-                  ")</option>"
-
-                );
-
-              })
-
-              .join("")
-
-          : '<option value="">No pets registered yet</option>';
-
-      })
-
-      .catch(function () {
-
-        petSelect.innerHTML = '<option value="">Failed to load pets</option>';
-
-      });
-
-  }
-
-
-
-  // Refresh available time slots if a date is already set
-
-  refreshUserTimeSlots();
-
+  _setBookDateConstraints();
+  _refreshBookSlots();
 }
 
+// ─── WIZARD NAVIGATION ──────────────────────────────────────────────────────
+var _wizardStep = 1;
 
+function wizardNav(dir) {
+  var next = _wizardStep + dir;
+  if (next < 1 || next > 3) return;
+  if (dir > 0 && !_validateWizardStep(_wizardStep)) return;
+  _wizardStep = next;
+  _renderWizard();
+  if (_wizardStep === 3) _renderBookSummary();
+}
 
-// Auto-detect service from card when Book Now is clicked in Services section
-
-document.addEventListener("click", function(e) {
-
-  var btn = e.target.closest(".service-card-user .btn-primary");
-
-  if (!btn) return;
-
-  e.preventDefault();
-
-  var card = btn.closest(".service-card-user");
-
-  if (!card) return;
-
-  var h3 = card.querySelector("h3");
-
-  if (h3) {
-
-    var name = h3.textContent.trim().toLowerCase();
-
-    openBookModal(name);
-
+function _validateWizardStep(step) {
+  if (step === 1) {
+    var pet = document.getElementById('pet_id').value;
+    var svc = document.getElementById('service_id').value;
+    if (!pet) { showToast('Please select a pet.', 'warning'); return false; }
+    if (!svc) { showToast('Please select a service.', 'warning'); return false; }
   }
+  if (step === 2) {
+    var date = document.getElementById('appointment_date').value;
+    var time = document.getElementById('time_slot').value;
+    if (!date) { showToast('Please select a date.', 'warning'); return false; }
+    if (!time) { showToast('Please select a time slot.', 'warning'); return false; }
+  }
+  return true;
+}
 
-});
+function _renderWizard() {
+  document.querySelectorAll('.wizard-step').forEach(function(el) {
+    var s = parseInt(el.dataset.step, 10);
+    el.classList.toggle('active', s === _wizardStep);
+    el.classList.toggle('completed', s < _wizardStep);
+  });
+  document.querySelectorAll('.wizard-panel').forEach(function(el) {
+    el.classList.toggle('active', el.id === 'wizardStep' + _wizardStep);
+  });
+  var backBtn = document.getElementById('wizardBackBtn');
+  var nextBtn = document.getElementById('wizardNextBtn');
+  var submitBtn = document.getElementById('wizardSubmitBtn');
+  if (backBtn) backBtn.style.display = _wizardStep > 1 ? '' : 'none';
+  if (nextBtn) nextBtn.style.display = _wizardStep < 3 ? '' : 'none';
+  if (submitBtn) submitBtn.style.display = _wizardStep === 3 ? '' : 'none';
+}
 
+function _renderBookSummary() {
+  var petSel = document.getElementById('pet_id');
+  var svcSel = document.getElementById('service_id');
+  var dateVal = document.getElementById('appointment_date').value;
+  var timeVal = document.getElementById('time_slot').value;
+  var reasonSel = document.getElementById('visit_reason');
+  var reasonText = reasonSel && reasonSel.value ? reasonSel.options[reasonSel.selectedIndex].text : '—';
+  if (reasonSel && reasonSel.value === 'Other') {
+    var custom = document.getElementById('visit_reason_custom');
+    reasonText = (custom && custom.value.trim()) ? custom.value.trim() : 'Other (not specified)';
+  }
+  var petText = petSel && petSel.value ? petSel.options[petSel.selectedIndex].text : '—';
+  var svcText = svcSel && svcSel.value ? svcSel.options[svcSel.selectedIndex].text : '—';
+  var dateFormatted = dateVal ? _fmtApptDateShort(dateVal) : '—';
+  var user = _getSessionUser();
+  var ownerName = ((user.firstName || '') + ' ' + (user.lastName || '')).trim() || 'Guest';
+  var ownerPhone = user.phone || user.contact || '—';
+  var summary = document.getElementById('bookSummary');
+  if (summary) {
+    summary.innerHTML = '<div class="book-summary-title">Booking Summary</div>'
+      + '<div class="book-summary-row"><span>Pet</span><span>' + escapeHtml(petText) + '</span></div>'
+      + '<div class="book-summary-row"><span>Service</span><span>' + escapeHtml(svcText) + '</span></div>'
+      + '<div class="book-summary-row"><span>Date</span><span>' + dateFormatted + '</span></div>'
+      + '<div class="book-summary-row"><span>Time</span><span>' + escapeHtml(timeVal || '—') + '</span></div>'
+      + '<div class="book-summary-row"><span>Reason</span><span>' + escapeHtml(reasonText) + '</span></div>'
+      + '<div class="book-summary-row"><span>Owner</span><span>' + escapeHtml(ownerName) + '</span></div>'
+      + '<div class="book-summary-row"><span>Contact</span><span>' + escapeHtml(ownerPhone) + '</span></div>';
+  }
+}
 
+// ─── DATE CONSTRAINTS ────────────────────────────────────────────────────────
+function _setBookDateConstraints() {
+  var dateInput = document.getElementById('appointment_date');
+  if (!dateInput) return;
+  var today = new Date();
+  var maxDate = new Date();
+  maxDate.setDate(today.getDate() + 30);
+  dateInput.min = today.toISOString().split('T')[0];
+  dateInput.max = maxDate.toISOString().split('T')[0];
+  dateInput.value = '';
+}
 
+function onBookDateChange() {
+  _refreshBookSlots();
+}
+
+// ─── TIME SLOT LOGIC ─────────────────────────────────────────────────────────
+function _refreshBookSlots() {
+  var dateInput = document.getElementById('appointment_date');
+  var timeSelect = document.getElementById('time_slot');
+  if (!timeSelect) return;
+  var dateVal = dateInput ? dateInput.value : '';
+  if (!dateVal) {
+    timeSelect.innerHTML = '<option value="">Select a date first</option>';
+    return;
+  }
+  var slots = getVHSTimeSlots(dateVal);
+  var today = new Date().toISOString().split('T')[0];
+  if (dateVal === today) {
+    var now = new Date();
+    var cutoffHour = now.getHours();
+    var cutoffMin = now.getMinutes();
+    if (cutoffMin > 0) cutoffHour += 1;
+    slots = slots.filter(function(slot) {
+      var parts = slot.trim().match(/(d{1,2}):(d{2})s*(AM|PM)/i);
+      if (!parts) return true;
+      var h = parseInt(parts[1], 10);
+      var ampm = parts[3].toUpperCase();
+      if (ampm === 'PM' && h !== 12) h += 12;
+      if (ampm === 'AM' && h === 12) h = 0;
+      return h > cutoffHour;
+    });
+  }
+  timeSelect.innerHTML = slots.length
+    ? '<option value="">Select time</option>' + slots.map(function(s) {
+        return '<option value="' + s + '">' + s + '</option>';
+      }).join('')
+    : '<option value="">No available slots</option>';
+}
+
+/*
+ * BACKEND HANDOFF: Book Appointment
+ * Endpoint: POST ../php_files/book-appointment.php
+ * Encoding: application/json
+ * Payload: { user_id, pet_id, service, appointment_date,
+ *   appointment_time, visit_reason, visit_reason_custom, notes }
+ * Response: { status: "success", message: "...", reference_no: "VHS-..." }
+ */
 async function submitBooking(e) {
-
   e.preventDefault();
-
-
-
-  // Prevent double-submit
-
-  var submitBtn = document.querySelector('#bookForm button[type="submit"]');
-
+  var submitBtn = document.querySelector('#bookForm #wizardSubmitBtn');
   if (submitBtn && submitBtn.disabled) return;
-
-  if (submitBtn) {
-
-    submitBtn.disabled = true;
-
-    submitBtn.textContent = "Booking...";
-
-  }
-
-
+  if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = 'Booking...'; }
 
   var user = _getSessionUser();
-
   var userId = user.id || user.userId;
+  if (!userId) { showToast('Session expired. Please log in again.', 'error'); if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Book Appointment'; } return; }
 
+  var petId = document.getElementById('pet_id').value;
+  var service = document.getElementById('service_id').value;
+  var appDate = document.getElementById('appointment_date').value;
+  var appTime = document.getElementById('time_slot').value;
+  var visitReason = document.getElementById('visit_reason').value;
+  var visitReasonCustom = document.getElementById('visit_reason_custom').value.trim();
+  var appNotes = document.getElementById('bookNotes').value.trim();
 
+  // Resolve Other reason
+  if (visitReason === 'Other' && visitReasonCustom) visitReason = visitReasonCustom;
 
-  if (!userId) {
+  if (!petId) { showToast('Please select a pet.', 'warning'); _wizardStep = 1; _renderWizard(); if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Book Appointment'; } return; }
+  if (!service) { showToast('Please select a service.', 'warning'); _wizardStep = 1; _renderWizard(); if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Book Appointment'; } return; }
+  if (!appDate) { showToast('Please select a date.', 'warning'); _wizardStep = 2; _renderWizard(); if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Book Appointment'; } return; }
+  if (!appTime) { showToast('Please select a time slot.', 'warning'); _wizardStep = 2; _renderWizard(); if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Book Appointment'; } return; }
 
-    showToast("Session expired. Please log in again.", "error");
-
-    if (submitBtn) {
-
-      submitBtn.disabled = false;
-
-      submitBtn.textContent = "Book Appointment";
-
-    }
-
-    return;
-
-  }
-
-
-
-  var petId = document.getElementById("bookPetSelect").value;
-
-  var service = document.getElementById("bookServiceSelect").value;
-
-  var appTime = document.getElementById("bookTimeSelect").value;
-
-  var form = document.getElementById("bookForm");
-
-  var appDate = form.querySelector('input[type="date"]').value;
-
-  var appNotes = form.querySelector("textarea").value.trim();
-
-
-
-  var appointmentPayload = {
-
+  var payload = {
     user_id: parseInt(userId) || 0,
-
     pet_id: parseInt(petId) || 0,
-
     service: service,
-
     appointment_date: appDate,
-
     appointment_time: appTime,
-
-    notes: appNotes,
-
+    visit_reason: visitReason,
+    visit_reason_custom: visitReason === 'Other' ? visitReasonCustom : '',
+    notes: appNotes
   };
 
-
-
-  if (appointmentPayload.user_id === 0) {
-
-    showToast("Invalid User Session ID.", "error");
-
-    if (submitBtn) {
-
-      submitBtn.disabled = false;
-
-      submitBtn.textContent = "Book Appointment";
-
-    }
-
-    return;
-
-  }
-
-  if (appointmentPayload.pet_id === 0) {
-
-    showToast("Please select a valid pet.", "warning");
-
-    if (submitBtn) {
-
-      submitBtn.disabled = false;
-
-      submitBtn.textContent = "Book Appointment";
-
-    }
-
-    return;
-
-  }
-
-  if (!appointmentPayload.service) {
-
-    showToast("Please select a service.", "warning");
-
-    if (submitBtn) {
-
-      submitBtn.disabled = false;
-
-      submitBtn.textContent = "Book Appointment";
-
-    }
-
-    return;
-
-  }
-
-  if (!appointmentPayload.appointment_date) {
-
-    showToast("Please select a date.", "warning");
-
-    if (submitBtn) {
-
-      submitBtn.disabled = false;
-
-      submitBtn.textContent = "Book Appointment";
-
-    }
-
-    return;
-
-  }
-
-  if (!appointmentPayload.appointment_time) {
-
-    showToast("Please select a time.", "warning");
-
-    if (submitBtn) {
-
-      submitBtn.disabled = false;
-
-      submitBtn.textContent = "Book Appointment";
-
-    }
-
-    return;
-
-  }
-
-
-
   try {
-
-    var response = await fetch("../php_files/book-appointment.php", {
-
-      method: "POST",
-
-      headers: { "Content-Type": "application/json" },
-
-      body: JSON.stringify(appointmentPayload),
-
+    var response = await fetch('../php_files/book-appointment.php', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
     });
-
-
-
     var data = await response.json();
-
-
-
-    if (data.status === "success") {
-
-      showToast(
-
-        data.message + "\nReference No: " + (data.reference_no || "N/A"),
-
-        "success",
-
-      );
-
-
-
-      form.reset();
-
-      closeModal("bookModal");
-
+    if (data.status === 'success') {
+      showToast(data.message + '\nReference No: ' + (data.reference_no || 'N/A'), 'success');
+      closeModal('bookModal');
       loadUserAppointments();
-
     } else {
-
-      showToast("Booking Failed: " + data.message, "error");
-
+      showToast('Booking Failed: ' + data.message, 'error');
     }
-
   } catch (error) {
-
-    console.error("Transmission Failure:", error);
-
-    showToast("Could not connect to the booking system server.", "error");
-
+    // Offline / mock mode — add to local mock data
+    var newApt = {
+      id: 'apt' + String(mockAppointmentsData.length + 1).padStart(3, '0'),
+      pet_id: payload.pet_id,
+      pet_name: (document.getElementById('pet_id').selectedOptions[0] || {}).text || 'Pet',
+      pet_type: '',
+      pet_breed: '',
+      service: payload.service,
+      date: payload.appointment_date,
+      time: payload.appointment_time,
+      status: 'scheduled',
+      notes: payload.visit_reason + (payload.notes ? ' | ' + payload.notes : ''),
+      reference_no: 'VHS-' + payload.appointment_date.replace(/-/g, '') + '-' + String(mockAppointmentsData.length + 1).padStart(3, '0')
+    };
+    mockAppointmentsData.push(newApt);
+    showToast('Appointment booked! Ref: ' + newApt.reference_no, 'success');
+    closeModal('bookModal');
+    renderAppointmentCards();
   } finally {
-
-    if (submitBtn) {
-
-      submitBtn.disabled = false;
-
-      submitBtn.textContent = "Book Appointment";
-
-    }
-
+    if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Book Appointment'; }
   }
+}
 
+function _initBookReasonOther() {
+  var sel = document.getElementById('visit_reason');
+  var inp = document.getElementById('visit_reason_custom');
+  if (!sel || !inp) return;
+  sel.addEventListener('change', function() {
+    var isOther = sel.value === 'Other';
+    inp.style.display = isOther ? '' : 'none';
+    inp.value = '';
+    inp.required = isOther;
+    if (isOther) inp.focus();
+  });
 }
 
 
-
-// Refresh time slots when date changes in booking modal
-
-function refreshUserTimeSlots() {
-
-  var form = document.getElementById("bookForm");
-
-  if (!form) return;
-
-  var dateInput = form.querySelector('input[type="date"]');
-
-  var timeSelect = document.getElementById("bookTimeSelect");
-
-  if (!timeSelect) return;
-
-
-
-  if (!dateInput || !dateInput.value) {
-
-    var defaultSlots = getVHSTimeSlots(new Date().toISOString().split('T')[0]);
-
-    timeSelect.innerHTML =
-
-      '<option value="">Select time</option>' +
-
-      defaultSlots.map(function (s) {
-
-        return '<option value="' + s + '">' + s + "</option>";
-
-      }).join("");
-
-    return;
-
-  }
-
-
-
-  var slots = getVHSTimeSlots(dateInput.value);
-
-  timeSelect.innerHTML = '<option value="">Loading slots...</option>';
-
-  fetch("../php_files/get_booked_slots.php?date=" + dateInput.value)
-
-    .then(function (r) {
-
-      return r.json();
-
-    })
-
-    .then(function (data) {
-
-      var booked = data.booked_slots || [];
-
-      timeSelect.innerHTML =
-
-        '<option value="">Select time</option>' +
-
-        slots.map(function (slot) {
-
-          var isBooked = booked.indexOf(slot) !== -1;
-
-          return (
-
-            '<option value="' +
-
-            slot +
-
-            '"' +
-
-            (isBooked ? " disabled" : "") +
-
-            ">" +
-
-            slot +
-
-            (isBooked ? " (Unavailable)" : "") +
-
-            "</option>"
-
-          );
-
-        }).join("");
-
-    })
-
-    .catch(function () {
-
-      timeSelect.innerHTML =
-
-        '<option value="">Select time</option>' +
-
-        slots.map(function (s) {
-
-          return '<option value="' + s + '">' + s + "</option>";
-
-        }).join("");
-
-    });
-
-}
-
-
-
-// Wire date change to slot refresh
-
-document.addEventListener("change", function (e) {
-
-  var form = document.getElementById("bookForm");
-
-  if (form && e.target === form.querySelector('input[type="date"]')) {
-
-    refreshUserTimeSlots();
-
-  }
-
-});function viewAppt(id) {
+function viewAppt(id) {
   var appt = mockAppointmentsData.find(function(a) { return a.id === id; });
   if (!appt) return;
 
@@ -3232,6 +3004,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // ── Initialize 'Other' conditional text inputs ──
   _initOtherInputs();
+  _initBookReasonOther();
 
   // ── Profile field input restrictions ──────────────────────────────────────
 

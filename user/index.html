@@ -7,10 +7,10 @@
     <meta http-equiv="Pragma" content="no-cache" />
     <meta http-equiv="Expires" content="0" />
     <title>My Dashboard - VHS</title>
-    <link rel="stylesheet" href="user-style.css?v=2.1.1" />
-    <link rel="stylesheet" href="../shared/dashboard-theme.css?v=2.1.1" />
-    <link rel="stylesheet" href="user-accent.css?v=2.1.1" />
-    <link rel="stylesheet" href="../shared/vhs-ui.css?v=2.1.1" />
+    <link rel="stylesheet" href="user-style.css?v=2.2.0" />
+    <link rel="stylesheet" href="../shared/dashboard-theme.css?v=2.2.0" />
+    <link rel="stylesheet" href="user-accent.css?v=2.2.0" />
+    <link rel="stylesheet" href="../shared/vhs-ui.css?v=2.2.0" />
   </head>
   <body>
     <!-- TOP NAVBAR -->
@@ -773,100 +773,131 @@
 
     <!-- ===== MODALS ===== -->
 
-    <!-- Book Appointment Modal -->
+    <!-- Book Appointment Wizard Modal -->
+    <!--
+      BACKEND HANDOFF: Book Appointment Wizard
+      Target Endpoint: POST ../php_files/book-appointment.php
+      Encoding: application/json
+      Expected Payload: { user_id, pet_id, service, appointment_date,
+        appointment_time, visit_reason, visit_reason_custom, notes }
+      Response: { status: "success", message: "...", reference_no: "VHS-..." }
+    -->
     <div class="modal-overlay" id="bookModal">
-      <div class="modal-content">
+      <div class="modal-content" style="max-width:560px;">
         <div class="modal-header">
           <h2 class="modal-title">Book Appointment</h2>
-          <button class="modal-close" onclick="closeModal('bookModal')">
-            &times;
-          </button>
+          <button class="modal-close" onclick="closeModal('bookModal')">&times;</button>
         </div>
+
+        <!-- Wizard Progress -->
+        <div class="wizard-steps" id="wizardSteps">
+          <div class="wizard-step active" data-step="1"><span class="wizard-step-num">1</span> Pet & Service</div>
+          <div class="wizard-step" data-step="2"><span class="wizard-step-num">2</span> Date & Time</div>
+          <div class="wizard-step" data-step="3"><span class="wizard-step-num">3</span> Review & Book</div>
+        </div>
+
         <form id="bookForm" onsubmit="submitBooking(event)">
-          <div class="form-group" style="margin-bottom:1rem;position:relative;">
-            <label class="form-label" style="position:relative;">Select Pet <span class="required">*</span></label
-            >
-            <select class="form-select" id="bookPetSelect" required>
-              <option value="">Choose a pet</option>
-            </select>
-          </div>
-          <div class="form-group" style="margin-bottom:1rem;position:relative;">
-            <label class="form-label"
-              >Service <span class="required">*</span></label
-            >
-            <select class="form-select" id="bookServiceSelect" required>
-              <option value="">Choose a service</option>
-              <optgroup label="Preventive & Wellness">
-                <option value="consultation">Consultation</option>
-                <option value="vaccination">Vaccination</option>
-                <option value="deworming">Deworming</option>
-                <option value="feline executive preventive care">Feline Executive Preventive Care</option>
-                <option value="health certificate">Health Certificate</option>
-                <option value="microchipping">Microchipping</option>
-              </optgroup>
-              <optgroup label="Diagnostics">
-                <option value="blood test">Blood Test</option>
-                <option value="fecalysis">Fecalysis</option>
-                <option value="microscopy">Microscopy</option>
-                <option value="urinalysis">Urinalysis</option>
-              </optgroup>
-              <optgroup label="Surgery & Procedures">
-                <option value="spay">Spay</option>
-                <option value="castration">Castration</option>
-                <option value="caesarean section">Caesarean Section (CS)</option>
-                <option value="cystotomy">Cystotomy</option>
-                <option value="cherry eye correction">Cherry Eye Correction</option>
-                <option value="wound repair">Wound Repair</option>
-                <option value="dental prophylaxis + kapon">Dental Prophylaxis + Kapon</option>
-                <option value="u catheterization">U Catheterization</option>
-                <option value="euthanasia">Euthanasia</option>
-                <option value="whelping assistance">Whelping Assistance</option>
-              </optgroup>
-              <optgroup label="Pet Care">
-                <option value="dog grooming">Dog Grooming</option>
-                <option value="cat grooming">Cat Grooming</option>
-                <option value="boarding">Boarding</option>
-                <option value="confinement">Confinement</option>
-              </optgroup>
-              <optgroup label="Specialized Care">
-                <option value="chemotherapy">Chemotherapy</option>
-                <option value="home service">Home Service</option>
-              </optgroup>
-            </select>
-          </div>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1rem;">
-            <div class="form-group" style="position:relative;">
-              <label class="form-label"
-                >Date <span style="color:#ef4444">*</span></label
-              >
-              <input type="date" class="form-input" required onchange="refreshUserTimeSlots()" />
+
+          <!-- Step 1: Pet & Service -->
+          <div class="wizard-panel active" id="wizardStep1">
+            <div class="form-group" style="margin-bottom:1rem;">
+              <label class="form-label">Select Pet <span class="required">*</span></label>
+              <select class="form-select" id="pet_id" name="pet_id" required>
+                <option value="">Choose a pet</option>
+              </select>
             </div>
-            <div class="form-group" style="position:relative;">
-              <label class="form-label">
-                Time <span style="color:#ef4444">*</span></label
-              >
-              <select class="form-select" id="bookTimeSelect" required>
-                <option value="">Select time</option>
+            <div class="form-group" style="margin-bottom:1rem;">
+              <label class="form-label">Service <span class="required">*</span></label>
+              <select class="form-select" id="service_id" name="service_id" required>
+                <option value="">Choose a service</option>
+                <optgroup label="Preventive & Wellness">
+                  <option value="Consultation">Consultation</option>
+                  <option value="Vaccination">Vaccination</option>
+                  <option value="Deworming">Deworming</option>
+                  <option value="Feline Executive Preventive Care">Feline Executive Preventive Care</option>
+                  <option value="Health Certificate">Health Certificate</option>
+                  <option value="Microchipping">Microchipping</option>
+                </optgroup>
+                <optgroup label="Diagnostics">
+                  <option value="Blood Test">Blood Test</option>
+                  <option value="Fecalysis">Fecalysis</option>
+                  <option value="Microscopy">Microscopy</option>
+                  <option value="Urinalysis">Urinalysis</option>
+                </optgroup>
+                <optgroup label="Surgery & Procedures">
+                  <option value="Spay">Spay</option>
+                  <option value="Castration">Castration</option>
+                  <option value="Caesarean Section">Caesarean Section (CS)</option>
+                  <option value="Cystotomy">Cystotomy</option>
+                  <option value="Cherry Eye Correction">Cherry Eye Correction</option>
+                  <option value="Wound Repair">Wound Repair</option>
+                  <option value="Dental Prophylaxis + Kapon">Dental Prophylaxis + Kapon</option>
+                  <option value="U Catheterization">U Catheterization</option>
+                  <option value="Euthanasia">Euthanasia</option>
+                  <option value="Whelping Assistance">Whelping Assistance</option>
+                </optgroup>
+                <optgroup label="Pet Care">
+                  <option value="Dog Grooming">Dog Grooming</option>
+                  <option value="Cat Grooming">Cat Grooming</option>
+                  <option value="Boarding">Boarding</option>
+                  <option value="Confinement">Confinement</option>
+                </optgroup>
+                <optgroup label="Specialized Care">
+                  <option value="Chemotherapy">Chemotherapy</option>
+                  <option value="Home Service">Home Service</option>
+                </optgroup>
               </select>
             </div>
           </div>
-          <div class="form-group" style="margin-bottom:1.25rem;">
-            <label class="form-label">Notes (optional)</label>
-            <textarea
-              class="form-textarea"
-              rows="3"
-              placeholder="Any special instructions or concerns..."
-            ></textarea>
+
+          <!-- Step 2: Date & Time -->
+          <div class="wizard-panel" id="wizardStep2">
+            <div class="form-group" style="margin-bottom:1rem;">
+              <label class="form-label">Appointment Date <span class="required">*</span></label>
+              <input type="date" class="form-input" id="appointment_date" name="appointment_date" required onchange="onBookDateChange()" />
+              <p class="form-hint" style="font-size:0.75rem;color:var(--text-dim);margin-top:0.3rem;">You can book up to 30 days in advance.</p>
+            </div>
+            <div class="form-group" style="margin-bottom:1rem;">
+              <label class="form-label">Time Slot <span class="required">*</span></label>
+              <select class="form-select" id="time_slot" name="time_slot" required>
+                <option value="">Select a date first</option>
+              </select>
+            </div>
           </div>
-          <div style="display:flex;gap:0.75rem;margin-top:0.5rem;">
-            <button type="submit" class="btn-primary">Book Appointment</button>
-            <button
-              type="button"
-              class="btn-secondary"
-              onclick="closeModal('bookModal')"
-            >
-              Cancel
-            </button>
+
+          <!-- Step 3: Reason & Review -->
+          <div class="wizard-panel" id="wizardStep3">
+            <div class="form-group" style="margin-bottom:1rem;">
+              <label class="form-label">Reason for Visit</label>
+              <select class="form-select" id="visit_reason" name="visit_reason">
+                <option value="">Select reason</option>
+                <option value="General Check-up">General Check-up</option>
+                <option value="Vaccination">Vaccination</option>
+                <option value="Follow-up Consultation">Follow-up Consultation</option>
+                <option value="Emergency / Urgent Care">Emergency / Urgent Care</option>
+                <option value="Grooming">Grooming</option>
+                <option value="Surgery / Procedure">Surgery / Procedure</option>
+                <option value="Lab Work / Diagnostics">Lab Work / Diagnostics</option>
+                <option value="Other">Other</option>
+              </select>
+              <input type="text" class="form-input" id="visit_reason_custom" name="visit_reason_custom" placeholder="Please specify reason..." style="display:none;margin-top:0.5rem;" />
+            </div>
+            <div class="form-group" style="margin-bottom:1rem;">
+              <label class="form-label">Notes (optional)</label>
+              <textarea class="form-textarea" id="bookNotes" name="notes" rows="2" placeholder="Any special instructions or concerns..."></textarea>
+            </div>
+
+            <!-- Booking Summary -->
+            <div class="book-summary" id="bookSummary"></div>
+          </div>
+
+          <!-- Wizard Navigation -->
+          <div class="wizard-nav">
+            <button type="button" class="btn-secondary" id="wizardBackBtn" style="display:none;" onclick="wizardNav(-1)">Back</button>
+            <div style="flex:1"></div>
+            <button type="button" class="btn-primary" id="wizardNextBtn" onclick="wizardNav(1)">Next</button>
+            <button type="submit" class="btn-primary" id="wizardSubmitBtn" style="display:none;">Book Appointment</button>
+            <button type="button" class="btn-secondary" onclick="closeModal('bookModal')">Cancel</button>
           </div>
         </form>
       </div>
@@ -1291,7 +1322,7 @@
     <!-- END VHS ASSISTANT CHATBOT -->
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-    <script src="../shared/vhs-ui.js?v=2.1.1"></script>
-    <script src="user-script.js?v=2.1.1"></script>
+    <script src="../shared/vhs-ui.js?v=2.2.0"></script>
+    <script src="user-script.js?v=2.2.0"></script>
   </body>
 </html>
