@@ -1202,33 +1202,36 @@ function showMedicalHistory(petId) {
 
 
 function openAddPetModal() {
-
-  document.getElementById("petModalTitle").textContent = "Add New Pet";
-
-  document.getElementById("petForm")?.reset();
-
-  delete document.getElementById("petForm")?.dataset.editId;
+  document.getElementById('petModalTitle').textContent = 'Add New Pet';
+  var form = document.getElementById('petForm');
+  if (form) {
+    form.reset();
+    delete form.dataset.editId;
+  }
 
   // Reset photo preview
-
-  var preview = document.getElementById("petPhotoPreview");
-
+  var preview = document.getElementById('petPhotoPreview');
   if (preview)
+    preview.innerHTML = '<span class="upload-icon"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg></span><span>Click to upload photo</span>';
 
-    preview.innerHTML =
+  // Hide Other inputs
+  ['petSpeciesOther', 'petBreedOther'].forEach(function(id) {
+    var el = document.getElementById(id);
+    if (el) { el.style.display = 'none'; el.value = ''; el.required = false; }
+  });
 
-      '<span class="upload-icon"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg></span><span>Click to upload photo</span>';
+  // Hide delete button, set submit label
+  var delBtn = document.getElementById('petDeleteBtn');
+  if (delBtn) delBtn.style.display = 'none';
+  var subBtn = document.getElementById('petSubmitBtn');
+  if (subBtn) subBtn.textContent = 'Save Pet';
 
   // Inject user ID
-
   var user = _getSessionUser();
+  var hiddenId = document.getElementById('petUserId');
+  if (hiddenId) hiddenId.value = user.id || user.userId || '';
 
-  var hiddenId = document.getElementById("petUserId");
-
-  if (hiddenId) hiddenId.value = user.id || user.userId || "";
-
-  openModal("petModal");
-
+  openModal('petModal');
 }
 
 
@@ -1255,19 +1258,30 @@ function previewPetPhoto(input) {
 
 }function openEditPetModal(id) {
   document.getElementById('petModalTitle').textContent = 'Edit Pet';
-  document.getElementById('petForm').reset();
+  var form = document.getElementById('petForm');
+  if (form) { form.reset(); form.dataset.editId = id; }
 
   var preview = document.getElementById('petPhotoPreview');
   if (preview)
     preview.innerHTML = '<span class="upload-icon"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg></span><span>Click to change photo</span>';
 
+  // Hide Other inputs
+  ['petSpeciesOther', 'petBreedOther'].forEach(function(sid) {
+    var el = document.getElementById(sid);
+    if (el) { el.style.display = 'none'; el.value = ''; el.required = false; }
+  });
+
+  // Show delete button, set submit label
+  var delBtn = document.getElementById('petDeleteBtn');
+  if (delBtn) delBtn.style.display = '';
+  var subBtn = document.getElementById('petSubmitBtn');
+  if (subBtn) subBtn.textContent = 'Update Details';
+
   var user = _getSessionUser();
   var hiddenId = document.getElementById('petUserId');
   if (hiddenId) hiddenId.value = user.id || user.userId || '';
-  var form = document.getElementById('petForm');
-  if (form) form.dataset.editId = id;
 
-  // Resolve pet from loaded data (backend or mock)
+  // Helper: populate form fields from a pet object
   function _populate(p) {
     if (!p) { showToast('Pet not found.', 'error'); return; }
     document.getElementById('petName').value = p.name || '';
@@ -2135,7 +2149,8 @@ function _onRescheduleDateChange() {
 var _otherInputPairs = [
   { selectId: 'rescheduleReason', inputId: 'rescheduleReasonOther' },
   { selectId: 'cancelReason', inputId: 'cancelReasonOther' },
-  { selectId: 'petSpecies', inputId: 'petSpeciesOther' }
+  { selectId: 'petSpecies', inputId: 'petSpeciesOther' },
+  { selectId: 'petBreed', inputId: 'petBreedOther' }
 ];
 
 function _initOtherInputs() {
@@ -2321,73 +2336,120 @@ function loadPets() {
 
 
 function submitPet(e) {
-
   e.preventDefault();
-
-
-
   var form = e.target;
-
   var formData = new FormData(form);
 
-  // Override species if 'Other' was selected with custom text
-  var speciesOther = _getResolvedValue('petSpecies', 'petSpeciesOther');
-  if (speciesOther) formData.set('petSpecies', speciesOther);
+  // Resolve 'Other' custom text for species and breed
+  var speciesVal = _getResolvedValue('petSpecies', 'petSpeciesOther') || formData.get('petSpecies');
+  var breedVal = _getResolvedValue('petBreed', 'petBreedOther') || formData.get('petBreed');
+
+  // Collect all field values from form
+  var petData = {
+    name: (formData.get('petName') || '').trim(),
+    species: speciesVal,
+    breed: breedVal,
+    gender: formData.get('petGender') || '',
+    age: parseInt(formData.get('petAge'), 10) || 0,
+    weight: parseFloat(formData.get('petWeight')) || 0,
+    color: formData.get('petColor') || '',
+    reproductiveStatus: formData.get('petReproStatus') || '',
+    microchip: formData.get('petMicrochip') || '',
+    allergies: formData.get('petAllergies') || '',
+    chronicConditions: formData.get('petChronic') || '',
+    notes: formData.get('petNote') || ''
+  };
+
+  if (!petData.name) { showToast('Please enter a pet name.', 'warning'); return; }
+  if (!petData.species) { showToast('Please select a species.', 'warning'); return; }
 
   var editId = form.dataset.editId;
 
+  // Try backend first, then fall back to local state
+  var user = _getSessionUser();
+  var userId = user.id || user.userId;
 
+  if (userId) {
+    // Online mode: send to PHP backend
+    if (editId) formData.append('pet_id', editId);
+    fetch('petDB.php', { method: 'POST', body: formData })
+      .then(function(r) { return r.text(); })
+      .then(function(data) {
+        if (data.trim() === 'Success') {
+          closeModal('petModal');
+          showToast(editId ? 'Pet updated successfully!' : 'Pet added successfully!', 'success');
+          loadPets();
+        } else {
+          showToast('Error: ' + data, 'error');
+        }
+      })
+      .catch(function() {
+        // Backend failed — fall back to local state
+        _submitPetLocal(petData, editId);
+      });
+  } else {
+    // No session (GitHub Pages / offline) — update local state directly
+    _submitPetLocal(petData, editId);
+  }
+}
 
-  // If editing, add the pet_id so PHP knows to UPDATE
+// Local state fallback: add or update pet in mockPetsData and re-render
+function _submitPetLocal(petData, editId) {
+  if (editId) {
+    // Update existing pet
+    var numId = parseInt(editId, 10);
+    var idx = mockPetsData.findIndex(function(p) { return p.id === numId || p.id === editId; });
+    if (idx !== -1) {
+      Object.assign(mockPetsData[idx], petData);
+    } else {
+      // Also check _currentPets
+      var idx2 = _currentPets.findIndex(function(p) { return p.id === numId || p.id === editId; });
+      if (idx2 !== -1) Object.assign(_currentPets[idx2], petData);
+    }
+    showToast('Pet updated successfully!', 'success');
+  } else {
+    // Add new pet — generate an ID
+    var newId = mockPetsData.length ? Math.max.apply(null, mockPetsData.map(function(p) { return typeof p.id === 'number' ? p.id : 0; })) + 1 : 1;
+    petData.id = newId;
+    petData.vaccines = [];
+    petData.visits = [];
+    petData.owner = '';
+    mockPetsData.push(petData);
+    showToast('Pet added successfully!', 'success');
+  }
+  closeModal('petModal');
+  // Re-render pet cards
+  var grid = document.getElementById('petsGrid');
+  var dashGrid = document.getElementById('dashPetsGrid');
+  var petCount = document.getElementById('statPetCount');
+  _renderPetCards(mockPetsData, grid, dashGrid, petCount);
+  _currentPets = mockPetsData.slice();
+}
 
-  if (editId) formData.append("pet_id", editId);
-
-
-
-  fetch("petDB.php", {
-
-    method: "POST",
-
-    body: formData,
-
-  })
-
-    .then(function (r) {
-
-      return r.text();
-
-    })
-
-    .then(function (data) {
-
-      if (data.trim() === "Success") {
-
-        closeModal("petModal");
-
-        showToast(
-
-          editId ? "Pet updated successfully!" : "Pet added successfully!",
-
-          "success",
-
-        );
-
-        loadPets();
-
-      } else {
-
-        showToast("Error: " + data, "error");
-
-      }
-
-    })
-
-    .catch(function () {
-
-      showToast("Server error", "error");
-
-    });
-
+function confirmDeletePet() {
+  var form = document.getElementById('petForm');
+  var editId = form ? form.dataset.editId : null;
+  if (!editId) return;
+  var numId = parseInt(editId, 10);
+  var pet = mockPetsData.find(function(p) { return p.id === numId || p.id === editId; });
+  var petName = pet ? pet.name : 'this pet';
+  showConfirm(
+    'Are you sure you want to delete <strong>' + escapeHtml(petName) + '</strong>? This action cannot be undone.',
+    '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>',
+    'Delete Pet',
+    function() {
+      // Remove from local state
+      var idx = mockPetsData.findIndex(function(p) { return p.id === numId || p.id === editId; });
+      if (idx !== -1) mockPetsData.splice(idx, 1);
+      _currentPets = mockPetsData.slice();
+      closeModal('petModal');
+      showToast(petName + ' has been removed.', 'warning');
+      var grid = document.getElementById('petsGrid');
+      var dashGrid = document.getElementById('dashPetsGrid');
+      var petCount = document.getElementById('statPetCount');
+      _renderPetCards(mockPetsData, grid, dashGrid, petCount);
+    }
+  );
 }
 
 

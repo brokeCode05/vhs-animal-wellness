@@ -7,10 +7,10 @@
     <meta http-equiv="Pragma" content="no-cache" />
     <meta http-equiv="Expires" content="0" />
     <title>My Dashboard - VHS</title>
-    <link rel="stylesheet" href="user-style.css?v=2.0.4" />
-    <link rel="stylesheet" href="../shared/dashboard-theme.css?v=2.0.4" />
-    <link rel="stylesheet" href="user-accent.css?v=2.0.4" />
-    <link rel="stylesheet" href="../shared/vhs-ui.css?v=2.0.4" />
+    <link rel="stylesheet" href="user-style.css?v=2.0.5" />
+    <link rel="stylesheet" href="../shared/dashboard-theme.css?v=2.0.5" />
+    <link rel="stylesheet" href="user-accent.css?v=2.0.5" />
+    <link rel="stylesheet" href="../shared/vhs-ui.css?v=2.0.5" />
   </head>
   <body>
     <!-- TOP NAVBAR -->
@@ -945,13 +945,26 @@
           <div class="form-row">
             <div class="form-group">
               <label class="form-label">Breed</label>
-              <input
-                type="text"
-                class="form-input"
-                id="petBreed"
-                name="petBreed"
-                placeholder="e.g. Persian"
-              />
+              <select class="form-select" id="petBreed" name="petBreed">
+                <option value="">Select breed</option>
+                <option value="Mixed / Unknown">Mixed / Unknown</option>
+                <option value="Persian">Persian</option>
+                <option value="Siamese">Siamese</option>
+                <option value="Maine Coon">Maine Coon</option>
+                <option value="British Shorthair">British Shorthair</option>
+                <option value="Golden Retriever">Golden Retriever</option>
+                <option value="Labrador Retriever">Labrador Retriever</option>
+                <option value="German Shepherd">German Shepherd</option>
+                <option value="Shih Tzu">Shih Tzu</option>
+                <option value="Chihuahua">Chihuahua</option>
+                <option value="Pomeranian">Pomeranian</option>
+                <option value="Budgerigar">Budgerigar</option>
+                <option value="Cockatiel">Cockatiel</option>
+                <option value="Holland Lop">Holland Lop</option>
+                <option value="Netherland Dwarf">Netherland Dwarf</option>
+                <option value="Other">Other</option>
+              </select>
+              <input type="text" class="form-input other-breed-input" id="petBreedOther" placeholder="Please specify breed..." style="display:none;margin-top:0.5rem;" />
             </div>
             <div class="form-group">
               <label class="form-label">Age (years)</label>
@@ -1065,15 +1078,15 @@
 
           <input type="hidden" id="petUserId" name="user_id" value="" />
 
-          <div class="form-actions">
-            <button type="submit" class="btn-primary">Save Pet</button>
-            <button
-              type="button"
-              class="btn-secondary"
-              onclick="closeModal('petModal')"
-            >
-              Cancel
+          <div class="form-actions" style="justify-content:space-between;">
+            <button type="button" class="btn-pet-delete" id="petDeleteBtn" style="display:none;" onclick="confirmDeletePet()">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+              Delete Pet
             </button>
+            <div style="display:flex;gap:0.6rem;margin-left:auto;">
+              <button type="button" class="btn-secondary" onclick="closeModal('petModal')">Cancel</button>
+              <button type="submit" class="btn-primary" id="petSubmitBtn">Save Pet</button>
+            </div>
           </div>
         </form>
       </div>
@@ -1358,7 +1371,7 @@
     <!-- END VHS ASSISTANT CHATBOT -->
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-    <script src="../shared/vhs-ui.js?v=2.0.4"></script>
-    <script src="user-script.js?v=2.0.4"></script>
+    <script src="../shared/vhs-ui.js?v=2.0.5"></script>
+    <script src="user-script.js?v=2.0.5"></script>
   </body>
 </html>
