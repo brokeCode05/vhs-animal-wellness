@@ -1018,77 +1018,30 @@ document.addEventListener("change", function (e) {
       + (appt.notes ? '<div class="appt-detail-row"><span class="appt-detail-label">Notes</span><span class="appt-detail-val">' + escapeHtml(appt.notes) + '</span></div>' : '');
   }
 
-  // Render QR code for reference_no
+  // Render real QR code via QRCode.js library
   var qrWrap = document.getElementById('apptQrCode');
+  var qrRef = document.getElementById('apptQrRef');
   if (qrWrap) {
+    qrWrap.innerHTML = '';
     var refText = appt.reference_no || appt.id;
-    qrWrap.innerHTML = _generateQRSVG(refText);
-  }
-
-  openModal('viewApptModal');
-}
-
-// ── Simple QR Code SVG Generator ──
-// Generates a grid-based QR-like pattern from a string.
-// For production, swap this with a real QR library.
-function _generateQRSVG(text) {
-  var size = 21;
-  var cellSize = 5;
-  var total = size * cellSize;
-
-  // Seed a simple hash from the text
-  var hash = 0;
-  for (var i = 0; i < text.length; i++) {
-    hash = ((hash << 5) - hash) + text.charCodeAt(i);
-    hash = hash & hash;
-  }
-
-  // Generate deterministic grid
-  var cells = [];
-  for (var r = 0; r < size; r++) {
-    for (var c = 0; c < size; c++) {
-      // Fixed finder patterns in 3 corners
-      if (_isFinderPattern(r, c, size)) {
-        cells.push({ r: r, c: c, dark: _finderCell(r, c, size) });
-      } else {
-        // Deterministic pseudo-random
-        hash = ((hash << 13) ^ hash) >>> 0;
-        var v = (hash * 2654435761) >>> 0;
-        cells.push({ r: r, c: c, dark: (v % 3) === 0 });
-      }
+    try {
+      new QRCode(qrWrap, {
+        text: refText,
+        width: 160,
+        height: 160,
+        colorDark: '#4c1d95',
+        colorLight: '#ffffff',
+        correctLevel: QRCode.CorrectLevel.H
+      });
+    } catch (e) {
+      qrWrap.innerHTML = '<p style="color:var(--text-dim);font-size:0.85rem;">QR unavailable</p>';
+    }
+    if (qrRef) {
+      qrRef.innerHTML = '<span class="appt-qr-ref-label">Reference No:</span> <span class="appt-qr-ref-value">' + escapeHtml(refText) + '</span>';
     }
   }
 
-  var rects = cells.filter(function(c) { return c.dark; }).map(function(c) {
-    return '<rect x="' + (c.c * cellSize) + '" y="' + (c.r * cellSize) + '" width="' + cellSize + '" height="' + cellSize + '" fill="#1a1a2e" />';
-  }).join('');
-
-  return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ' + total + ' ' + total + '" width="140" height="140" style="background:#fff;padding:8px;border-radius:8px;border:1px solid var(--border,#e2e8f0);display:block;margin:0 auto;">'
-    + '<rect width="' + total + '" height="' + total + '" fill="#ffffff" />'
-    + rects
-    + '</svg>';
-}
-
-function _isFinderPattern(r, c, size) {
-  // Top-left 7x7
-  if (r < 7 && c < 7) return true;
-  // Top-right 7x7
-  if (r < 7 && c >= size - 7) return true;
-  // Bottom-left 7x7
-  if (r >= size - 7 && c < 7) return true;
-  return false;
-}
-
-function _finderCell(r, c, size) {
-  // Normalize coordinates within the 7x7 finder
-  var nr = r < 7 ? r : r - (size - 7);
-  var nc = c < 7 ? c : c - (size - 7);
-  // Outer border
-  if (nr === 0 || nr === 6 || nc === 0 || nc === 6) return true;
-  // Inner border
-  if (nr === 1 || nr === 5 || nc === 1 || nc === 5) return false;
-  // Center
-  return true;
+  openModal('viewApptModal');
 }
 
 

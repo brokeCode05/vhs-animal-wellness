@@ -7,10 +7,10 @@
     <meta http-equiv="Pragma" content="no-cache" />
     <meta http-equiv="Expires" content="0" />
     <title>My Dashboard - VHS</title>
-    <link rel="stylesheet" href="user-style.css?v=2.0.1" />
-    <link rel="stylesheet" href="../shared/dashboard-theme.css?v=2.0.1" />
-    <link rel="stylesheet" href="user-accent.css?v=2.0.1" />
-    <link rel="stylesheet" href="../shared/vhs-ui.css?v=2.0.1" />
+    <link rel="stylesheet" href="user-style.css?v=2.0.2" />
+    <link rel="stylesheet" href="../shared/dashboard-theme.css?v=2.0.2" />
+    <link rel="stylesheet" href="user-accent.css?v=2.0.2" />
+    <link rel="stylesheet" href="../shared/vhs-ui.css?v=2.0.2" />
   </head>
   <body>
     <!-- TOP NAVBAR -->
@@ -1091,6 +1091,7 @@
         <!-- QR Intake Tile -->
         <div class="appt-qr-section">
           <div class="appt-qr-wrap" id="apptQrCode"></div>
+          <div class="appt-qr-ref" id="apptQrRef"></div>
           <p class="appt-qr-hint">Present this QR code to the receptionist upon arrival for rapid intake.</p>
         </div>
 
@@ -1335,7 +1336,8 @@
     </div>
     <!-- END VHS ASSISTANT CHATBOT -->
 
-    <script src="../shared/vhs-ui.js?v=2.0.1"></script>
-    <script src="user-script.js?v=2.0.1"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <script src="../shared/vhs-ui.js?v=2.0.2"></script>
+    <script src="user-script.js?v=2.0.2"></script>
   </body>
 </html>

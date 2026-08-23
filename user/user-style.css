@@ -1327,20 +1327,53 @@ body {
 
 .appt-qr-section {
   text-align: center;
-  padding: 1.25rem 1rem;
-  background: var(--bg-light, #f8f9fa);
-  border: 1px solid var(--border);
-  border-radius: 10px;
+  padding: 1.5rem 1rem 1.25rem;
+  background: linear-gradient(160deg, #faf8ff 0%, var(--accent-bg, #f3eefc) 100%);
+  border: 1px solid var(--accent-badge-border, #c3b3ef);
+  border-radius: 12px;
   margin-bottom: 1rem;
 }
 
 .appt-qr-wrap {
-  display: inline-block;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin-bottom: 0.85rem;
+}
+
+.appt-qr-wrap canvas,
+.appt-qr-wrap img {
+  border-radius: 6px;
+  border: 3px solid #fff;
+  box-shadow: 0 2px 8px rgba(76, 29, 149, 0.12);
+}
+
+.appt-qr-ref {
+  font-size: 0.88rem;
+  color: var(--text-dark);
   margin-bottom: 0.65rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+.appt-qr-ref-label {
+  color: var(--text-dim);
+  font-weight: 500;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.appt-qr-ref-value {
+  color: var(--accent-dark, #563aa4);
+  font-family: 'SF Mono', 'Consolas', monospace;
+  font-size: 0.9rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
 }
 
 .appt-qr-hint {
-  font-size: 0.78rem;
+  font-size: 0.75rem;
   color: var(--text-dim);
   margin: 0;
   line-height: 1.5;
