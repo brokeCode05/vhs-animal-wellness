@@ -7,10 +7,10 @@
     <meta http-equiv="Pragma" content="no-cache" />
     <meta http-equiv="Expires" content="0" />
     <title>My Dashboard - VHS</title>
-    <link rel="stylesheet" href="user-style.css?v=2.2.0" />
-    <link rel="stylesheet" href="../shared/dashboard-theme.css?v=2.2.0" />
-    <link rel="stylesheet" href="user-accent.css?v=2.2.0" />
-    <link rel="stylesheet" href="../shared/vhs-ui.css?v=2.2.0" />
+    <link rel="stylesheet" href="user-style.css?v=2.2.1" />
+    <link rel="stylesheet" href="../shared/dashboard-theme.css?v=2.2.1" />
+    <link rel="stylesheet" href="user-accent.css?v=2.2.1" />
+    <link rel="stylesheet" href="../shared/vhs-ui.css?v=2.2.1" />
   </head>
   <body>
     <!-- TOP NAVBAR -->
@@ -865,25 +865,21 @@
             </div>
           </div>
 
-          <!-- Step 3: Reason & Review -->
+          <!-- Step 3: Notes & Review -->
           <div class="wizard-panel" id="wizardStep3">
             <div class="form-group" style="margin-bottom:1rem;">
-              <label class="form-label">Reason for Visit</label>
+              <label class="form-label">Additional Notes / Symptoms <span style="font-weight:400;color:var(--text-dim);">(Optional)</span></label>
               <select class="form-select" id="visit_reason" name="visit_reason">
-                <option value="">Select reason</option>
-                <option value="General Check-up">General Check-up</option>
-                <option value="Vaccination">Vaccination</option>
-                <option value="Follow-up Consultation">Follow-up Consultation</option>
-                <option value="Emergency / Urgent Care">Emergency / Urgent Care</option>
-                <option value="Grooming">Grooming</option>
-                <option value="Surgery / Procedure">Surgery / Procedure</option>
-                <option value="Lab Work / Diagnostics">Lab Work / Diagnostics</option>
+                <option value="">Select context</option>
+                <option value="Routine Checkup / Scheduled Procedure">Routine Checkup / Scheduled Procedure</option>
+                <option value="Showing Mild Symptoms">Showing Mild Symptoms</option>
+                <option value="Follow-up Visit">Follow-up Visit</option>
                 <option value="Other">Other</option>
               </select>
-              <input type="text" class="form-input" id="visit_reason_custom" name="visit_reason_custom" placeholder="Please specify reason..." style="display:none;margin-top:0.5rem;" />
+              <input type="text" class="form-input" id="visit_reason_custom" name="visit_reason_custom" placeholder="Please describe symptoms or notes..." style="display:none;margin-top:0.5rem;" />
             </div>
             <div class="form-group" style="margin-bottom:1rem;">
-              <label class="form-label">Notes (optional)</label>
+              <label class="form-label">Additional Notes <span style="font-weight:400;color:var(--text-dim);">(Optional)</span></label>
               <textarea class="form-textarea" id="bookNotes" name="notes" rows="2" placeholder="Any special instructions or concerns..."></textarea>
             </div>
 
@@ -893,11 +889,14 @@
 
           <!-- Wizard Navigation -->
           <div class="wizard-nav">
-            <button type="button" class="btn-secondary" id="wizardBackBtn" style="display:none;" onclick="wizardNav(-1)">Back</button>
-            <div style="flex:1"></div>
-            <button type="button" class="btn-primary" id="wizardNextBtn" onclick="wizardNav(1)">Next</button>
-            <button type="submit" class="btn-primary" id="wizardSubmitBtn" style="display:none;">Book Appointment</button>
-            <button type="button" class="btn-secondary" onclick="closeModal('bookModal')">Cancel</button>
+            <div class="wizard-nav-left">
+              <button type="button" class="btn-secondary" id="wizardBackBtn" style="display:none;" onclick="wizardNav(-1)">Back</button>
+              <button type="button" class="btn-secondary wizard-cancel-btn" onclick="closeModal('bookModal')">Cancel</button>
+            </div>
+            <div class="wizard-nav-right">
+              <button type="button" class="btn-primary" id="wizardNextBtn" onclick="wizardNav(1)">Next</button>
+              <button type="submit" class="btn-primary" id="wizardSubmitBtn" style="display:none;">Confirm Booking</button>
+            </div>
           </div>
         </form>
       </div>
@@ -1322,7 +1321,7 @@
     <!-- END VHS ASSISTANT CHATBOT -->
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-    <script src="../shared/vhs-ui.js?v=2.2.0"></script>
-    <script src="user-script.js?v=2.2.0"></script>
+    <script src="../shared/vhs-ui.js?v=2.2.1"></script>
+    <script src="user-script.js?v=2.2.1"></script>
   </body>
 </html>

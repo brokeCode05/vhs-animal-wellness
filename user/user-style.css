@@ -1548,11 +1548,36 @@ body {
 
 .wizard-nav {
   display: flex;
-  gap: 0.6rem;
+  justify-content: space-between;
   align-items: center;
+  width: 100%;
   margin-top: 1.25rem;
   padding-top: 1rem;
   border-top: 1px solid var(--border);
+}
+
+.wizard-nav-left,
+.wizard-nav-right {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.wizard-nav .btn-primary,
+.wizard-nav .btn-secondary {
+  min-width: 0;
+  white-space: nowrap;
+  padding: 0.55rem 1.1rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.wizard-cancel-btn {
+  opacity: 0.7;
+}
+
+.wizard-cancel-btn:hover {
+  opacity: 1;
 }
 
 /* ── Booking Summary Card ── */

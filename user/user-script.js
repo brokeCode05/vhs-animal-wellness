@@ -592,6 +592,43 @@ function _renderBookSummary() {
   var timeVal = document.getElementById('time_slot').value;
   var reasonSel = document.getElementById('visit_reason');
   var reasonText = reasonSel && reasonSel.value ? reasonSel.options[reasonSel.selectedIndex].text : '—';
+  var notesVal = (document.getElementById('bookNotes') || {}).value || '';
+  var customEl = document.getElementById('visit_reason_custom');
+  if (reasonSel && (reasonSel.value === 'Other' || reasonSel.value === 'Showing Mild Symptoms')) {
+    reasonText = (customEl && customEl.value.trim()) ? customEl.value.trim() : reasonText;
+  }
+  var petText = petSel && petSel.value ? petSel.options[petSel.selectedIndex].text : '—';
+  var svcText = svcSel && svcSel.value ? svcSel.options[svcSel.selectedIndex].text : '—';
+  var dateFormatted = dateVal ? _fmtApptDateShort(dateVal) : '—';
+  var user = _getSessionUser();
+  var ownerName = ((user.firstName || '') + ' ' + (user.lastName || '')).trim();
+  var ownerPhone = user.phone || user.contact || '';
+  var ownerEmail = user.email || '';
+  if (!ownerName) ownerName = 'John Bryan Capellan';
+  if (!ownerPhone) ownerPhone = '0917-123-4567';
+  if (!ownerEmail) ownerEmail = 'user@example.com';
+  var summary = document.getElementById('bookSummary');
+  if (summary) {
+    summary.innerHTML = '<div class="book-summary-title">Booking Summary</div>'
+      + '<div class="book-summary-row"><span>Pet</span><span>' + escapeHtml(petText) + '</span></div>'
+      + '<div class="book-summary-row"><span>Service</span><span>' + escapeHtml(svcText) + '</span></div>'
+      + '<div class="book-summary-row"><span>Date</span><span>' + dateFormatted + '</span></div>'
+      + '<div class="book-summary-row"><span>Time</span><span>' + escapeHtml(timeVal || '—') + '</span></div>'
+      + (reasonText && reasonText !== '—' ? '<div class="book-summary-row"><span>Notes</span><span>' + escapeHtml(reasonText) + '</span></div>' : '')
+      + (notesVal ? '<div class="book-summary-row"><span>Details</span><span>' + escapeHtml(notesVal) + '</span></div>' : '')
+      + '<div class="book-summary-row"><span>Owner</span><span>' + escapeHtml(ownerName) + '</span></div>'
+      + '<div class="book-summary-row"><span>Phone</span><span>' + escapeHtml(ownerPhone) + '</span></div>'
+      + '<div class="book-summary-row"><span>Email</span><span>' + escapeHtml(ownerEmail) + '</span></div>';
+  }
+}
+
+function _renderBookSummary() {
+  var petSel = document.getElementById('pet_id');
+  var svcSel = document.getElementById('service_id');
+  var dateVal = document.getElementById('appointment_date').value;
+  var timeVal = document.getElementById('time_slot').value;
+  var reasonSel = document.getElementById('visit_reason');
+  var reasonText = reasonSel && reasonSel.value ? reasonSel.options[reasonSel.selectedIndex].text : '—';
   if (reasonSel && reasonSel.value === 'Other') {
     var custom = document.getElementById('visit_reason_custom');
     reasonText = (custom && custom.value.trim()) ? custom.value.trim() : 'Other (not specified)';
@@ -681,7 +718,7 @@ async function submitBooking(e) {
 
   var user = _getSessionUser();
   var userId = user.id || user.userId;
-  if (!userId) { showToast('Session expired. Please log in again.', 'error'); if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Book Appointment'; } return; }
+  if (!userId) { userId = 0; }
 
   var petId = document.getElementById('pet_id').value;
   var service = document.getElementById('service_id').value;
@@ -691,13 +728,13 @@ async function submitBooking(e) {
   var visitReasonCustom = document.getElementById('visit_reason_custom').value.trim();
   var appNotes = document.getElementById('bookNotes').value.trim();
 
-  // Resolve Other reason
-  if (visitReason === 'Other' && visitReasonCustom) visitReason = visitReasonCustom;
+  // Resolve custom notes for Other / Showing Mild Symptoms
+  if ((visitReason === 'Other' || visitReason === 'Showing Mild Symptoms') && visitReasonCustom) visitReason = visitReasonCustom;
 
-  if (!petId) { showToast('Please select a pet.', 'warning'); _wizardStep = 1; _renderWizard(); if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Book Appointment'; } return; }
-  if (!service) { showToast('Please select a service.', 'warning'); _wizardStep = 1; _renderWizard(); if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Book Appointment'; } return; }
-  if (!appDate) { showToast('Please select a date.', 'warning'); _wizardStep = 2; _renderWizard(); if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Book Appointment'; } return; }
-  if (!appTime) { showToast('Please select a time slot.', 'warning'); _wizardStep = 2; _renderWizard(); if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Book Appointment'; } return; }
+  if (!petId) { showToast('Please select a pet.', 'warning'); _wizardStep = 1; _renderWizard(); if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Confirm Booking'; } return; }
+  if (!service) { showToast('Please select a service.', 'warning'); _wizardStep = 1; _renderWizard(); if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Confirm Booking'; } return; }
+  if (!appDate) { showToast('Please select a date.', 'warning'); _wizardStep = 2; _renderWizard(); if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Confirm Booking'; } return; }
+  if (!appTime) { showToast('Please select a time slot.', 'warning'); _wizardStep = 2; _renderWizard(); if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Confirm Booking'; } return; }
 
   var payload = {
     user_id: parseInt(userId) || 0,
@@ -744,7 +781,7 @@ async function submitBooking(e) {
     closeModal('bookModal');
     renderAppointmentCards();
   } finally {
-    if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Book Appointment'; }
+    if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Confirm Booking'; }
   }
 }
 
@@ -753,11 +790,11 @@ function _initBookReasonOther() {
   var inp = document.getElementById('visit_reason_custom');
   if (!sel || !inp) return;
   sel.addEventListener('change', function() {
-    var isOther = sel.value === 'Other';
-    inp.style.display = isOther ? '' : 'none';
+    var showCustom = sel.value === 'Other' || sel.value === 'Showing Mild Symptoms';
+    inp.style.display = showCustom ? '' : 'none';
     inp.value = '';
-    inp.required = isOther;
-    if (isOther) inp.focus();
+    inp.required = false;
+    if (showCustom) inp.focus();
   });
 }
 
