@@ -591,15 +591,15 @@ function _renderBookSummary() {
   var dateVal = document.getElementById('appointment_date').value;
   var timeVal = document.getElementById('time_slot').value;
   var reasonSel = document.getElementById('visit_reason');
-  var reasonText = reasonSel && reasonSel.value ? reasonSel.options[reasonSel.selectedIndex].text : '—';
+  var reasonText = reasonSel && reasonSel.value ? reasonSel.options[reasonSel.selectedIndex].text : '\u2014';
   var notesVal = (document.getElementById('bookNotes') || {}).value || '';
   var customEl = document.getElementById('visit_reason_custom');
   if (reasonSel && (reasonSel.value === 'Other' || reasonSel.value === 'Showing Mild Symptoms')) {
     reasonText = (customEl && customEl.value.trim()) ? customEl.value.trim() : reasonText;
   }
-  var petText = petSel && petSel.value ? petSel.options[petSel.selectedIndex].text : '—';
-  var svcText = svcSel && svcSel.value ? svcSel.options[svcSel.selectedIndex].text : '—';
-  var dateFormatted = dateVal ? _fmtApptDateShort(dateVal) : '—';
+  var petText = petSel && petSel.value ? petSel.options[petSel.selectedIndex].text : '\u2014';
+  var svcText = svcSel && svcSel.value ? svcSel.options[svcSel.selectedIndex].text : '\u2014';
+  var dateFormatted = dateVal ? _fmtApptDateShort(dateVal) : '\u2014';
   var user = _getSessionUser();
   var ownerName = ((user.firstName || '') + ' ' + (user.lastName || '')).trim();
   var ownerPhone = user.phone || user.contact || '';
@@ -613,8 +613,8 @@ function _renderBookSummary() {
       + '<div class="book-summary-row"><span>Pet</span><span>' + escapeHtml(petText) + '</span></div>'
       + '<div class="book-summary-row"><span>Service</span><span>' + escapeHtml(svcText) + '</span></div>'
       + '<div class="book-summary-row"><span>Date</span><span>' + dateFormatted + '</span></div>'
-      + '<div class="book-summary-row"><span>Time</span><span>' + escapeHtml(timeVal || '—') + '</span></div>'
-      + (reasonText && reasonText !== '—' ? '<div class="book-summary-row"><span>Notes</span><span>' + escapeHtml(reasonText) + '</span></div>' : '')
+      + '<div class="book-summary-row"><span>Time</span><span>' + escapeHtml(timeVal || '\u2014') + '</span></div>'
+      + (reasonText && reasonText !== '\u2014' ? '<div class="book-summary-row"><span>Notes</span><span>' + escapeHtml(reasonText) + '</span></div>' : '')
       + (notesVal ? '<div class="book-summary-row"><span>Details</span><span>' + escapeHtml(notesVal) + '</span></div>' : '')
       + '<div class="book-summary-row"><span>Owner</span><span>' + escapeHtml(ownerName) + '</span></div>'
       + '<div class="book-summary-row"><span>Phone</span><span>' + escapeHtml(ownerPhone) + '</span></div>'
@@ -622,37 +622,6 @@ function _renderBookSummary() {
   }
 }
 
-function _renderBookSummary() {
-  var petSel = document.getElementById('pet_id');
-  var svcSel = document.getElementById('service_id');
-  var dateVal = document.getElementById('appointment_date').value;
-  var timeVal = document.getElementById('time_slot').value;
-  var reasonSel = document.getElementById('visit_reason');
-  var reasonText = reasonSel && reasonSel.value ? reasonSel.options[reasonSel.selectedIndex].text : '—';
-  if (reasonSel && reasonSel.value === 'Other') {
-    var custom = document.getElementById('visit_reason_custom');
-    reasonText = (custom && custom.value.trim()) ? custom.value.trim() : 'Other (not specified)';
-  }
-  var petText = petSel && petSel.value ? petSel.options[petSel.selectedIndex].text : '—';
-  var svcText = svcSel && svcSel.value ? svcSel.options[svcSel.selectedIndex].text : '—';
-  var dateFormatted = dateVal ? _fmtApptDateShort(dateVal) : '—';
-  var user = _getSessionUser();
-  var ownerName = ((user.firstName || '') + ' ' + (user.lastName || '')).trim() || 'Guest';
-  var ownerPhone = user.phone || user.contact || '—';
-  var summary = document.getElementById('bookSummary');
-  if (summary) {
-    summary.innerHTML = '<div class="book-summary-title">Booking Summary</div>'
-      + '<div class="book-summary-row"><span>Pet</span><span>' + escapeHtml(petText) + '</span></div>'
-      + '<div class="book-summary-row"><span>Service</span><span>' + escapeHtml(svcText) + '</span></div>'
-      + '<div class="book-summary-row"><span>Date</span><span>' + dateFormatted + '</span></div>'
-      + '<div class="book-summary-row"><span>Time</span><span>' + escapeHtml(timeVal || '—') + '</span></div>'
-      + '<div class="book-summary-row"><span>Reason</span><span>' + escapeHtml(reasonText) + '</span></div>'
-      + '<div class="book-summary-row"><span>Owner</span><span>' + escapeHtml(ownerName) + '</span></div>'
-      + '<div class="book-summary-row"><span>Contact</span><span>' + escapeHtml(ownerPhone) + '</span></div>';
-  }
-}
-
-// ─── DATE CONSTRAINTS ────────────────────────────────────────────────────────
 function _setBookDateConstraints() {
   var dateInput = document.getElementById('appointment_date');
   if (!dateInput) return;
@@ -686,7 +655,7 @@ function _refreshBookSlots() {
     var cutoffMin = now.getMinutes();
     if (cutoffMin > 0) cutoffHour += 1;
     slots = slots.filter(function(slot) {
-      var parts = slot.trim().match(/(d{1,2}):(d{2})s*(AM|PM)/i);
+      var parts = slot.trim().match(/(\d{1,2}):(\d{2})\s*(AM|PM)/i);
       if (!parts) return true;
       var h = parseInt(parts[1], 10);
       var ampm = parts[3].toUpperCase();
@@ -763,12 +732,16 @@ async function submitBooking(e) {
     }
   } catch (error) {
     // Offline / mock mode — add to local mock data
+    var _petOpt = document.getElementById('pet_id').selectedOptions[0];
+    var _petDisplay = _petOpt ? _petOpt.text : 'Pet';
+    var _petName = _petDisplay.replace(/\s*\([^)]*\)$/, '').trim() || 'Pet';
+    var _petObj = mockPetsData.find(function(p) { return String(p.id) === String(payload.pet_id); });
     var newApt = {
       id: 'apt' + String(mockAppointmentsData.length + 1).padStart(3, '0'),
       pet_id: payload.pet_id,
-      pet_name: (document.getElementById('pet_id').selectedOptions[0] || {}).text || 'Pet',
-      pet_type: '',
-      pet_breed: '',
+      pet_name: _petName,
+      pet_type: _petObj ? (_petObj.species || _petObj.type || '') : '',
+      pet_breed: _petObj ? (_petObj.breed || '') : '',
       service: payload.service,
       date: payload.appointment_date,
       time: payload.appointment_time,
