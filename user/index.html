@@ -7,10 +7,10 @@
     <meta http-equiv="Pragma" content="no-cache" />
     <meta http-equiv="Expires" content="0" />
     <title>My Dashboard - VHS</title>
-    <link rel="stylesheet" href="user-style.css?v=2.0.5" />
-    <link rel="stylesheet" href="../shared/dashboard-theme.css?v=2.0.5" />
-    <link rel="stylesheet" href="user-accent.css?v=2.0.5" />
-    <link rel="stylesheet" href="../shared/vhs-ui.css?v=2.0.5" />
+    <link rel="stylesheet" href="user-style.css?v=2.1.0" />
+    <link rel="stylesheet" href="../shared/dashboard-theme.css?v=2.1.0" />
+    <link rel="stylesheet" href="user-accent.css?v=2.1.0" />
+    <link rel="stylesheet" href="../shared/vhs-ui.css?v=2.1.0" />
   </head>
   <body>
     <!-- TOP NAVBAR -->
@@ -873,64 +873,39 @@
     </div>
 
     <!-- Add / Edit Pet Modal -->
+    <!--
+      BACKEND HANDOFF: Add / Edit Pet Modal
+      Target Endpoint: POST ../api/pets/save_pet.php
+      Form Encoding: multipart/form-data (supports pet_photo file upload)
+      All name attributes match the PHP/MySQL column names.
+    -->
     <div class="modal-overlay" id="petModal">
       <div class="modal-content">
         <div class="modal-header">
           <h2 class="modal-title" id="petModalTitle">Add New Pet</h2>
-          <button class="modal-close" onclick="closeModal('petModal')">
-            &times;
-          </button>
+          <button class="modal-close" onclick="closeModal('petModal')">&times;</button>
         </div>
-        <form
-          id="petForm"
-          action="petDB.php"
-          method="POST"
-          onsubmit="submitPet(event)"
-        >
+        <form id="petForm" action="../api/pets/save_pet.php" method="POST" enctype="multipart/form-data" onsubmit="submitPet(event)">
+
+          <!-- Pet Photo -->
           <div class="form-group">
             <label class="form-label">Pet Photo</label>
-            <div
-              class="pet-photo-preview"
-              id="petPhotoPreview"
-              onclick="document.getElementById('petPhotoInput').click()"
-            >
+            <div class="pet-photo-preview" id="petPhotoPreview" onclick="document.getElementById('pet_photo').click()">
               <span class="upload-icon"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg></span>
               <span>Click to upload photo</span>
             </div>
-            <input
-              type="file"
-              id="petPhotoInput"
-              name="petPhoto"
-              accept="image/*"
-              style="display: none"
-              onchange="previewPetPhoto(this)"
-            />
+            <input type="file" id="pet_photo" name="pet_photo" accept="image/*" style="display:none" onchange="previewPetPhoto(this)" />
           </div>
 
+          <!-- Pet Name + Species -->
           <div class="form-row">
             <div class="form-group">
-              <label class="form-label"
-                >Pet Name <span class="required">*</span></label
-              >
-              <input
-                type="text"
-                class="form-input"
-                id="petName"
-                name="petName"
-                placeholder="e.g. Luna"
-                required
-              />
+              <label class="form-label">Pet Name <span class="required">*</span></label>
+              <input type="text" class="form-input" id="pet_name" name="pet_name" placeholder="e.g. Luna" required />
             </div>
             <div class="form-group">
-              <label class="form-label"
-                >Species <span class="required">*</span></label
-              >
-              <select
-                class="form-select"
-                id="petSpecies"
-                name="petSpecies"
-                required
-              >
+              <label class="form-label">Species <span class="required">*</span></label>
+              <select class="form-select" id="species" name="species" required onchange="onSpeciesChange()">
                 <option value="">Select species</option>
                 <option value="Dog">Dog</option>
                 <option value="Cat">Cat</option>
@@ -938,51 +913,30 @@
                 <option value="Rabbit">Rabbit</option>
                 <option value="Other">Other</option>
               </select>
-              <input type="text" class="form-input other-species-input" id="petSpeciesOther" placeholder="Please specify species..." style="display:none;margin-top:0.5rem;" />
+              <input type="text" class="form-input other-species-input" id="species_custom" name="species_custom" placeholder="Please specify species..." style="display:none;margin-top:0.5rem;" />
             </div>
           </div>
 
+          <!-- Breed (cascading) + Age -->
           <div class="form-row">
             <div class="form-group">
               <label class="form-label">Breed</label>
-              <select class="form-select" id="petBreed" name="petBreed">
+              <select class="form-select" id="breed" name="breed" onchange="onBreedChange()">
                 <option value="">Select breed</option>
-                <option value="Mixed / Unknown">Mixed / Unknown</option>
-                <option value="Persian">Persian</option>
-                <option value="Siamese">Siamese</option>
-                <option value="Maine Coon">Maine Coon</option>
-                <option value="British Shorthair">British Shorthair</option>
-                <option value="Golden Retriever">Golden Retriever</option>
-                <option value="Labrador Retriever">Labrador Retriever</option>
-                <option value="German Shepherd">German Shepherd</option>
-                <option value="Shih Tzu">Shih Tzu</option>
-                <option value="Chihuahua">Chihuahua</option>
-                <option value="Pomeranian">Pomeranian</option>
-                <option value="Budgerigar">Budgerigar</option>
-                <option value="Cockatiel">Cockatiel</option>
-                <option value="Holland Lop">Holland Lop</option>
-                <option value="Netherland Dwarf">Netherland Dwarf</option>
-                <option value="Other">Other</option>
               </select>
-              <input type="text" class="form-input other-breed-input" id="petBreedOther" placeholder="Please specify breed..." style="display:none;margin-top:0.5rem;" />
+              <input type="text" class="form-input other-breed-input" id="breed_custom" name="breed_custom" placeholder="Please specify breed..." style="display:none;margin-top:0.5rem;" />
             </div>
             <div class="form-group">
               <label class="form-label">Age (years)</label>
-              <input
-                type="number"
-                class="form-input"
-                id="petAge"
-                name="petAge"
-                placeholder="e.g. 3"
-                min="0"
-              />
+              <input type="number" class="form-input" id="age" name="age" placeholder="e.g. 3" min="0" />
             </div>
           </div>
 
+          <!-- Gender + Weight -->
           <div class="form-row">
             <div class="form-group">
               <label class="form-label">Gender</label>
-              <select class="form-select" id="petGender" name="petGender">
+              <select class="form-select" id="gender" name="gender">
                 <option value="">Select gender</option>
                 <option value="Male">Male</option>
                 <option value="Female">Female</option>
@@ -990,32 +944,19 @@
             </div>
             <div class="form-group">
               <label class="form-label">Weight (kg)</label>
-              <input
-                type="number"
-                class="form-input"
-                id="petWeight"
-                name="petWeight"
-                step="0.1"
-                placeholder="e.g. 4.5"
-                min="0"
-              />
+              <input type="number" class="form-input" id="weight_kg" name="weight_kg" step="0.1" placeholder="e.g. 4.5" min="0" />
             </div>
           </div>
 
+          <!-- Color + Reproductive Status -->
           <div class="form-row">
             <div class="form-group">
               <label class="form-label">Color / Markings</label>
-              <input
-                type="text"
-                class="form-input"
-                id="petColor"
-                name="petColor"
-                placeholder="e.g. White with grey patches"
-              />
+              <input type="text" class="form-input" id="color" name="color" placeholder="e.g. White with grey patches" />
             </div>
             <div class="form-group">
               <label class="form-label">Reproductive Status</label>
-              <select class="form-select" id="petReproStatus" name="petReproStatus">
+              <select class="form-select" id="reproductive_status" name="reproductive_status">
                 <option value="">Select status</option>
                 <option value="Intact">Intact (Not yet altered)</option>
                 <option value="Spayed">Spayed (Female — Kapon)</option>
@@ -1026,57 +967,36 @@
             </div>
           </div>
 
+          <!-- Microchip -->
           <div class="form-row">
             <div class="form-group">
               <label class="form-label">Microchip ID <span style="font-weight:400;color:var(--text-dim);">(Optional)</span></label>
-              <input
-                type="text"
-                class="form-input"
-                id="petMicrochip"
-                name="petMicrochip"
-                placeholder="e.g. PH-001-2023-LUNA"
-              />
+              <input type="text" class="form-input" id="microchip_id" name="microchip_id" placeholder="e.g. PH-001-2023-LUNA" />
             </div>
             <div class="form-group"></div>
           </div>
 
+          <!-- Allergies + Chronic Conditions -->
           <div class="form-row">
             <div class="form-group">
               <label class="form-label">Allergies</label>
-              <input
-                type="text"
-                class="form-input"
-                id="petAllergies"
-                name="petAllergies"
-                placeholder="e.g. Chicken, certain flea treatments"
-              />
+              <input type="text" class="form-input" id="allergies" name="allergies" placeholder="e.g. Chicken, certain flea treatments" />
               <p class="form-hint" style="font-size:0.75rem;color:var(--text-dim);margin-top:0.3rem;">Leave blank or type "None known yet" if unsure.</p>
             </div>
             <div class="form-group">
               <label class="form-label">Chronic Conditions</label>
-              <input
-                type="text"
-                class="form-input"
-                id="petChronic"
-                name="petChronic"
-                placeholder="e.g. Hip dysplasia, diabetes"
-              />
+              <input type="text" class="form-input" id="chronic_conditions" name="chronic_conditions" placeholder="e.g. Hip dysplasia, diabetes" />
               <p class="form-hint" style="font-size:0.75rem;color:var(--text-dim);margin-top:0.3rem;">Leave blank or type "None known yet" if unsure.</p>
             </div>
           </div>
 
+          <!-- Additional Notes -->
           <div class="form-group">
             <label class="form-label">Additional Notes</label>
-            <textarea
-              class="form-textarea"
-              id="petNotes"
-              name="petNote"
-              rows="2"
-              placeholder="Any other notes about your pet..."
-            ></textarea>
+            <textarea class="form-textarea" id="medical_notes" name="medical_notes" rows="2" placeholder="Any other notes about your pet..."></textarea>
           </div>
 
-          <input type="hidden" id="petUserId" name="user_id" value="" />
+          <input type="hidden" id="user_id" name="user_id" value="" />
 
           <div class="form-actions" style="justify-content:space-between;">
             <button type="button" class="btn-pet-delete" id="petDeleteBtn" style="display:none;" onclick="confirmDeletePet()">
@@ -1371,7 +1291,7 @@
     <!-- END VHS ASSISTANT CHATBOT -->
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-    <script src="../shared/vhs-ui.js?v=2.0.5"></script>
-    <script src="user-script.js?v=2.0.5"></script>
+    <script src="../shared/vhs-ui.js?v=2.1.0"></script>
+    <script src="user-script.js?v=2.1.0"></script>
   </body>
 </html>

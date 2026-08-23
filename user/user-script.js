@@ -1207,6 +1207,7 @@ function openAddPetModal() {
   if (form) {
     form.reset();
     delete form.dataset.editId;
+    form.action = '../api/pets/save_pet.php';
   }
 
   // Reset photo preview
@@ -1215,10 +1216,14 @@ function openAddPetModal() {
     preview.innerHTML = '<span class="upload-icon"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg></span><span>Click to upload photo</span>';
 
   // Hide Other inputs
-  ['petSpeciesOther', 'petBreedOther'].forEach(function(id) {
+  ['species_custom', 'breed_custom'].forEach(function(id) {
     var el = document.getElementById(id);
     if (el) { el.style.display = 'none'; el.value = ''; el.required = false; }
   });
+
+  // Reset breed select to empty
+  var breedSel = document.getElementById('breed');
+  if (breedSel) breedSel.innerHTML = '<option value="">Select breed</option>';
 
   // Hide delete button, set submit label
   var delBtn = document.getElementById('petDeleteBtn');
@@ -1228,8 +1233,8 @@ function openAddPetModal() {
 
   // Inject user ID
   var user = _getSessionUser();
-  var hiddenId = document.getElementById('petUserId');
-  if (hiddenId) hiddenId.value = user.id || user.userId || '';
+  var uid = document.getElementById('user_id');
+  if (uid) uid.value = user.id || user.userId || '';
 
   openModal('petModal');
 }
@@ -1237,36 +1242,94 @@ function openAddPetModal() {
 
 
 function previewPetPhoto(input) {
-
   if (!input.files || !input.files[0]) return;
-
   var reader = new FileReader();
-
-  reader.onload = function (e) {
-
-    var preview = document.getElementById("petPhotoPreview");
-
-    if (preview) {
-
-      preview.innerHTML = '<img src="' + e.target.result + '" alt="Pet photo">';
-
-    }
-
+  reader.onload = function(e) {
+    var preview = document.getElementById('petPhotoPreview');
+    if (preview) preview.innerHTML = '<img src="' + e.target.result + '" alt="Pet photo">';
   };
-
   reader.readAsDataURL(input.files[0]);
+}
 
-}function openEditPetModal(id) {
+// ─── SPECIES-TO-BREED CASCADING LOGIC ──────────────────────────────────────
+var _breedMap = {
+  Dog: [
+    'Unknown / Mixed Breed', 'Aspin', 'Golden Retriever', 'Shih Tzu',
+    'Labrador Retriever', 'Pomeranian', 'Poodle', 'Other'
+  ],
+  Cat: [
+    'Unknown / Mixed Breed', 'Puspin', 'Persian', 'Siamese',
+    'Maine Coon', 'British Shorthair', 'Other'
+  ],
+  Bird: [
+    'Unknown', 'Cockatiel', 'Parakeet / Budgie', 'Lovebird',
+    'Canary', 'Other'
+  ],
+  Rabbit: [
+    'Unknown', 'Netherland Dwarf', 'Holland Lop', 'Lionhead',
+    'Rex', 'Other'
+  ]
+};
+
+function onSpeciesChange() {
+  var speciesSel = document.getElementById('species');
+  var breedSel = document.getElementById('breed');
+  var speciesCustom = document.getElementById('species_custom');
+  var breedCustom = document.getElementById('breed_custom');
+  if (!speciesSel || !breedSel) return;
+  var val = speciesSel.value;
+
+  // Show/hide species_custom for 'Other'
+  if (speciesCustom) {
+    speciesCustom.style.display = (val === 'Other') ? '' : 'none';
+    speciesCustom.value = '';
+    speciesCustom.required = (val === 'Other');
+  }
+
+  // Populate breed options based on species
+  var breeds = _breedMap[val] || [];
+  breedSel.innerHTML = '<option value="">Select breed</option>' + breeds.map(function(b) {
+    return '<option value="' + b + '">' + b + '</option>';
+  }).join('');
+
+  // If 'Other' species, show breed_custom as text input; otherwise show breed select
+  if (val === 'Other') {
+    breedSel.style.display = 'none';
+    if (breedCustom) {
+      breedCustom.style.display = '';
+      breedCustom.required = false;
+    }
+  } else {
+    breedSel.style.display = '';
+    if (breedCustom) {
+      breedCustom.style.display = 'none';
+      breedCustom.value = '';
+      breedCustom.required = false;
+    }
+  }
+}
+
+function onBreedChange() {
+  var breedSel = document.getElementById('breed');
+  var breedCustom = document.getElementById('breed_custom');
+  if (!breedSel || !breedCustom) return;
+  var isOther = breedSel.value === 'Other';
+  breedCustom.style.display = isOther ? '' : 'none';
+  breedCustom.value = '';
+  breedCustom.required = isOther;
+}
+
+function openEditPetModal(id) {
   document.getElementById('petModalTitle').textContent = 'Edit Pet';
   var form = document.getElementById('petForm');
-  if (form) { form.reset(); form.dataset.editId = id; }
+  if (form) { form.reset(); form.dataset.editId = id; form.action = '../api/pets/save_pet.php'; }
 
   var preview = document.getElementById('petPhotoPreview');
   if (preview)
     preview.innerHTML = '<span class="upload-icon"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg></span><span>Click to change photo</span>';
 
   // Hide Other inputs
-  ['petSpeciesOther', 'petBreedOther'].forEach(function(sid) {
+  ['species_custom', 'breed_custom'].forEach(function(sid) {
     var el = document.getElementById(sid);
     if (el) { el.style.display = 'none'; el.value = ''; el.required = false; }
   });
@@ -1278,24 +1341,26 @@ function previewPetPhoto(input) {
   if (subBtn) subBtn.textContent = 'Update Details';
 
   var user = _getSessionUser();
-  var hiddenId = document.getElementById('petUserId');
-  if (hiddenId) hiddenId.value = user.id || user.userId || '';
+  var uid = document.getElementById('user_id');
+  if (uid) uid.value = user.id || user.userId || '';
 
   // Helper: populate form fields from a pet object
   function _populate(p) {
     if (!p) { showToast('Pet not found.', 'error'); return; }
-    document.getElementById('petName').value = p.name || '';
-    document.getElementById('petSpecies').value = p.species || p.type || '';
-    document.getElementById('petBreed').value = p.breed || '';
-    document.getElementById('petAge').value = p.age || '';
-    document.getElementById('petGender').value = p.gender || '';
-    document.getElementById('petWeight').value = p.weight || '';
-    document.getElementById('petColor').value = p.color || '';
-    document.getElementById('petReproStatus').value = p.reproductiveStatus || '';
-    document.getElementById('petMicrochip').value = p.microchip || '';
-    document.getElementById('petAllergies').value = p.allergies || '';
-    document.getElementById('petChronic').value = p.chronicConditions || '';
-    document.getElementById('petNotes').value = p.notes || '';
+    document.getElementById('pet_name').value = p.name || '';
+    document.getElementById('species').value = p.species || p.type || '';
+    // Trigger cascading breed population
+    onSpeciesChange();
+    document.getElementById('breed').value = p.breed || '';
+    document.getElementById('age').value = p.age || '';
+    document.getElementById('gender').value = p.gender || '';
+    document.getElementById('weight_kg').value = p.weight || '';
+    document.getElementById('color').value = p.color || '';
+    document.getElementById('reproductive_status').value = p.reproductiveStatus || '';
+    document.getElementById('microchip_id').value = p.microchip || '';
+    document.getElementById('allergies').value = p.allergies || '';
+    document.getElementById('chronic_conditions').value = p.chronicConditions || '';
+    document.getElementById('medical_notes').value = p.notes || '';
     if (p.photo && preview) {
       preview.innerHTML = '<img src="' + p.photo + '" alt="Pet photo" style="width:100%;height:100%;object-fit:cover;position:absolute;inset:0;">';
     }
@@ -2148,9 +2213,8 @@ function _onRescheduleDateChange() {
 // { selectId, inputId } pairs are registered below.
 var _otherInputPairs = [
   { selectId: 'rescheduleReason', inputId: 'rescheduleReasonOther' },
-  { selectId: 'cancelReason', inputId: 'cancelReasonOther' },
-  { selectId: 'petSpecies', inputId: 'petSpeciesOther' },
-  { selectId: 'petBreed', inputId: 'petBreedOther' }
+  { selectId: 'cancelReason', inputId: 'cancelReasonOther' }
+  // Pet species/breed Other logic is handled by onSpeciesChange() / onBreedChange()
 ];
 
 function _initOtherInputs() {
@@ -2335,29 +2399,57 @@ function loadPets() {
 
 
 
+/*
+ * BACKEND HANDOFF: Add / Edit Pet API Integration
+ * Endpoint: POST ../api/pets/save_pet.php
+ * Encoding: multipart/form-data (supports pet_photo file upload)
+ * Expected Payload: FormData with fields:
+ *   pet_name, species, species_custom, breed, breed_custom,
+ *   gender, age, weight_kg, color, reproductive_status,
+ *   microchip_id, allergies, chronic_conditions, medical_notes,
+ *   pet_photo (file), user_id, pet_id (for edits)
+ * Response: { success: true, message: "Pet record saved", pet_id: 123 }
+ */
 function submitPet(e) {
   e.preventDefault();
   var form = e.target;
   var formData = new FormData(form);
 
-  // Resolve 'Other' custom text for species and breed
-  var speciesVal = _getResolvedValue('petSpecies', 'petSpeciesOther') || formData.get('petSpecies');
-  var breedVal = _getResolvedValue('petBreed', 'petBreedOther') || formData.get('petBreed');
+  // Resolve species value: use species_custom if 'Other' selected
+  var speciesSel = document.getElementById('species');
+  var speciesVal = speciesSel ? speciesSel.value : '';
+  if (speciesVal === 'Other') {
+    var sc = document.getElementById('species_custom');
+    speciesVal = (sc && sc.value.trim()) ? sc.value.trim() : '';
+    formData.set('species', speciesVal);
+  }
 
-  // Collect all field values from form
+  // Resolve breed value: use breed_custom if 'Other' breed or 'Other' species
+  var breedSel = document.getElementById('breed');
+  var breedCustom = document.getElementById('breed_custom');
+  var breedVal = '';
+  if (breedCustom && breedCustom.style.display !== 'none') {
+    // breed_custom is visible (either Other species or Other breed)
+    breedVal = breedCustom.value.trim();
+    formData.set('breed', breedVal);
+  } else if (breedSel) {
+    breedVal = breedSel.value;
+  }
+
+  // Collect all field values
   var petData = {
-    name: (formData.get('petName') || '').trim(),
+    name: (formData.get('pet_name') || '').trim(),
     species: speciesVal,
     breed: breedVal,
-    gender: formData.get('petGender') || '',
-    age: parseInt(formData.get('petAge'), 10) || 0,
-    weight: parseFloat(formData.get('petWeight')) || 0,
-    color: formData.get('petColor') || '',
-    reproductiveStatus: formData.get('petReproStatus') || '',
-    microchip: formData.get('petMicrochip') || '',
-    allergies: formData.get('petAllergies') || '',
-    chronicConditions: formData.get('petChronic') || '',
-    notes: formData.get('petNote') || ''
+    gender: formData.get('gender') || '',
+    age: parseInt(formData.get('age'), 10) || 0,
+    weight: parseFloat(formData.get('weight_kg')) || 0,
+    color: formData.get('color') || '',
+    reproductiveStatus: formData.get('reproductive_status') || '',
+    microchip: formData.get('microchip_id') || '',
+    allergies: formData.get('allergies') || '',
+    chronicConditions: formData.get('chronic_conditions') || '',
+    notes: formData.get('medical_notes') || ''
   };
 
   if (!petData.name) { showToast('Please enter a pet name.', 'warning'); return; }
@@ -2372,23 +2464,32 @@ function submitPet(e) {
   if (userId) {
     // Online mode: send to PHP backend
     if (editId) formData.append('pet_id', editId);
-    fetch('petDB.php', { method: 'POST', body: formData })
+    fetch('../api/pets/save_pet.php', { method: 'POST', body: formData })
       .then(function(r) { return r.text(); })
       .then(function(data) {
-        if (data.trim() === 'Success') {
-          closeModal('petModal');
-          showToast(editId ? 'Pet updated successfully!' : 'Pet added successfully!', 'success');
-          loadPets();
-        } else {
-          showToast('Error: ' + data, 'error');
+        try {
+          var json = JSON.parse(data);
+          if (json.success) {
+            closeModal('petModal');
+            showToast(editId ? 'Pet updated successfully!' : 'Pet added successfully!', 'success');
+            loadPets();
+          } else {
+            showToast('Error: ' + (json.message || data), 'error');
+          }
+        } catch (err) {
+          if (data.trim() === 'Success') {
+            closeModal('petModal');
+            showToast(editId ? 'Pet updated successfully!' : 'Pet added successfully!', 'success');
+            loadPets();
+          } else {
+            showToast('Error: ' + data, 'error');
+          }
         }
       })
       .catch(function() {
-        // Backend failed — fall back to local state
         _submitPetLocal(petData, editId);
       });
   } else {
-    // No session (GitHub Pages / offline) — update local state directly
     _submitPetLocal(petData, editId);
   }
 }
@@ -2438,7 +2539,7 @@ function confirmDeletePet() {
     '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>',
     'Delete Pet',
     function() {
-      // Remove from local state
+      // Backend: DELETE ../api/pets/delete_pet.php { pet_id: editId }
       var idx = mockPetsData.findIndex(function(p) { return p.id === numId || p.id === editId; });
       if (idx !== -1) mockPetsData.splice(idx, 1);
       _currentPets = mockPetsData.slice();
