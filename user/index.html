@@ -7,10 +7,10 @@
     <meta http-equiv="Pragma" content="no-cache" />
     <meta http-equiv="Expires" content="0" />
     <title>My Dashboard - VHS</title>
-    <link rel="stylesheet" href="user-style.css?v=2.0.3" />
-    <link rel="stylesheet" href="../shared/dashboard-theme.css?v=2.0.3" />
-    <link rel="stylesheet" href="user-accent.css?v=2.0.3" />
-    <link rel="stylesheet" href="../shared/vhs-ui.css?v=2.0.3" />
+    <link rel="stylesheet" href="user-style.css?v=2.0.4" />
+    <link rel="stylesheet" href="../shared/dashboard-theme.css?v=2.0.4" />
+    <link rel="stylesheet" href="user-accent.css?v=2.0.4" />
+    <link rel="stylesheet" href="../shared/vhs-ui.css?v=2.0.4" />
   </head>
   <body>
     <!-- TOP NAVBAR -->
@@ -938,6 +938,7 @@
                 <option value="Rabbit">Rabbit</option>
                 <option value="Other">Other</option>
               </select>
+              <input type="text" class="form-input other-species-input" id="petSpeciesOther" placeholder="Please specify species..." style="display:none;margin-top:0.5rem;" />
             </div>
           </div>
 
@@ -1151,6 +1152,7 @@
               <option value="Transportation Issue">Transportation Issue</option>
               <option value="Other">Other</option>
             </select>
+            <input type="text" class="form-input other-reason-input" id="rescheduleReasonOther" placeholder="Please specify reason..." style="display:none;margin-top:0.5rem;" />
           </div>
           <div class="form-actions">
             <button type="submit" class="btn-primary">Confirm Reschedule</button>
@@ -1184,10 +1186,11 @@
               <option value="Pet Recovered">Pet Recovered</option>
               <option value="Other">Other</option>
             </select>
+            <input type="text" class="form-input other-reason-input" id="cancelReasonOther" placeholder="Please specify reason..." style="display:none;margin-top:0.5rem;" />
           </div>
-          <div class="form-actions" style="display:flex;gap:0.6rem;flex-wrap:wrap;">
-            <button type="button" class="btn-secondary" onclick="closeModal('cancelModal')" style="flex:1;min-width:0;justify-content:center;">Keep Appointment</button>
-            <button type="submit" class="btn-danger" style="flex:1;min-width:0;justify-content:center;">Confirm Cancellation</button>
+          <div class="cancel-modal-actions">
+            <button type="button" class="btn-cancel-keep" onclick="closeModal('cancelModal')">Keep Appointment</button>
+            <button type="submit" class="btn-cancel-confirm">Confirm Cancellation</button>
           </div>
         </form>
       </div>
@@ -1355,7 +1358,7 @@
     <!-- END VHS ASSISTANT CHATBOT -->
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-    <script src="../shared/vhs-ui.js?v=2.0.3"></script>
-    <script src="user-script.js?v=2.0.3"></script>
+    <script src="../shared/vhs-ui.js?v=2.0.4"></script>
+    <script src="user-script.js?v=2.0.4"></script>
   </body>
 </html>

@@ -2129,12 +2129,51 @@ function _onRescheduleDateChange() {
   }
 }
 
+// ─── OTHER CONDITIONAL INPUT TOGGLE ─────────────────────────────────────────
+// Shows a text input when 'Other' is selected in any dropdown.
+// { selectId, inputId } pairs are registered below.
+var _otherInputPairs = [
+  { selectId: 'rescheduleReason', inputId: 'rescheduleReasonOther' },
+  { selectId: 'cancelReason', inputId: 'cancelReasonOther' },
+  { selectId: 'petSpecies', inputId: 'petSpeciesOther' }
+];
+
+function _initOtherInputs() {
+  _otherInputPairs.forEach(function(pair) {
+    var sel = document.getElementById(pair.selectId);
+    var inp = document.getElementById(pair.inputId);
+    if (!sel || !inp) return;
+    sel.addEventListener('change', function() {
+      var isOther = sel.value === 'Other' || sel.value === 'Others';
+      inp.style.display = isOther ? '' : 'none';
+      inp.value = '';
+      if (isOther) {
+        inp.required = true;
+        inp.focus();
+      } else {
+        inp.required = false;
+      }
+    });
+  });
+}
+
+// Returns the resolved value for a select+Other pair
+function _getResolvedValue(selectId, otherInputId) {
+  var sel = document.getElementById(selectId);
+  var inp = document.getElementById(otherInputId);
+  if (!sel) return '';
+  if ((sel.value === 'Other' || sel.value === 'Others') && inp && inp.value.trim()) {
+    return inp.value.trim();
+  }
+  return sel.value;
+}
+
 function submitReschedule(e) {
   e.preventDefault();
   var apptId = document.getElementById('rescheduleApptId').value;
   var newDate = document.getElementById('rescheduleDate').value;
   var newTime = document.getElementById('rescheduleTime').value;
-  var reason = document.getElementById('rescheduleReason').value;
+  var reason = _getResolvedValue('rescheduleReason', 'rescheduleReasonOther');
   if (!newDate || !newTime) { showToast('Please select a new date and time.', 'warning'); return; }
   var appt = mockAppointmentsData.find(function(a) { return a.id === apptId; });
   if (appt) {
@@ -2172,7 +2211,7 @@ function openCancelModal(apptId) {
 function submitCancel(e) {
   e.preventDefault();
   var apptId = document.getElementById('cancelApptId').value;
-  var reason = document.getElementById('cancelReason').value;
+  var reason = _getResolvedValue('cancelReason', 'cancelReasonOther');
   if (!reason) { showToast('Please select a cancellation reason.', 'warning'); return; }
   var appt = mockAppointmentsData.find(function(a) { return a.id === apptId; });
   if (appt) {
@@ -2290,6 +2329,10 @@ function submitPet(e) {
   var form = e.target;
 
   var formData = new FormData(form);
+
+  // Override species if 'Other' was selected with custom text
+  var speciesOther = _getResolvedValue('petSpecies', 'petSpeciesOther');
+  if (speciesOther) formData.set('petSpecies', speciesOther);
 
   var editId = form.dataset.editId;
 
@@ -3034,7 +3077,8 @@ document.addEventListener("DOMContentLoaded", () => {
   initCustomDropdown('bookPetSelect', { placeholder: 'Choose a pet', searchPlaceholder: 'Search pets...', emptyText: 'No pets found' });
   initCustomDropdown('bookTimeSelect', { placeholder: 'Select time', searchPlaceholder: 'Search time...', emptyText: 'No slots available' });
 
-
+  // ── Initialize 'Other' conditional text inputs ──
+  _initOtherInputs();
 
   // ── Profile field input restrictions ──────────────────────────────────────
 
