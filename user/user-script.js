@@ -1989,6 +1989,9 @@ function _renderApptList(containerId, appts, mode) {
   container.innerHTML = appts.map(function(a) {
     var dateStr = _fmtApptDateShort(a.date);
     var canAct = a.status === 'pending' || a.status === 'scheduled';
+    var within2h = canAct && _isWithinTwoHours(a.date, a.time);
+    var disabledCls = within2h ? ' disabled' : '';
+    var disabledAttr = within2h ? ' disabled' : '';
     return (
       '<div class="appt-card">'
       + '<div class="appt-card-header">'
@@ -2004,11 +2007,12 @@ function _renderApptList(containerId, appts, mode) {
       + '<div class="appt-card-service">' + escapeHtml(a.service) + '</div>'
       + (a.notes ? '<div class="appt-card-notes">' + escapeHtml(a.notes) + '</div>' : '')
       + (a.reference_no ? '<div class="appt-card-ref">Ref: ' + escapeHtml(a.reference_no) + '</div>' : '')
+      + (within2h ? '<div class="appt-card-cutoff-note">Within 2-hour window — contact clinic for changes</div>' : '')
       + '</div>'
       + '<div class="appt-card-footer">'
       + (canAct
-        ? '<button class="btn-small" onclick="openRescheduleModal(\'' + a.id + '\')">Reschedule</button>'
-        + '<button class="btn-small btn-danger" onclick="openCancelModal(\'' + a.id + '\')">Cancel</button>'
+        ? '<button class="btn-small' + disabledCls + '" onclick="openRescheduleModal(\'' + a.id + '\')"' + disabledAttr + '>Reschedule</button>'
+        + '<button class="btn-small btn-danger' + disabledCls + '" onclick="openCancelModal(\'' + a.id + '\')"' + disabledAttr + '>Cancel</button>'
         : '')
       + '<button class="btn-small btn-link" onclick="viewAppt(\'' + a.id + '\')">View Details</button>'
       + '</div>'
@@ -2025,11 +2029,62 @@ function switchApptTab(tab) {
   document.getElementById('apptPast').classList.toggle('active', tab === 'past');
 }
 
+// ─── 2-HOUR CUT-OFF LOGIC ────────────────────────────────────────────────────
+
+// Returns true if the appointment is within 2 hours of now (or already past)
+function _isWithinTwoHours(dateStr, timeStr) {
+  if (!dateStr || !timeStr) return false;
+  // Parse time string like "10:30 AM" into hours/minutes
+  var parts = timeStr.trim().match(/(\d{1,2}):(\d{2})\s*(AM|PM)/i);
+  if (!parts) return false;
+  var hours = parseInt(parts[1], 10);
+  var minutes = parseInt(parts[2], 10);
+  var ampm = parts[3].toUpperCase();
+  if (ampm === 'PM' && hours !== 12) hours += 12;
+  if (ampm === 'AM' && hours === 12) hours = 0;
+  // Build a Date object for the appointment
+  var apptParts = dateStr.split('-');
+  var apptDate = new Date(parseInt(apptParts[0]), parseInt(apptParts[1]) - 1, parseInt(apptParts[2]), hours, minutes);
+  var now = new Date();
+  var diffMs = apptDate.getTime() - now.getTime();
+  var diffHours = diffMs / (1000 * 60 * 60);
+  return diffHours <= 2;
+}
+
+// Returns time slots filtered to exclude those within 2 hours of now (same-day only)
+function _filterPastSlots(slots, dateStr) {
+  var today = new Date().toISOString().split('T')[0];
+  if (dateStr !== today) return slots;
+  var now = new Date();
+  var cutoffHour = now.getHours() + 2;
+  var cutoffMin = now.getMinutes();
+  return slots.filter(function(slot) {
+    var parts = slot.trim().match(/(\d{1,2}):(\d{2})\s*(AM|PM)/i);
+    if (!parts) return true;
+    var h = parseInt(parts[1], 10);
+    var m = parseInt(parts[2], 10);
+    var ampm = parts[3].toUpperCase();
+    if (ampm === 'PM' && h !== 12) h += 12;
+    if (ampm === 'AM' && h === 12) h = 0;
+    if (h > cutoffHour) return true;
+    if (h === cutoffHour && m > cutoffMin) return true;
+    return false;
+  });
+}
+
+function _showCutoffModal() {
+  openModal('cutoffModal');
+}
+
 // ─── RESCHEDULE ──────────────────────────────────────────────────────────────
 
 function openRescheduleModal(apptId) {
   var appt = mockAppointmentsData.find(function(a) { return a.id === apptId; });
   if (!appt) return;
+  if (_isWithinTwoHours(appt.date, appt.time)) {
+    _showCutoffModal();
+    return;
+  }
   document.getElementById('rescheduleApptId').value = apptId;
   document.getElementById('rescheduleDate').value = '';
   document.getElementById('rescheduleTime').value = '';
@@ -2056,10 +2111,15 @@ function openRescheduleModal(apptId) {
 function _populateRescheduleSlots(dateStr) {
   var timeSelect = document.getElementById('rescheduleTime');
   if (!timeSelect) return;
-  var slots = getVHSTimeSlots(dateStr || new Date().toISOString().split('T')[0]);
+  var targetDate = dateStr || new Date().toISOString().split('T')[0];
+  var slots = getVHSTimeSlots(targetDate);
+  slots = _filterPastSlots(slots, targetDate);
   timeSelect.innerHTML = '<option value="">Select time</option>' + slots.map(function(s) {
     return '<option value="' + s + '">' + s + '</option>';
   }).join('');
+  if (!slots.length) {
+    timeSelect.innerHTML = '<option value="">No available slots today</option>';
+  }
 }
 
 function _onRescheduleDateChange() {
@@ -2092,6 +2152,10 @@ function submitReschedule(e) {
 function openCancelModal(apptId) {
   var appt = mockAppointmentsData.find(function(a) { return a.id === apptId; });
   if (!appt) return;
+  if (_isWithinTwoHours(appt.date, appt.time)) {
+    _showCutoffModal();
+    return;
+  }
   document.getElementById('cancelApptId').value = apptId;
   document.getElementById('cancelReason').value = '';
   var info = document.getElementById('cancelInfo');

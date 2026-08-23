@@ -7,10 +7,10 @@
     <meta http-equiv="Pragma" content="no-cache" />
     <meta http-equiv="Expires" content="0" />
     <title>My Dashboard - VHS</title>
-    <link rel="stylesheet" href="user-style.css?v=2.0.2" />
-    <link rel="stylesheet" href="../shared/dashboard-theme.css?v=2.0.2" />
-    <link rel="stylesheet" href="user-accent.css?v=2.0.2" />
-    <link rel="stylesheet" href="../shared/vhs-ui.css?v=2.0.2" />
+    <link rel="stylesheet" href="user-style.css?v=2.0.3" />
+    <link rel="stylesheet" href="../shared/dashboard-theme.css?v=2.0.3" />
+    <link rel="stylesheet" href="user-accent.css?v=2.0.3" />
+    <link rel="stylesheet" href="../shared/vhs-ui.css?v=2.0.3" />
   </head>
   <body>
     <!-- TOP NAVBAR -->
@@ -1185,11 +1185,29 @@
               <option value="Other">Other</option>
             </select>
           </div>
-          <div class="form-actions">
-            <button type="submit" class="btn-danger">Confirm Cancellation</button>
-            <button type="button" class="btn-secondary" onclick="closeModal('cancelModal')">Keep Appointment</button>
+          <div class="form-actions" style="display:flex;gap:0.6rem;flex-wrap:wrap;">
+            <button type="button" class="btn-secondary" onclick="closeModal('cancelModal')" style="flex:1;min-width:0;justify-content:center;">Keep Appointment</button>
+            <button type="submit" class="btn-danger" style="flex:1;min-width:0;justify-content:center;">Confirm Cancellation</button>
           </div>
         </form>
+      </div>
+    </div>
+
+    <!-- 2-Hour Cutoff Info Modal -->
+    <div class="modal-overlay" id="cutoffModal">
+      <div class="modal-content" style="max-width:440px;">
+        <div class="modal-header">
+          <h2 class="modal-title">Action Restricted</h2>
+          <button class="modal-close" onclick="closeModal('cutoffModal')">&times;</button>
+        </div>
+        <div class="cutoff-info">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+          <span>Changes cannot be made within 2 hours of your appointment time. Please call the clinic directly or send a message to the receptionist to request an emergency change.</span>
+        </div>
+        <p style="font-size:0.82rem;color:var(--text-dim);margin-bottom:1rem;line-height:1.6;">You may contact us at <strong>0917 108 4174</strong> or visit the clinic front desk for urgent rescheduling or cancellation requests.</p>
+        <div class="form-actions">
+          <button class="btn-secondary" onclick="closeModal('cutoffModal')">Understood</button>
+        </div>
       </div>
     </div>
 
@@ -1337,7 +1355,7 @@
     <!-- END VHS ASSISTANT CHATBOT -->
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-    <script src="../shared/vhs-ui.js?v=2.0.2"></script>
-    <script src="user-script.js?v=2.0.2"></script>
+    <script src="../shared/vhs-ui.js?v=2.0.3"></script>
+    <script src="user-script.js?v=2.0.3"></script>
   </body>
 </html>

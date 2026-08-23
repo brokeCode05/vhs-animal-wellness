@@ -1131,11 +1131,11 @@ body {
 }
 
 .appt-card {
-  background: #fff;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  margin-bottom: 0.875rem;
-  box-shadow: var(--shadow-sm);
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  margin-bottom: 1rem;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 1px 3px rgba(0, 0, 0, 0.03);
   overflow: hidden;
   transition: box-shadow 0.2s, border-color 0.2s;
 }
@@ -1227,13 +1227,39 @@ body {
   letter-spacing: 0.02em;
 }
 
+.appt-card-cutoff-note {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-top: 0.5rem;
+  padding: 0.4rem 0.6rem;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  border-radius: 6px;
+  font-size: 0.76rem;
+  color: #1e40af;
+  font-weight: 500;
+  line-height: 1.4;
+}
+
 .appt-card-footer {
   display: flex;
+  align-items: center;
   gap: 0.5rem;
-  padding: 0.65rem 1rem;
-  border-top: 1px solid var(--border);
-  background: var(--bg-light, #f8f9fa);
+  padding: 0.7rem 1rem;
+  border-top: 1px solid #f0f0f3;
+  background: #fafafa;
   flex-wrap: wrap;
+}
+
+.appt-card-footer .btn-small {
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  border-radius: 6px;
+}
+
+.appt-card-footer .btn-link {
+  margin-left: auto;
 }
 
 .btn-link {
@@ -1258,6 +1284,35 @@ body {
 
 .btn-danger:hover {
   background: linear-gradient(135deg, #f87171, #ef4444);
+}
+
+.btn-small.disabled,
+.btn-small[disabled] {
+  opacity: 0.45;
+  cursor: not-allowed;
+  pointer-events: none;
+  text-decoration: line-through;
+}
+
+/* ── 2-Hour Cutoff Info Modal ── */
+
+.cutoff-info {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 0.85rem 1rem;
+  background: #eff6ff;
+  border: 1px solid #93c5fd;
+  border-radius: 10px;
+  margin-bottom: 1rem;
+  font-size: 0.88rem;
+  color: #1e40af;
+  line-height: 1.6;
+}
+
+.cutoff-info svg {
+  flex-shrink: 0;
+  margin-top: 2px;
 }
 
 /* ── Reschedule / Cancel Modal Info ── */
