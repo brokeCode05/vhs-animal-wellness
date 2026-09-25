@@ -303,9 +303,32 @@
       record.append(element('p', 'No previous vaccinations or veterinary notes recorded.', 'helper'));
     }
     document.getElementById('selection-status').textContent = `${patient.name} is the active patient.`;
+    renderRecordActions(patient);
     if (moveFocus) {
       document.getElementById('record-heading').focus({ preventScroll: true });
       if (window.matchMedia('(max-width: 1000px)').matches) document.getElementById('record-heading').scrollIntoView({ block: 'start' });
+    }
+  }
+  // One status-driven action beside the EMR; the EMR itself stays read-only.
+  function renderRecordActions(patient) {
+    const wrap = document.getElementById('record-actions');
+    wrap.replaceChildren();
+    const status = statusFor(patient);
+    if (status === 'checked_in') {
+      const start = element('button', 'Start Consultation', 'btn-primary');
+      start.type = 'button';
+      start.addEventListener('click', () => startConsultation(patient));
+      wrap.append(start);
+    } else if (status === 'in_consultation') {
+      const cont = element('button', 'Continue Consultation', 'btn-primary');
+      cont.type = 'button';
+      cont.addEventListener('click', () => navigate('notes'));
+      wrap.append(cont);
+    } else if (status === 'completed') {
+      const view = element('button', 'View Clinical Document', 'btn-secondary');
+      view.type = 'button';
+      view.addEventListener('click', () => openPreview(patient));
+      wrap.append(view);
     }
   }
   // Clinic-list rows modeled on the Clerk appointments table: one compact
@@ -335,10 +358,26 @@
     } else if (status === 'in_consultation') {
       const timer = element('span', '', 'queue-timer');
       timer.dataset.elapsedFor = patient.id;
-      actionCell.append(timer);
+      const cont = element('button', 'Continue Consultation', 'btn-secondary btn-small');
+      cont.type = 'button';
+      cont.setAttribute('aria-label', `Continue consultation for ${patient.name}`);
+      cont.addEventListener('click', event => {
+        event.stopPropagation();
+        selectPatient(patient);
+        navigate('notes');
+      });
+      actionCell.append(timer, cont);
     } else if (status === 'completed') {
       const duration = draftFor(patient).durationMinutes;
-      actionCell.append(element('span', `Completed in ${duration != null ? duration + ' min' : '—'}`, 'q-done-note'));
+      const viewDoc = element('button', 'View Document', 'btn-secondary btn-small');
+      viewDoc.type = 'button';
+      viewDoc.setAttribute('aria-label', `View clinical document for ${patient.name}`);
+      viewDoc.addEventListener('click', event => {
+        event.stopPropagation();
+        selectPatient(patient, false);
+        openPreview(patient);
+      });
+      actionCell.append(element('span', `Completed in ${duration != null ? duration + ' min' : '—'}`, 'q-done-note'), viewDoc);
     }
     row.append(
       element('td', patient.time, 'q-time'),
@@ -517,71 +556,119 @@
     captureDraft();
     return draftFor(patient);
   }
-  function renderConsultationDocument(consultation) {
+  // Print-style clinical record, mirroring the User Portal's print document
+  // system (letterhead, bordered info grid, zebra table, signature block).
+  // TODO(BACKEND): The consultation object feeds server-side PDF generation;
+  // keep this renderer a pure function of the data model.
+  function renderConsultationDocument(c) {
     const body = document.getElementById('document-preview-body');
     body.replaceChildren();
-    const section = (title) => { const h = element('h3', title); return h; };
-    const defRow = (label, value) => {
-      const row = element('div', '', 'doc-row');
-      row.append(element('span', label, 'doc-label'), element('span', value || '—', 'doc-value'));
-      return row;
-    };
-    const patientSection = element('section', '', 'doc-section');
-    patientSection.append(section('Patient Information'));
-    const patientGrid = element('div', '', 'doc-grid');
-    [['Name', consultation.patient.name], ['Species', consultation.patient.species], ['Breed', consultation.patient.breed], ['Age', consultation.patient.age], ['Owner', consultation.patient.owner]]
-      .forEach(([label, value]) => patientGrid.append(defRow(label, value)));
+    const letterhead = element('div', '', 'print-letterhead');
+    const lhRow = element('div', '', 'print-letterhead-row');
+    const logo = element('img');
+    logo.src = '../web-page/image/vhs-assets/vhs-logo.png';
+    logo.alt = 'VHS logo';
+    logo.className = 'print-logo';
+    const clinicName = element('p', 'VHS Animal Wellness Center', 'print-clinic-name');
+    lhRow.append(logo, clinicName);
+    const clinicDetails = element('div');
+    ['834 Aurora Boulevard cor Driod Street, Kaunlaran, Cubao, Quezon City', '0917 108 4174 · vhs.animalwellness@gmail.com'].forEach(line => clinicDetails.append(element('p', line, 'print-clinic-detail')));
+    letterhead.append(lhRow, clinicDetails);
+
+    const title = element('h3', 'Clinical Consultation Record', 'print-doc-title');
+    const meta = element('div', '', 'print-meta-row');
+    meta.append(
+      element('span', `Reference: ${c.appointmentId}`),
+      element('span', `Generated: ${new Date().toLocaleString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: 'numeric', minute: '2-digit' })}`)
+    );
+
+    const patientSection = element('section', '', 'print-section');
+    patientSection.append(element('h4', 'Patient Information', 'print-section-title'));
+    const patientGrid = element('div', '', 'print-info-grid');
+    [['Name', c.patient.name], ['Species', c.patient.species], ['Breed', c.patient.breed], ['Age', c.patient.age], ['Owner', c.patient.owner]].forEach(([label, value]) => {
+      const item = element('div', '', 'print-info-item');
+      item.append(element('span', label, 'print-info-label'), element('span', value || '—', 'print-info-value'));
+      patientGrid.append(item);
+    });
     patientSection.append(patientGrid);
 
-    const appointmentSection = element('section', '', 'doc-section');
-    appointmentSection.append(section('Appointment Information'));
-    appointmentSection.append(defRow('Date & time', `${consultation.appointment.dateDisplay}, ${consultation.appointment.time}`));
-    appointmentSection.append(defRow('Service', consultation.appointment.service));
-    appointmentSection.append(defRow('Reason for visit', consultation.appointment.reason));
+    const apptSection = element('section', '', 'print-section');
+    apptSection.append(element('h4', 'Appointment Information', 'print-section-title'));
+    const apptGrid = element('div', '', 'print-info-grid');
+    const timeFmt = iso => new Date(iso).toLocaleTimeString('en-GB', { hour: 'numeric', minute: '2-digit' });
+    const consultationLine = c.status === 'completed' && c.completedAt
+      ? `Started ${timeFmt(c.startedAt)} · Completed ${timeFmt(c.completedAt)} · Duration ${c.duration ?? '—'} min`
+      : c.startedAt
+        ? `Ongoing · started ${timeFmt(c.startedAt)}`
+        : 'Not started';
+    [['Date & time', `${c.appointment.dateDisplay}, ${c.appointment.time}`], ['Service', c.appointment.service], ['Reason for visit', c.appointment.reason], ['Consultation', consultationLine]].forEach(([label, value]) => {
+      const item = element('div', '', 'print-info-item');
+      item.append(element('span', label, 'print-info-label'), element('span', value || '—', 'print-info-value'));
+      apptGrid.append(item);
+    });
+    apptSection.append(apptGrid);
 
-    const soapSection = element('section', '', 'doc-section');
-    soapSection.append(section('SOAP Notes'));
-    [['Subjective', consultation.soap.subjective], ['Objective (vitals & examination)', [consultation.soap.weight && `Weight: ${consultation.soap.weight} kg`, consultation.soap.temperature && `Temp: ${consultation.soap.temperature} °C`, consultation.soap.heartRate && `Heart rate: ${consultation.soap.heartRate} bpm`, consultation.soap.objective].filter(Boolean).join(' · ') || ''], ['Assessment', consultation.soap.assessment], ['Plan', consultation.soap.plan]]
-      .forEach(([label, value]) => soapSection.append(defRow(label, value)));
+    const soapSection = element('section', '', 'print-section');
+    soapSection.append(element('h4', 'SOAP Notes', 'print-section-title'));
+    const objectiveParts = [c.soap.weight && `Weight: ${c.soap.weight} kg`, c.soap.temperature && `Temperature: ${c.soap.temperature} °C`, c.soap.heartRate && `Heart rate: ${c.soap.heartRate} bpm`].filter(Boolean);
+    [['Subjective', c.soap.subjective], ['Objective', objectiveParts, c.soap.objective], ['Assessment', c.soap.assessment], ['Plan', c.soap.plan]].forEach(([label, parts, note]) => {
+      const block = element('div', '', 'print-soap-block');
+      block.append(element('span', label, 'print-soap-label'));
+      if (Array.isArray(parts) && parts.length) {
+        const vitals = element('p', parts.join(' · '), 'print-soap-text');
+        block.append(vitals);
+      }
+      const text = Array.isArray(parts) ? note : parts;
+      block.append(element('p', text || 'Not recorded.', 'print-soap-text'));
+      soapSection.append(block);
+    });
 
-    const prescriptionsSection = element('section', '', 'doc-section');
-    prescriptionsSection.append(section('Prescriptions'));
-    if (consultation.prescriptions.length) {
-      const table = element('table', '', 'doc-table');
+    const rxSection = element('section', '', 'print-section');
+    rxSection.append(element('h4', 'Prescriptions', 'print-section-title'));
+    if (c.prescriptions.length) {
+      const table = element('table', '', 'print-table');
       const head = element('thead');
       const headRow = element('tr');
       ['Medicine', 'Dosage', 'Frequency', 'Duration', 'Instructions'].forEach(label => headRow.append(element('th', label)));
       head.append(headRow);
       const tbody = element('tbody');
-      consultation.prescriptions.forEach(prescription => {
+      c.prescriptions.forEach(rx => {
         const row = element('tr');
-        [prescription.medicine, prescription.dosage, prescription.frequency, prescription.duration, prescription.instructions].forEach(value => row.append(element('td', value || '—')));
+        [rx.medicine, rx.dosage, rx.frequency, rx.duration, rx.instructions].forEach(value => row.append(element('td', value || '—')));
         tbody.append(row);
       });
       table.append(head, tbody);
-      prescriptionsSection.append(table);
+      rxSection.append(table);
     } else {
-      prescriptionsSection.append(element('p', 'No prescriptions recorded.', 'doc-empty'));
+      rxSection.append(element('p', 'No prescriptions recorded.', 'print-empty'));
     }
 
-    const labsSection = element('section', '', 'doc-section');
-    labsSection.append(section('Lab Requests'));
-    if (consultation.labRequests.length) {
-      consultation.labRequests.forEach(lab => labsSection.append(defRow(lab.test, lab.notes)));
+    const labSection = element('section', '', 'print-section');
+    labSection.append(element('h4', 'Lab Requests', 'print-section-title'));
+    if (c.labRequests.length) {
+      c.labRequests.forEach(lab => {
+        const item = element('div', '', 'print-lab-item');
+        item.append(element('span', lab.test, 'print-soap-label'), element('span', lab.notes || '', 'print-soap-text'));
+        labSection.append(item);
+      });
     } else {
-      labsSection.append(element('p', 'No lab requests recorded.', 'doc-empty'));
+      labSection.append(element('p', 'No lab requests recorded.', 'print-empty'));
     }
 
-    const vetSection = element('section', '', 'doc-section');
-    vetSection.append(section('Veterinarian'));
-    vetSection.append(defRow('Name', consultation.veterinarian.name));
-    vetSection.append(defRow('Role', consultation.veterinarian.role));
-    vetSection.append(defRow('Record updated', new Date(consultation.updatedAt).toLocaleString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: 'numeric', minute: '2-digit' })));
+    const footer = element('div', '', 'print-footer');
+    const vetBlock = element('div', '', 'print-sig-block');
+    vetBlock.append(element('div', '', 'print-sig-line'), element('p', c.veterinarian.name, 'print-sig-label'), element('p', 'Attending Veterinarian', 'print-sig-sub'));
+    const ownerBlock = element('div', '', 'print-sig-block');
+    ownerBlock.append(element('div', '', 'print-sig-line'), element('p', c.patient.owner, 'print-sig-label'), element('p', 'Pet Owner', 'print-sig-sub'));
+    footer.append(vetBlock, ownerBlock);
 
-    body.append(patientSection, appointmentSection, soapSection, prescriptionsSection, labsSection, vetSection);
+    const notice = element('p', 'This document is a preview of the consultation record. Confidential — for clinic and pet owner use only.', 'print-notice');
+
+    body.append(letterhead, title, meta, patientSection, apptSection, soapSection, rxSection, labSection, footer, notice);
   }
-  function openPreview() {
-    const consultation = buildConsultation(selectedPatient);
+  function openPreview(patient = selectedPatient) {
+    if (!patient) return;
+    const consultation = buildConsultation(patient);
     renderConsultationDocument(consultation);
     document.getElementById('document-preview-overlay').classList.add('show');
     document.getElementById('preview-close').focus();
@@ -593,7 +680,7 @@
   document.getElementById('locked-start').addEventListener('click', () => {
     if (selectedPatient) startConsultation(selectedPatient);
   });
-  document.getElementById('preview-document').addEventListener('click', openPreview);
+  document.getElementById('preview-document').addEventListener('click', () => openPreview(selectedPatient));
   document.getElementById('preview-close').addEventListener('click', closePreview);
   document.getElementById('preview-done').addEventListener('click', closePreview);
   document.getElementById('preview-print').addEventListener('click', () => window.print());

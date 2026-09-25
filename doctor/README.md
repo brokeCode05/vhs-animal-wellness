@@ -58,6 +58,16 @@ Tested the local HTTP preview at `http://127.0.0.1:8765/doctor/index.html` after
 
 No live backend or clinical correctness validation was performed; this phase covers frontend layout and workflow only.
 
+## Phase 1 action entry points + paper document — 25 September 2026
+
+Seventh pass: status-driven actions and a User-portal-style printable document. No layout redesign.
+
+- Removed "Write consultation notes" from the EMR; the EMR is read-only. One status-driven action sits beside it: Start Consultation (checked_in) → Continue Consultation (in_consultation) → View Clinical Document (completed); none for upcoming. Queue rows mirror this (Continue Consultation with live timer; View Document with "Completed in N min"), so no redundant duplicate buttons.
+- Document preview rebuilt on the User Portal's print-document system: letterhead (logo, clinic name, address/contact from the public site), centered uppercase title, reference/generated meta row, bordered 2-col info grids, labeled SOAP blocks with dotted dividers, zebra prescription table, lab list, dual signature blocks (veterinarian + owner), confidentiality notice. Paper-sheet proportions (~186mm, Segoe UI 10pt) on screen; @page margins and break-avoid rules for print; prints the document alone.
+- Document content is a pure render of the structured consultation object (TODO(BACKEND): server-side PDF generation) — appointmentId reference, consultation start/completion/duration line, no invented data.
+
+Verified in-browser at 1440/390: action matrix per status, document data accuracy (patient, appointment, SOAP, prescriptions, labs, signatures), paper layout on screen and in print CSS, gating unchanged, console clean, no overflow.
+
 ## Phase 1 clinical gating — 25 September 2026
 
 Sixth pass: workflow gating only, no UI redesign.
