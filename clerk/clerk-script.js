@@ -13,7 +13,10 @@
 ============================================ */
 
 // ─── APPOINTMENTS TABLE (clerk-specific render) ───────────────────────────────
-
+// Rows are normalized into the shared canonical appointment contract before
+// rendering, so check-in and future flows can rely on stable field names.
+// TODO(BACKEND): get_appointments.php does not return reference_no yet;
+// add it server-side rather than synthesizing it here.
 function renderAllAppointmentsTable(all) {
   var tbody = document.getElementById('allAppointmentsTable');
   if (!tbody) return;
@@ -21,21 +24,23 @@ function renderAllAppointmentsTable(all) {
     tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:#888;">No appointments yet.</td></tr>';
     return;
   }
-  tbody.innerHTML = all.map(function(a) {
+  var contract = window.AppointmentContract;
+  var rows = all.map(function(raw) {
+    var a = contract ? contract.toLegacyDisplay(contract.fromLegacy(raw)) : raw;
     var actions = '';
     if (a.status === 'pending') {
       actions =
-        '<button class="btn-small btn-success" onclick="approveAppointment(' + a.id + ')">Approve</button> ' +
-        '<button class="btn-small btn-danger"  onclick="rejectAppointment(' + a.id + ')">Reject</button>';
-    } else if (a.status === 'scheduled') {
+        '<button class="btn-small btn-success" onclick="approveAppointment(\'' + a.id + '\')">Approve</button> ' +
+        '<button class="btn-small btn-danger"  onclick="rejectAppointment(\'' + a.id + '\')">Reject</button>';
+    } else if (a.status === 'confirmed') {
       actions =
-        '<button class="btn-small btn-success" onclick="markComplete(' + a.id + ')">Complete</button> ' +
-        '<button class="btn-small btn-danger"  onclick="cancelAppointment(' + a.id + ')">Cancel</button>';
+        '<button class="btn-small btn-success" onclick="markComplete(\'' + a.id + '\')">Complete</button> ' +
+        '<button class="btn-small btn-danger"  onclick="cancelAppointment(\'' + a.id + '\')">Cancel</button>';
     } else {
-      actions = '<button class="btn-small" onclick="viewAppointment(' + a.id + ')">View</button>';
+      actions = '<button class="btn-small" onclick="viewAppointment(\'' + a.id + '\')">View</button>';
     }
     return '<tr data-id="' + a.id + '" data-status="' + a.status + '">' +
-      '<td>#A' + String(a.id).padStart(3, '0') + '</td>' +
+      '<td>#A' + String(a.id).slice(-3).padStart(3, '0') + '</td>' +
       '<td>' + formatDateTime(a.date, a.time) + '</td>' +
       '<td>' + (a.owner_name || '—') + '</td>' +
       '<td>' + (a.pet_name   || '—') + '</td>' +
@@ -44,7 +49,8 @@ function renderAllAppointmentsTable(all) {
       '<td>' + statusBadge(a.status) + '</td>' +
       '<td class="action-cell">' + actions + '</td>' +
       '</tr>';
-  }).join('');
+  });
+  tbody.innerHTML = rows.join('');
 }
 
 // ─── CLERK BOOKING MODAL ──────────────────────────────────────────────────────

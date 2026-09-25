@@ -326,7 +326,24 @@ function _fmtApptDate(date, time) {
 
   });
 
-  return time ? dateStr + " · " + time : dateStr;
+  if (!time) return dateStr;
+
+  // Canonical times are HH:MM; legacy 12-hour strings pass through as-is.
+  if (/^([01]\d|2[0-3]):[0-5]\d$/.test(time)) {
+
+    var tp = time.split(":");
+
+    var hour = parseInt(tp[0], 10);
+
+    var suffix = hour >= 12 ? "PM" : "AM";
+
+    hour = hour % 12 || 12;
+
+    return dateStr + " · " + hour + ":" + tp[1] + " " + suffix;
+
+  }
+
+  return dateStr + " · " + time;
 
 }
 
@@ -366,7 +383,8 @@ function renderApptRows(tbodyId, appts, cols) {
 
       var statusBadge = _apptStatusBadge(a.status);
 
-      var canCancel = a.status === "pending" || a.status === "scheduled";
+      var _ns = window.AppointmentContract ? window.AppointmentContract.normalizeStatus(a.status) : a.status;
+      var canCancel = _ns === 'pending' || _ns === 'confirmed';
 
 
 
@@ -802,20 +820,30 @@ function _finalizeBooking() {
   var _petDisplay = _petOpt ? _petOpt.text : 'Pet';
   var _petName = _petDisplay.replace(/\s*\([^)]*\)$/, '').trim() || 'Pet';
   var _petObj = mockPetsData.find(function(p) { return String(p.id) === String(payload.pet_id); });
+  var _user = _getSessionUser();
 
-  var newApt = {
-    id: 'apt' + String(mockAppointmentsData.length + 1).padStart(3, '0'),
-    pet_id: payload.pet_id,
-    pet_name: _petName,
-    pet_type: _petObj ? (_petObj.species || _petObj.type || '') : '',
-    pet_breed: _petObj ? (_petObj.breed || '') : '',
+  // Build the booking directly in the canonical appointment contract so the
+  // record carries stable field names from creation.
+  // TODO(BACKEND): Send the pending payload to book-appointment.php and use
+  // the returned appointment_id + reference_no instead of the local counter.
+  var canonical = window.AppointmentContract.fromLegacy({
+    appointmentId: 'apt' + String(mockAppointmentsData.length + 1).padStart(3, '0'),
+    referenceNo: refNo,
+    userId: (payload.user_id || _user.id || _user.userId || null),
+    petId: payload.pet_id,
     service: payload.service,
-    date: payload.appointment_date,
-    time: payload.appointment_time,
-    status: 'scheduled',
-    notes: payload.visit_reason + (payload.notes ? ' | ' + payload.notes : ''),
-    reference_no: refNo
-  };
+    appointmentDate: payload.appointment_date,
+    appointmentTime: payload.appointment_time,
+    visitContext: payload.visit_reason,
+    notes: payload.notes || '',
+    status: 'confirmed',
+    owner: { name: (_user.name || _user.first_name || '') , phone: _user.phone || '' },
+    pet: { name: _petName, species: _petObj ? (_petObj.species || _petObj.type || '') : '', breed: _petObj ? (_petObj.breed || '') : '' }
+  });
+
+  var newApt = window.AppointmentContract.toLegacyDisplay(canonical);
+  newApt.visit_reason = payload.visit_reason;
+  newApt.notes = payload.visit_reason + (payload.notes ? ' | ' + payload.notes : '');
 
   mockAppointmentsData.push(newApt);
   _pendingBookingPayload = null;
@@ -910,7 +938,7 @@ function viewAppt(id) {
   // Populate detail summary
   var detailEl = document.getElementById('apptDetails');
   if (detailEl) {
-    var statusMap = { pending: 'Scheduled', scheduled: 'Confirmed', completed: 'Completed', canceled: 'Cancelled', cancelled: 'Cancelled' };
+    var statusMap = { pending: 'Scheduled', scheduled: 'Confirmed', confirmed: 'Confirmed', completed: 'Completed', canceled: 'Cancelled', cancelled: 'Cancelled' };
     detailEl.innerHTML =
       '<div class="appt-detail-row"><span class="appt-detail-label">Reference No.</span><span class="appt-detail-val">' + escapeHtml(appt.reference_no || '—') + '</span></div>'
       + '<div class="appt-detail-row"><span class="appt-detail-label">Pet</span><span class="appt-detail-val">' + escapeHtml(appt.pet_name) + ' (' + escapeHtml(appt.pet_type) + (appt.pet_breed ? ' / ' + escapeHtml(appt.pet_breed) : '') + ')</span></div>'
@@ -1934,21 +1962,37 @@ function _fmtApptDateShort(dateStr) {
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
+function _fmtApptTimeShort(time) {
+  var t = String(time || '');
+  if (!t) return '';
+  if (/^([01]\d|2[0-3]):[0-5]\d$/.test(t)) {
+    var tp = t.split(':');
+    var hour = parseInt(tp[0], 10);
+    var suffix = hour >= 12 ? 'PM' : 'AM';
+    hour = hour % 12 || 12;
+    return hour + ':' + tp[1] + ' ' + suffix;
+  }
+  return t;
+}
+
 function _apptStatusBadge(status) {
-  var map = { pending: 'pending', scheduled: 'confirmed', completed: 'completed', canceled: 'cancelled', cancelled: 'cancelled' };
-  var cls = map[status] || 'pending';
-  var label = status ? status.charAt(0).toUpperCase() + status.slice(1) : '\u2014';
-  if (status === 'scheduled') label = 'Confirmed';
-  return '<span class="status-badge ' + cls + '">' + label + '</span>';
+  var canonical = window.AppointmentContract ? window.AppointmentContract.normalizeStatus(status) : status;
+  var map = { pending: 'pending', confirmed: 'confirmed', checked_in: 'confirmed', in_consultation: 'confirmed', completed: 'completed', canceled: 'cancelled', no_show: 'cancelled', rescheduled: 'pending' };
+  var labels = { pending: 'Pending', confirmed: 'Confirmed', checked_in: 'Checked In', in_consultation: 'In Consultation', completed: 'Completed', canceled: 'Cancelled', no_show: 'No Show', rescheduled: 'Rescheduled' };
+  var cls = map[canonical] || 'pending';
+  return '<span class="status-badge ' + cls + '">' + (labels[canonical] || canonical) + '</span>';
 }
 
 function renderAppointmentCards() {
   var now = new Date();
+  var normalize = window.AppointmentContract ? window.AppointmentContract.normalizeStatus : function(s) { return s; };
   var upcoming = mockAppointmentsData.filter(function(a) {
-    return a.status === 'pending' || a.status === 'scheduled';
+    var s = normalize(a.status);
+    return s === 'pending' || s === 'confirmed';
   }).sort(function(a, b) { return new Date(a.date) - new Date(b.date); });
   var past = mockAppointmentsData.filter(function(a) {
-    return a.status === 'completed' || a.status === 'canceled' || a.status === 'cancelled';
+    var s = normalize(a.status);
+    return s === 'completed' || s === 'canceled';
   }).sort(function(a, b) { return new Date(b.date) - new Date(a.date); });
 
   // Update dashboard stat
@@ -1970,14 +2014,14 @@ function _renderApptList(containerId, appts, mode) {
   }
   container.innerHTML = appts.map(function(a) {
     var dateStr = _fmtApptDateShort(a.date);
-    var canAct = a.status === 'pending' || a.status === 'scheduled';
+    var canAct = (window.AppointmentContract ? window.AppointmentContract.normalizeStatus(a.status) : a.status) === 'confirmed';
     var within2h = canAct && _isWithinTwoHours(a.date, a.time);
     var disabledCls = within2h ? ' disabled' : '';
     var disabledAttr = within2h ? ' disabled' : '';
     return (
       '<div class="appt-card">'
       + '<div class="appt-card-header">'
-      + '<span class="appt-datetime">' + dateStr + ' \u2022 ' + escapeHtml(a.time || '\u2014') + '</span>'
+      + '<span class="appt-datetime">' + dateStr + ' \u2022 ' + escapeHtml(_fmtApptTimeShort(a.time) || '\u2014') + '</span>'
       + _apptStatusBadge(a.status)
       + '</div>'
       + '<div class="appt-card-body">'
@@ -2016,14 +2060,12 @@ function switchApptTab(tab) {
 // Returns true if the appointment is within 2 hours of now (or already past)
 function _isWithinTwoHours(dateStr, timeStr) {
   if (!dateStr || !timeStr) return false;
-  // Parse time string like "10:30 AM" into hours/minutes
-  var parts = timeStr.trim().match(/(\d{1,2}):(\d{2})\s*(AM|PM)/i);
+  // Accepts canonical HH:MM and legacy "10:30 AM" strings.
+  var canonical = window.AppointmentContract ? window.AppointmentContract.timeToHHMM(timeStr) : timeStr;
+  var parts = String(canonical).trim().match(/^(\d{1,2}):(\d{2})/);
   if (!parts) return false;
   var hours = parseInt(parts[1], 10);
   var minutes = parseInt(parts[2], 10);
-  var ampm = parts[3].toUpperCase();
-  if (ampm === 'PM' && hours !== 12) hours += 12;
-  if (ampm === 'AM' && hours === 12) hours = 0;
   // Build a Date object for the appointment
   var apptParts = dateStr.split('-');
   var apptDate = new Date(parseInt(apptParts[0]), parseInt(apptParts[1]) - 1, parseInt(apptParts[2]), hours, minutes);
@@ -2184,7 +2226,7 @@ function openCancelModal(apptId) {
     info.innerHTML = '<div class="cancel-current">'
       + '<div class="cancel-current-row"><span>Pet</span><span>' + escapeHtml(appt.pet_name) + ' (' + escapeHtml(appt.pet_type) + ')</span></div>'
       + '<div class="cancel-current-row"><span>Service</span><span>' + escapeHtml(appt.service) + '</span></div>'
-      + '<div class="cancel-current-row"><span>Date & Time</span><span>' + _fmtApptDateShort(appt.date) + ' \u2022 ' + escapeHtml(appt.time) + '</span></div>'
+      + '<div class="cancel-current-row"><span>Date & Time</span><span>' + _fmtApptDateShort(appt.date) + ' \u2022 ' + escapeHtml(_fmtApptTimeShort(appt.time) || '—') + '</span></div>'
       + '</div>';
   }
   openModal('cancelModal');

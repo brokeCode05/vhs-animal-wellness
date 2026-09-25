@@ -10,7 +10,7 @@
   // (filtered by staff_id and today's date) once the endpoint exists.
   const mockSchedule = [
     {
-      appointment_id: 'apt301', pet_id: 1, checked_in: true,
+      appointment_id: 'apt301', pet_id: 1, status: 'checked_in', reference_no: 'VHS-20260924-A1B2C3',
       pet_name: 'Luna', pet_type: 'Cat', pet_breed: 'Persian', pet_age: '3 years',
       owner_name: 'Maria Santos',
       service: 'General Consultation', appointment_date: '2026-09-24', appointment_time: '9:00 AM',
@@ -23,7 +23,7 @@
       ]
     },
     {
-      appointment_id: 'apt302', pet_id: 2, checked_in: true,
+      appointment_id: 'apt302', pet_id: 2, status: 'checked_in', reference_no: 'VHS-20260924-D4E5F6',
       pet_name: 'Max', pet_type: 'Dog', pet_breed: 'Labrador retriever', pet_age: '5 years',
       owner_name: 'Sam Reyes',
       service: 'Emergency assessment', appointment_date: '2026-09-24', appointment_time: '9:30 AM',
@@ -36,7 +36,7 @@
       ]
     },
     {
-      appointment_id: 'apt303', pet_id: 3,
+      appointment_id: 'apt303', pet_id: 3, status: 'confirmed', reference_no: 'VHS-20260924-G7H8I9',
       pet_name: 'Milo', pet_type: 'Dog', pet_breed: 'Aspin', pet_age: '2 years',
       owner_name: 'Jamie Cruz',
       service: 'Wellness examination', appointment_date: '2026-09-24', appointment_time: '10:00 AM',
@@ -47,29 +47,43 @@
     }
   ];
 
-  // Data-mapping boundary between the booking-flow appointment shape and the
-  // doctor UI. If the User Portal appointment form changes, adapt here — not
-  // in the rendering code below.
-  // TODO(BACKEND): Map the JSON fields of the appointments endpoint response.
+  // Data-mapping boundary: fixtures/endpoint rows are normalized through the
+  // shared canonical appointment contract first, then projected into the
+  // doctor view model. Pet/EMR data rides separately from the appointment.
+  // TODO(BACKEND): Feed mockSchedule rows from get_appointments.php
+  // (referenceNo included) — this mapper then changes least.
   function mapAppointment(appt) {
+    const a = window.AppointmentContract.fromLegacy(appt);
     return {
-      id: appt.appointment_id,
-      name: appt.pet_name,
-      species: appt.pet_type,
-      breed: appt.pet_breed,
-      age: appt.pet_age,
-      owner: appt.owner_name,
-      time: appt.appointment_time,
-      date: appt.appointment_date,
-      dateDisplay: new Date(`${appt.appointment_date}T12:00:00`).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }),
-      service: appt.service,
-      reason: appt.visit_reason,
+      // Canonical appointment reference.
+      appointmentId: a.appointmentId,
+      referenceNo: a.referenceNo,
+      petId: a.petId,
+      assignedVetId: a.assignedVetId,
+      status: a.status,
+      checkedInAt: a.checkedInAt,
+      // Doctor view model (unchanged shape for the accepted UI).
+      id: a.appointmentId,
+      name: a.pet.name,
+      species: a.pet.species,
+      breed: a.pet.breed,
+      age: appt.pet_age || '',
+      owner: a.owner.name,
+      time: a.appointmentTime,
+      date: a.appointmentDate,
+      dateDisplay: new Date(`${a.appointmentDate}T12:00:00`).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }),
+      service: a.service,
+      reason: a.visitContext,
       severity: appt.ai_triage || 'Routine',
-      checkedIn: !!appt.checked_in,
+      checkedIn: a.status === 'checked_in' || !!appt.checked_in,
       aiSummary: appt.ai_summary || '',
+      // Pet/EMR domain — clinical history is not part of the appointment.
       history: appt.visits || []
     };
   }
+  // TODO(BACKEND): Keep this consultation record keyed by appointmentId;
+  // persist transitions server-side instead of local status flags.
+  function consultationRecord(patient) { return draftFor(patient); }
   const patients = mockSchedule.map(mapAppointment);
 
   const queue = document.getElementById('patient-queue');

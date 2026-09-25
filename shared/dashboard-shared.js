@@ -236,11 +236,15 @@ function capitalize(str) {
 
 function statusBadge(status) {
 
-  var map = { pending: 'pending', scheduled: 'scheduled', completed: 'completed', canceled: 'cancelled' };
+  // Accepts legacy and canonical values; renders the canonical lifecycle.
+  var canonical = window.AppointmentContract ? window.AppointmentContract.normalizeStatus(status) : String(status || '').toLowerCase();
+  var map = { pending: 'pending', confirmed: 'scheduled', checked_in: 'confirmed', in_consultation: 'confirmed', completed: 'completed', canceled: 'cancelled', no_show: 'cancelled', rescheduled: 'pending' };
 
-  var cls = map[status] || 'info';
+  var cls = map[canonical] || 'info';
 
-  return '<span class="status-badge ' + cls + '">' + capitalize(status) + '</span>';
+  var label = { checked_in: 'Checked In', in_consultation: 'In Consultation', no_show: 'No Show', rescheduled: 'Rescheduled' }[canonical] || capitalize(canonical);
+
+  return '<span class="status-badge ' + cls + '">' + label + '</span>';
 
 }
 
