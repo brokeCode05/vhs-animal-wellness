@@ -10,7 +10,7 @@
   // (filtered by staff_id and today's date) once the endpoint exists.
   const mockSchedule = [
     {
-      appointment_id: 'apt301', pet_id: 1,
+      appointment_id: 'apt301', pet_id: 1, checked_in: true,
       pet_name: 'Luna', pet_type: 'Cat', pet_breed: 'Persian', pet_age: '3 years',
       owner_name: 'Maria Santos',
       service: 'General Consultation', appointment_date: '2026-09-24', appointment_time: '9:00 AM',
@@ -23,7 +23,7 @@
       ]
     },
     {
-      appointment_id: 'apt302', pet_id: 2,
+      appointment_id: 'apt302', pet_id: 2, checked_in: true,
       pet_name: 'Max', pet_type: 'Dog', pet_breed: 'Labrador retriever', pet_age: '5 years',
       owner_name: 'Sam Reyes',
       service: 'Emergency assessment', appointment_date: '2026-09-24', appointment_time: '9:30 AM',
@@ -65,6 +65,7 @@
       service: appt.service,
       reason: appt.visit_reason,
       severity: appt.ai_triage || 'Routine',
+      checkedIn: !!appt.checked_in,
       aiSummary: appt.ai_summary || '',
       history: appt.visits || []
     };
@@ -79,24 +80,41 @@
   let selectedPatient = null;
   let medicineSequence = 0;
   // TODO(BACKEND): Veterinarian identity comes from the authenticated session.
-  const VETERINARIAN = { name: 'Dr. Santos', role: 'Veterinarian' };
+  const VETERINARIAN = { id: 'vet-001', name: 'Dr. Santos', role: 'Veterinarian' };
   const views = {
     patients: ['Today’s Patients', 'Select a patient to review their appointment and clinical history.'],
     notes: ['Consultation Notes', 'Document the active patient’s consultation using SOAP.'],
     orders: ['Prescriptions & Labs', 'Prepare medication instructions and internal test requests.']
   };
   let currentView = 'patients';
+  // Consultation lifecycle: upcoming → checked-in → in-consultation → completed.
+  // TODO(BACKEND): Status changes are local-only; the consultation API owns
+  // the real lifecycle and timestamps once connected.
+  const STATUS_LABELS = { upcoming: 'Upcoming', 'checked-in': 'Checked In', 'in-consultation': 'In Consultation', completed: 'Completed' };
+  function statusFor(patient) {
+    const draft = draftFor(patient);
+    if (draft.status) return draft.status;
+    return patient.checkedIn ? 'checked-in' : 'upcoming';
+  }
   // Time-based greeting for the patients view; other views keep their titles.
   function greeting() {
     const hour = new Date().getHours();
     return `${hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening'}, ${VETERINARIAN.name}`;
+  }
+  // Practical doctor-facing header line: schedule size plus the next patient
+  // already waiting in the lobby.
+  function greetingSubtitle() {
+    const scheduled = patients.length;
+    const waiting = patients.find(p => statusFor(p) === 'checked-in');
+    if (waiting) return `You have ${scheduled} patients scheduled today. ${waiting.name} is checked in and waiting at ${waiting.time}.`;
+    return `You have ${scheduled} patients scheduled today.`;
   }
   function renderHeader(view) {
     const title = document.getElementById('view-title');
     const subtitle = document.getElementById('view-description');
     if (view === 'patients') {
       title.textContent = greeting();
-      subtitle.textContent = longDateTime();
+      subtitle.textContent = greetingSubtitle();
     } else {
       title.textContent = views[view][0];
       subtitle.textContent = views[view][1];
@@ -108,8 +126,7 @@
     document.querySelectorAll('[data-panel]').forEach(panel => { panel.hidden = panel.dataset.panel !== view; });
     form.hidden = view === 'patients';
     document.getElementById('patient-context').hidden = view === 'patients';
-    document.getElementById('view-title').textContent = view === 'patients' ? greeting() : views[view][0];
-    document.getElementById('view-description').textContent = view === 'patients' ? longDateTime() : views[view][1];
+    renderHeader(view);
     currentView = view;
     document.title = `${views[view][0]} - VHS Doctor`;
     document.querySelectorAll('.sidebar-nav [data-view]').forEach(link => {
@@ -130,8 +147,18 @@
   }
   const emptyMedicine = () => ({ medicine: '', dosage: '', frequency: '', duration: '', instructions: '' });
   function draftFor(patient) {
-    if (!drafts.has(patient.id)) drafts.set(patient.id, { fields: {}, medicines: [emptyMedicine()], labs: [], reviewed: false, saved: false, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() });
+    if (!drafts.has(patient.id)) drafts.set(patient.id, { fields: {}, medicines: [emptyMedicine()], labs: [], reviewed: false, saved: false, status: '', startedAt: null, completedAt: null, durationMinutes: null, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() });
     return drafts.get(patient.id);
+  }
+  // Elapsed minutes between two timestamps, for the consultation record.
+  function durationBetween(startIso, endIso) {
+    return Math.max(0, Math.round((new Date(endIso) - new Date(startIso)) / 60000));
+  }
+  function formatElapsed(startIso, now = new Date()) {
+    const totalSeconds = Math.max(0, Math.floor((now - new Date(startIso)) / 1000));
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+    return `${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
   }
   function captureDraft() {
     if (!selectedPatient) return;
@@ -221,6 +248,20 @@
     document.getElementById('ai-summary').textContent = patient.aiSummary;
     document.getElementById('context-name').textContent = patient.name;
     document.getElementById('context-appointment').textContent = `${patient.species} · ${patient.breed} · ${patient.dateDisplay}, ${patient.time} · ${patient.service}`;
+    const timerLine = document.getElementById('context-timer');
+    if (draft.status === 'in-consultation' && draft.startedAt) {
+      const startClock = new Date(draft.startedAt).toLocaleTimeString('en-GB', { hour: 'numeric', minute: '2-digit' });
+      timerLine.hidden = false;
+      timerLine.replaceChildren(
+        element('span', STATUS_LABELS[draft.status], `appt-status in-consultation`),
+        element('span', ` · Started ${startClock} · `),
+        element('span', formatElapsed(draft.startedAt), 'timer-value')
+      );
+      timerLine.querySelector('.timer-value').dataset.elapsedFor = patient.id;
+    } else {
+      timerLine.hidden = true;
+      timerLine.replaceChildren();
+    }
     document.getElementById('draft-state').textContent = draft.saved ? 'Saved on this device' : 'Unsaved draft';
     document.getElementById('save-status').textContent = '';
     queue.querySelectorAll('.queue-row').forEach(row => row.setAttribute('aria-pressed', String(row.dataset.patientId === patient.id)));
@@ -257,20 +298,42 @@
   // row per appointment, scannable columns, selected row in the VHS active
   // treatment (accent tint + left marker). Rows are focusable and respond
   // to Enter/Space like the buttons they replace.
-  patients.forEach(patient => {
+  function renderQueueRow(patient) {
     const row = element('tr', '', `queue-row ${patient.severity.toLowerCase()}`);
     row.tabIndex = 0;
     row.dataset.patientId = patient.id;
-    row.setAttribute('aria-pressed', 'false');
-    row.setAttribute('aria-label', `${patient.time}, ${patient.name}, owner ${patient.owner}, ${patient.service}, triage ${patient.severity}. Select to open record.`);
+    const status = statusFor(patient);
+    row.setAttribute('aria-pressed', String(selectedPatient && selectedPatient.id === patient.id));
+    row.setAttribute('aria-label', `${patient.time}, ${patient.name}, owner ${patient.owner}, ${patient.service}, triage ${patient.severity}, ${STATUS_LABELS[status]}. Select to open record.`);
     const badgeCell = element('td');
     badgeCell.append(element('span', patient.severity, `severity ${patient.severity.toLowerCase()}`));
+    const statusCell = element('td');
+    statusCell.append(element('span', STATUS_LABELS[status], `appt-status ${status}`));
+    const actionCell = element('td', '', 'q-action');
+    if (status === 'checked-in') {
+      const start = element('button', 'Start Consultation', 'btn-primary btn-small');
+      start.type = 'button';
+      start.addEventListener('click', event => {
+        event.stopPropagation();
+        startConsultation(patient);
+      });
+      actionCell.append(start);
+    } else if (status === 'in-consultation') {
+      const timer = element('span', '', 'queue-timer');
+      timer.dataset.elapsedFor = patient.id;
+      actionCell.append(timer);
+    } else if (status === 'completed') {
+      const duration = draftFor(patient).durationMinutes;
+      actionCell.append(element('span', `Completed in ${duration != null ? duration + ' min' : '—'}`, 'q-done-note'));
+    }
     row.append(
       element('td', patient.time, 'q-time'),
       element('td', patient.name, 'q-name'),
       element('td', patient.owner, 'q-owner'),
       element('td', patient.service, 'q-service'),
-      badgeCell
+      badgeCell,
+      statusCell,
+      actionCell
     );
     const activate = () => selectPatient(patient);
     row.addEventListener('click', activate);
@@ -280,8 +343,40 @@
         activate();
       }
     });
-    queue.append(row);
-  });
+    return row;
+  }
+  function renderQueue() {
+    queue.replaceChildren(...patients.map(renderQueueRow));
+  }
+  renderQueue();
+  // Start is an explicit action, never a side effect of selecting a patient.
+  // TODO(BACKEND): Record startedAt through the consultation API.
+  function startConsultation(patient) {
+    const draft = draftFor(patient);
+    if (draft.status === 'in-consultation' || draft.status === 'completed') return;
+    captureDraft();
+    draft.status = 'in-consultation';
+    draft.startedAt = new Date().toISOString();
+    draft.completedAt = null;
+    draft.durationMinutes = null;
+    draft.updatedAt = draft.startedAt;
+    renderQueue();
+    selectPatient(patient);
+    document.getElementById('save-status').textContent = `Consultation started for ${patient.name}. Timer is running.`;
+    navigate('notes');
+  }
+  // One tick updates every visible elapsed readout; state is derived from
+  // startedAt, so navigation never pauses or restarts the timer.
+  function tickTimers() {
+    const now = new Date();
+    patients.forEach(patient => {
+      const draft = draftFor(patient);
+      if (draft.status !== 'in-consultation' || !draft.startedAt) return;
+      const elapsed = formatElapsed(draft.startedAt, now);
+      document.querySelectorAll(`[data-elapsed-for="${patient.id}"]`).forEach(node => { node.textContent = elapsed; });
+    });
+  }
+  setInterval(tickTimers, 1000);
   document.getElementById('queue-meta').textContent = `${patients[0].dateDisplay} · ${patients.length} appointments`;
   form.addEventListener('input', event => {
     if (event.target.id === 'reviewed') {
@@ -333,6 +428,38 @@
     // and enable front-desk handoff once the API exists.
     status.textContent = 'Draft saved on this device.';
   });
+  // Complete ends the lifecycle: stop the timer, record end time + duration.
+  // TODO(BACKEND): Finalize through the consultation API; the backend then
+  // releases the record to Clerk/Admin and the owner's account.
+  document.getElementById('complete-consultation').addEventListener('click', () => {
+    const draft = draftFor(selectedPatient);
+    const status = document.getElementById('save-status');
+    if (draft.status === 'completed') { status.textContent = 'This consultation is already completed.'; return; }
+    if (draft.status !== 'in-consultation') { status.textContent = 'Start the consultation before completing it.'; return; }
+    captureDraft();
+    const incomplete = draft.medicines.find(m => {
+      const core = [m.medicine, m.dosage, m.frequency, m.duration];
+      return core.some(v => v.trim()) && core.some(v => !v.trim());
+    });
+    if (incomplete) {
+      history.replaceState(null, '', '#orders');
+      showView('orders', false);
+      status.textContent = 'Complete the medicine, dosage, frequency, and duration, or remove the incomplete row.';
+      return;
+    }
+    draft.status = 'completed';
+    draft.completedAt = new Date().toISOString();
+    draft.durationMinutes = durationBetween(draft.startedAt, draft.completedAt);
+    draft.saved = true;
+    draft.updatedAt = draft.completedAt;
+    renderQueue();
+    renderHeader(currentView);
+    const timerLine = document.getElementById('context-timer');
+    timerLine.hidden = true;
+    timerLine.replaceChildren();
+    document.getElementById('draft-state').textContent = 'Saved on this device';
+    status.textContent = `Consultation completed for ${selectedPatient.name}. Duration: ${draft.durationMinutes} min. Sending to the front desk requires backend integration.`;
+  });
   // Structured consultation object built from the appointment record plus the
   // captured draft — the same shape a consultation endpoint would receive.
   // TODO(BACKEND): POST/PUT this object to the consultation API when the
@@ -341,9 +468,19 @@
   function buildConsultation(patient) {
     const draft = captureAndReturnDraft(patient);
     const soapEntries = (value) => value && value.trim() ? value.trim() : '';
+    // Structured consultation record — the shape the backend consultation
+    // endpoint will receive. TODO(BACKEND): POST/PUT this object; the API
+    // owns appointmentId/patientId/veterinarianId joins and persistence.
     return {
-      patient: { id: patient.id, name: patient.name, species: patient.species, breed: patient.breed, age: patient.age, owner: patient.owner },
-      appointment: { id: patient.id, date: patient.date, dateDisplay: patient.dateDisplay, time: patient.time, service: patient.service, reason: patient.reason },
+      appointmentId: patient.id,
+      patientId: patient.id,
+      veterinarianId: VETERINARIAN.id,
+      patient: { name: patient.name, species: patient.species, breed: patient.breed, age: patient.age, owner: patient.owner },
+      appointment: { date: patient.date, dateDisplay: patient.dateDisplay, time: patient.time, service: patient.service, reason: patient.reason },
+      status: draft.status || statusFor(patient),
+      startedAt: draft.startedAt,
+      completedAt: draft.completedAt,
+      duration: draft.durationMinutes,
       soap: {
         subjective: soapEntries(draft.fields.subjective),
         weight: soapEntries(draft.fields.weight), temperature: soapEntries(draft.fields.temperature), heartRate: soapEntries(draft.fields.heartRate),
@@ -354,7 +491,6 @@
       prescriptions: draft.medicines.filter(m => m.medicine.trim()).map(m => ({ medicine: m.medicine.trim(), dosage: m.dosage.trim(), frequency: m.frequency.trim(), duration: m.duration.trim(), instructions: m.instructions.trim() })),
       labRequests: draft.labs.map(name => ({ test: name, notes: '' })),
       veterinarian: { name: VETERINARIAN.name, role: VETERINARIAN.role },
-      status: draft.saved ? 'finalized-draft' : 'in-progress',
       createdAt: draft.createdAt,
       updatedAt: draft.updatedAt
     };
@@ -510,7 +646,6 @@
     const now = new Date();
     document.getElementById('current-date').textContent = longDateTime(now);
     document.getElementById('current-time').textContent = clockTime(now);
-    if (currentView === 'patients') document.getElementById('view-description').textContent = `${DAYS[now.getDay()]}, ${MONTHS[now.getMonth()]} ${now.getDate()}, ${now.getFullYear()} · ${clockTime(now)}`;
   }
   updateClock();
   setInterval(updateClock, 1000);

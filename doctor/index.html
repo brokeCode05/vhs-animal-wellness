@@ -36,7 +36,7 @@
         <div class="availability"><label class="form-label" for="availability">New assignments</label><select class="form-select" id="availability"><option>On-Duty</option><option>On Break</option><option>On Leave</option></select><p id="availability-status" class="helper" role="status">Accepting new assignments</p></div>
       </div>
       <div id="patient-context" class="patient-context" hidden>
-        <div><span class="context-label">Active patient</span><h2 id="context-name">Luna</h2><p id="context-appointment"></p></div>
+        <div><span class="context-label">Active patient</span><h2 id="context-name">Luna</h2><p id="context-appointment"></p><p id="context-timer" class="consultation-timer" hidden></p></div>
         <button class="btn-secondary" type="button" data-view="patients">Change patient</button>
       </div>
       <div class="workspace-grid" id="patients-view" data-panel="patients">
@@ -45,7 +45,7 @@
           <p class="helper" id="queue-meta"></p>
           <div class="table-wrapper">
             <table class="compact-table" aria-describedby="queue-meta">
-              <thead><tr><th scope="col">Time</th><th scope="col">Patient</th><th scope="col">Owner</th><th scope="col">Service</th><th scope="col">Triage</th></tr></thead>
+              <thead><tr><th scope="col">Time</th><th scope="col">Patient</th><th scope="col">Owner</th><th scope="col">Service</th><th scope="col">Triage</th><th scope="col">Status</th><th scope="col">Action</th></tr></thead>
               <tbody id="patient-queue"></tbody>
             </table>
           </div>
@@ -81,7 +81,7 @@
         </section>
         <div class="draft-footer">
           <div class="review-check"><label><input type="checkbox" id="reviewed" name="reviewed"> I have reviewed this consultation draft.</label></div>
-          <div class="draft-actions"><div><strong id="draft-state">Unsaved draft</strong><p class="helper">Drafts reset on reload.</p></div><button class="btn-primary" type="submit">Save draft</button><button class="btn-secondary" type="button" id="preview-document">Preview Clinical Document</button><button class="btn-secondary" type="button" disabled aria-describedby="handoff-note">Send to Front Desk</button></div>
+          <div class="draft-actions"><div><strong id="draft-state">Unsaved draft</strong><p class="helper">Drafts reset on reload.</p></div><button class="btn-secondary" type="submit">Save draft</button><button class="btn-secondary" type="button" id="preview-document">Preview Clinical Document</button><button class="btn-primary" type="button" id="complete-consultation">Complete Consultation</button><button class="btn-secondary" type="button" disabled aria-describedby="handoff-note">Send to Front Desk</button></div>
           <p id="handoff-note" class="helper">Sending requires backend integration.</p>
           <p id="save-status" role="status"></p>
         </div>

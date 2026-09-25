@@ -58,6 +58,18 @@ Tested the local HTTP preview at `http://127.0.0.1:8765/doctor/index.html` after
 
 No live backend or clinical correctness validation was performed; this phase covers frontend layout and workflow only.
 
+## Phase 1 consultation lifecycle — 25 September 2026
+
+Fifth pass: workflow states and consultation timer.
+
+- Greeting card subtitle no longer duplicates the navbar clock; it now shows a practical line ("You have 3 patients scheduled today. Luna is checked in and waiting at 9:00 AM.") derived from queue state.
+- Queue gains Status (Upcoming / Checked In / In Consultation / Completed) and Action columns; Checked In rows show "Start Consultation". Starting is an explicit action — never a side effect of selecting a patient — and records a frontend `startedAt`, flips status to In Consultation, and opens Consultation Notes.
+- One 1s tick derives elapsed time from `startedAt` and updates every `[data-elapsed-for]` readout (queue row + context bar), so the timer continues unchanged across view navigation. The quiet context-bar line shows status, start clock, and elapsed.
+- "Complete Consultation" (primary, after Preview in the action row) validates drafts, records `completedAt` and `durationMinutes`, stops the timer, refreshes the queue/greeting, and requires an active consultation (premature completion is blocked with a message).
+- Consultation object now carries `appointmentId / patientId / veterinarianId / status / startedAt / completedAt / duration / soap / prescriptions / labRequests` (TODO(BACKEND) marked); the document preview renders from it.
+
+Verified in-browser at 1440/390: full lifecycle Upcoming → Checked In → Start → In Consultation (timer survives navigation) → Preview → Complete → Completed; premature-complete blocked; selecting a patient never starts a timer; no console errors; no horizontal overflow.
+
 ## Phase 1 greeting + clinical document preview — 25 September 2026
 
 Fourth pass: contextual header and the document preview step.

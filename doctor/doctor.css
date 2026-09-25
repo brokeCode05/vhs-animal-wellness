@@ -73,6 +73,17 @@ body.doctor-portal { line-height: 1.5; }
 .severity.urgent { background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%); color: #92400e; border: 1px solid #f0c33c; }
 .severity.emergency { background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%); color: #991b1b; border: 1px solid #f87171; }
 
+/* Appointment lifecycle badges — same pill recipe, neutral-to-purple family. */
+.appt-status { display: inline-block; padding: 0.3rem 0.75rem; border-radius: 14px; font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em; white-space: nowrap; background: #f3f4f6; color: #4b5563; border: 1px solid #d1d5db; }
+.appt-status.checked-in { background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%); color: #1e40af; border: 1px solid #93c5fd; }
+.appt-status.in-consultation { background: var(--accent-badge-bg); color: var(--accent-dark); border: 1px solid var(--accent-badge-border); }
+.appt-status.completed { background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%); color: #065f46; border: 1px solid #6ee7b7; }
+.q-action { white-space: nowrap; }
+.q-action .btn-small { padding: 0.35rem 0.75rem; min-height: 32px; font-size: 0.8rem; }
+.q-done-note { font-size: 0.8rem; color: #756781; }
+.consultation-timer { display: flex; align-items: center; gap: 0.4rem; margin-top: 0.35rem; font-size: 0.85rem; color: #594967; }
+.consultation-timer .timer-value { font-weight: 800; font-variant-numeric: tabular-nums; color: var(--accent-dark); }
+
 /* ===== SELECTED PATIENT / CONTEXT BAR ===== */
 .patient-context {
   display: flex; align-items: center; justify-content: space-between; gap: 1rem;
@@ -265,6 +276,8 @@ input[type='checkbox'] { width: 17px; height: 17px; accent-color: var(--accent-d
   .availability { flex-basis: auto; width: 100%; }
   .vitals-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .medicine-row { grid-template-columns: 1fr 1fr; }
+  .doctor-portal .compact-table td.q-owner,
+  .doctor-portal .compact-table thead th:nth-child(3) { display: none; }
 }
 @media (max-width: 768px) {
   html, body { overflow-x: hidden; max-width: 100vw; }
@@ -293,11 +306,13 @@ input[type='checkbox'] { width: 17px; height: 17px; accent-color: var(--accent-d
   .doc-label { flex: 0 0 auto; }
   .doc-grid { grid-template-columns: 1fr; }
   .document-body { padding: 1rem; }
-  /* Compact clinic list on phones: Time · Patient · Triage. */
+  /* Compact clinic list on phones: Time · Patient · Status · Action. */
   .doctor-portal .compact-table td.q-service,
   .doctor-portal .compact-table td.q-owner,
+  .doctor-portal .compact-table td:nth-child(5),
   .doctor-portal .compact-table thead th:nth-child(3),
-  .doctor-portal .compact-table thead th:nth-child(4) { display: none; }
+  .doctor-portal .compact-table thead th:nth-child(4),
+  .doctor-portal .compact-table thead th:nth-child(5) { display: none; }
 }
 @media (max-width: 420px) {
   .medicine-row, .vitals-grid { grid-template-columns: 1fr; }
