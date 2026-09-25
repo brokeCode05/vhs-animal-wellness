@@ -58,6 +58,18 @@ Tested the local HTTP preview at `http://127.0.0.1:8765/doctor/index.html` after
 
 No live backend or clinical correctness validation was performed; this phase covers frontend layout and workflow only.
 
+## Phase 1 production-readiness refinement — 25 September 2026
+
+Second pass on `doctor-portal-phase1-refinement`, focused on removing prototype wording and tightening the clinical form.
+
+- All demo/prototype labels removed from the UI (no "Demo data" badge, no "local draft/local only" wording). Mock behavior remains in code only, marked with `TODO(BACKEND)` comments.
+- Appointment fixtures reshaped to the User Portal booking flow (`appointment_id/pet_id/service/appointment_date/appointment_time/visit_reason` + owner and pet details from the pet record) behind a single `mapAppointment()` boundary in `doctor.js`; EMR dates now come from `appointment_date` instead of a hardcoded string.
+- "Patient Workspace" renamed to "Today's Patients" (sidebar: "Today's patients"); queue rows now show owner name; AI triage badge shown without the "AI triage:" prefix.
+- SOAP form: full-width quiet "AI-assisted summary" strip above the grid (assistive wording, no live AI claim), S/O/A/P headers with letter chip, name, hint, and hairline divider; vitals stay a structured 3-input row.
+- Draft wording is device-honest: "Save draft" → "Saved on this device"; Send to Front Desk stays disabled with a short unavailable note.
+
+Verified in-browser: three views, per-patient draft retention across views and patients, save flow (saved → edit resets to unsaved), no console errors, no horizontal overflow at 1440/768/390.
+
 ## Phase 1 consistency pass — 25 September 2026
 
 Goal: make Doctor inherit the same VHS design system as User/Clerk/Admin instead of overriding it. Inspection of `shared/dashboard-theme.css`, `admin/admin-style.css`, and the role accent files showed Doctor was flattening shared system styles (gradient navbar, gradient primary buttons, shared focus rings, nav hover slide, hover-reveal section markers). This pass removes those flattening overrides.

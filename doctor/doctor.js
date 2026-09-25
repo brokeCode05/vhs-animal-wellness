@@ -1,17 +1,76 @@
-/* Fictional fixtures only. No API, AI service, persistence, or handoff. */
+/* Doctor Portal workflow. UI renders from mapAppointment() output only. */
 (() => {
   'use strict';
-  const patients = [
-    { id: 'sample-luna', name: 'Luna', owner: 'Alex Santos', species: 'Cat', breed: 'Domestic shorthair', age: '3 years', time: '9:00 AM', service: 'Consultation', severity: 'Urgent', reason: 'Owner reports reduced appetite and repeated vomiting since yesterday.', history: [
-      { date: '2026-06-12', title: 'Veterinary note', note: 'Routine examination recorded; owner reported normal appetite and activity.' },
-      { date: '2026-03-10', title: 'Vaccination', note: 'Rabies vaccination recorded.' }
-    ] },
-    { id: 'sample-max', name: 'Max', owner: 'Sam Reyes', species: 'Dog', breed: 'Labrador retriever', age: '5 years', time: '9:30 AM', service: 'Emergency assessment', severity: 'Emergency', reason: 'Owner reports difficulty breathing. Requires immediate veterinarian review.', history: [
-      { date: '2026-07-21', title: 'Veterinary note', note: 'Follow-up examination recorded; no new concerns reported at that visit.' },
-      { date: '2026-02-05', title: 'Vaccination', note: 'Rabies vaccination recorded.' }
-    ] },
-    { id: 'sample-milo', name: 'Milo', owner: 'Jamie Cruz', species: 'Dog', breed: 'Aspin', age: '2 years', time: '10:00 AM', service: 'Wellness examination', severity: 'Routine', reason: 'Scheduled wellness visit; owner reports no current concerns.', history: [] }
+
+  // Central mock schedule, shaped like the User Portal booking flow
+  // (user_id/pet_id/service/appointment_date/appointment_time/visit_reason —
+  // see php_files/book-appointment.php). Keeping one fixture list here keeps
+  // mock data out of the UI code.
+  // TODO(BACKEND): Replace with the get_appointments.php response
+  // (filtered by staff_id and today's date) once the endpoint exists.
+  const mockSchedule = [
+    {
+      appointment_id: 'apt301', pet_id: 1,
+      pet_name: 'Luna', pet_type: 'Cat', pet_breed: 'Persian', pet_age: '3 years',
+      owner_name: 'Maria Santos',
+      service: 'General Consultation', appointment_date: '2026-09-24', appointment_time: '9:00 AM',
+      visit_reason: 'Owner reports reduced appetite and repeated vomiting since yesterday.',
+      ai_triage: 'Urgent',
+      ai_summary: 'Vomiting and reduced appetite over 24 hours in a young adult cat. Same-day assessment recommended; check hydration and consider dietary history.',
+      visits: [
+        { date: '2026-06-12', title: 'Veterinary note', note: 'Routine examination recorded; owner reported normal appetite and activity.' },
+        { date: '2026-03-10', title: 'Vaccination', note: 'Rabies vaccination recorded.' }
+      ]
+    },
+    {
+      appointment_id: 'apt302', pet_id: 2,
+      pet_name: 'Max', pet_type: 'Dog', pet_breed: 'Labrador retriever', pet_age: '5 years',
+      owner_name: 'Sam Reyes',
+      service: 'Emergency assessment', appointment_date: '2026-09-24', appointment_time: '9:30 AM',
+      visit_reason: 'Owner reports difficulty breathing since early morning.',
+      ai_triage: 'Emergency',
+      ai_summary: 'Acute breathing difficulty in a middle-aged dog. Immediate veterinarian evaluation required; prepare for possible oxygen support and thoracic imaging.',
+      visits: [
+        { date: '2026-07-21', title: 'Veterinary note', note: 'Follow-up examination recorded; no new concerns reported at that visit.' },
+        { date: '2026-02-05', title: 'Vaccination', note: 'Rabies vaccination recorded.' }
+      ]
+    },
+    {
+      appointment_id: 'apt303', pet_id: 3,
+      pet_name: 'Milo', pet_type: 'Dog', pet_breed: 'Aspin', pet_age: '2 years',
+      owner_name: 'Jamie Cruz',
+      service: 'Wellness examination', appointment_date: '2026-09-24', appointment_time: '10:00 AM',
+      visit_reason: 'Scheduled wellness visit; owner reports no current concerns.',
+      ai_triage: 'Routine',
+      ai_summary: 'Young adult dog presenting for routine wellness examination; no reported concerns. Review vaccination schedule and weight trend.',
+      visits: []
+    }
   ];
+
+  // Data-mapping boundary between the booking-flow appointment shape and the
+  // doctor UI. If the User Portal appointment form changes, adapt here — not
+  // in the rendering code below.
+  // TODO(BACKEND): Map the JSON fields of the appointments endpoint response.
+  function mapAppointment(appt) {
+    return {
+      id: appt.appointment_id,
+      name: appt.pet_name,
+      species: appt.pet_type,
+      breed: appt.pet_breed,
+      age: appt.pet_age,
+      owner: appt.owner_name,
+      time: appt.appointment_time,
+      date: appt.appointment_date,
+      dateDisplay: new Date(`${appt.appointment_date}T12:00:00`).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }),
+      service: appt.service,
+      reason: appt.visit_reason,
+      severity: appt.ai_triage || 'Routine',
+      aiSummary: appt.ai_summary || '',
+      history: appt.visits || []
+    };
+  }
+  const patients = mockSchedule.map(mapAppointment);
+
   const queue = document.getElementById('patient-queue');
   const record = document.getElementById('patient-record');
   const form = document.getElementById('consultation-form');
@@ -20,7 +79,7 @@
   let selectedPatient = null;
   let medicineSequence = 0;
   const views = {
-    patients: ['Patient Workspace', 'Select a patient to review their appointment and clinical history.'],
+    patients: ['Today’s Patients', 'Select a patient to review their appointment and clinical history.'],
     notes: ['Consultation Notes', 'Document the active patient’s consultation using SOAP.'],
     orders: ['Prescriptions & Labs', 'Prepare medication instructions and internal test requests.']
   };
@@ -39,7 +98,8 @@
       if (active) link.setAttribute('aria-current', 'page');
       else link.removeAttribute('aria-current');
     });
-    closeMobileSidebar();    if (moveFocus) {
+    closeMobileSidebar();
+    if (moveFocus) {
       document.getElementById('view-title').focus({ preventScroll: true });
       window.scrollTo({ top: 0, behavior: 'instant' });
     }
@@ -71,7 +131,7 @@
     // Any clinical edit invalidates the prior review acknowledgement.
     document.getElementById('reviewed').checked = false;
     captureDraft();
-    document.getElementById('draft-state').textContent = 'Unsaved local draft';
+    document.getElementById('draft-state').textContent = 'Unsaved draft';
     document.getElementById('save-status').textContent = '';
   }
   function addMedicine(values = emptyMedicine()) {
@@ -103,7 +163,7 @@
     document.getElementById('medicine-list').append(row);
     return row;
   }
-  // Text is assigned through textContent so future record strings are not HTML.
+  // Text is assigned through textContent so record strings are never HTML.
   function element(tag, text, className) {
     const node = document.createElement(tag);
     if (text) node.textContent = text;
@@ -119,10 +179,10 @@
     draft.medicines.forEach(addMedicine);
     form.querySelectorAll('[name="labs"]').forEach(input => { input.checked = draft.labs.includes(input.value); });
     document.getElementById('reviewed').checked = draft.reviewed;
-    document.getElementById('ai-summary').textContent = patient.reason;
+    document.getElementById('ai-summary').textContent = patient.aiSummary;
     document.getElementById('context-name').textContent = patient.name;
-    document.getElementById('context-appointment').textContent = `${patient.species} · ${patient.breed} · 24 Sep 2026, ${patient.time} · ${patient.service}`;
-    document.getElementById('draft-state').textContent = draft.saved ? 'Saved locally' : 'Unsaved local draft';
+    document.getElementById('context-appointment').textContent = `${patient.species} · ${patient.breed} · ${patient.dateDisplay}, ${patient.time} · ${patient.service}`;
+    document.getElementById('draft-state').textContent = draft.saved ? 'Saved on this device' : 'Unsaved draft';
     document.getElementById('save-status').textContent = '';
     queue.querySelectorAll('button').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.patientId === patient.id)));
     const name = element('h3', patient.name);
@@ -132,7 +192,7 @@
       pair.append(element('dt', label), element('dd', value));
       details.append(pair);
     }
-    record.replaceChildren(name, element('p', `${patient.time} · ${patient.service}`), details, element('p', patient.reason, 'visit-reason'), element('h3', 'Clinical history'));
+    record.replaceChildren(name, element('p', `${patient.dateDisplay} · ${patient.time} · ${patient.service}`), details, element('p', patient.reason, 'visit-reason'), element('h3', 'Clinical history'));
     if (patient.history.length) {
       const history = element('ol', '', 'history');
       history.tabIndex = 0;
@@ -162,15 +222,21 @@
     button.setAttribute('aria-controls', 'patient-record');
     const heading = element('span', '', 'card-row');
     heading.append(element('strong', patient.name), element('span', patient.time));
-    button.append(heading, element('span', `${patient.species} · ${patient.service}`, 'card-detail'), element('span', `AI triage: ${patient.severity}`, `severity ${patient.severity.toLowerCase()}`));
+    button.append(
+      heading,
+      element('span', `${patient.species} · ${patient.breed}`, 'card-detail'),
+      element('span', `Owner: ${patient.owner}`, 'card-owner'),
+      element('span', patient.severity, `severity ${patient.severity.toLowerCase()}`)
+    );
     button.addEventListener('click', () => selectPatient(patient));
     queue.append(button);
   });
+  document.getElementById('queue-meta').textContent = `${patients[0].dateDisplay} · ${patients.length} appointments`;
   form.addEventListener('input', event => {
     if (event.target.id === 'reviewed') {
       captureDraft();
       draftFor(selectedPatient).saved = false;
-      document.getElementById('draft-state').textContent = 'Unsaved local draft';
+      document.getElementById('draft-state').textContent = 'Unsaved draft';
       document.getElementById('save-status').textContent = '';
     } else markChanged();
   });
@@ -210,13 +276,15 @@
       return;
     }
     draftFor(selectedPatient).saved = true;
-    document.getElementById('draft-state').textContent = 'Saved locally';
-    status.textContent = `${selectedPatient.name}’s draft saved in this page only. Nothing sent.`;
+    document.getElementById('draft-state').textContent = 'Saved on this device';
+    // TODO(BACKEND): Persist the consultation through the consultation endpoint
+    // and enable front-desk handoff once the API exists.
+    status.textContent = 'Draft saved on this device.';
   });
   document.getElementById('availability').addEventListener('change', event => {
     const paused = event.target.value !== 'On-Duty';
     const status = document.getElementById('availability-status');
-    status.textContent = paused ? 'New assignments paused · local only' : 'Accepting new assignments · local only';
+    status.textContent = paused ? 'New assignments paused' : 'Accepting new assignments';
     status.classList.toggle('assignments-paused', paused);
   });
   // Mobile drawer behaves like the other portals: slide-in panel, dimmed

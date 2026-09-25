@@ -45,8 +45,6 @@ body.doctor-portal { line-height: 1.5; }
 .assignments-paused { color: #8b5422; font-weight: 700; }
 
 .title-row { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; margin-bottom: 0.5rem; }
-/* Single concise demo notice for the whole portal. */
-.demo-label { padding: 0.15rem 0.55rem; border-radius: 0.35rem; font-size: 0.75rem; font-weight: 700; background: var(--accent-badge-bg); color: #665473; }
 
 /* ===== WORKSPACE GRID ===== */
 .workspace-grid { display: grid; grid-template-columns: minmax(270px, 0.85fr) minmax(0, 1.3fr); gap: 1.25rem; align-items: stretch; }
@@ -69,7 +67,8 @@ body.doctor-portal { line-height: 1.5; }
 .patient-card strong { font-size: 1.1rem; }
 .card-row { display: flex; justify-content: space-between; gap: 0.5rem; flex-wrap: wrap; }
 .card-row > span { color: #746382; font-size: 0.85rem; }
-.card-detail { display: block; margin: 0.25rem 0 0.5rem; font-size: 0.9rem; }
+.card-detail { display: block; margin: 0.25rem 0 0.15rem; font-size: 0.9rem; }
+.card-owner { display: block; font-size: 0.85rem; color: #746382; }
 .patient-card[aria-pressed='true'] {
   background: #f2edf9; outline: none;
   border-top-color: var(--accent); border-right-color: var(--accent); border-bottom-color: var(--accent);
@@ -120,17 +119,36 @@ dd { margin: 0.2rem 0 0; font-weight: 700; font-size: 0.95rem; overflow-wrap: an
 .history p { grid-column: 2; margin: 0.15rem 0 0; line-height: 1.6; }
 
 /* ===== CONSULTATION NOTES (SOAP) ===== */
-.soap-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1.5rem; }
-.soap-block { min-width: 0; }
-.soap-block h3 { font-size: 1.15rem; margin: 0 0 0.8rem; display: flex; align-items: center; gap: 0.6rem; }
-.soap-block h3 span {
-  display: inline-grid; place-items: center; width: 1.8rem; height: 1.8rem;
-  background: #f0eaf8; color: var(--accent-dark); border-radius: 0.45rem;
-  font-family: 'Nunito', sans-serif; font-size: 0.85rem;
+/* AI-assisted summary: quiet strip above the form, ready for a future
+   AI endpoint. It must not outshine the SOAP fields. */
+.ai-strip {
+  display: grid; grid-template-columns: auto 1fr; gap: 0.2rem 0.65rem;
+  align-items: center; padding: 0.65rem 0.85rem; margin-bottom: 1.25rem;
+  background: #f7f4fb; border-left: 3px solid #c5b5df; border-radius: 0.35rem;
 }
-.sample-summary { padding: 0.75rem; background: #f7f4fb; border-left: 3px solid #c5b5df; border-radius: 0.35rem; margin-bottom: 0.8rem; font-size: 0.875rem; }
-.sample-summary strong { color: #634783; }
-.sample-summary p { margin-top: 0.3rem; line-height: 1.6; }
+.ai-chip {
+  grid-row: 1 / 3; align-self: start; display: inline-grid; place-items: center;
+  min-width: 1.6rem; height: 1.6rem; border-radius: 0.4rem;
+  background: #ede5f7; color: var(--accent-dark); font-size: 0.72rem; font-weight: 800;
+}
+.ai-body { display: flex; align-items: baseline; gap: 0.6rem; flex-wrap: wrap; }
+.ai-body strong { font-size: 0.875rem; color: #634783; }
+.ai-body span { font-size: 0.75rem; color: #857a92; }
+#ai-summary { grid-column: 2; margin: 0; font-size: 0.875rem; line-height: 1.6; color: #4d4259; }
+.soap-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1.5rem 2rem; }
+.soap-block { min-width: 0; }
+.soap-block h3 {
+  display: flex; align-items: baseline; gap: 0.55rem; flex-wrap: wrap;
+  margin: 0 0 0.85rem; padding-bottom: 0.5rem; border-bottom: 1px solid #e7e0ee;
+}
+.soap-letter {
+  display: inline-grid; place-items: center; width: 1.7rem; height: 1.7rem;
+  background: #f0eaf8; color: var(--accent-dark); border-radius: 0.45rem;
+  font-family: 'Nunito', sans-serif; font-size: 0.8rem; font-weight: 800;
+  transform: translateY(0.25rem);
+}
+.soap-name { font-size: 1.05rem; font-weight: 800; color: #3b2d4a; }
+.soap-hint { font-size: 0.75rem; color: #857a92; }
 .vitals-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.65rem; margin-bottom: 1rem; }
 
 /* ===== PRESCRIPTIONS & LABS ===== */
@@ -230,6 +248,7 @@ input[type='checkbox'] { width: 17px; height: 17px; accent-color: var(--accent-d
   .patient-context h2 { font-size: 1.5rem; }
   .soap-grid { gap: 1.25rem; }
   .lab-options label, .review-check label { min-height: 44px; }
+  .ai-strip { grid-template-columns: auto 1fr; }
   .doctor-portal .form-input, .doctor-portal .form-select, .doctor-portal .form-textarea { font-size: 16px; }
 }
 @media (max-width: 600px) {

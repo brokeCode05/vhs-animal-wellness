@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Patient Workspace - VHS Doctor</title>
+  <title>Today’s Patients - VHS Doctor</title>
   <link rel="stylesheet" href="../admin/admin-style.css">
   <link rel="stylesheet" href="../shared/dashboard-theme.css">
   <link rel="stylesheet" href="../shared/dashboard-icons.css">
@@ -25,15 +25,15 @@
         <div class="sidebar-user-info"><span class="sidebar-user-name">Doctor Preview</span><span class="sidebar-user-role">Veterinarian</span></div>
       </div>
       <nav class="sidebar-nav" aria-label="Doctor navigation">
-        <a href="#patients" data-view="patients" class="nav-item active" aria-current="page"><span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M8 2v4m8-4v4M3 10h18"/></svg></span><span class="label">Patient workspace</span></a>
+        <a href="#patients" data-view="patients" class="nav-item active" aria-current="page"><span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M8 2v4m8-4v4M3 10h18"/></svg></span><span class="label">Today’s patients</span></a>
         <a href="#notes" data-view="notes" class="nav-item"><span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="5" y="4" width="14" height="18" rx="2"/><path d="M9 2h6v4H9zm0 9h6m-6 4h6"/></svg></span><span class="label">Consultation notes</span></a>
         <a href="#orders" data-view="orders" class="nav-item"><span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M9 3h6m-5 0v7L4 19a1 1 0 0 0 1 2h14a1 1 0 0 0 1-2l-6-9V3M7 15h10"/></svg></span><span class="label">Prescriptions &amp; labs</span></a>
       </nav>
     </aside>
     <main id="workspace" class="main-content">
       <div class="page-header workspace-header">
-        <div><div class="title-row"><h1 id="view-title" tabindex="-1">Patient Workspace</h1><span class="demo-label" title="Fictional data. Nothing is saved or sent.">Demo data</span></div><p class="page-subtitle" id="view-description">Select a patient to review their appointment and clinical history.</p></div>
-        <div class="availability"><label class="form-label" for="availability">New assignments</label><select class="form-select" id="availability"><option>On-Duty</option><option>On Break</option><option>On Leave</option></select><p id="availability-status" class="helper" role="status">Accepting new assignments · local only</p></div>
+        <div><div class="title-row"><h1 id="view-title" tabindex="-1">Today’s Patients</h1></div><p class="page-subtitle" id="view-description">Select a patient to review their appointment and clinical history.</p></div>
+        <div class="availability"><label class="form-label" for="availability">New assignments</label><select class="form-select" id="availability"><option>On-Duty</option><option>On Break</option><option>On Leave</option></select><p id="availability-status" class="helper" role="status">Accepting new assignments</p></div>
       </div>
       <div id="patient-context" class="patient-context" hidden>
         <div><span class="context-label">Active patient</span><h2 id="context-name">Luna</h2><p id="context-appointment"></p></div>
@@ -42,7 +42,7 @@
       <div class="workspace-grid" id="patients-view" data-panel="patients">
         <section class="content-section queue-panel" aria-labelledby="queue-heading">
           <div class="section-heading"><h2 class="section-title" id="queue-heading">Today’s Patient Queue</h2></div>
-          <p class="helper">24 September 2026 · 3 appointments</p>
+          <p class="helper" id="queue-meta"></p>
           <div id="patient-queue" class="patient-queue"></div>
           <noscript>Enable JavaScript to use the patient views.</noscript>
         </section>
@@ -54,12 +54,17 @@
       </div>
       <form id="consultation-form" novalidate hidden>
         <section class="content-section" id="soap-section" data-panel="notes" aria-labelledby="soap-heading" hidden>
-          <div class="section-heading"><h2 class="section-title" id="soap-heading">Digital SOAP Notes</h2></div>
+          <div class="section-heading"><h2 class="section-title" id="soap-heading">SOAP note</h2></div>
+          <div class="ai-strip">
+            <span class="ai-chip" aria-hidden="true">AI</span>
+            <div class="ai-body"><strong>AI-assisted summary</strong><span>Assistive draft — verify against your own examination.</span></div>
+            <p id="ai-summary"></p>
+          </div>
           <div class="soap-grid">
-            <div class="soap-block"><h3><span>S</span> Subjective</h3><div class="sample-summary"><strong>AI summary · example</strong><p id="ai-summary"></p></div><label class="form-label" for="subjective">Owner history &amp; symptoms</label><textarea class="form-textarea" id="subjective" name="subjective" rows="3" placeholder="Record the owner's concerns and history."></textarea></div>
-            <div class="soap-block"><h3><span>O</span> Objective</h3><div class="vitals-grid"><div><label class="form-label" for="weight">Weight (kg)</label><input class="form-input" id="weight" name="weight" type="number" min="0.01" step="0.01"></div><div><label class="form-label" for="temperature">Temp. (°C)</label><input class="form-input" id="temperature" name="temperature" type="number" step="0.1"></div><div><label class="form-label" for="heart-rate">Heart rate (bpm)</label><input class="form-input" id="heart-rate" name="heartRate" type="number" min="1" step="1"></div></div><label class="form-label" for="exam">Examination findings</label><textarea class="form-textarea" id="exam" name="exam" rows="3" placeholder="Enter observed clinical findings."></textarea></div>
-            <div class="soap-block"><h3><span>A</span> Assessment</h3><label class="form-label" for="assessment">Veterinarian’s diagnosis / assessment</label><textarea class="form-textarea" id="assessment" name="assessment" rows="3" placeholder="Enter your assessment after reviewing the patient."></textarea></div>
-            <div class="soap-block"><h3><span>P</span> Plan</h3><label class="form-label" for="plan">Treatment &amp; follow-up</label><textarea class="form-textarea" id="plan" name="plan" rows="3" placeholder="Document treatment, owner instructions, and follow-up."></textarea></div>
+            <div class="soap-block"><h3><span class="soap-letter">S</span><span class="soap-name">Subjective</span><span class="soap-hint">owner history &amp; symptoms</span></h3><label class="form-label" for="subjective">What the owner reports</label><textarea class="form-textarea" id="subjective" name="subjective" rows="3" placeholder="Record the owner's concerns and history."></textarea></div>
+            <div class="soap-block"><h3><span class="soap-letter">O</span><span class="soap-name">Objective</span><span class="soap-hint">measured findings</span></h3><div class="vitals-grid"><div><label class="form-label" for="weight">Weight (kg)</label><input class="form-input" id="weight" name="weight" type="number" min="0.01" step="0.01"></div><div><label class="form-label" for="temperature">Temp. (°C)</label><input class="form-input" id="temperature" name="temperature" type="number" step="0.1"></div><div><label class="form-label" for="heart-rate">Heart rate (bpm)</label><input class="form-input" id="heart-rate" name="heartRate" type="number" min="1" step="1"></div></div><label class="form-label" for="exam">Examination findings</label><textarea class="form-textarea" id="exam" name="exam" rows="3" placeholder="Enter observed clinical findings."></textarea></div>
+            <div class="soap-block"><h3><span class="soap-letter">A</span><span class="soap-name">Assessment</span><span class="soap-hint">diagnosis</span></h3><label class="form-label" for="assessment">Veterinarian’s assessment</label><textarea class="form-textarea" id="assessment" name="assessment" rows="3" placeholder="Enter your assessment after reviewing the patient."></textarea></div>
+            <div class="soap-block"><h3><span class="soap-letter">P</span><span class="soap-name">Plan</span><span class="soap-hint">treatment &amp; follow-up</span></h3><label class="form-label" for="plan">Next steps</label><textarea class="form-textarea" id="plan" name="plan" rows="3" placeholder="Document treatment, owner instructions, and follow-up."></textarea></div>
           </div>
           <div class="view-actions"><button type="button" class="btn-secondary" data-view="patients">Back to patient record</button><button type="button" class="btn-secondary" data-view="orders">Continue to prescriptions &amp; labs</button></div>
         </section>
@@ -72,8 +77,8 @@
         </section>
         <div class="draft-footer">
           <div class="review-check"><label><input type="checkbox" id="reviewed" name="reviewed"> I have reviewed this consultation draft.</label></div>
-          <div class="draft-actions"><div><strong id="draft-state">Unsaved local draft</strong><p class="helper">Drafts reset on reload.</p></div><button class="btn-primary" type="submit">Save local draft</button><button class="btn-secondary" type="button" disabled aria-describedby="handoff-note">Send to Front Desk</button></div>
-          <p id="handoff-note" class="helper">Front desk: not connected.</p>
+          <div class="draft-actions"><div><strong id="draft-state">Unsaved draft</strong><p class="helper">Drafts reset on reload.</p></div><button class="btn-primary" type="submit">Save draft</button><button class="btn-secondary" type="button" disabled aria-describedby="handoff-note">Send to Front Desk</button></div>
+          <p id="handoff-note" class="helper">Front-desk handoff is not available yet.</p>
           <p id="save-status" role="status"></p>
         </div>
       </form>
