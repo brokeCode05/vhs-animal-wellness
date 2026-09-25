@@ -43,7 +43,12 @@
         <section class="content-section queue-panel" aria-labelledby="queue-heading">
           <div class="section-heading"><h2 class="section-title" id="queue-heading">Today’s Patient Queue</h2></div>
           <p class="helper" id="queue-meta"></p>
-          <div id="patient-queue" class="patient-queue"></div>
+          <div class="table-wrapper">
+            <table class="compact-table" aria-describedby="queue-meta">
+              <thead><tr><th scope="col">Time</th><th scope="col">Patient</th><th scope="col">Owner</th><th scope="col">Service</th><th scope="col">Triage</th></tr></thead>
+              <tbody id="patient-queue"></tbody>
+            </table>
+          </div>
           <noscript>Enable JavaScript to use the patient views.</noscript>
         </section>
         <section class="content-section record-panel" aria-labelledby="record-heading">
@@ -69,10 +74,9 @@
           <div class="view-actions"><button type="button" class="btn-secondary" data-view="patients">Back to patient record</button><button type="button" class="btn-secondary" data-view="orders">Continue to prescriptions &amp; labs</button></div>
         </section>
         <section class="content-section" id="orders-section" data-panel="orders" aria-labelledby="orders-heading" hidden>
-          <div class="section-heading"><h2 class="section-title" id="orders-heading">Prescriptions &amp; Lab Requests</h2><button class="btn-secondary" type="button" id="add-medicine">+ Add medicine</button></div>
-          <p class="helper section-intro">Draft only · nothing is issued</p>
+          <div class="section-heading"><h2 class="section-title" id="orders-heading">Prescriptions</h2><button class="btn-secondary btn-small" type="button" id="add-medicine">+ Add prescription</button></div>
           <div id="medicine-list"></div>
-          <fieldset class="lab-options"><legend>Internal lab requests</legend><label><input type="checkbox" name="labs" value="Blood test"> Blood test</label><label><input type="checkbox" name="labs" value="X-ray"> X-ray</label><label><input type="checkbox" name="labs" value="Urinalysis"> Urinalysis</label></fieldset>
+          <fieldset class="lab-options"><legend>Lab requests</legend><span class="lab-options-hint">Internal tests only — send-out handling comes later.</span><div class="lab-options-grid"><label><input type="checkbox" name="labs" value="Blood test"> Blood test</label><label><input type="checkbox" name="labs" value="X-ray"> X-ray</label><label><input type="checkbox" name="labs" value="Urinalysis"> Urinalysis</label></div></fieldset>
           <div class="view-actions"><button type="button" class="btn-secondary" data-view="notes">Back to SOAP notes</button></div>
         </section>
         <div class="draft-footer">

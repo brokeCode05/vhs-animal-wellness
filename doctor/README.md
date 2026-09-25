@@ -58,6 +58,17 @@ Tested the local HTTP preview at `http://127.0.0.1:8765/doctor/index.html` after
 
 No live backend or clinical correctness validation was performed; this phase covers frontend layout and workflow only.
 
+## Phase 1 Clerk/Admin alignment pass — 25 September 2026
+
+Third pass: makes the Doctor Portal read as the same product as Clerk/Admin.
+
+- Patient queue rebuilt as a Clerk-style `compact-table` clinic list (Time · Patient · Owner · Service · Triage) inside a `.table-wrapper`; selected row uses the VHS active treatment (accent tint + inset left marker); Triage badges adopt the Admin `status-badge` pill recipe (green Routine, amber Urgent, red Emergency). EMR now sits full-width below the table.
+- Prescriptions rows take compact structured fields (medicine, dosage, frequency, duration, owner instructions) with Remove aligned to the field row; Lab requests are a compact checkbox group with one short hint.
+- SOAP keeps the two-column clinical form, structured vitals row, and quiet AI-assisted summary strip; context header and drafts unchanged.
+- Admin's mobile compact-table carousel (which needs `data-label` cells) is overridden so the Doctor queue stays a real table; Service/Owner columns drop progressively at 600px.
+
+Verified in-browser at 1440/768/390: no horizontal overflow, drafts per patient (including new duration/instructions fields), partial-prescription validation, save flow, keyboard-selectable rows, no console errors.
+
 ## Phase 1 production-readiness refinement — 25 September 2026
 
 Second pass on `doctor-portal-phase1-refinement`, focused on removing prototype wording and tightening the clinical form.

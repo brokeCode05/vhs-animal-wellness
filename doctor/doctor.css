@@ -46,8 +46,8 @@ body.doctor-portal { line-height: 1.5; }
 
 .title-row { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; margin-bottom: 0.5rem; }
 
-/* ===== WORKSPACE GRID ===== */
-.workspace-grid { display: grid; grid-template-columns: minmax(270px, 0.85fr) minmax(0, 1.3fr); gap: 1.25rem; align-items: stretch; }
+/* ===== WORKSPACE GRID — full-width clinic table, EMR below (Clerk pattern) ===== */
+.workspace-grid { display: grid; grid-template-columns: 1fr; gap: 1.25rem; align-items: start; }
 
 /* Sections keep the shared card look; a quicker entrance for view switches. */
 .doctor-portal .content-section { animation: fadeInUp 0.35s ease-out; }
@@ -56,34 +56,22 @@ body.doctor-portal { line-height: 1.5; }
 .helper { color: #756781; font-size: 0.875rem; }
 .section-intro { margin: 0 0 1rem; }
 
-/* ===== PATIENT QUEUE ===== */
-.patient-queue { display: grid; gap: 0.7rem; margin: 1rem 0; }
-.patient-card {
-  width: 100%; text-align: left; font: inherit; color: #3b2d4a;
-  background: white; border: 1px solid var(--doctor-border); border-left: 4px solid #c5b5d9;
-  border-radius: 0.65rem; padding: 0.9rem; cursor: pointer;
-  transition: background-color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
-}
-.patient-card strong { font-size: 1.1rem; }
-.card-row { display: flex; justify-content: space-between; gap: 0.5rem; flex-wrap: wrap; }
-.card-row > span { color: #746382; font-size: 0.85rem; }
-.card-detail { display: block; margin: 0.25rem 0 0.15rem; font-size: 0.9rem; }
-.card-owner { display: block; font-size: 0.85rem; color: #746382; }
-.patient-card[aria-pressed='true'] {
-  background: #f2edf9; outline: none;
-  border-top-color: var(--accent); border-right-color: var(--accent); border-bottom-color: var(--accent);
-  box-shadow: inset 0 0 0 1px var(--accent);
-}
-.patient-card[aria-pressed='true']::after {
-  content: 'Active patient'; display: block; color: var(--accent-dark);
-  font-size: 0.75rem; font-weight: 800; margin-top: 0.4rem;
-}
+/* ===== PATIENT QUEUE — clinic list (Clerk compact-table pattern) ===== */
+/* Table wrapper/thead/row styles come from admin + shared styles, like Clerk. */
+.patient-queue td { padding: 0.8rem 1rem; vertical-align: middle; white-space: nowrap; }
+.patient-queue td.q-service { white-space: normal; min-width: 9rem; }
+.queue-row { cursor: pointer; transition: background-color 0.2s ease, box-shadow 0.2s ease; }
+.q-time { font-size: 0.85rem; font-weight: 700; color: #594967; font-variant-numeric: tabular-nums; }
+.q-name { font-size: 0.9375rem; font-weight: 800; color: #3b2d4a; }
+.q-owner, .q-service { font-size: 0.875rem; color: #746382; overflow: hidden; text-overflow: ellipsis; max-width: 11rem; }
+.queue-row:hover { background: #fafbfc; }
+.queue-row[aria-pressed='true'] { background: var(--accent-soft); box-shadow: inset 3px 0 0 var(--accent); }
 
-/* AI triage severity — Emergency reads stronger than Urgent. */
-.severity { display: inline-block; font-size: 0.78rem; font-weight: 700; padding: 0.18rem 0.55rem; border-radius: 0.35rem; background: var(--accent-badge-bg); color: var(--accent-dark); }
-.severity.urgent { background: #fce7e7; color: #a12222; }
-.severity.emergency { background: #b52c2c; color: #ffffff; }
-.patient-card.urgent, .patient-card.emergency { border-left-color: #b52c2c; }
+/* Triage badges — Admin status-badge recipe (pill, uppercase). */
+.severity { display: inline-block; padding: 0.3rem 0.75rem; border-radius: 14px; font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em; white-space: nowrap; }
+.severity.routine { background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%); color: #065f46; border: 1px solid #6ee7b7; }
+.severity.urgent { background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%); color: #92400e; border: 1px solid #f0c33c; }
+.severity.emergency { background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%); color: #991b1b; border: 1px solid #f87171; }
 
 /* ===== SELECTED PATIENT / CONTEXT BAR ===== */
 .patient-context {
@@ -123,17 +111,17 @@ dd { margin: 0.2rem 0 0; font-weight: 700; font-size: 0.95rem; overflow-wrap: an
    AI endpoint. It must not outshine the SOAP fields. */
 .ai-strip {
   display: grid; grid-template-columns: auto 1fr; gap: 0.2rem 0.65rem;
-  align-items: center; padding: 0.65rem 0.85rem; margin-bottom: 1.25rem;
+  align-items: center; padding: 0.6rem 0.8rem; margin-bottom: 1.25rem;
   background: #f7f4fb; border-left: 3px solid #c5b5df; border-radius: 0.35rem;
 }
 .ai-chip {
   grid-row: 1 / 3; align-self: start; display: inline-grid; place-items: center;
-  min-width: 1.6rem; height: 1.6rem; border-radius: 0.4rem;
-  background: #ede5f7; color: var(--accent-dark); font-size: 0.72rem; font-weight: 800;
+  min-width: 1.5rem; height: 1.5rem; border-radius: 0.4rem;
+  background: #ede5f7; color: var(--accent-dark); font-size: 0.7rem; font-weight: 800;
 }
 .ai-body { display: flex; align-items: baseline; gap: 0.6rem; flex-wrap: wrap; }
-.ai-body strong { font-size: 0.875rem; color: #634783; }
-.ai-body span { font-size: 0.75rem; color: #857a92; }
+.ai-body strong { font-size: 0.8rem; color: #634783; }
+.ai-body span { font-size: 0.72rem; color: #857a92; }
 #ai-summary { grid-column: 2; margin: 0; font-size: 0.875rem; line-height: 1.6; color: #4d4259; }
 .soap-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1.5rem 2rem; }
 .soap-block { min-width: 0; }
@@ -151,11 +139,19 @@ dd { margin: 0.2rem 0 0; font-weight: 700; font-size: 0.95rem; overflow-wrap: an
 .soap-hint { font-size: 0.75rem; color: #857a92; }
 .vitals-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.65rem; margin-bottom: 1rem; }
 
-/* ===== PRESCRIPTIONS & LABS ===== */
-.medicine-row { display: grid; grid-template-columns: 1.3fr 1fr 1fr auto; gap: 0.75rem; align-items: end; padding: 1rem; margin-bottom: 0.8rem; border: 1px solid #e5dcee; border-radius: 0.65rem; min-width: 0; }
+/* ===== PRESCRIPTIONS & LAB REQUESTS ===== */
+.medicine-row {
+  display: grid; grid-template-columns: 1.4fr 0.8fr 1fr 0.9fr auto;
+  gap: 0.6rem; align-items: end; padding: 0.85rem 0.9rem;
+  margin-bottom: 0.6rem; border: 1px solid #e5dcee; border-radius: 0.5rem; min-width: 0;
+}
+.medicine-instructions { grid-column: 1 / 5; }
+.medicine-row .btn-small { align-self: end; }
 .medicine-row legend { font-size: 0.8rem; font-weight: 700; padding: 0 0.3rem; }
-.lab-options { border: 0; border-top: 1px solid #e5dcee; margin-top: 1rem; padding: 1rem 0; display: flex; flex-wrap: wrap; gap: 1rem; }
-.lab-options legend { font-size: 0.9rem; font-weight: 700; padding-right: 0.5rem; }
+.lab-options { border: 0; border-top: 1px solid #e5dcee; margin-top: 1.25rem; padding: 1rem 0 0; display: block; }
+.lab-options legend { font-size: 0.95rem; font-weight: 700; padding-right: 0.5rem; }
+.lab-options-hint { display: block; font-size: 0.75rem; color: #857a92; margin: 0.2rem 0 0.75rem; }
+.lab-options-grid { display: flex; flex-wrap: wrap; gap: 0.75rem 1.5rem; }
 .lab-options label, .review-check label { display: flex; align-items: center; gap: 0.5rem; font-size: 0.875rem; min-height: 36px; cursor: pointer; }
 input[type='checkbox'] { width: 17px; height: 17px; accent-color: var(--accent-dark); flex-shrink: 0; }
 
@@ -199,7 +195,7 @@ input[type='checkbox'] { width: 17px; height: 17px; accent-color: var(--accent-d
 .doctor-portal .form-input:focus-visible, .doctor-portal .form-select:focus-visible,
 .doctor-portal .form-textarea:focus-visible { outline: 3px solid var(--accent-soft); outline-offset: 2px; }
 .doctor-portal .top-navbar :focus-visible { outline-color: #ffffff; }
-.doctor-portal .patient-card:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+.doctor-portal .queue-row:focus-visible { outline: 3px solid var(--accent); outline-offset: -3px; }
 /* View-switch and history scroll targets use the shared soft ring,
    not the browser default outline. */
 .doctor-portal #view-title:focus, .doctor-portal #record-heading:focus, .doctor-portal .history:focus {
@@ -209,6 +205,15 @@ input[type='checkbox'] { width: 17px; height: 17px; accent-color: var(--accent-d
 /* ===== MOBILE DRAWER (matches Admin/Clerk/User sidebar behavior) ===== */
 .sidebar-overlay { display: none; position: fixed; inset: 0; background: rgba(23, 7, 65, 0.4); z-index: 1000; }
 .sidebar-overlay.show { display: block; }
+
+/* Keep the Doctor queue a real table on mobile. Admin converts generic
+   compact-tables into card carousels; the clinic queue stays scannable. */
+.doctor-portal .compact-table { display: table; width: 100%; }
+.doctor-portal .compact-table thead { display: table-header-group; }
+.doctor-portal .compact-table tbody { display: table-row-group; }
+.doctor-portal .compact-table tr { display: table-row; }
+.doctor-portal .compact-table td { display: table-cell; padding: 0.8rem 1rem; border-bottom: 1px solid #f7fafc; }
+.doctor-portal .compact-table td::before { content: none; }
 
 /* ===== A11Y HELPERS ===== */
 [id] { scroll-margin-top: 90px; }
@@ -227,7 +232,7 @@ input[type='checkbox'] { width: 17px; height: 17px; accent-color: var(--accent-d
   .history p { grid-column: 1; }
 }
 @media (max-width: 1000px) {
-  .workspace-grid, .soap-grid { grid-template-columns: 1fr; }
+  .soap-grid { grid-template-columns: 1fr; }
   .workspace-header { flex-direction: column; }
   .availability { flex-basis: auto; width: 100%; }
   .vitals-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
@@ -254,6 +259,11 @@ input[type='checkbox'] { width: 17px; height: 17px; accent-color: var(--accent-d
 @media (max-width: 600px) {
   .patient-context { align-items: start; flex-direction: column; }
   .view-actions > button { width: 100%; }
+  /* Compact clinic list on phones: Time · Patient · Triage. */
+  .doctor-portal .compact-table td.q-service,
+  .doctor-portal .compact-table td.q-owner,
+  .doctor-portal .compact-table thead th:nth-child(3),
+  .doctor-portal .compact-table thead th:nth-child(4) { display: none; }
 }
 @media (max-width: 420px) {
   .medicine-row, .vitals-grid { grid-template-columns: 1fr; }

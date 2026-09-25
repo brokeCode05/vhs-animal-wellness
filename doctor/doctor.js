@@ -108,7 +108,7 @@
     if (window.location.hash !== `#${view}`) history.pushState(null, '', `#${view}`);
     showView(view);
   }
-  const emptyMedicine = () => ({ medicine: '', dosage: '', frequency: '' });
+  const emptyMedicine = () => ({ medicine: '', dosage: '', frequency: '', duration: '', instructions: '' });
   function draftFor(patient) {
     if (!drafts.has(patient.id)) drafts.set(patient.id, { fields: {}, medicines: [emptyMedicine()], labs: [], reviewed: false, saved: false });
     return drafts.get(patient.id);
@@ -136,22 +136,40 @@
   }
   function addMedicine(values = emptyMedicine()) {
     const row = element('fieldset', '', 'medicine-row');
-    row.append(element('legend', 'Medicine instructions'));
     const sequence = ++medicineSequence;
-    for (const [key, label] of [['medicine', 'Medicine name'], ['dosage', 'Dosage'], ['frequency', 'Frequency']]) {
+    const fieldSpec = [
+      ['medicine', 'Medicine', 'e.g. Amoxicillin 250mg'],
+      ['dosage', 'Dosage', 'e.g. 1 tablet'],
+      ['frequency', 'Frequency', 'e.g. every 12 hours'],
+      ['duration', 'Duration', 'e.g. 7 days']
+    ];
+    for (const [key, label, placeholder] of fieldSpec) {
       const group = element('div');
       const caption = element('label', label, 'form-label');
       const input = element('input', '', 'form-input');
       input.type = 'text';
       input.id = `medicine-${sequence}-${key}`;
       input.dataset.field = key;
-      input.value = values[key];
+      input.value = values[key] || '';
       input.maxLength = 200;
+      input.placeholder = placeholder;
       caption.htmlFor = input.id;
       group.append(caption, input);
       row.append(group);
     }
-    const remove = element('button', 'Remove', 'btn-secondary');
+    const instructionGroup = element('div', '', 'medicine-instructions');
+    const instructionLabel = element('label', 'Instructions for the owner', 'form-label');
+    const instructionInput = element('input', '', 'form-input');
+    instructionInput.type = 'text';
+    instructionInput.id = `medicine-${sequence}-instructions`;
+    instructionInput.dataset.field = 'instructions';
+    instructionInput.value = values.instructions || '';
+    instructionInput.maxLength = 200;
+    instructionInput.placeholder = 'e.g. give with food';
+    instructionLabel.htmlFor = instructionInput.id;
+    instructionGroup.append(instructionLabel, instructionInput);
+    row.append(instructionGroup);
+    const remove = element('button', 'Remove', 'btn-secondary btn-small');
     remove.type = 'button';
     remove.setAttribute('aria-label', 'Remove these medicine instructions');
     remove.addEventListener('click', () => {
@@ -184,7 +202,7 @@
     document.getElementById('context-appointment').textContent = `${patient.species} · ${patient.breed} · ${patient.dateDisplay}, ${patient.time} · ${patient.service}`;
     document.getElementById('draft-state').textContent = draft.saved ? 'Saved on this device' : 'Unsaved draft';
     document.getElementById('save-status').textContent = '';
-    queue.querySelectorAll('button').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.patientId === patient.id)));
+    queue.querySelectorAll('.queue-row').forEach(row => row.setAttribute('aria-pressed', String(row.dataset.patientId === patient.id)));
     const name = element('h3', patient.name);
     const details = element('dl', '', 'pet-details');
     for (const [label, value] of [['Species', patient.species], ['Breed', patient.breed], ['Age', patient.age], ['Owner', patient.owner]]) {
@@ -214,22 +232,34 @@
       if (window.matchMedia('(max-width: 1000px)').matches) document.getElementById('record-heading').scrollIntoView({ block: 'start' });
     }
   }
+  // Clinic-list rows modeled on the Clerk appointments table: one compact
+  // row per appointment, scannable columns, selected row in the VHS active
+  // treatment (accent tint + left marker). Rows are focusable and respond
+  // to Enter/Space like the buttons they replace.
   patients.forEach(patient => {
-    const button = element('button', '', `patient-card ${patient.severity.toLowerCase()}`);
-    button.type = 'button';
-    button.dataset.patientId = patient.id;
-    button.setAttribute('aria-pressed', 'false');
-    button.setAttribute('aria-controls', 'patient-record');
-    const heading = element('span', '', 'card-row');
-    heading.append(element('strong', patient.name), element('span', patient.time));
-    button.append(
-      heading,
-      element('span', `${patient.species} · ${patient.breed}`, 'card-detail'),
-      element('span', `Owner: ${patient.owner}`, 'card-owner'),
-      element('span', patient.severity, `severity ${patient.severity.toLowerCase()}`)
+    const row = element('tr', '', `queue-row ${patient.severity.toLowerCase()}`);
+    row.tabIndex = 0;
+    row.dataset.patientId = patient.id;
+    row.setAttribute('aria-pressed', 'false');
+    row.setAttribute('aria-label', `${patient.time}, ${patient.name}, owner ${patient.owner}, ${patient.service}, triage ${patient.severity}. Select to open record.`);
+    const badgeCell = element('td');
+    badgeCell.append(element('span', patient.severity, `severity ${patient.severity.toLowerCase()}`));
+    row.append(
+      element('td', patient.time, 'q-time'),
+      element('td', patient.name, 'q-name'),
+      element('td', patient.owner, 'q-owner'),
+      element('td', patient.service, 'q-service'),
+      badgeCell
     );
-    button.addEventListener('click', () => selectPatient(patient));
-    queue.append(button);
+    const activate = () => selectPatient(patient);
+    row.addEventListener('click', activate);
+    row.addEventListener('keydown', event => {
+      if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        activate();
+      }
+    });
+    queue.append(row);
   });
   document.getElementById('queue-meta').textContent = `${patients[0].dateDisplay} · ${patients.length} appointments`;
   form.addEventListener('input', event => {
@@ -261,12 +291,13 @@
     }
     const partial = Array.from(document.querySelectorAll('.medicine-row')).find(row => {
       const inputs = Array.from(row.querySelectorAll('input'));
-      return inputs.some(input => input.value.trim()) && inputs.some(input => !input.value.trim());
+      const core = inputs.filter(input => input.dataset.field !== 'instructions');
+      return core.some(input => input.value.trim()) && core.some(input => !input.value.trim());
     });
     if (partial) {
       history.replaceState(null, '', '#orders');
       showView('orders', false);
-      status.textContent = 'Complete the medicine name, dosage, and frequency, or remove the incomplete row.';
+      status.textContent = 'Complete the medicine, dosage, frequency, and duration, or remove the incomplete row.';
       Array.from(partial.querySelectorAll('input')).find(input => !input.value.trim()).focus();
       return;
     }
