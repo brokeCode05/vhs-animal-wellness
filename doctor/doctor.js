@@ -2,19 +2,26 @@
 (() => {
   'use strict';
 
-  // Central mock schedule, shaped like the User Portal booking flow
-  // (user_id/pet_id/service/appointment_date/appointment_time/visit_reason —
-  // see php_files/book-appointment.php). Keeping one fixture list here keeps
-  // mock data out of the UI code.
-  // TODO(BACKEND): Replace with the get_appointments.php response
+  // ─── DATA DOMAINS (kept separate on purpose) ──────────────────────────────
+  // 1. Shared appointment records: window.SharedMockAppointments (loaded via
+  //    shared/mock-appointments.js) — the SAME canonical dataset the User and
+  //    Clerk portals render, normalized through appointment-contract.js.
+  // 2. Pet/EMR data: DOCTOR_EMR below, keyed by petId (clinical history is
+  //    not part of the appointment record).
+  // 3. Consultation records: drafts Map keyed by appointmentId (see below).
+  // TODO(BACKEND): Replace the shared mock source with get_appointments.php
   // (filtered by staff_id and today's date) once the endpoint exists.
-  const mockSchedule = [
-    {
-      appointment_id: 'apt301', pet_id: 1, status: 'checked_in', reference_no: 'VHS-20260924-A1B2C3',
-      pet_name: 'Luna', pet_type: 'Cat', pet_breed: 'Persian', pet_age: '3 years',
-      owner_name: 'Maria Santos',
-      service: 'General Consultation', appointment_date: '2026-09-24', appointment_time: '9:00 AM',
-      visit_reason: 'Owner reports reduced appetite and repeated vomiting since yesterday.',
+  function DOCTOR_EMR_DEFAULT(petName) {
+    return {
+      pet_age: '',
+      ai_triage: 'Routine',
+      ai_summary: '',
+      visits: []
+    };
+  }
+  const DOCTOR_EMR = {
+    1: { // Luna — Cat, Persian
+      pet_age: '3 years',
       ai_triage: 'Urgent',
       ai_summary: 'Vomiting and reduced appetite over 24 hours in a young adult cat. Same-day assessment recommended; check hydration and consider dietary history.',
       visits: [
@@ -22,12 +29,8 @@
         { date: '2026-03-10', title: 'Vaccination', note: 'Rabies vaccination recorded.' }
       ]
     },
-    {
-      appointment_id: 'apt302', pet_id: 2, status: 'checked_in', reference_no: 'VHS-20260924-D4E5F6',
-      pet_name: 'Max', pet_type: 'Dog', pet_breed: 'Labrador retriever', pet_age: '5 years',
-      owner_name: 'Sam Reyes',
-      service: 'Emergency assessment', appointment_date: '2026-09-24', appointment_time: '9:30 AM',
-      visit_reason: 'Owner reports difficulty breathing since early morning.',
+    2: { // Max — Dog, Labrador retriever
+      pet_age: '5 years',
       ai_triage: 'Emergency',
       ai_summary: 'Acute breathing difficulty in a middle-aged dog. Immediate veterinarian evaluation required; prepare for possible oxygen support and thoracic imaging.',
       visits: [
@@ -35,17 +38,30 @@
         { date: '2026-02-05', title: 'Vaccination', note: 'Rabies vaccination recorded.' }
       ]
     },
-    {
-      appointment_id: 'apt303', pet_id: 3, status: 'confirmed', reference_no: 'VHS-20260924-G7H8I9',
-      pet_name: 'Milo', pet_type: 'Dog', pet_breed: 'Aspin', pet_age: '2 years',
-      owner_name: 'Jamie Cruz',
-      service: 'Wellness examination', appointment_date: '2026-09-24', appointment_time: '10:00 AM',
-      visit_reason: 'Scheduled wellness visit; owner reports no current concerns.',
+    3: { // Milo — Dog, Aspin
+      pet_age: '2 years',
       ai_triage: 'Routine',
       ai_summary: 'Young adult dog presenting for routine wellness examination; no reported concerns. Review vaccination schedule and weight trend.',
       visits: []
+    },
+    4: { // Buddy — Dog, Golden Retriever (grooming visit)
+      pet_age: '4 years',
+      ai_triage: 'Routine',
+      ai_summary: '',
+      visits: []
     }
-  ];
+  };
+
+  // Portal-only extras must NOT collide with shared appointment IDs.
+  // (User keeps its own historical fixtures locally; Doctor keeps EMR
+  // history and consultation records keyed by petId/appointmentId.)
+  const mockSchedule = (window.SharedMockAppointments
+    ? window.SharedMockAppointments.todays()
+    : []
+  ).map(function (appt) {
+    var emr = DOCTOR_EMR[appt.petId] || DOCTOR_EMR_DEFAULT(appt.pet ? appt.pet.name : '');
+    return Object.assign({}, appt, emr);
+  });
 
   // Data-mapping boundary: fixtures/endpoint rows are normalized through the
   // shared canonical appointment contract first, then projected into the
@@ -300,7 +316,8 @@
       pair.append(element('dt', label), element('dd', value));
       details.append(pair);
     }
-    record.replaceChildren(name, element('p', `${patient.dateDisplay} · ${patient.time} · ${patient.service}`), details, element('p', patient.reason, 'visit-reason'), element('h3', 'Clinical history'));
+    const refLine = patient.referenceNo ? ` · Ref ${patient.referenceNo}` : '';
+    record.replaceChildren(name, element('p', `${patient.dateDisplay} · ${patient.time} · ${patient.service}${refLine}`), details, element('p', patient.reason, 'visit-reason'), element('h3', 'Clinical history'));
     if (patient.history.length) {
       const history = element('ol', '', 'history');
       history.tabIndex = 0;

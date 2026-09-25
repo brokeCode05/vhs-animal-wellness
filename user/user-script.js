@@ -1900,8 +1900,21 @@ function petEmoji(type) {
 
 
 // ─── MOCK APPOINTMENTS DATA ─────────────────────────────────────────────────
-
-var mockAppointmentsData = [
+// Shared cross-portal records (shared/mock-appointments.js) are projected
+// into the local display shape and seeded first, so User shows the same
+// appointment/reference data as Clerk and Doctor. Portal-only history
+// follows with legacy ids kept for back-compat with existing fixtures.
+// TODO(BACKEND): Both lists come from the API; this merge disappears.
+var mockAppointmentsData = (function () {
+  var shared = (window.SharedMockAppointments ? window.SharedMockAppointments.all() : []).map(function (a) {
+    var row = window.AppointmentContract.toLegacyDisplay(
+      window.AppointmentContract.fromLegacy(a)
+    );
+    row.visit_reason = a.visitContext || '';
+    row.notes = a.visitContext || '';
+    return row;
+  });
+  return shared.concat([
   {
     id: 'apt001', pet_id: 1, pet_name: 'Luna', pet_type: 'Cat', pet_breed: 'Persian',
     service: 'General Consultation', date: '2026-09-15', time: '10:30 AM',
@@ -1950,7 +1963,8 @@ var mockAppointmentsData = [
     status: 'scheduled', notes: '',
     reference_no: 'VHS-2026-1105-008'
   },
-];
+  ]);
+})();
 
 
 // ─── APPOINTMENTS RENDERER ───────────────────────────────────────────────────
@@ -1986,9 +2000,8 @@ function _apptStatusBadge(status) {
 function renderAppointmentCards() {
   var now = new Date();
   var normalize = window.AppointmentContract ? window.AppointmentContract.normalizeStatus : function(s) { return s; };
-  var upcoming = mockAppointmentsData.filter(function(a) {
-    var s = normalize(a.status);
-    return s === 'pending' || s === 'confirmed';
+  var upcoming = mockAppointmentsData.filter(function(a) {    var s = normalize(a.status);
+    return s === 'pending' || s === 'confirmed' || s === 'checked_in';
   }).sort(function(a, b) { return new Date(a.date) - new Date(b.date); });
   var past = mockAppointmentsData.filter(function(a) {
     var s = normalize(a.status);

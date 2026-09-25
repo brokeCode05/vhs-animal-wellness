@@ -144,7 +144,75 @@ function removeRow(id) {
 
 
 
+// ─── TODAY'S SCHEDULE (clerk dashboard) ───────────────────────────────────
+// Compact same-day list for #todayScheduleTable. Columns mirror the dashboard
+// markup (Time/Owner/Pet/Service/Type/Status); reference_no is surfaced as the
+// Type cell until the backend serves a real visit type.
+// TODO(BACKEND): get_appointments.php must include reference_no so this shows
+// the same identifiers the User and Doctor portals display.
+function renderTodaysScheduleTable(all) {
+
+  var tbody = document.getElementById('todayScheduleTable');
+
+  if (!tbody) return;
+
+  if (!all.length) {
+
+    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#888;">No appointments today.</td></tr>';
+
+    return;
+
+  }
+
+  var contract = window.AppointmentContract;
+
+  var rows = all.map(function(raw) {
+
+    var a = contract ? contract.toLegacyDisplay(contract.fromLegacy(raw)) : raw;
+
+    return '<tr data-id="' + a.id + '" data-status="' + a.status + '">' +
+
+      '<td>' + formatDateTime(a.date, a.time) + '</td>' +
+
+      '<td>' + (a.owner_name || '—') + '</td>' +
+
+      '<td>' + (a.pet_name   || '—') + '</td>' +
+
+      '<td>' + (a.service    || '—') + '</td>' +
+
+      '<td><span class="status-badge info">' + (a.reference_no || '#A' + String(a.id).slice(-3).padStart(3, '0')) + '</span></td>' +
+
+      '<td>' + statusBadge(a.status) + '</td>' +
+
+      '</tr>';
+
+  });
+
+  tbody.innerHTML = rows.join('');
+
+}
+
+
+
 function loadAppointments() {
+
+  // Backend data first; the shared canonical mock dataset keeps Clerk (and
+  // the calendar) populated for frontend-only testing until the API is live.
+  // TODO(BACKEND): Remove the mock fallback once get_appointments.php is wired.
+  function useSharedMock(reason) {
+    if (reason) console.warn('loadAppointments fallback to shared mock:', reason);
+    var source = (window.SharedMockAppointments && window.SharedMockAppointments.all()) || [];
+    var all = source.map(function(a) {
+      return window.AppointmentContract ? window.AppointmentContract.toLegacyDisplay(window.AppointmentContract.fromLegacy(a)) : a;
+    });
+    var mockToday = (window.SharedMockAppointments && window.SharedMockAppointments.today) || new Date().toISOString().split('T')[0];
+    renderTodaysScheduleTable(all.filter(function(a) { return a.date === mockToday; }));
+    renderAllAppointmentsTable(all);
+    CalendarState.appointments = all.map(function(a) {
+      return { date: a.date, owner: a.owner_name, pet: a.pet_name, service: a.service, status: a.status, type: a.status };
+    });
+    generateCalendar();
+  }
 
   fetch('../php_files/get_appointments.php')
 
@@ -156,11 +224,15 @@ function loadAppointments() {
 
         showToast('Failed to load appointments.', 'error');
 
+        useSharedMock('status ' + data.status);
+
         return;
 
       }
 
       var all = data.appointments;
+
+      renderTodaysScheduleTable(all.filter(function(a) { return a.date === new Date().toISOString().split('T')[0]; }));
 
       renderAllAppointmentsTable(all);
 
@@ -188,7 +260,7 @@ function loadAppointments() {
 
     })
 
-    .catch(function(err) { console.error('loadAppointments error:', err); });
+    .catch(function(err) { useSharedMock(err.message); });
 
 }
 
@@ -1457,6 +1529,24 @@ function initDashboardShared() {
 
 
   if (document.getElementById('calendarGrid')) updateCalendarDisplay();
+
+
+
+  // Clerk dashboard “Today's Schedule”: feed from the shared canonical mock
+  // dataset so the same test records appear across User/Clerk/Doctor.
+  // TODO(BACKEND): Once get_appointments.php is live, renderTodaysScheduleTable
+  // is called from loadAppointments() with real same-day rows instead.
+  if (document.getElementById('todayScheduleTable') && window.SharedMockAppointments) {
+
+    var sharedToday = window.SharedMockAppointments.today || new Date().toISOString().split('T')[0];
+
+    renderTodaysScheduleTable(window.SharedMockAppointments.all().map(function(a) {
+
+      return window.AppointmentContract ? window.AppointmentContract.toLegacyDisplay(window.AppointmentContract.fromLegacy(a)) : a;
+
+    }).filter(function(a) { return a.date === sharedToday; }));
+
+  }
 
 
 
