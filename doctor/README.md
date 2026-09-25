@@ -58,6 +58,17 @@ Tested the local HTTP preview at `http://127.0.0.1:8765/doctor/index.html` after
 
 No live backend or clinical correctness validation was performed; this phase covers frontend layout and workflow only.
 
+## Phase 1 greeting + clinical document preview — 25 September 2026
+
+Fourth pass: contextual header and the document preview step.
+
+- Page header becomes a time-based greeting ("Good morning/afternoon/evening, Dr. Santos") on the patients view; subtitle shows the live day · date · time in the shared Clerk datetime format; the navbar clock now ticks (date | time, `dashboard-shared.js` format). Queue/EMR/notes/orders views keep their titles. Availability control unchanged (new assignments only).
+- New "Preview Clinical Document" action opens a print-ready modal built from a structured `consultation` object (`patient / appointment / soap / prescriptions / labRequests / veterinarian / status / createdAt / updatedAt`) assembled from `mapAppointment()` data plus the captured draft — no DOM scraping; this is the shape a consultation endpoint would receive (TODO(BACKEND) marked).
+- Document sections: Patient Information, Appointment Information, SOAP Notes (vitals folded into Objective), Prescriptions table, Lab Requests, Veterinarian + record timestamp. Print styles render the document alone.
+- Action flow: Save draft → Preview Clinical Document → Send to Front Desk (disabled, "Sending requires backend integration."). The modal footer states plainly that this is a preview and that sending/printing beyond the browser does not exist yet; no PDF/DB/handoff claims.
+
+Verified in-browser at 1440/390: greeting/clock tick, preview content matches entered data exactly, drafts preserved across views and patients and reflected in the preview, Escape/overlay/× close with focus restore, Send stays disabled, no console errors, no horizontal overflow.
+
 ## Phase 1 Clerk/Admin alignment pass — 25 September 2026
 
 Third pass: makes the Doctor Portal read as the same product as Clerk/Admin.

@@ -78,19 +78,39 @@
   const drafts = new Map();
   let selectedPatient = null;
   let medicineSequence = 0;
+  // TODO(BACKEND): Veterinarian identity comes from the authenticated session.
+  const VETERINARIAN = { name: 'Dr. Santos', role: 'Veterinarian' };
   const views = {
     patients: ['Today’s Patients', 'Select a patient to review their appointment and clinical history.'],
     notes: ['Consultation Notes', 'Document the active patient’s consultation using SOAP.'],
     orders: ['Prescriptions & Labs', 'Prepare medication instructions and internal test requests.']
   };
+  let currentView = 'patients';
+  // Time-based greeting for the patients view; other views keep their titles.
+  function greeting() {
+    const hour = new Date().getHours();
+    return `${hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening'}, ${VETERINARIAN.name}`;
+  }
+  function renderHeader(view) {
+    const title = document.getElementById('view-title');
+    const subtitle = document.getElementById('view-description');
+    if (view === 'patients') {
+      title.textContent = greeting();
+      subtitle.textContent = longDateTime();
+    } else {
+      title.textContent = views[view][0];
+      subtitle.textContent = views[view][1];
+    }
+  }
   function showView(view, moveFocus = true) {
     if (!Object.hasOwn(views, view)) view = 'patients';
     captureDraft();
     document.querySelectorAll('[data-panel]').forEach(panel => { panel.hidden = panel.dataset.panel !== view; });
     form.hidden = view === 'patients';
     document.getElementById('patient-context').hidden = view === 'patients';
-    document.getElementById('view-title').textContent = views[view][0];
-    document.getElementById('view-description').textContent = views[view][1];
+    document.getElementById('view-title').textContent = view === 'patients' ? greeting() : views[view][0];
+    document.getElementById('view-description').textContent = view === 'patients' ? longDateTime() : views[view][1];
+    currentView = view;
     document.title = `${views[view][0]} - VHS Doctor`;
     document.querySelectorAll('.sidebar-nav [data-view]').forEach(link => {
       const active = link.dataset.view === view;
@@ -110,7 +130,7 @@
   }
   const emptyMedicine = () => ({ medicine: '', dosage: '', frequency: '', duration: '', instructions: '' });
   function draftFor(patient) {
-    if (!drafts.has(patient.id)) drafts.set(patient.id, { fields: {}, medicines: [emptyMedicine()], labs: [], reviewed: false, saved: false });
+    if (!drafts.has(patient.id)) drafts.set(patient.id, { fields: {}, medicines: [emptyMedicine()], labs: [], reviewed: false, saved: false, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() });
     return drafts.get(patient.id);
   }
   function captureDraft() {
@@ -124,6 +144,7 @@
     });
     draft.labs = Array.from(form.querySelectorAll('[name="labs"]:checked'), input => input.value);
     draft.reviewed = document.getElementById('reviewed').checked;
+    draft.updatedAt = new Date().toISOString();
   }
   function markChanged() {
     const draft = draftFor(selectedPatient);
@@ -312,6 +333,119 @@
     // and enable front-desk handoff once the API exists.
     status.textContent = 'Draft saved on this device.';
   });
+  // Structured consultation object built from the appointment record plus the
+  // captured draft — the same shape a consultation endpoint would receive.
+  // TODO(BACKEND): POST/PUT this object to the consultation API when the
+  // veterinarian finalizes a record; the backend then exposes it to
+  // Clerk/Admin and the pet owner's account.
+  function buildConsultation(patient) {
+    const draft = captureAndReturnDraft(patient);
+    const soapEntries = (value) => value && value.trim() ? value.trim() : '';
+    return {
+      patient: { id: patient.id, name: patient.name, species: patient.species, breed: patient.breed, age: patient.age, owner: patient.owner },
+      appointment: { id: patient.id, date: patient.date, dateDisplay: patient.dateDisplay, time: patient.time, service: patient.service, reason: patient.reason },
+      soap: {
+        subjective: soapEntries(draft.fields.subjective),
+        weight: soapEntries(draft.fields.weight), temperature: soapEntries(draft.fields.temperature), heartRate: soapEntries(draft.fields.heartRate),
+        objective: soapEntries(draft.fields.exam),
+        assessment: soapEntries(draft.fields.assessment),
+        plan: soapEntries(draft.fields.plan)
+      },
+      prescriptions: draft.medicines.filter(m => m.medicine.trim()).map(m => ({ medicine: m.medicine.trim(), dosage: m.dosage.trim(), frequency: m.frequency.trim(), duration: m.duration.trim(), instructions: m.instructions.trim() })),
+      labRequests: draft.labs.map(name => ({ test: name, notes: '' })),
+      veterinarian: { name: VETERINARIAN.name, role: VETERINARIAN.role },
+      status: draft.saved ? 'finalized-draft' : 'in-progress',
+      createdAt: draft.createdAt,
+      updatedAt: draft.updatedAt
+    };
+  }
+  function captureAndReturnDraft(patient) {
+    captureDraft();
+    return draftFor(patient);
+  }
+  function renderConsultationDocument(consultation) {
+    const body = document.getElementById('document-preview-body');
+    body.replaceChildren();
+    const section = (title) => { const h = element('h3', title); return h; };
+    const defRow = (label, value) => {
+      const row = element('div', '', 'doc-row');
+      row.append(element('span', label, 'doc-label'), element('span', value || '—', 'doc-value'));
+      return row;
+    };
+    const patientSection = element('section', '', 'doc-section');
+    patientSection.append(section('Patient Information'));
+    const patientGrid = element('div', '', 'doc-grid');
+    [['Name', consultation.patient.name], ['Species', consultation.patient.species], ['Breed', consultation.patient.breed], ['Age', consultation.patient.age], ['Owner', consultation.patient.owner]]
+      .forEach(([label, value]) => patientGrid.append(defRow(label, value)));
+    patientSection.append(patientGrid);
+
+    const appointmentSection = element('section', '', 'doc-section');
+    appointmentSection.append(section('Appointment Information'));
+    appointmentSection.append(defRow('Date & time', `${consultation.appointment.dateDisplay}, ${consultation.appointment.time}`));
+    appointmentSection.append(defRow('Service', consultation.appointment.service));
+    appointmentSection.append(defRow('Reason for visit', consultation.appointment.reason));
+
+    const soapSection = element('section', '', 'doc-section');
+    soapSection.append(section('SOAP Notes'));
+    [['Subjective', consultation.soap.subjective], ['Objective (vitals & examination)', [consultation.soap.weight && `Weight: ${consultation.soap.weight} kg`, consultation.soap.temperature && `Temp: ${consultation.soap.temperature} °C`, consultation.soap.heartRate && `Heart rate: ${consultation.soap.heartRate} bpm`, consultation.soap.objective].filter(Boolean).join(' · ') || ''], ['Assessment', consultation.soap.assessment], ['Plan', consultation.soap.plan]]
+      .forEach(([label, value]) => soapSection.append(defRow(label, value)));
+
+    const prescriptionsSection = element('section', '', 'doc-section');
+    prescriptionsSection.append(section('Prescriptions'));
+    if (consultation.prescriptions.length) {
+      const table = element('table', '', 'doc-table');
+      const head = element('thead');
+      const headRow = element('tr');
+      ['Medicine', 'Dosage', 'Frequency', 'Duration', 'Instructions'].forEach(label => headRow.append(element('th', label)));
+      head.append(headRow);
+      const tbody = element('tbody');
+      consultation.prescriptions.forEach(prescription => {
+        const row = element('tr');
+        [prescription.medicine, prescription.dosage, prescription.frequency, prescription.duration, prescription.instructions].forEach(value => row.append(element('td', value || '—')));
+        tbody.append(row);
+      });
+      table.append(head, tbody);
+      prescriptionsSection.append(table);
+    } else {
+      prescriptionsSection.append(element('p', 'No prescriptions recorded.', 'doc-empty'));
+    }
+
+    const labsSection = element('section', '', 'doc-section');
+    labsSection.append(section('Lab Requests'));
+    if (consultation.labRequests.length) {
+      consultation.labRequests.forEach(lab => labsSection.append(defRow(lab.test, lab.notes)));
+    } else {
+      labsSection.append(element('p', 'No lab requests recorded.', 'doc-empty'));
+    }
+
+    const vetSection = element('section', '', 'doc-section');
+    vetSection.append(section('Veterinarian'));
+    vetSection.append(defRow('Name', consultation.veterinarian.name));
+    vetSection.append(defRow('Role', consultation.veterinarian.role));
+    vetSection.append(defRow('Record updated', new Date(consultation.updatedAt).toLocaleString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: 'numeric', minute: '2-digit' })));
+
+    body.append(patientSection, appointmentSection, soapSection, prescriptionsSection, labsSection, vetSection);
+  }
+  function openPreview() {
+    const consultation = buildConsultation(selectedPatient);
+    renderConsultationDocument(consultation);
+    document.getElementById('document-preview-overlay').classList.add('show');
+    document.getElementById('preview-close').focus();
+  }
+  function closePreview() {
+    document.getElementById('document-preview-overlay').classList.remove('show');
+    document.getElementById('preview-document').focus();
+  }
+  document.getElementById('preview-document').addEventListener('click', openPreview);
+  document.getElementById('preview-close').addEventListener('click', closePreview);
+  document.getElementById('preview-done').addEventListener('click', closePreview);
+  document.getElementById('preview-print').addEventListener('click', () => window.print());
+  document.getElementById('document-preview-overlay').addEventListener('click', event => {
+    if (event.target === event.currentTarget) closePreview();
+  });
+  document.addEventListener('keydown', event => {
+    if (event.key === 'Escape' && document.getElementById('document-preview-overlay').classList.contains('show')) closePreview();
+  });
   document.getElementById('availability').addEventListener('change', event => {
     const paused = event.target.value !== 'On-Duty';
     const status = document.getElementById('availability-status');
@@ -356,7 +490,30 @@
     event.preventDefault();
     document.getElementById('view-title').focus();
   });
-  document.getElementById('current-date').textContent = new Date().toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
+  // Navbar clock in the shared Clerk/Admin format: "Fri, Sep 25, 2026 | 9:14:32 PM".
+  const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  function longDateTime() {
+    const now = new Date();
+    const date = `${DAYS[now.getDay()]}, ${MONTHS[now.getMonth()]} ${now.getDate()}, ${now.getFullYear()}`;
+    return date;
+  }
+  function clockTime(now) {
+    let hours = now.getHours();
+    const minutes = now.getMinutes();
+    const seconds = now.getSeconds();
+    const suffix = hours >= 12 ? 'PM' : 'AM';
+    hours = hours % 12 || 12;
+    return `${hours}:${minutes < 10 ? '0' : ''}${minutes}:${seconds < 10 ? '0' : ''}${seconds} ${suffix}`;
+  }
+  function updateClock() {
+    const now = new Date();
+    document.getElementById('current-date').textContent = longDateTime(now);
+    document.getElementById('current-time').textContent = clockTime(now);
+    if (currentView === 'patients') document.getElementById('view-description').textContent = `${DAYS[now.getDay()]}, ${MONTHS[now.getMonth()]} ${now.getDate()}, ${now.getFullYear()} · ${clockTime(now)}`;
+  }
+  updateClock();
+  setInterval(updateClock, 1000);
   selectPatient(patients[0], false);
   showView(window.location.hash.slice(1), false);
 })();
