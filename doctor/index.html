@@ -17,6 +17,7 @@
     <div class="navbar-brand"><img src="../web-page/image/vhs-assets/vhs-logo.png" alt="VHS" class="navbar-logo"><span class="brand-name">VHS Doctor</span></div>
     <div class="navbar-datetime"><span class="dt-date" id="current-date"></span></div>
   </header>
+  <div class="sidebar-overlay" id="sidebar-overlay"></div>
   <div class="main-wrapper">
     <aside class="sidebar" id="doctor-sidebar">
       <div class="sidebar-profile">
@@ -31,10 +32,9 @@
     </aside>
     <main id="workspace" class="main-content">
       <div class="page-header workspace-header">
-        <div><div class="title-row"><h1 id="view-title" tabindex="-1">Patient Workspace</h1><span class="demo-label" title="Fictional patient data. No backend connection.">Demo data</span></div><p class="page-subtitle" id="view-description">Select a patient to review their appointment and clinical history.</p></div>
+        <div><div class="title-row"><h1 id="view-title" tabindex="-1">Patient Workspace</h1><span class="demo-label" title="Fictional data. Nothing is saved or sent.">Demo data</span></div><p class="page-subtitle" id="view-description">Select a patient to review their appointment and clinical history.</p></div>
         <div class="availability"><label class="form-label" for="availability">New assignments</label><select class="form-select" id="availability"><option>On-Duty</option><option>On Break</option><option>On Leave</option></select><p id="availability-status" class="helper" role="status">Accepting new assignments · local only</p></div>
       </div>
-      <p class="clinical-notice">AI triage and summaries: veterinarian review required.</p>
       <div id="patient-context" class="patient-context" hidden>
         <div><span class="context-label">Active patient</span><h2 id="context-name">Luna</h2><p id="context-appointment"></p></div>
         <button class="btn-secondary" type="button" data-view="patients">Change patient</button>
@@ -65,7 +65,7 @@
         </section>
         <section class="content-section" id="orders-section" data-panel="orders" aria-labelledby="orders-heading" hidden>
           <div class="section-heading"><h2 class="section-title" id="orders-heading">Prescriptions &amp; Lab Requests</h2><button class="btn-secondary" type="button" id="add-medicine">+ Add medicine</button></div>
-          <p class="helper section-intro">Draft instructions · not issued</p>
+          <p class="helper section-intro">Draft only · nothing is issued</p>
           <div id="medicine-list"></div>
           <fieldset class="lab-options"><legend>Internal lab requests</legend><label><input type="checkbox" name="labs" value="Blood test"> Blood test</label><label><input type="checkbox" name="labs" value="X-ray"> X-ray</label><label><input type="checkbox" name="labs" value="Urinalysis"> Urinalysis</label></fieldset>
           <div class="view-actions"><button type="button" class="btn-secondary" data-view="notes">Back to SOAP notes</button></div>

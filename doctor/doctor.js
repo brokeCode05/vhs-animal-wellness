@@ -39,9 +39,7 @@
       if (active) link.setAttribute('aria-current', 'page');
       else link.removeAttribute('aria-current');
     });
-    document.getElementById('doctor-sidebar').classList.remove('open');
-    document.getElementById('menu-toggle').setAttribute('aria-expanded', 'false');
-    if (moveFocus) {
+    closeMobileSidebar();    if (moveFocus) {
       document.getElementById('view-title').focus({ preventScroll: true });
       window.scrollTo({ top: 0, behavior: 'instant' });
     }
@@ -221,11 +219,33 @@
     status.textContent = paused ? 'New assignments paused · local only' : 'Accepting new assignments · local only';
     status.classList.toggle('assignments-paused', paused);
   });
+  // Mobile drawer behaves like the other portals: slide-in panel, dimmed
+  // overlay, animated hamburger, and close on overlay click or Escape.
   const menu = document.getElementById('menu-toggle');
   const sidebar = document.getElementById('doctor-sidebar');
+  const overlay = document.getElementById('sidebar-overlay');
+  function openMobileSidebar() {
+    sidebar.classList.add('open');
+    overlay.classList.add('show');
+    menu.classList.add('active');
+    menu.setAttribute('aria-expanded', 'true');
+  }
+  function closeMobileSidebar() {
+    sidebar.classList.remove('open');
+    overlay.classList.remove('show');
+    menu.classList.remove('active');
+    menu.setAttribute('aria-expanded', 'false');
+  }
   menu.addEventListener('click', () => {
-    const open = sidebar.classList.toggle('open');
-    menu.setAttribute('aria-expanded', String(open));
+    if (sidebar.classList.contains('open')) closeMobileSidebar();
+    else openMobileSidebar();
+  });
+  overlay.addEventListener('click', closeMobileSidebar);
+  document.addEventListener('keydown', event => {
+    if (event.key === 'Escape' && sidebar.classList.contains('open')) {
+      closeMobileSidebar();
+      menu.focus();
+    }
   });
   document.querySelectorAll('[data-view]').forEach(link => link.addEventListener('click', event => {
     event.preventDefault();

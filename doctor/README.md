@@ -58,7 +58,27 @@ Tested the local HTTP preview at `http://127.0.0.1:8765/doctor/index.html` after
 
 No live backend or clinical correctness validation was performed; this phase covers frontend layout and workflow only.
 
-## Focused UI refinement — 25 September 2026
+## Phase 1 consistency pass — 25 September 2026
+
+Goal: make Doctor inherit the same VHS design system as User/Clerk/Admin instead of overriding it. Inspection of `shared/dashboard-theme.css`, `admin/admin-style.css`, and the role accent files showed Doctor was flattening shared system styles (gradient navbar, gradient primary buttons, shared focus rings, nav hover slide, hover-reveal section markers). This pass removes those flattening overrides.
+
+- Doctor now declares the User-portal purple accent tokens (`--accent*` from `user/user-accent.css`) so the shared navbar gradient, buttons, inputs, and focus rings resolve purple exactly as in the User portal.
+- Navbar, sidebar hover/active, buttons (gradient primary, neutral secondary, 44px targets, hover lift, press feedback), inputs (1.5px borders, soft focus glow), and 250ms cubic-bezier(.4,0,.2,1) transitions now come from the shared system rules, matching the sibling portals.
+- Mobile sidebar is a slide-in drawer with a dimmed overlay and animated hamburger, same pattern as the other portals; closes on navigation, overlay click, or Escape.
+- Removed the standalone clinical-notice line (AI-review caveat now lives only in the single Demo data badge tooltip and README); no other demo text remains besides one header badge and short draft/handoff status labels.
+- Kept the three-view workflow, per-patient drafts, and Emergency > Urgent > Routine severity contrast (filled red badge for Emergency).
+
+### Verification (25 September 2026)
+
+- `node --check doctor.js` syntax pass; browser console clean during checks.
+- Compared computed styles against the User portal: primary button gradient/box-shadow, secondary button, input focus ring, navbar gradient, and nav-item hover/active states match.
+- Views switched without reload with drafts (fields, medicines, labs, review ack) preserved per patient; Emergency and Urgent badges distinguishable at a glance.
+- Checked 1440×900 desktop and 390×844 mobile: drawer opens/closes, one visible panel per view, no horizontal overflow.
+- User, Clerk, Admin, shared, and PHP files untouched.
+
+### Remaining frontend-only limitations (unchanged)
+
+Fictional fixtures; static example AI summary; drafts live in memory only and reset on reload; "Save local draft" only marks state on the page; "Send to Front Desk" is disabled; availability changes local text only; no login, backend, or network calls.
 
 Reused patterns found in source:
 
