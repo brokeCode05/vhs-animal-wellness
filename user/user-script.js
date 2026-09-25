@@ -944,7 +944,7 @@ function viewAppt(id) {
       + '<div class="appt-detail-row"><span class="appt-detail-label">Pet</span><span class="appt-detail-val">' + escapeHtml(appt.pet_name) + ' (' + escapeHtml(appt.pet_type) + (appt.pet_breed ? ' / ' + escapeHtml(appt.pet_breed) : '') + ')</span></div>'
       + '<div class="appt-detail-row"><span class="appt-detail-label">Service</span><span class="appt-detail-val">' + escapeHtml(appt.service) + '</span></div>'
       + '<div class="appt-detail-row"><span class="appt-detail-label">Date</span><span class="appt-detail-val">' + _fmtApptDateShort(appt.date) + '</span></div>'
-      + '<div class="appt-detail-row"><span class="appt-detail-label">Time</span><span class="appt-detail-val">' + escapeHtml(appt.time || '—') + '</span></div>'
+      + '<div class="appt-detail-row"><span class="appt-detail-label">Time</span><span class="appt-detail-val">' + escapeHtml(_fmtApptTimeShort(appt.time) || '—') + '</span></div>'
       + '<div class="appt-detail-row"><span class="appt-detail-label">Status</span><span class="appt-detail-val">' + _apptStatusBadge(appt.status) + '</span></div>'
       + (appt.notes ? '<div class="appt-detail-row"><span class="appt-detail-label">Notes</span><span class="appt-detail-val">' + escapeHtml(appt.notes) + '</span></div>' : '');
   }

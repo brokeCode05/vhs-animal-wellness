@@ -490,6 +490,7 @@
     draft.updatedAt = draft.completedAt;
     renderQueue();
     renderHeader(currentView);
+    renderRecordActions(selectedPatient);
     const timerLine = document.getElementById('context-timer');
     timerLine.hidden = true;
     timerLine.replaceChildren();
