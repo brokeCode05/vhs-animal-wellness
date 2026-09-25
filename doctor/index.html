@@ -57,6 +57,10 @@
           <div class="view-actions"><button type="button" class="btn-primary" data-view="notes">Write consultation notes</button></div>
         </section>
       </div>
+      <div class="content-section" id="locked-notice" data-panel="locked" hidden>
+        <p class="locked-message">Start the consultation first to access clinical notes.</p>
+        <button class="btn-primary" type="button" id="locked-start" hidden>Start Consultation</button>
+      </div>
       <form id="consultation-form" novalidate hidden>
         <section class="content-section" id="soap-section" data-panel="notes" aria-labelledby="soap-heading" hidden>
           <div class="section-heading"><h2 class="section-title" id="soap-heading">SOAP note</h2></div>

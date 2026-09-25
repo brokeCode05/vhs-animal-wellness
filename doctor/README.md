@@ -58,6 +58,17 @@ Tested the local HTTP preview at `http://127.0.0.1:8765/doctor/index.html` after
 
 No live backend or clinical correctness validation was performed; this phase covers frontend layout and workflow only.
 
+## Phase 1 clinical gating — 25 September 2026
+
+Sixth pass: workflow gating only, no UI redesign.
+
+- Status names canonicalized to `upcoming / checked_in / in_consultation / completed` in state and badge classes.
+- Before Start, Consultation Notes and Prescriptions & Labs render a short lock notice ("Start the consultation first to access clinical notes.") instead of the form; a small Start Consultation button appears only for checked-in patients. Patient EMR and the queue stay fully viewable at all times.
+- Start requires `checked_in`; upcoming patients have no Start action. Selecting a patient never starts anything. Complete Consultation is disabled unless the selected patient is `in_consultation`; after completion the notes remain readable.
+- `TODO(BACKEND): Validate the status transition server-side.` marks start and complete.
+
+Verified in-browser: lock matrix across all four statuses (checked-in/upcoming/completed × notes/orders), start rule, complete rule, timer continuity, EMR availability, drafts, 1440/390 overflow, console clean.
+
 ## Phase 1 consultation lifecycle — 25 September 2026
 
 Fifth pass: workflow states and consultation timer.

@@ -87,14 +87,14 @@
     orders: ['Prescriptions & Labs', 'Prepare medication instructions and internal test requests.']
   };
   let currentView = 'patients';
-  // Consultation lifecycle: upcoming → checked-in → in-consultation → completed.
+  // Consultation lifecycle: upcoming → checked_in → in_consultation → completed.
   // TODO(BACKEND): Status changes are local-only; the consultation API owns
   // the real lifecycle and timestamps once connected.
-  const STATUS_LABELS = { upcoming: 'Upcoming', 'checked-in': 'Checked In', 'in-consultation': 'In Consultation', completed: 'Completed' };
+  const STATUS_LABELS = { upcoming: 'Upcoming', 'checked_in': 'Checked In', 'in_consultation': 'In Consultation', completed: 'Completed' };
   function statusFor(patient) {
     const draft = draftFor(patient);
     if (draft.status) return draft.status;
-    return patient.checkedIn ? 'checked-in' : 'upcoming';
+    return patient.checkedIn ? 'checked_in' : 'upcoming';
   }
   // Time-based greeting for the patients view; other views keep their titles.
   function greeting() {
@@ -105,16 +105,19 @@
   // already waiting in the lobby.
   function greetingSubtitle() {
     const scheduled = patients.length;
-    const waiting = patients.find(p => statusFor(p) === 'checked-in');
+    const waiting = patients.find(p => statusFor(p) === 'checked_in');
     if (waiting) return `You have ${scheduled} patients scheduled today. ${waiting.name} is checked in and waiting at ${waiting.time}.`;
     return `You have ${scheduled} patients scheduled today.`;
   }
-  function renderHeader(view) {
+  function renderHeader(view, locked = false) {
     const title = document.getElementById('view-title');
     const subtitle = document.getElementById('view-description');
     if (view === 'patients') {
       title.textContent = greeting();
       subtitle.textContent = greetingSubtitle();
+    } else if (locked) {
+      title.textContent = views[view][0];
+      subtitle.textContent = 'Start the consultation first to access clinical notes.';
     } else {
       title.textContent = views[view][0];
       subtitle.textContent = views[view][1];
@@ -122,11 +125,21 @@
   }
   function showView(view, moveFocus = true) {
     if (!Object.hasOwn(views, view)) view = 'patients';
+    const status = selectedPatient ? statusFor(selectedPatient) : 'upcoming';
+    const clinicalLocked = view !== 'patients' && status !== 'in_consultation' && status !== 'completed';
+    const effectiveView = clinicalLocked ? 'locked' : view;
     captureDraft();
-    document.querySelectorAll('[data-panel]').forEach(panel => { panel.hidden = panel.dataset.panel !== view; });
-    form.hidden = view === 'patients';
+    document.querySelectorAll('[data-panel]').forEach(panel => { panel.hidden = panel.dataset.panel !== effectiveView; });
+    form.hidden = effectiveView !== view || view === 'patients';
     document.getElementById('patient-context').hidden = view === 'patients';
-    renderHeader(view);
+    const notice = document.getElementById('locked-notice');
+    notice.hidden = effectiveView !== 'locked';
+    if (clinicalLocked) {
+      const startBtn = document.getElementById('locked-start');
+      startBtn.hidden = status !== 'checked_in';
+      startBtn.focus({ preventScroll: true });
+    }
+    renderHeader(view, clinicalLocked);
     currentView = view;
     document.title = `${views[view][0]} - VHS Doctor`;
     document.querySelectorAll('.sidebar-nav [data-view]').forEach(link => {
@@ -245,15 +258,16 @@
     draft.medicines.forEach(addMedicine);
     form.querySelectorAll('[name="labs"]').forEach(input => { input.checked = draft.labs.includes(input.value); });
     document.getElementById('reviewed').checked = draft.reviewed;
+    document.getElementById('complete-consultation').disabled = statusFor(patient) !== 'in_consultation';
     document.getElementById('ai-summary').textContent = patient.aiSummary;
     document.getElementById('context-name').textContent = patient.name;
     document.getElementById('context-appointment').textContent = `${patient.species} · ${patient.breed} · ${patient.dateDisplay}, ${patient.time} · ${patient.service}`;
     const timerLine = document.getElementById('context-timer');
-    if (draft.status === 'in-consultation' && draft.startedAt) {
+    if (draft.status === 'in_consultation' && draft.startedAt) {
       const startClock = new Date(draft.startedAt).toLocaleTimeString('en-GB', { hour: 'numeric', minute: '2-digit' });
       timerLine.hidden = false;
       timerLine.replaceChildren(
-        element('span', STATUS_LABELS[draft.status], `appt-status in-consultation`),
+        element('span', STATUS_LABELS[draft.status], `appt-status in_consultation`),
         element('span', ` · Started ${startClock} · `),
         element('span', formatElapsed(draft.startedAt), 'timer-value')
       );
@@ -310,7 +324,7 @@
     const statusCell = element('td');
     statusCell.append(element('span', STATUS_LABELS[status], `appt-status ${status}`));
     const actionCell = element('td', '', 'q-action');
-    if (status === 'checked-in') {
+    if (status === 'checked_in') {
       const start = element('button', 'Start Consultation', 'btn-primary btn-small');
       start.type = 'button';
       start.addEventListener('click', event => {
@@ -318,7 +332,7 @@
         startConsultation(patient);
       });
       actionCell.append(start);
-    } else if (status === 'in-consultation') {
+    } else if (status === 'in_consultation') {
       const timer = element('span', '', 'queue-timer');
       timer.dataset.elapsedFor = patient.id;
       actionCell.append(timer);
@@ -350,12 +364,15 @@
   }
   renderQueue();
   // Start is an explicit action, never a side effect of selecting a patient.
-  // TODO(BACKEND): Record startedAt through the consultation API.
+  // Only checked-in patients may start; upcoming patients cannot.
+  // TODO(BACKEND): Validate the status transition server-side and record
+  // startedAt through the consultation API.
   function startConsultation(patient) {
     const draft = draftFor(patient);
-    if (draft.status === 'in-consultation' || draft.status === 'completed') return;
+    if (statusFor(patient) !== 'checked_in') return;
+    if (draft.status === 'in_consultation' || draft.status === 'completed') return;
     captureDraft();
-    draft.status = 'in-consultation';
+    draft.status = 'in_consultation';
     draft.startedAt = new Date().toISOString();
     draft.completedAt = null;
     draft.durationMinutes = null;
@@ -371,7 +388,7 @@
     const now = new Date();
     patients.forEach(patient => {
       const draft = draftFor(patient);
-      if (draft.status !== 'in-consultation' || !draft.startedAt) return;
+      if (draft.status !== 'in_consultation' || !draft.startedAt) return;
       const elapsed = formatElapsed(draft.startedAt, now);
       document.querySelectorAll(`[data-elapsed-for="${patient.id}"]`).forEach(node => { node.textContent = elapsed; });
     });
@@ -434,8 +451,9 @@
   document.getElementById('complete-consultation').addEventListener('click', () => {
     const draft = draftFor(selectedPatient);
     const status = document.getElementById('save-status');
+    // TODO(BACKEND): Validate the completion transition server-side.
     if (draft.status === 'completed') { status.textContent = 'This consultation is already completed.'; return; }
-    if (draft.status !== 'in-consultation') { status.textContent = 'Start the consultation before completing it.'; return; }
+    if (draft.status !== 'in_consultation' || statusFor(selectedPatient) !== 'in_consultation') { status.textContent = 'Start the consultation before completing it.'; return; }
     captureDraft();
     const incomplete = draft.medicines.find(m => {
       const core = [m.medicine, m.dosage, m.frequency, m.duration];
@@ -572,6 +590,9 @@
     document.getElementById('document-preview-overlay').classList.remove('show');
     document.getElementById('preview-document').focus();
   }
+  document.getElementById('locked-start').addEventListener('click', () => {
+    if (selectedPatient) startConsultation(selectedPatient);
+  });
   document.getElementById('preview-document').addEventListener('click', openPreview);
   document.getElementById('preview-close').addEventListener('click', closePreview);
   document.getElementById('preview-done').addEventListener('click', closePreview);

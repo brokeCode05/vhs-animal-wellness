@@ -75,14 +75,17 @@ body.doctor-portal { line-height: 1.5; }
 
 /* Appointment lifecycle badges — same pill recipe, neutral-to-purple family. */
 .appt-status { display: inline-block; padding: 0.3rem 0.75rem; border-radius: 14px; font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em; white-space: nowrap; background: #f3f4f6; color: #4b5563; border: 1px solid #d1d5db; }
-.appt-status.checked-in { background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%); color: #1e40af; border: 1px solid #93c5fd; }
-.appt-status.in-consultation { background: var(--accent-badge-bg); color: var(--accent-dark); border: 1px solid var(--accent-badge-border); }
+.appt-status.checked_in { background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%); color: #1e40af; border: 1px solid #93c5fd; }
+.appt-status.in_consultation { background: var(--accent-badge-bg); color: var(--accent-dark); border: 1px solid var(--accent-badge-border); }
 .appt-status.completed { background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%); color: #065f46; border: 1px solid #6ee7b7; }
 .q-action { white-space: nowrap; }
 .q-action .btn-small { padding: 0.35rem 0.75rem; min-height: 32px; font-size: 0.8rem; }
 .q-done-note { font-size: 0.8rem; color: #756781; }
 .consultation-timer { display: flex; align-items: center; gap: 0.4rem; margin-top: 0.35rem; font-size: 0.85rem; color: #594967; }
 .consultation-timer .timer-value { font-weight: 800; font-variant-numeric: tabular-nums; color: var(--accent-dark); }
+/* Locked clinical views: one short line, no warning cards. */
+.locked-message { color: #756781; font-size: 0.95rem; margin: 0 0 0.9rem; }
+#locked-notice .btn-primary { margin-bottom: 0.25rem; }
 
 /* ===== SELECTED PATIENT / CONTEXT BAR ===== */
 .patient-context {
