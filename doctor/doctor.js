@@ -332,9 +332,8 @@
     }
   }
   // Clinic-list rows modeled on the Clerk appointments table: one compact
-  // row per appointment, scannable columns, selected row in the VHS active
-  // treatment (accent tint + left marker). Rows are focusable and respond
-  // to Enter/Space like the buttons they replace.
+  // row per appointment for scanning and selection; the single contextual
+  // consultation action lives beside the selected patient's EMR.
   function renderQueueRow(patient) {
     const row = element('tr', '', `queue-row ${patient.severity.toLowerCase()}`);
     row.tabIndex = 0;
@@ -346,47 +345,13 @@
     badgeCell.append(element('span', patient.severity, `severity ${patient.severity.toLowerCase()}`));
     const statusCell = element('td');
     statusCell.append(element('span', STATUS_LABELS[status], `appt-status ${status}`));
-    const actionCell = element('td', '', 'q-action');
-    if (status === 'checked_in') {
-      const start = element('button', 'Start Consultation', 'btn-primary btn-small');
-      start.type = 'button';
-      start.addEventListener('click', event => {
-        event.stopPropagation();
-        startConsultation(patient);
-      });
-      actionCell.append(start);
-    } else if (status === 'in_consultation') {
-      const timer = element('span', '', 'queue-timer');
-      timer.dataset.elapsedFor = patient.id;
-      const cont = element('button', 'Continue Consultation', 'btn-secondary btn-small');
-      cont.type = 'button';
-      cont.setAttribute('aria-label', `Continue consultation for ${patient.name}`);
-      cont.addEventListener('click', event => {
-        event.stopPropagation();
-        selectPatient(patient);
-        navigate('notes');
-      });
-      actionCell.append(timer, cont);
-    } else if (status === 'completed') {
-      const duration = draftFor(patient).durationMinutes;
-      const viewDoc = element('button', 'View Document', 'btn-secondary btn-small');
-      viewDoc.type = 'button';
-      viewDoc.setAttribute('aria-label', `View clinical document for ${patient.name}`);
-      viewDoc.addEventListener('click', event => {
-        event.stopPropagation();
-        selectPatient(patient, false);
-        openPreview(patient);
-      });
-      actionCell.append(element('span', `Completed in ${duration != null ? duration + ' min' : '—'}`, 'q-done-note'), viewDoc);
-    }
     row.append(
       element('td', patient.time, 'q-time'),
       element('td', patient.name, 'q-name'),
       element('td', patient.owner, 'q-owner'),
       element('td', patient.service, 'q-service'),
       badgeCell,
-      statusCell,
-      actionCell
+      statusCell
     );
     const activate = () => selectPatient(patient);
     row.addEventListener('click', activate);

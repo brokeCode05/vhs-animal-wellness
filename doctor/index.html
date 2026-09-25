@@ -45,16 +45,15 @@
           <p class="helper" id="queue-meta"></p>
           <div class="table-wrapper">
             <table class="compact-table" aria-describedby="queue-meta">
-              <thead><tr><th scope="col">Time</th><th scope="col">Patient</th><th scope="col">Owner</th><th scope="col">Service</th><th scope="col">Triage</th><th scope="col">Status</th><th scope="col">Action</th></tr></thead>
+              <thead><tr><th scope="col">Time</th><th scope="col">Patient</th><th scope="col">Owner</th><th scope="col">Service</th><th scope="col">Triage</th><th scope="col">Status</th></tr></thead>
               <tbody id="patient-queue"></tbody>
             </table>
           </div>
           <noscript>Enable JavaScript to use the patient views.</noscript>
         </section>
         <section class="content-section record-panel" aria-labelledby="record-heading">
-          <div class="section-heading"><h2 class="section-title" id="record-heading" tabindex="-1">Patient EMR</h2></div>
+          <div class="section-heading"><h2 class="section-title" id="record-heading" tabindex="-1">Patient EMR</h2><div id="record-actions" class="record-heading-actions"></div></div>
           <div id="patient-record"><p>Select a patient from the queue to view their record.</p></div>
-          <div class="view-actions" id="record-actions"></div>
         </section>
       </div>
       <div class="content-section" id="locked-notice" data-panel="locked" hidden>

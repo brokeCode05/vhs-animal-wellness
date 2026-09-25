@@ -52,6 +52,9 @@ body.doctor-portal { line-height: 1.5; }
 /* Sections keep the shared card look; a quicker entrance for view switches. */
 .doctor-portal .content-section { animation: fadeInUp 0.35s ease-out; }
 .section-heading { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.75rem; margin-bottom: 1rem; }
+/* The one contextual consultation action, top of the EMR panel. */
+.record-heading-actions { display: flex; align-items: center; gap: 0.6rem; }
+.record-heading-actions .btn-primary, .record-heading-actions .btn-secondary { padding: 0.45rem 0.95rem; min-height: 38px; font-size: 0.85rem; }
 .doctor-portal .section-title { font-size: 1.15rem; margin: 0; }
 .helper { color: #756781; font-size: 0.875rem; }
 .section-intro { margin: 0 0 1rem; }
@@ -78,8 +81,6 @@ body.doctor-portal { line-height: 1.5; }
 .appt-status.checked_in { background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%); color: #1e40af; border: 1px solid #93c5fd; }
 .appt-status.in_consultation { background: var(--accent-badge-bg); color: var(--accent-dark); border: 1px solid var(--accent-badge-border); }
 .appt-status.completed { background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%); color: #065f46; border: 1px solid #6ee7b7; }
-.q-action { white-space: nowrap; }
-.q-action .btn-small { padding: 0.35rem 0.75rem; min-height: 32px; font-size: 0.8rem; }
 .q-done-note { font-size: 0.8rem; color: #756781; }
 .consultation-timer { display: flex; align-items: center; gap: 0.4rem; margin-top: 0.35rem; font-size: 0.85rem; color: #594967; }
 .consultation-timer .timer-value { font-weight: 800; font-variant-numeric: tabular-nums; color: var(--accent-dark); }
