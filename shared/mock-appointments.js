@@ -116,13 +116,31 @@
       return this.byReference(v) || this.byId(v);
     },
     checkIn: function (id) {
+      return this.setStatus(id, 'checked_in');
+    },
+    // Guarded transition for any mock-supported status change (check-in now;
+    // cancellations while the backend is offline). Invalid transitions are
+    // rejected, never invented.
+    // TODO(BACKEND): Replace with the transition endpoints (e.g.
+    // update_appointment_status.php) once the API owns state.
+    setStatus: function (id, nextStatus) {
       var base = MOCK_APPOINTMENTS.find(function (a) { return String(a.appointmentId) === String(id); });
       if (!base) return { ok: false, error: 'not_found' };
       var eff = effective(base);
       var s = (window.AppointmentContract ? window.AppointmentContract.normalizeStatus(eff.status) : eff.status);
-      if (s === 'checked_in') return { ok: false, error: 'already' };
-      if (s !== 'confirmed') return { ok: false, error: 'invalid_status' };
-      OVERRIDES[base.appointmentId] = { status: 'checked_in', checkedInAt: new Date().toISOString() };
+      var next = (window.AppointmentContract ? window.AppointmentContract.normalizeStatus(nextStatus) : nextStatus);
+      var allowed = {
+        'confirmed>checked_in': true,
+        'confirmed>canceled': true,
+        'pending>canceled': true,
+        'pending>confirmed': true,
+        'rescheduled>canceled': true,
+        'rescheduled>confirmed': true
+      };
+      if (s === next && next === 'checked_in') return { ok: false, error: 'already' };
+      if (!allowed[s + '>' + next]) return { ok: false, error: 'invalid_status' };
+      OVERRIDES[base.appointmentId] = { status: next };
+      if (next === 'checked_in') OVERRIDES[base.appointmentId].checkedInAt = new Date().toISOString();
       _saveOverrides();
       return { ok: true, appointment: effective(base) };
     }

@@ -219,7 +219,7 @@ function loadAppointments() {
     renderTodaysScheduleTable(all.filter(function(a) { return a.date === mockToday; }));
     renderAllAppointmentsTable(all);
     CalendarState.appointments = all.map(function(a) {
-      return { date: a.date, owner: a.owner_name, pet: a.pet_name, service: a.service, status: a.status, type: a.status };
+      return { id: a.id, date: a.date, owner: a.owner_name, pet: a.pet_name, service: a.service, status: a.status, type: a.status };
     });
     generateCalendar();
   }
@@ -248,23 +248,25 @@ function loadAppointments() {
 
       CalendarState.appointments = all.map(function(a) {
 
-        return {
+      return {
 
-          date:    a.date,
+        id:      a.id,
 
-          owner:   a.owner_name,
+        date:    a.date,
 
-          pet:     a.pet_name,
+        owner:   a.owner_name,
 
-          service: a.service,
+        pet:     a.pet_name,
 
-          status:  a.status,
+        service: a.service,
 
-          type:    a.status
+        status:  a.status,
 
-        };
+        type:    a.status
 
-      });
+      };
+
+    });
 
       generateCalendar();
 
@@ -524,7 +526,112 @@ function cancelAppointment(id) {
 
 
 
-function viewAppointment(id)  { showUnderWork('Appointment detail view'); }
+// ─── APPOINTMENT DETAILS PANEL (shared, canonical data only) ──────────────────
+// One detail view for every entry point (table View button, calendar item,
+// check-in follow-up). Resolves by appointmentId through the shared mock
+// layer when present, otherwise through the last loaded table rows.
+// TODO(BACKEND): Replace the resolver with GET appointment by id/referenceNo.
+function _findCanonicalAppointment(idOrRef) {
+  var shared = window.SharedMockAppointments;
+  if (shared) {
+    var hit = shared.byId(idOrRef) || shared.byReference(idOrRef);
+    if (hit) return hit;
+  }
+  var raw = (CalendarState.appointments || []).find(function(a) { return String(a.id) === String(idOrRef); });
+  return raw || null;
+}function openAppointmentDetails(idOrRef) {
+
+  var modal = document.getElementById('appointmentDetailsModal');
+
+  // Pages without the details markup (Admin) keep their previous placeholder.
+
+  if (!modal) { if (typeof showUnderWork === 'function') showUnderWork('Appointment detail view'); return; }
+  var raw = _findCanonicalAppointment(idOrRef);
+  var body = document.getElementById('appointmentDetailsBody');
+  if (!raw) {
+    if (body) body.innerHTML = '<p style="text-align:center;color:#6b7280;padding:1rem 0;">Appointment not found.</p>';
+    document.getElementById('appointmentDetailsActions').style.display = 'none';
+    modal.classList.add('show');
+    document.body.classList.add('modal-open');
+    return;
+  }
+  var a = window.AppointmentContract
+    ? window.AppointmentContract.toLegacyDisplay(window.AppointmentContract.fromLegacy(raw))
+    : raw;
+  var checkedIn = '';
+  if (a.checked_in_at) {
+    var d = new Date(a.checked_in_at);
+    checkedIn = isNaN(d)
+      ? String(a.checked_in_at)
+      : d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) + ', ' +
+        d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+  }
+  var rows = [
+    ['Reference ID', a.reference_no || '—'],
+    ['Owner', a.owner_name || '—'],
+    ['Pet', (a.pet_name || '—') + (a.pet_type ? ' (' + a.pet_type + (a.pet_breed ? ' / ' + a.pet_breed : '') + ')' : '')],
+    ['Service', a.service || '—'],
+    ['Date', _fmtDetailsDate(a.date)],
+    ['Time', _fmtDetailsTime(a.time)],
+    ['Visit context', a.visit_reason || '—'],
+    ['Notes / symptoms', a.notes || '—'],
+    ['Status', statusBadge(a.status)]
+  ];
+  if (checkedIn) rows.push(['Checked in', checkedIn]);
+  if (body) {
+    body.innerHTML = '<div style="border:1px solid #e5e7eb;border-radius:0.75rem;overflow:hidden;">' +
+      rows.map(function(r) {
+        return '<div style="display:flex;justify-content:space-between;gap:1rem;padding:0.5rem 0.75rem;border-bottom:1px solid #f3f4f6;font-size:0.9rem;">' +
+          '<span style="color:#6b7280;flex-shrink:0;">' + r[0] + '</span>' +
+          '<span style="text-align:right;font-weight:500;color:#111827;">' + r[1] + '</span>' +
+          '</div>';
+      }).join('') + '</div>';
+  }
+  renderAppointmentDetailsActions(a);
+  modal.classList.add('show');
+  document.body.classList.add('modal-open');
+}
+
+function _fmtDetailsDate(dateStr) {
+  if (!dateStr) return '—';
+  var p = String(dateStr).split('-');
+  if (p.length !== 3) return String(dateStr);
+  var d = new Date(parseInt(p[0], 10), parseInt(p[1], 10) - 1, parseInt(p[2], 10));
+  return isNaN(d) ? String(dateStr) : d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+function _fmtDetailsTime(timeStr) {
+  var t = String(timeStr || '');
+  if (/^\d{1,2}:\d{2}(:\d{2})?$/.test(t)) {
+    var tp = t.split(':');
+    var h = parseInt(tp[0], 10), m = parseInt(tp[1], 10);
+    return (h % 12 || 12) + ':' + String(m).padStart(2, '0') + ' ' + (h >= 12 ? 'PM' : 'AM');
+  }
+  return t || '—';
+}
+
+// Status-based action row inside the details panel. Clerk cannot complete a
+// consultation — completion belongs to the Doctor workflow.
+function renderAppointmentDetailsActions(a) {
+  var wrap = document.getElementById('appointmentDetailsActions');
+  if (!wrap) return;
+  var btns = ['<button type="button" class="btn-secondary" onclick="closeAppointmentDetails()">Close</button>'];
+  if (a.status === 'confirmed') {
+    btns.unshift('<button type="button" class="btn-primary" onclick="closeAppointmentDetails(); openCheckInModal(\'' + (a.reference_no || a.id) + '\')">Check In Patient</button>');
+    if (typeof cancelAppointment === 'function') {
+      btns.splice(1, 0, '<button type="button" class="btn-small btn-danger" style="padding:0.55rem 1rem;font-size:0.9rem;" onclick="closeAppointmentDetails(); cancelAppointment(\'' + a.id + '\')">Cancel</button>');
+    }
+  }
+  wrap.style.display = 'flex';
+  wrap.innerHTML = btns.join(' ');
+}
+
+function closeAppointmentDetails() {
+  document.getElementById('appointmentDetailsModal')?.classList.remove('show');
+  if (!document.querySelector('.modal-overlay.show')) document.body.classList.remove('modal-open');
+}
+
+function viewAppointment(id)  { openAppointmentDetails(id); }
 
 function reschedule(id)       { showUnderWork('Reschedule appointment'); }
 
@@ -1006,7 +1113,19 @@ function makeDayCell(day, isOther, month, year, isToday) {
 
       item.onclick = function() {
 
-        showToast(apt.owner + ' · ' + apt.pet + ' · ' + apt.service + ' [' + apt.status + ']', 'info');
+        // Appointment items open the portal's detail view; the info toast is
+
+        // reserved for short success/error feedback only.
+
+        if (typeof window.onCalendarAppointmentClick === 'function') {
+
+          window.onCalendarAppointmentClick(apt);
+
+        } else {
+
+          showToast(apt.owner + ' · ' + apt.pet + ' · ' + apt.service + ' [' + apt.status + ']', 'info');
+
+        }
 
       };
 
@@ -1546,6 +1665,15 @@ function initDashboardShared() {
   // dataset so the same test records appear across User/Clerk/Doctor.
   // TODO(BACKEND): Once get_appointments.php is live, renderTodaysScheduleTable
   // is called from loadAppointments() with real same-day rows instead.
+  // Portal hook: calendar appointment items open the shared details panel
+  // (clerk-script.js defines this; guarded so Admin keeps the info toast).
+  if (typeof window.onCalendarAppointmentClick !== 'function') {
+    window.onCalendarAppointmentClick = function(apt) {
+      if (apt && apt.id) { openAppointmentDetails(apt.id); return; }
+      showToast(apt.owner + ' · ' + apt.pet + ' · ' + apt.service + ' [' + apt.status + ']', 'info');
+    };
+  }
+
   if (document.getElementById('todayScheduleTable') && window.SharedMockAppointments) {
 
     var sharedToday = window.SharedMockAppointments.today || new Date().toISOString().split('T')[0];

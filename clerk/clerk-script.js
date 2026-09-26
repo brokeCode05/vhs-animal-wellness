@@ -27,20 +27,27 @@ function renderAllAppointmentsTable(all) {
   var contract = window.AppointmentContract;
   var rows = all.map(function(raw) {
     var a = contract ? contract.toLegacyDisplay(contract.fromLegacy(raw)) : raw;
+    // Status-based clerk actions. Clerk NEVER completes a consultation —
+    // checked_in → in_consultation → completed belongs to the Doctor.
     var actions = '';
     if (a.status === 'pending') {
       actions =
         '<button class="btn-small btn-success" onclick="approveAppointment(\'' + a.id + '\')">Approve</button> ' +
+        '<button class="btn-small" onclick="viewAppointment(\'' + a.id + '\')">View</button> ' +
         '<button class="btn-small btn-danger"  onclick="rejectAppointment(\'' + a.id + '\')">Reject</button>';
     } else if (a.status === 'confirmed') {
       actions =
+        '<button class="btn-small" onclick="viewAppointment(\'' + a.id + '\')">View</button> ' +
         '<button class="btn-small btn-success" onclick="openCheckInModal(\'' + a.reference_no + '\')">Check In</button> ' +
         '<button class="btn-small btn-danger"  onclick="cancelAppointment(\'' + a.id + '\')">Cancel</button>';
     } else {
+      // checked_in / in_consultation / completed / canceled: view only.
+      // TODO(BACKEND): completed rows gain "View Clinical Document" once the
+      // consultation document endpoint exists.
       actions = '<button class="btn-small" onclick="viewAppointment(\'' + a.id + '\')">View</button>';
     }
     return '<tr data-id="' + a.id + '" data-status="' + a.status + '">' +
-      '<td>#A' + String(a.id).slice(-3).padStart(3, '0') + '</td>' +
+      '<td>' + (a.reference_no || '—') + '</td>' +
       '<td>' + formatDateTime(a.date, a.time) + '</td>' +
       '<td>' + (a.owner_name || '—') + '</td>' +
       '<td>' + (a.pet_name   || '—') + '</td>' +
@@ -60,6 +67,25 @@ function addNewAppointment() { openClerkBookModal(); }
 // Clicking a calendar day or time cell opens booking modal with that date (and optionally time)
 window.onCalendarDayClick = function(dateStr, timeSlot) {
   openClerkBookModal(dateStr, timeSlot);
+};
+
+// Calendar appointment items open the SAME details panel as the table's
+// View button (shared panel in dashboard-shared.js). Mock ids resolve by
+// appointmentId; API rows by reference_no.
+window.onCalendarAppointmentClick = function(apt) {
+  if (apt && apt.referenceNo) { openAppointmentDetails(apt.referenceNo); return; }
+  if (apt && apt.id) { openAppointmentDetails(apt.id); return; }
+  showToast(apt.owner + ' · ' + apt.pet + ' · ' + apt.service + ' [' + apt.status + ']', 'info');
+};
+
+// QR support is structured but NOT implemented: a QR payload is just the
+// appointment's referenceNo, so any future scanner (USB HID or webcam)
+// only needs to fill the check-in input and call lookupCheckIn().
+// TODO(QR): wire scanner devices to onQrScan; no phone-to-PC transfer.
+window.onQrScan = function(qrPayload) {
+  var input = document.getElementById('checkInRefInput');
+  if (!input) return;
+  openCheckInModal(String(qrPayload || '').trim());
 };
 
 function openClerkBookModal(prefilledDate, prefilledTime) {
@@ -223,6 +249,9 @@ document.addEventListener('keydown', function(e) {
   if (e.key === 'Escape' && document.getElementById('checkInModal')?.classList.contains('show')) {
     closeCheckInModal();
   }
+  if (e.key === 'Escape' && document.getElementById('appointmentDetailsModal')?.classList.contains('show')) {
+    closeAppointmentDetails();
+  }
 });
 
 document.addEventListener('change', function(e) {
@@ -284,6 +313,12 @@ function refreshClerkTimeSlots(prefilledTime) {
 
 function submitClerkBooking(e) {
   e.preventDefault();
+  // TODO(BACKEND): POST book-appointment.php and use the returned
+  // reference_no. The endpoint requires a live PHP/MySQL host, so the demo
+  // keeps this button clearly unavailable instead of faking persistence.
+  showToast('Booking requires the backend (PHP/MySQL host). Not available in the frontend demo.', 'warning');
+  return;
+  /* eslint-disable no-unreachable */
   var userId  = document.getElementById('clerkClientSelect').value;
   var petId   = document.getElementById('clerkPetSelect').value;
   var service = document.getElementById('clerkBookService').value;
@@ -313,6 +348,62 @@ function submitClerkBooking(e) {
       }
     })
     .catch(function() { showToast('Network error.', 'error'); });
+}
+
+// ─── CLERK ACTIONS (frontend-demo honest mode) ───────────────────────────────
+// Approve / reject / cancel write to the SAME shared mock state the User and
+// Doctor portals read. No database persistence is claimed.
+// TODO(BACKEND): Route through update_appointment_status.php (ENUM must be
+// expanded first — see doctor/AUDIT-cross-portal-appointments.md).
+function _clerkSharedStatus(id, nextStatus, successMsg) {
+  var shared = window.SharedMockAppointments;
+  if (!shared) { showToast('Shared mock state unavailable.', 'error'); return; }
+  var result = shared.setStatus(id, nextStatus);
+  if (!result.ok) {
+    showToast(result.error === 'invalid_status'
+      ? 'That status change is not allowed for this appointment.'
+      : 'Appointment not found.', 'error');
+    return;
+  }
+  showToast(successMsg + ' (demo state — not saved to a database)', 'success');
+  if (document.getElementById('allAppointmentsTable')) loadAppointments();
+  var tbody = document.getElementById('todayScheduleTable');
+  if (tbody && window.SharedMockAppointments) {
+    var contract = window.AppointmentContract;
+    renderTodaysScheduleTable(shared.all().map(function(a) {
+      return contract ? contract.toLegacyDisplay(contract.fromLegacy(a)) : a;
+    }).filter(function(a) { return a.date === (shared.today || new Date().toISOString().split('T')[0]); }));
+  }
+}
+
+function approveAppointment(id) {
+  confirmAction('Approve this appointment?', function() {
+    _clerkSharedStatus(id, 'confirmed', 'Appointment approved');
+  }, {
+    title: 'Approve Appointment',
+    icon: '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>',
+    accent: 'success'
+  });
+}
+
+function rejectAppointment(id) {
+  confirmAction('Reject this appointment?', function() {
+    _clerkSharedStatus(id, 'canceled', 'Appointment rejected');
+  }, {
+    title: 'Reject Appointment',
+    icon: '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>',
+    danger: true
+  });
+}
+
+function cancelAppointment(id) {
+  confirmAction('Cancel this appointment?', function() {
+    _clerkSharedStatus(id, 'canceled', 'Appointment cancelled');
+  }, {
+    title: 'Cancel Appointment',
+    icon: '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>',
+    danger: true
+  });
 }
 
 // ─── CLERK-ONLY CLIENT ACTIONS ────────────────────────────────────────────────
