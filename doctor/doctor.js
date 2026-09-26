@@ -19,8 +19,11 @@
       visits: []
     };
   }
+  // Doctor EMR is keyed by the SHARED petIds (shared/mock-users.js):
+  // 1 Luna, 2 Buddy, 3 Mochi, 4 Max, 5 Milo. Ownership lives in the shared
+  // pet records, never inferred from names.
   const DOCTOR_EMR = {
-    1: { // Luna — Cat, Persian
+    1: { // Luna — Cat, Persian (owner: Maria Santos, userId 1)
       pet_age: '3 years',
       ai_triage: 'Urgent',
       ai_summary: 'Vomiting and reduced appetite over 24 hours in a young adult cat. Same-day assessment recommended; check hydration and consider dietary history.',
@@ -29,7 +32,7 @@
         { date: '2026-03-10', title: 'Vaccination', note: 'Rabies vaccination recorded.' }
       ]
     },
-    2: { // Max — Dog, Labrador retriever
+    2: { // Buddy — Dog, Golden Retriever (owner: Maria Santos, userId 1)
       pet_age: '5 years',
       ai_triage: 'Emergency',
       ai_summary: 'Acute breathing difficulty in a middle-aged dog. Immediate veterinarian evaluation required; prepare for possible oxygen support and thoracic imaging.',
@@ -38,16 +41,25 @@
         { date: '2026-02-05', title: 'Vaccination', note: 'Rabies vaccination recorded.' }
       ]
     },
-    3: { // Milo — Dog, Aspin
+    3: { // Mochi — Cat, Siamese (owner: Maria Santos, userId 1)
       pet_age: '2 years',
       ai_triage: 'Routine',
       ai_summary: 'Young adult dog presenting for routine wellness examination; no reported concerns. Review vaccination schedule and weight trend.',
       visits: []
     },
-    4: { // Buddy — Dog, Golden Retriever (grooming visit)
-      pet_age: '4 years',
+    4: { // Max — Dog, Labrador retriever (owner: Sam Reyes, userId 2)
+      pet_age: '5 years',
+      ai_triage: 'Emergency',
+      ai_summary: 'Acute breathing difficulty in a middle-aged dog. Immediate veterinarian evaluation required; prepare for possible oxygen support and thoracic imaging.',
+      visits: [
+        { date: '2026-07-21', title: 'Veterinary note', note: 'Follow-up examination recorded; no new concerns reported at that visit.' },
+        { date: '2026-02-05', title: 'Vaccination', note: 'Rabies vaccination recorded.' }
+      ]
+    },
+    5: { // Milo — Dog, Aspin (owner: Jamie Cruz, userId 3)
+      pet_age: '2 years',
       ai_triage: 'Routine',
-      ai_summary: '',
+      ai_summary: 'Young adult dog presenting for routine wellness examination; no reported concerns. Review vaccination schedule and weight trend.',
       visits: []
     }
   };
@@ -85,7 +97,10 @@
       breed: a.pet.breed,
       age: appt.pet_age || '',
       owner: a.owner.name,
-      time: a.appointmentTime,
+      // Display uses 12-hour AM/PM; the stored canonical value stays HH:MM.
+      time: (window.AppointmentContract && window.AppointmentContract.timeTo12h)
+        ? window.AppointmentContract.timeTo12h(a.appointmentTime)
+        : a.appointmentTime,
       date: a.appointmentDate,
       dateDisplay: new Date(`${a.appointmentDate}T12:00:00`).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }),
       service: a.service,

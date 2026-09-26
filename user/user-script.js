@@ -99,27 +99,23 @@ window.addEventListener("resize", () => {
 // ─── SESSION USER HELPER ─────────────────────────────────────────────────────
 
 // Single source of truth — replaces the repeated JSON.parse pattern everywhere.
-
 function _getSessionUser() {
-
+  // TODO(BACKEND): the authenticated session is the real identity source;
+  // the shared mock user is the frontend-demo fallback so the portal always
+  // has one explicit current owner (never "Guest").
+  var shared = (typeof SharedMockUsers !== 'undefined') ? SharedMockUsers.currentUser() : null;
   try {
-
-    return JSON.parse(
-
+    var stored = JSON.parse(
       sessionStorage.getItem("vhs_user") ||
-
         sessionStorage.getItem("user") ||
-
-        "{}",
-
+        "null"
     );
-
-  } catch (e) {
-
-    return {};
-
+    if (stored && (stored.id || stored.userId)) return stored;
+  } catch (e) { /* fall through to shared mock identity */ }
+  if (shared) {
+    return { id: shared.userId, userId: shared.userId, name: shared.name, firstName: shared.firstName, lastName: shared.lastName, phone: shared.phone, email: shared.email, role: shared.role };
   }
-
+  return {};
 }
 
 
@@ -537,7 +533,7 @@ function openBookModal(serviceName) {
 
   var user = _getSessionUser();
 
-  // Load user's pets into pet_id select
+  // Load user's pets into pet_id select (scoped to the logged-in owner)
   var petSelect = document.getElementById('pet_id');
   if (petSelect) {
     var pets = _currentPets.length ? _currentPets : mockPetsData;
@@ -548,10 +544,27 @@ function openBookModal(serviceName) {
       : '<option value="">No pets registered yet</option>';
   }
 
-  // Pre-select service if provided
-  if (serviceName) {
-    var svcSelect = document.getElementById('service_id');
-    if (svcSelect) svcSelect.value = serviceName;
+  // Service options come from the SHARED catalog so the value stored on the
+  // appointment matches Clerk/Doctor displays exactly (no label variants).
+  var svcSelect = document.getElementById('service_id');
+  if (svcSelect && window.SharedMockUsers) {
+    var groups = {};
+    window.SharedMockUsers.services().forEach(function(s) {
+      (groups[s.group] = groups[s.group] || []).push(s.label);
+    });
+    svcSelect.innerHTML = '<option value="">Choose a service</option>' +
+      Object.keys(groups).map(function(g) {
+        return '<optgroup label="' + escapeHtml(g) + '">' + groups[g].map(function(label) {
+          return '<option value="' + escapeHtml(label) + '">' + escapeHtml(label) + '</option>';
+        }).join('') + '</optgroup>';
+      }).join('');
+  }
+
+  // Pre-select service if provided (normalized to the canonical label)
+  if (serviceName && svcSelect) {
+    svcSelect.value = window.SharedMockUsers
+      ? window.SharedMockUsers.serviceLabel(serviceName)
+      : serviceName;
   }
 
   _setBookDateConstraints();
@@ -821,6 +834,10 @@ function _finalizeBooking() {
   var _petName = _petDisplay.replace(/\s*\([^)]*\)$/, '').trim() || 'Pet';
   var _petObj = mockPetsData.find(function(p) { return String(p.id) === String(payload.pet_id); });
   var _user = _getSessionUser();
+  // Canonical service label from the shared catalog (no variants).
+  var _serviceLabel = window.SharedMockUsers
+    ? window.SharedMockUsers.serviceLabel(payload.service)
+    : payload.service;
 
   // Build the booking directly in the canonical appointment contract so the
   // record carries stable field names from creation.
@@ -829,9 +846,9 @@ function _finalizeBooking() {
   var canonical = window.AppointmentContract.fromLegacy({
     appointmentId: 'apt' + String(mockAppointmentsData.length + 1).padStart(3, '0'),
     referenceNo: refNo,
-    userId: (payload.user_id || _user.id || _user.userId || null),
+    userId: (_user.id || _user.userId || (window.SharedMockUsers ? window.SharedMockUsers.currentUserId : null)),
     petId: payload.pet_id,
-    service: payload.service,
+    service: _serviceLabel,
     appointmentDate: payload.appointment_date,
     appointmentTime: payload.appointment_time,
     visitContext: payload.visit_reason,
@@ -1319,7 +1336,10 @@ function openEditPetModal(id) {
 
 // ─── MOCK PET MEDICAL HISTORY DATA ───────────────────────────────────────────
 
-const mockPetsData = [
+// Legacy pet fixtures — now the portal-only EMR source (vaccines, visits,
+// vitals). Identity (id/name/species/breed/owner) comes from the shared
+// mock users module; ownership is by ID, never by name.
+const _petEmrFixtures = [
   {
     id: 1,
     name: 'Luna',
@@ -1473,6 +1493,21 @@ const mockPetsData = [
     ],
   },
 ];
+
+// Pet profiles for the logged-in owner: shared identity + local EMR detail.
+// TODO(BACKEND): profiles from get_pets.php?user_id=...; EMR from the
+// pet medical-records endpoint keyed by petId.
+const mockPetsData = ((window.SharedMockUsers ? window.SharedMockUsers.petsOfOwner(window.SharedMockUsers.currentUserId) : [])).map(function (p) {
+  var emr = _petEmrFixtures.find(function (f) { return String(f.id) === String(p.petId); }) || {};
+  var ownerUser = window.SharedMockUsers ? window.SharedMockUsers.byId(p.ownerId) : null;
+  return Object.assign({}, emr, {
+    id: p.petId,
+    name: p.name,
+    species: p.species,
+    breed: p.breed,
+    owner: { name: ownerUser ? ownerUser.name : '', phone: ownerUser ? ownerUser.phone : '' }
+  });
+});
 
 
 // ─── PET MEDICAL HISTORY RENDERER ────────────────────────────────────────────
@@ -1901,12 +1936,16 @@ function petEmoji(type) {
 
 // ─── MOCK APPOINTMENTS DATA ─────────────────────────────────────────────────
 // Shared cross-portal records (shared/mock-appointments.js) are projected
-// into the local display shape and seeded first, so User shows the same
-// appointment/reference data as Clerk and Doctor. Portal-only history
-// follows with legacy ids kept for back-compat with existing fixtures.
-// TODO(BACKEND): Both lists come from the API; this merge disappears.
+// into the local display shape, then SCOPED to the logged-in mock user
+// (SharedMockUsers.currentUserId) so other clinic clients' appointments
+// never appear inside this account.
+// TODO(BACKEND): get_appointments.php?user_id=<session user> replaces this
+// whole block — the client-side filter and merge disappear.
 var mockAppointmentsData = (function () {
-  var shared = (window.SharedMockAppointments ? window.SharedMockAppointments.all() : []).map(function (a) {
+  var me = (window.SharedMockUsers ? window.SharedMockUsers.currentUserId : null);
+  var shared = (window.SharedMockAppointments ? window.SharedMockAppointments.all() : [])
+    .filter(function (a) { return !me || String(a.userId) === String(me); })
+    .map(function (a) {
     var row = window.AppointmentContract.toLegacyDisplay(
       window.AppointmentContract.fromLegacy(a)
     );
@@ -1914,7 +1953,11 @@ var mockAppointmentsData = (function () {
     row.notes = a.visitContext || '';
     return row;
   });
-  return shared.concat([
+  return shared;
+})();
+// Legacy User-portal fixtures retained for reference only — NOT rendered.
+// TODO(BACKEND): delete once real history comes from the API.
+var _legacyUserFixtures = [
   {
     id: 'apt001', pet_id: 1, pet_name: 'Luna', pet_type: 'Cat', pet_breed: 'Persian',
     service: 'General Consultation', date: '2026-09-15', time: '10:30 AM',
@@ -1962,9 +2005,8 @@ var mockAppointmentsData = (function () {
     service: 'Vaccination — Rabies', date: '2026-11-05', time: '10:00 AM',
     status: 'scheduled', notes: '',
     reference_no: 'VHS-2026-1105-008'
-  },
-  ]);
-})();
+  }
+];
 
 
 // ─── APPOINTMENTS RENDERER ───────────────────────────────────────────────────
@@ -1995,17 +2037,24 @@ function _apptStatusBadge(status) {
   var labels = { pending: 'Pending', confirmed: 'Confirmed', checked_in: 'Checked In', in_consultation: 'In Consultation', completed: 'Completed', canceled: 'Cancelled', no_show: 'No Show', rescheduled: 'Rescheduled' };
   var cls = map[canonical] || 'pending';
   return '<span class="status-badge ' + cls + '">' + (labels[canonical] || canonical) + '</span>';
-}
-
-function renderAppointmentCards() {
+}function renderAppointmentCards() {
   var now = new Date();
   var normalize = window.AppointmentContract ? window.AppointmentContract.normalizeStatus : function(s) { return s; };
-  var upcoming = mockAppointmentsData.filter(function(a) {    var s = normalize(a.status);
-    return s === 'pending' || s === 'confirmed' || s === 'checked_in';
+  var todayStr = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
+  var ACTIVE = { pending: 1, confirmed: 1, checked_in: 1, in_consultation: 1, rescheduled: 1 };
+  // Upcoming: today or future date AND an active status. Past History:
+  // already-passed dates OR terminal statuses (completed/canceled).
+  // TODO(BACKEND): get_appointments.php?upcoming=1 / ?history=1 can do this
+  // server-side; the client grouping then disappears.
+  var upcoming = mockAppointmentsData.filter(function(a) {
+    var s = normalize(a.status);
+    if (!ACTIVE[s]) return false;
+    return String(a.date) >= todayStr;
   }).sort(function(a, b) { return new Date(a.date) - new Date(b.date); });
   var past = mockAppointmentsData.filter(function(a) {
     var s = normalize(a.status);
-    return s === 'completed' || s === 'canceled';
+    if (s === 'completed' || s === 'canceled') return true;
+    return !ACTIVE[s] || String(a.date) < todayStr;
   }).sort(function(a, b) { return new Date(b.date) - new Date(a.date); });
 
   // Update dashboard stat

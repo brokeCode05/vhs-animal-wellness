@@ -15,6 +15,7 @@
   'use strict';
 
   var MOCK_APPOINTMENTS = [
+    // ── Maria Santos (userId 1) — the User Portal demo identity ──────────
     {
       appointmentId: 'apt301', referenceNo: 'VHS-20260926-A1B2C3',
       userId: 1, petId: 1, assignedVetId: 2,
@@ -27,17 +28,19 @@
     },
     {
       appointmentId: 'apt302', referenceNo: 'VHS-20260926-D4E5F6',
-      userId: 2, petId: 2, assignedVetId: 2,
-      service: 'Emergency assessment',
-      appointmentDate: '2026-09-26', appointmentTime: '09:30',
-      visitContext: 'Owner reports difficulty breathing since early morning.',
-      notes: '', status: 'checked_in', checkedInAt: '2026-09-26T08:55:00',
-      owner: { name: 'Sam Reyes', phone: '0918-222-3344' },
-      pet: { name: 'Max', species: 'Dog', breed: 'Labrador retriever' }
+      userId: 1, petId: 2, assignedVetId: 2,
+      service: 'Dog Grooming',
+      appointmentDate: '2026-09-15', appointmentTime: '14:00',
+      visitContext: 'Full groom package.',
+      notes: '', status: 'completed',
+      consultationStartedAt: '2026-09-15T14:02:00',
+      consultationCompletedAt: '2026-09-15T14:40:00',
+      owner: { name: 'Maria Santos', phone: '0917-123-4567' },
+      pet: { name: 'Buddy', species: 'Dog', breed: 'Golden Retriever' }
     },
     {
       appointmentId: 'apt303', referenceNo: 'VHS-20260926-G7H8I9',
-      userId: 3, petId: 3, assignedVetId: 2,
+      userId: 3, petId: 5, assignedVetId: 2,
       service: 'Wellness examination',
       appointmentDate: '2026-09-26', appointmentTime: '10:00',
       visitContext: 'Scheduled wellness visit; owner reports no current concerns.',
@@ -48,12 +51,12 @@
     {
       appointmentId: 'apt304', referenceNo: 'VHS-20260926-J4K5L6',
       userId: 2, petId: 4, assignedVetId: 3,
-      service: 'Grooming',
-      appointmentDate: '2026-09-26', appointmentTime: '15:30',
-      visitContext: 'Full groom package.',
-      notes: '', status: 'confirmed', checkedInAt: null,
+      service: 'Emergency assessment',
+      appointmentDate: '2026-09-26', appointmentTime: '09:30',
+      visitContext: 'Owner reports difficulty breathing since early morning.',
+      notes: '', status: 'checked_in', checkedInAt: '2026-09-26T08:55:00',
       owner: { name: 'Sam Reyes', phone: '0918-222-3344' },
-      pet: { name: 'Buddy', species: 'Dog', breed: 'Golden Retriever' }
+      pet: { name: 'Max', species: 'Dog', breed: 'Labrador retriever' }
     },
     // Past record so User "history" and Clerk completed filters have data.
     {
@@ -65,6 +68,17 @@
       notes: '', status: 'completed',
       consultationStartedAt: '2026-09-12T11:02:00',
       consultationCompletedAt: '2026-09-12T11:25:00',
+      owner: { name: 'Maria Santos', phone: '0917-087-4321' },
+      pet: { name: 'Mochi', species: 'Cat', breed: 'Siamese' }
+    },
+    // Future record so Maria's upcoming list shows a confirmed future visit.
+    {
+      appointmentId: 'apt306', referenceNo: 'VHS-20261010-P3Q4R5',
+      userId: 1, petId: 1, assignedVetId: 2,
+      service: 'Vaccination — FVRCP Booster',
+      appointmentDate: '2026-10-10', appointmentTime: '15:30',
+      visitContext: 'Annual FVRCP booster.',
+      notes: '', status: 'confirmed', checkedInAt: null,
       owner: { name: 'Maria Santos', phone: '0917-123-4567' },
       pet: { name: 'Luna', species: 'Cat', breed: 'Persian' }
     }

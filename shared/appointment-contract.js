@@ -89,6 +89,7 @@
     return {
       id: appt.appointmentId,
       reference_no: appt.referenceNo,
+      user_id: appt.userId,
       pet_id: appt.petId,
       staff_id: appt.assignedVetId,
       service: appt.service,
@@ -115,6 +116,17 @@
     normalizeStatus: normalizeStatus,
     fromLegacy: fromLegacy,
     toLegacyDisplay: toLegacyDisplay,
-    timeToHHMM: timeToHHMM
+    timeToHHMM: timeToHHMM,
+    // Canonical 24h HH:MM -> display 12h with AM/PM (e.g. 15:30 -> 3:30 PM).
+    // Input that is already 12h passes through unchanged.
+    timeTo12h: function (value) {
+      var t = String(value || '').trim();
+      var m = t.match(/^(\d{1,2}):(\d{2})/);
+      if (!m) return t || '';
+      var h = parseInt(m[1], 10);
+      var suffix = h >= 12 ? 'PM' : 'AM';
+      h = h % 12 || 12;
+      return h + ':' + m[2] + ' ' + suffix;
+    }
   };
 })(window);

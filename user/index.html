@@ -54,8 +54,8 @@
             <span id="sidebarAvatarEmoji" style="display:flex;align-items:center;justify-content:center;"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M6 21v-2a6 6 0 0 1 12 0v2"/></svg></span>
           </div>
           <div class="sidebar-user-info">
-            <span class="sidebar-user-name">Pet Owner</span>
-            <span class="sidebar-user-role">Guest</span>
+            <span class="sidebar-user-name">Maria Santos</span>
+            <span class="sidebar-user-role">Pet Owner</span>
           </div>
         </div>
         <nav class="sidebar-nav">
@@ -808,44 +808,12 @@
             </div>
             <div class="form-group" style="margin-bottom:1rem;">
               <label class="form-label">Service <span class="required">*</span></label>
+              <!-- Options rendered from the shared service catalog
+                   (shared/mock-users.js) so the booked service label matches
+                   Clerk and Doctor exactly. TODO(BACKEND): serve from a
+                   vet_services table. -->
               <select class="form-select" id="service_id" name="service_id" required>
                 <option value="">Choose a service</option>
-                <optgroup label="Preventive & Wellness">
-                  <option value="Consultation">Consultation</option>
-                  <option value="Vaccination">Vaccination</option>
-                  <option value="Deworming">Deworming</option>
-                  <option value="Feline Executive Preventive Care">Feline Executive Preventive Care</option>
-                  <option value="Health Certificate">Health Certificate</option>
-                  <option value="Microchipping">Microchipping</option>
-                </optgroup>
-                <optgroup label="Diagnostics">
-                  <option value="Blood Test">Blood Test</option>
-                  <option value="Fecalysis">Fecalysis</option>
-                  <option value="Microscopy">Microscopy</option>
-                  <option value="Urinalysis">Urinalysis</option>
-                </optgroup>
-                <optgroup label="Surgery & Procedures">
-                  <option value="Spay">Spay</option>
-                  <option value="Castration">Castration</option>
-                  <option value="Caesarean Section">Caesarean Section (CS)</option>
-                  <option value="Cystotomy">Cystotomy</option>
-                  <option value="Cherry Eye Correction">Cherry Eye Correction</option>
-                  <option value="Wound Repair">Wound Repair</option>
-                  <option value="Dental Prophylaxis + Kapon">Dental Prophylaxis + Kapon</option>
-                  <option value="U Catheterization">U Catheterization</option>
-                  <option value="Euthanasia">Euthanasia</option>
-                  <option value="Whelping Assistance">Whelping Assistance</option>
-                </optgroup>
-                <optgroup label="Pet Care">
-                  <option value="Dog Grooming">Dog Grooming</option>
-                  <option value="Cat Grooming">Cat Grooming</option>
-                  <option value="Boarding">Boarding</option>
-                  <option value="Confinement">Confinement</option>
-                </optgroup>
-                <optgroup label="Specialized Care">
-                  <option value="Chemotherapy">Chemotherapy</option>
-                  <option value="Home Service">Home Service</option>
-                </optgroup>
               </select>
             </div>
           </div>
@@ -1367,9 +1335,10 @@
     <!-- END VHS ASSISTANT CHATBOT -->
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-    <script src="../shared/vhs-ui.js?v=2.3.0"></script>
-    <script src="../shared/appointment-contract.js?v=2.3.0"></script>
-    <script src="../shared/mock-appointments.js?v=2.3.0"></script>
-    <script src="user-script.js?v=2.3.0"></script>
+    <script src="../shared/vhs-ui.js?v=2.4.0"></script>
+    <script src="../shared/appointment-contract.js?v=2.4.0"></script>
+    <script src="../shared/mock-users.js?v=2.4.0"></script>
+    <script src="../shared/mock-appointments.js?v=2.4.0"></script>
+    <script src="user-script.js?v=2.4.0"></script>
   </body>
 </html>
