@@ -96,6 +96,11 @@
       time: appt.appointmentTime,
       notes: appt.notes,
       status: appt.status,
+      // Lifecycle timestamps ride along so renderers can show them without
+      // touching the canonical model.
+      checked_in_at: appt.checkedInAt,
+      consultation_started_at: appt.consultationStartedAt,
+      consultation_completed_at: appt.consultationCompletedAt,
       owner_name: appt.owner.name,
       owner_phone: appt.owner.phone,
       pet_name: appt.pet.name,

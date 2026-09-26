@@ -74,11 +74,57 @@
   // (User keeps its own historical fixtures locally; Doctor keeps EMR
   // history and consultation records keyed by petId/appointmentId.)
 
+  var CHECKIN_OVERRIDES_KEY = 'vhs_mock_checkin_overrides_v1';
+  var OVERRIDES = (function () {
+    try { return JSON.parse(sessionStorage.getItem(CHECKIN_OVERRIDES_KEY) || '{}') || {}; }
+    catch (e) { return {}; }
+  })();
+
+  function _saveOverrides() {
+    try { sessionStorage.setItem(CHECKIN_OVERRIDES_KEY, JSON.stringify(OVERRIDES)); } catch (e) { /* storage unavailable */ }
+  }
+
+  function effective(base) {
+    var o = OVERRIDES[base.appointmentId];
+    return o ? Object.assign({}, base, o) : base;
+  }
+
   global.SharedMockAppointments = {
     today: '2026-09-26',
-    all: function () { return MOCK_APPOINTMENTS.slice(); },
-    byId: function (id) { return MOCK_APPOINTMENTS.find(function (a) { return String(a.appointmentId) === String(id); }) || null; },
-    byReference: function (ref) { return MOCK_APPOINTMENTS.find(function (a) { return a.referenceNo === ref; }) || null; },
-    todays: function () { return MOCK_APPOINTMENTS.filter(function (a) { return a.appointmentDate === '2026-09-26'; }); }
+    all: function () { return MOCK_APPOINTMENTS.map(function (a) { return effective(a); }); },
+    byId: function (id) {
+      var base = MOCK_APPOINTMENTS.find(function (a) { return String(a.appointmentId) === String(id); });
+      return base ? effective(base) : null;
+    },
+    byReference: function (ref) {
+      var base = MOCK_APPOINTMENTS.find(function (a) { return a.referenceNo === ref; });
+      return base ? effective(base) : null;
+    },
+    todays: function () { return this.all().filter(function (a) { return a.appointmentDate === '2026-09-26'; }); },
+
+    // ── CHECK-IN STATE (frontend-only, shared by all portals) ────────────────
+    // Status overrides live in sessionStorage so a check-in survives page
+    // navigation/refresh within the tab while staying frontend-only. The base
+    // records are never mutated; all readers see the effective state.
+    // TODO(BACKEND): Replace with GET by referenceNo; status + checkedInAt
+    // come from the database. Check-in is a server-side transition
+    // (update_appointment_status.php + write checked_in_at); delete this
+    // override layer entirely when the API owns state.
+    lookup: function (value) {
+      var v = String(value || '').trim();
+      if (!v) return null;
+      return this.byReference(v) || this.byId(v);
+    },
+    checkIn: function (id) {
+      var base = MOCK_APPOINTMENTS.find(function (a) { return String(a.appointmentId) === String(id); });
+      if (!base) return { ok: false, error: 'not_found' };
+      var eff = effective(base);
+      var s = (window.AppointmentContract ? window.AppointmentContract.normalizeStatus(eff.status) : eff.status);
+      if (s === 'checked_in') return { ok: false, error: 'already' };
+      if (s !== 'confirmed') return { ok: false, error: 'invalid_status' };
+      OVERRIDES[base.appointmentId] = { status: 'checked_in', checkedInAt: new Date().toISOString() };
+      _saveOverrides();
+      return { ok: true, appointment: effective(base) };
+    }
   };
 })(window);

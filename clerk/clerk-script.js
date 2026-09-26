@@ -34,7 +34,7 @@ function renderAllAppointmentsTable(all) {
         '<button class="btn-small btn-danger"  onclick="rejectAppointment(\'' + a.id + '\')">Reject</button>';
     } else if (a.status === 'confirmed') {
       actions =
-        '<button class="btn-small btn-success" onclick="markComplete(\'' + a.id + '\')">Complete</button> ' +
+        '<button class="btn-small btn-success" onclick="openCheckInModal(\'' + a.reference_no + '\')">Check In</button> ' +
         '<button class="btn-small btn-danger"  onclick="cancelAppointment(\'' + a.id + '\')">Cancel</button>';
     } else {
       actions = '<button class="btn-small" onclick="viewAppointment(\'' + a.id + '\')">View</button>';
@@ -103,9 +103,125 @@ function closeClerkBookModal() {
   document.body.classList.remove('modal-open');
 }
 
+// ─── CHECK-IN (frontend mock over the shared canonical state) ────────────────
+// Lookup resolves a Reference ID / QR value (the QR payload IS the reference
+// number — no camera scanning is implemented). Check-in flips the SAME
+// SharedMockAppointments record the User and Doctor portals read.
+// TODO(BACKEND): lookup → GET appointment by referenceNo; checkInAppointment
+// → server-side status transition (checked_in) that persists checkedInAt.
+function openCheckInModal(prefillRef) {
+  var modal = document.getElementById('checkInModal');
+  if (!modal) return;
+  modal.classList.add('show');
+  document.body.classList.add('modal-open');
+  var input = document.getElementById('checkInRefInput');
+  var errEl = document.getElementById('checkInError');
+  var resEl = document.getElementById('checkInResult');
+  var actEl = document.getElementById('checkInActions');
+  if (errEl) errEl.textContent = '';
+  if (resEl) resEl.innerHTML = '';
+  if (actEl) actEl.style.display = 'none';
+  if (input) {
+    input.value = prefillRef || '';
+    if (prefillRef) { lookupCheckIn(); } else { input.focus(); }
+  }
+}
+
+function closeCheckInModal() {
+  document.getElementById('checkInModal')?.classList.remove('show');
+  document.body.classList.remove('modal-open');
+}
+
+function _escapeCheckInHtml(s) {
+  return String(s == null ? '' : s).replace(/[&<>"']/g, function(c) {
+    return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+  });
+}
+
+function lookupCheckIn() {
+  var input = document.getElementById('checkInRefInput');
+  var errEl = document.getElementById('checkInError');
+  var resEl = document.getElementById('checkInResult');
+  var actEl = document.getElementById('checkInActions');
+  if (!input || !errEl || !resEl || !actEl) return;
+  errEl.textContent = '';
+  resEl.innerHTML = '';
+  actEl.style.display = 'none';
+  var value = (input.value || '').trim();
+  if (!value) { errEl.textContent = 'Enter a Reference ID or QR value.'; return; }
+  var shared = window.SharedMockAppointments;
+  var appt = shared ? shared.lookup(value) : null;
+  if (!appt) { errEl.textContent = 'No appointment found for "' + value + '".'; return; }
+  var a = window.AppointmentContract.toLegacyDisplay(window.AppointmentContract.fromLegacy(appt));
+  var rows = [
+    ['Reference ID', a.reference_no || '—'],
+    ['Owner', a.owner_name || '—'],
+    ['Pet', (a.pet_name || '—') + (a.pet_type ? ' (' + a.pet_type + (a.pet_breed ? ' / ' + a.pet_breed : '') + ')' : '')],
+    ['Service', a.service || '—'],
+    ['Date & Time', formatDateTime(a.date, a.time)],
+    ['Visit context', a.visit_reason || '—'],
+    ['Notes', a.notes || '—'],
+    ['Status', statusBadge(a.status)]
+  ];
+  resEl.innerHTML = '<div style="border:1px solid #e5e7eb;border-radius:0.75rem;overflow:hidden;">' +
+    rows.map(function(r) {
+      return '<div style="display:flex;justify-content:space-between;gap:1rem;padding:0.5rem 0.75rem;border-bottom:1px solid #f3f4f6;font-size:0.9rem;">' +
+        '<span style="color:#6b7280;flex-shrink:0;">' + r[0] + '</span>' +
+        '<span style="text-align:right;font-weight:500;color:#111827;">' + r[1] + '</span>' +
+        '</div>';
+    }).join('') + '</div>';
+  if (a.status === 'confirmed') {
+    actEl.style.display = 'flex';
+  } else if (a.status === 'checked_in') {
+    var ciText = '';
+    if (a.checked_in_at) {
+      var ciDate = new Date(a.checked_in_at);
+      if (!isNaN(ciDate)) {
+        ciText = ' at ' + ciDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) +
+                 ', ' + ciDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+      }
+    }
+    errEl.textContent = 'Already checked in' + ciText + '.';
+  } else {
+    errEl.textContent = 'Check-in is not available for this appointment status (' + statusBadge(a.status) + ').';
+  }
+}
+
+function checkInAppointment() {
+  var input = document.getElementById('checkInRefInput');
+  var errEl = document.getElementById('checkInError');
+  var actEl = document.getElementById('checkInActions');
+  var shared = window.SharedMockAppointments;
+  var appt = shared ? shared.lookup((input.value || '').trim()) : null;
+  if (!appt) { errEl.textContent = 'Appointment no longer available.'; return; }
+  var result = shared.checkIn(appt.appointmentId);
+  if (!result.ok) {
+    errEl.textContent = result.error === 'already'
+      ? 'Already checked in.'
+      : result.error === 'invalid_status'
+        ? 'Check-in is only allowed for confirmed appointments.'
+        : 'Check-in failed.';
+    return;
+  }
+  closeCheckInModal();
+  showToast('Patient checked in. Reference ' + result.appointment.referenceNo + '.', 'success');
+  // Refresh whichever appointment views exist on this page so the same
+  // shared record shows Checked In immediately.
+  if (document.getElementById('allAppointmentsTable')) loadAppointments();
+  if (document.getElementById('todayScheduleTable') && window.SharedMockAppointments) {
+    var contract = window.AppointmentContract;
+    renderTodaysScheduleTable(shared.all().map(function(a) {
+      return contract ? contract.toLegacyDisplay(contract.fromLegacy(a)) : a;
+    }).filter(function(a) { return a.date === (shared.today || new Date().toISOString().split('T')[0]); }));
+  }
+}
+
 document.addEventListener('keydown', function(e) {
   if (e.key === 'Escape' && document.getElementById('clerkBookModal')?.classList.contains('show')) {
     closeClerkBookModal();
+  }
+  if (e.key === 'Escape' && document.getElementById('checkInModal')?.classList.contains('show')) {
+    closeCheckInModal();
   }
 });
 

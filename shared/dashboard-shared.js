@@ -170,6 +170,14 @@ function renderTodaysScheduleTable(all) {
 
     var a = contract ? contract.toLegacyDisplay(contract.fromLegacy(raw)) : raw;
 
+    // Check-In targets confirmed appointments arriving today.
+
+    var checkInBtn = a.status === 'confirmed'
+
+      ? '<button class="btn-small btn-success" onclick="openCheckInModal(\'' + a.reference_no + '\')">Check In</button> '
+
+      : '';
+
     return '<tr data-id="' + a.id + '" data-status="' + a.status + '">' +
 
       '<td>' + formatDateTime(a.date, a.time) + '</td>' +
@@ -183,6 +191,8 @@ function renderTodaysScheduleTable(all) {
       '<td><span class="status-badge info">' + (a.reference_no || '#A' + String(a.id).slice(-3).padStart(3, '0')) + '</span></td>' +
 
       '<td>' + statusBadge(a.status) + '</td>' +
+
+      '<td class="action-cell">' + (checkInBtn || '<span style="color:#9ca3af;">—</span>') + '</td>' +
 
       '</tr>';
 

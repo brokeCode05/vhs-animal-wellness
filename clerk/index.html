@@ -95,6 +95,31 @@
     </main>
   </div>
 
+  <!-- Clerk Check-In Modal (frontend mock; shared canonical state) -->
+  <div class="modal-overlay" id="checkInModal" onclick="if (event.target === this) closeCheckInModal()">
+    <div class="modal-content" style="background:#fff;border-radius:1.25rem;box-shadow:0 24px 80px rgba(0,0,0,0.22);width:100%;max-width:480px;max-height:90vh;overflow-y:auto;padding:1.75rem;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.25rem;">
+        <h2 style="font-size:1.15rem;font-weight:700;color:#111827;margin:0;display:flex;align-items:center;gap:0.5rem;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><line x1="14" y1="14" x2="17" y2="14"/><line x1="21" y1="14" x2="21" y2="17"/><line x1="14" y1="21" x2="17" y2="21"/><line x1="21" y1="21" x2="21" y2="18"/><rect x="14" y="18" width="3" height="3"/></svg> Check In Patient</h2>
+        <button onclick="closeCheckInModal()" style="background:none;border:none;font-size:1.4rem;cursor:pointer;color:#9ca3af;line-height:1;">&times;</button>
+      </div>
+      <form onsubmit="event.preventDefault(); lookupCheckIn();">
+        <div class="form-group" style="margin-bottom:0.75rem;">
+          <label class="form-label" for="checkInRefInput">Reference ID / QR value</label>
+          <div style="display:flex;gap:0.5rem;">
+            <input type="text" class="form-input" id="checkInRefInput" placeholder="e.g. VHS-20260926-G7H8I9" autocomplete="off" style="flex:1 1 0;min-width:0;" />
+            <button type="submit" class="btn-primary" style="flex-shrink:0;">Look Up</button>
+          </div>
+        </div>
+        <p id="checkInError" style="color:#dc2626;font-size:0.85rem;margin:0 0 0.75rem;min-height:1em;"></p>
+        <div id="checkInResult" style="margin-bottom:1rem;"></div>
+      </form>
+      <div id="checkInActions" style="display:none;gap:0.75rem;margin-top:0.5rem;">
+        <button type="button" class="btn-primary" onclick="checkInAppointment()">Check In Patient</button>
+        <button type="button" class="btn-secondary" onclick="closeCheckInModal()">Close</button>
+      </div>
+    </div>
+  </div>
+
   <script src="../shared/vhs-ui.js?v=1787393620"></script>
   <script src="../shared/appointment-contract.js?v=1787393620"></script>
   <script src="../shared/mock-appointments.js?v=1787393620"></script>
