@@ -322,7 +322,7 @@ function statusBadge(status) {
 
   // Accepts legacy and canonical values; renders the canonical lifecycle.
   var canonical = window.AppointmentContract ? window.AppointmentContract.normalizeStatus(status) : String(status || '').toLowerCase();
-  var map = { pending: 'pending', confirmed: 'scheduled', checked_in: 'confirmed', in_consultation: 'confirmed', completed: 'completed', canceled: 'cancelled', no_show: 'cancelled', rescheduled: 'pending' };
+  var map = { pending: 'pending', confirmed: 'scheduled', checked_in: 'confirmed', in_consultation: 'in-consultation', completed: 'completed', canceled: 'cancelled', no_show: 'cancelled', rescheduled: 'pending' };
 
   var cls = map[canonical] || 'info';
 

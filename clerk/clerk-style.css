@@ -18,6 +18,52 @@
   box-shadow: 0 6px 20px rgba(201, 151, 58, 0.4) !important;
 }
 
+/* ─── Status badge colors (Clerk appointments views) ─────────────
+   pending=yellow, confirmed/scheduled=purple (VHS palette),
+   checked_in=cyan, in_consultation=accent tint, completed=green,
+   canceled=red. Same soft pill treatment, nothing oversized. */
+.status-badge.scheduled {
+  background: linear-gradient(135deg, #ede9fe 0%, #ddd6fe 100%);
+  color: #5b21b6;
+  border: 1px solid #a78bfa;
+}
+
+.status-badge.in-consultation,
+.status-badge.in_consultation {
+  background: linear-gradient(135deg, #fde8c8 0%, #fbd79a 100%);
+  color: #92400e;
+  border: 1px solid #e8b45a;
+}
+
+/* ─── Action button colors (appointments table only) ─────────────
+   admin-style.css's .btn-small (white) loads after the shared theme
+   and flattens .btn-success/.btn-danger; re-assert the semantic
+   colors at higher specificity, scoped to this table. View keeps its
+   neutral outline; hovers stay subtle (shade shift, same lift). */
+#allAppointmentsTable td.action-cell .btn-small.btn-success {
+  background: linear-gradient(135deg, #16a34a 0%, #15803d 100%);
+  color: #ffffff;
+  border-color: rgba(21, 128, 61, 0.6);
+}
+
+#allAppointmentsTable td.action-cell .btn-small.btn-success:hover {
+  background: linear-gradient(135deg, #15803d 0%, #166534 100%);
+  color: #ffffff;
+  border-color: rgba(21, 128, 61, 0.8);
+}
+
+#allAppointmentsTable td.action-cell .btn-small.btn-danger {
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+  color: #ffffff;
+  border-color: rgba(220, 38, 38, 0.6);
+}
+
+#allAppointmentsTable td.action-cell .btn-small.btn-danger:hover {
+  background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+  color: #ffffff;
+  border-color: rgba(185, 28, 28, 0.8);
+}
+
 /* ─── Appointments table responsiveness (Clerk only) ──────────────
    Reference IDs stay on one line, short columns don't wrap, and the
    Actions column is pinned to the right edge so View / Check In /
