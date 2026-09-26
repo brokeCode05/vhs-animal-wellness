@@ -625,7 +625,7 @@ function _renderBookSummary() {
   var reasonText = reasonSel && reasonSel.value ? reasonSel.options[reasonSel.selectedIndex].text : '\u2014';
   var notesVal = (document.getElementById('bookNotes') || {}).value || '';
   var customEl = document.getElementById('visit_reason_custom');
-  if (reasonSel && (reasonSel.value === 'Other' || reasonSel.value === 'Showing Mild Symptoms')) {
+  if (reasonSel && (reasonSel.value === 'Other' || reasonSel.value === 'Showing mild symptoms')) {
     reasonText = (customEl && customEl.value.trim()) ? customEl.value.trim() : reasonText;
   }
   var petText = petSel && petSel.value ? petSel.options[petSel.selectedIndex].text : '\u2014';
@@ -726,6 +726,7 @@ function _refreshBookSlots() {
  * ==========================================================================
  */
 var _pendingBookingPayload = null;
+var _pendingBookingDisplay = null; // pet/service labels captured pre-reset
 
 async function submitBooking(e) {
   e.preventDefault();
@@ -745,7 +746,12 @@ async function submitBooking(e) {
   var visitReasonCustom = document.getElementById('visit_reason_custom').value.trim();
   var appNotes = document.getElementById('bookNotes').value.trim();
 
-  if ((visitReason === 'Other' || visitReason === 'Showing Mild Symptoms') && visitReasonCustom) visitReason = visitReasonCustom;
+  // Custom description rides in visit_reason_custom (canonical field);
+  // visit_reason keeps the canonical option value. No folding here.
+  if (visitReason === 'Other' && !visitReasonCustom) {
+    showToast('Please describe your reason for the visit.', 'warning');
+    return;
+  }
 
   if (!petId) { showToast('Please select a pet.', 'warning'); _wizardStep = 1; _renderWizard(); if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Confirm Booking'; } return; }
   if (!service) { showToast('Please select a service.', 'warning'); _wizardStep = 1; _renderWizard(); if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Confirm Booking'; } return; }
@@ -759,12 +765,18 @@ async function submitBooking(e) {
     appointment_date: appDate,
     appointment_time: appTime,
     visit_reason: visitReason,
-    visit_reason_custom: visitReason === 'Other' ? visitReasonCustom : '',
+    // Custom description always rides in its own field (canonical contract):
+    // it pairs with "Other" or "Showing mild symptoms".
+    visit_reason_custom: visitReasonCustom,
     notes: appNotes
   };
 
   if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Confirm Booking'; }
+  // Capture display values BEFORE closeModal resets the form.
+  var _petOpt = document.getElementById('pet_id') ? document.getElementById('pet_id').selectedOptions[0] : null;
+  var _petDisplay = _petOpt ? _petOpt.text : '';
   closeModal('bookModal');
+  _pendingBookingDisplay = { petDisplay: _petDisplay };
   openOtpModal();
 }
 
@@ -829,15 +841,21 @@ function _finalizeBooking() {
 
   var refNo = 'VHS-' + payload.appointment_date.replace(/-/g, '') + '-' + String(mockAppointmentsData.length + 1).padStart(4, '0');
 
-  var _petOpt = document.getElementById('pet_id') ? document.getElementById('pet_id').selectedOptions[0] : null;
-  var _petDisplay = _petOpt ? _petOpt.text : 'Pet';
-  var _petName = _petDisplay.replace(/\s*\([^)]*\)$/, '').trim() || 'Pet';
+  var _petDisplay = (_pendingBookingDisplay && _pendingBookingDisplay.petDisplay) || '';
+  var _petName = _petDisplay ? _petDisplay.replace(/\s*\([^)]*\)$/, '').trim() : '';
+  if (!_petName) {
+    // Fallback: resolve the pet from the shared source by id (never a placeholder).
+    var _sharedPet = window.SharedMockUsers ? window.SharedMockUsers.petById(payload.pet_id) : null;
+    _petName = _sharedPet ? _sharedPet.name : '';
+  }
   var _petObj = mockPetsData.find(function(p) { return String(p.id) === String(payload.pet_id); });
   var _user = _getSessionUser();
   // Canonical service label from the shared catalog (no variants).
   var _serviceLabel = window.SharedMockUsers
     ? window.SharedMockUsers.serviceLabel(payload.service)
     : payload.service;
+  // TODO(BACKEND): persist service_id (payload.service → vet_services FK)
+  // alongside the label once the services table exists.
 
   // Build the booking directly in the canonical appointment contract so the
   // record carries stable field names from creation.
@@ -852,6 +870,7 @@ function _finalizeBooking() {
     appointmentDate: payload.appointment_date,
     appointmentTime: payload.appointment_time,
     visitContext: payload.visit_reason,
+    customVisitContext: payload.visit_reason_custom,
     notes: payload.notes || '',
     status: 'confirmed',
     owner: { name: (_user.name || _user.first_name || '') , phone: _user.phone || '' },
@@ -859,11 +878,13 @@ function _finalizeBooking() {
   });
 
   var newApt = window.AppointmentContract.toLegacyDisplay(canonical);
-  newApt.visit_reason = payload.visit_reason;
-  newApt.notes = payload.visit_reason + (payload.notes ? ' | ' + payload.notes : '');
+  newApt.visit_reason = canonical.visitContext;
+  newApt.custom_visit_reason = canonical.customVisitContext || '';
+  newApt.notes = payload.notes || ''; // notes stay separate from context
 
   mockAppointmentsData.push(newApt);
   _pendingBookingPayload = null;
+  _pendingBookingDisplay = null;
   _showBookingSuccess(refNo, newApt);
 }
 
@@ -908,7 +929,8 @@ function _initBookReasonOther() {
   var inp = document.getElementById('visit_reason_custom');
   if (!sel || !inp) return;
   sel.addEventListener('change', function() {
-    var showCustom = sel.value === 'Other' || sel.value === 'Showing Mild Symptoms';
+    // "Other" and "Showing mild symptoms" ask for the free-text description.
+    var showCustom = sel.value === 'Other' || sel.value === 'Showing mild symptoms';
     inp.style.display = showCustom ? '' : 'none';
     inp.value = '';
     inp.required = false;

@@ -1710,6 +1710,36 @@ function initDashboardShared() {
 
 var _cdAllPanels = [];  // global registry of all custom dropdowns
 
+// Render the SHARED service catalog (shared/mock-users.js) into a booking
+// select, grouped by category. Keeps Clerk/Admin booking in sync with the
+// User portal — one canonical list, no per-portal variants.
+// TODO(BACKEND): replace the source with a vet_services fetch; option values
+// stay the canonical service values (FK-ready).
+function _esc(s) {
+  return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+    return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+  });
+}
+function _renderSharedServiceOptions(selectId) {
+  var select = document.getElementById(selectId);
+  if (!select || !window.SharedMockUsers) return;
+  var services = window.SharedMockUsers.services();
+  if (!services.length) return;
+  var groups = {};
+  services.forEach(function (s) {
+    (groups[s.group] = groups[s.group] || []).push(s);
+  });
+  select.innerHTML = '<option value="">Choose a service</option>' +
+    Object.keys(groups).map(function (g) {
+      return '<optgroup label="' + _esc(g) + '">' + groups[g].map(function (s) {
+        return '<option value="' + _esc(s.value) + '">' + _esc(s.label) + '</option>';
+      }).join('') + '</optgroup>';
+    }).join('');
+  var wrap = select.closest('.form-group');
+  var trigger = wrap ? wrap.querySelector('.cd-trigger') : null;
+  if (trigger) trigger.classList.remove('cd-active');
+}
+
 function initCustomDropdown(selectId, opts) {
   opts = opts || {};
   var select = document.getElementById(selectId);
@@ -1891,6 +1921,8 @@ function initAllCustomDropdowns() {
   initCustomDropdown('adminBookTime', { placeholder: 'Select time', searchPlaceholder: 'Search time...', emptyText: 'No slots available' });
 
   initCustomDropdown('clerkBookService', { searchPlaceholder: 'Search services...', emptyText: 'No services found' });
+  _renderSharedServiceOptions('clerkBookService');
+  _renderSharedServiceOptions('adminBookService');
   initCustomDropdown('clerkClientSelect', { placeholder: 'Select client', searchPlaceholder: 'Search clients...', emptyText: 'No clients found' });
   initCustomDropdown('clerkPetSelect', { placeholder: 'Select client first', searchPlaceholder: 'Search pets...', emptyText: 'No pets found' });
   initCustomDropdown('clerkBookTime', { placeholder: 'Select time', searchPlaceholder: 'Search time...', emptyText: 'No slots available' });

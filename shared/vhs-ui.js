@@ -10,19 +10,29 @@ const VHS_TIME_SLOTS = [
   '1:00 PM','2:00 PM','3:00 PM','4:00 PM','5:00 PM','6:00 PM'
 ];
 
-// Operating hours by day of week (0=Sun, 6=Sat)
-// Sunday/Friday/Saturday: 10AM-7PM, Monday-Thursday: 9AM-6PM
+// Operating hours by day of week (0=Sun, 6=Sat), derived from VHS_CLINIC_HOURS.
+// CANONICAL CLINIC SCHEDULE (single source; never re-declared per portal):
+//   Weekdays (Mon–Fri): 9:00 AM – 5:00 PM, hourly booking slots.
+//   Weekends (Sat–Sun): 10:00 AM – 6:00 PM, hourly booking slots.
+// Stored canonically as 24h HH:MM; displayed 12h (AM/PM).
+// TODO(BACKEND): serve from a clinic_hours table; this config only seeds
+// the UI until the API returns available slots per date.
+const VHS_CLINIC_HOURS = {
+  weekday: { open: 9,  close: 17 }, // Mon–Fri: 09:00–17:00
+  weekend: { open: 10, close: 18 }  // Sat–Sun: 10:00–18:00
+};
 const VHS_HOURS = {
-  0: { open: 10, close: 19 }, // Sunday
-  1: { open: 9,  close: 18 }, // Monday
-  2: { open: 9,  close: 18 }, // Tuesday
-  3: { open: 9,  close: 18 }, // Wednesday
-  4: { open: 9,  close: 18 }, // Thursday
-  5: { open: 10, close: 19 }, // Friday
-  6: { open: 10, close: 19 }, // Saturday
+  0: { open: VHS_CLINIC_HOURS.weekend.open, close: VHS_CLINIC_HOURS.weekend.close }, // Sunday
+  1: { open: VHS_CLINIC_HOURS.weekday.open, close: VHS_CLINIC_HOURS.weekday.close }, // Monday
+  2: { open: VHS_CLINIC_HOURS.weekday.open, close: VHS_CLINIC_HOURS.weekday.close }, // Tuesday
+  3: { open: VHS_CLINIC_HOURS.weekday.open, close: VHS_CLINIC_HOURS.weekday.close }, // Wednesday
+  4: { open: VHS_CLINIC_HOURS.weekday.open, close: VHS_CLINIC_HOURS.weekday.close }, // Thursday
+  5: { open: VHS_CLINIC_HOURS.weekday.open, close: VHS_CLINIC_HOURS.weekday.close }, // Friday
+  6: { open: VHS_CLINIC_HOURS.weekend.open, close: VHS_CLINIC_HOURS.weekend.close }  // Saturday
 };
 
-// Return time slots appropriate for a given date string (YYYY-MM-DD)
+// Return time slots appropriate for a given date string (YYYY-MM-DD).
+// Hourly slots inside that day's open window (slot start < close).
 function getVHSTimeSlots(dateStr) {
   if (!dateStr) return VHS_TIME_SLOTS;
   var d = new Date(dateStr + 'T12:00:00');

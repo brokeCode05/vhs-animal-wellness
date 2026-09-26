@@ -64,6 +64,7 @@
       appointmentDate: firstDefined(src.appointmentDate, src.appointment_date, src.date) || null,
       appointmentTime: timeToHHMM(firstDefined(src.appointmentTime, src.appointment_time, src.time)),
       visitContext: firstDefined(src.visitContext, src.visit_reason, src.visitReason) || '',
+      customVisitContext: firstDefined(src.customVisitContext, src.visit_reason_custom, src.visitReasonCustom) || '',
       notes: firstDefined(src.notes, src.note) || '',
       status: normalizeStatus(firstDefined(src.status)),
       checkedInAt: firstDefined(src.checkedInAt, src.checked_in_at),
@@ -107,7 +108,12 @@
       pet_name: appt.pet.name,
       pet_type: appt.pet.species,
       pet_breed: appt.pet.breed,
-      visit_reason: appt.visitContext
+      // Effective visit context: canonical option, with the custom text
+      // ("Other" / symptoms description) folded in when present.
+      visit_reason: appt.customVisitContext
+        ? (appt.visitContext ? appt.visitContext + ': ' + appt.customVisitContext : appt.customVisitContext)
+        : appt.visitContext,
+      custom_visit_reason: appt.customVisitContext || ''
     };
   }
 

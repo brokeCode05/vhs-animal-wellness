@@ -107,21 +107,43 @@ function openClerkBookModal(prefilledDate, prefilledTime) {
   var clientSelect = document.getElementById('clerkClientSelect');
   if (clientSelect) {
     clientSelect.innerHTML = '<option value="">Loading clients...</option>';
+    var fillClients = function (users) {
+      clientSelect.innerHTML = users.length
+        ? '<option value="">Select client</option>' + users.map(function(u) {
+            return '<option value="' + u.id + '">' + u.name + ' (' + u.email + ')</option>';
+          }).join('')
+        : '<option value="">No clients found</option>';
+    };
     fetch('../php_files/get_users.php')
       .then(function(r) { return r.json(); })
       .then(function(data) {
         var users = Array.isArray(data) ? data : (data.users || []);
-        clientSelect.innerHTML = users.length
-          ? '<option value="">Select client</option>' + users.map(function(u) {
-              return '<option value="' + u.id + '">' + u.fullName + ' (' + u.email + ')</option>';
-            }).join('')
-          : '<option value="">No clients found</option>';
+        if (users.length) { fillClients(users.map(function (u) { return { id: u.id, name: u.fullName || u.name, email: u.email }; })); return; }
+        // No backend data: fall back to the shared mock clients.
+        fillClients(window.SharedMockUsers
+          ? window.SharedMockUsers.users().map(function (u) { return { id: u.userId, name: u.name, email: u.email }; })
+          : []);
       })
-      .catch(function() { clientSelect.innerHTML = '<option value="">Failed to load clients</option>'; });
+      .catch(function() {
+        // Static hosting (GitHub Pages demo): use the shared mock clients.
+        // TODO(BACKEND): get_users.php is the only source when deployed.
+        fillClients(window.SharedMockUsers
+          ? window.SharedMockUsers.users().map(function (u) { return { id: u.userId, name: u.name, email: u.email }; })
+          : []);
+      });
   }
 
   var petSelect = document.getElementById('clerkPetSelect');
   if (petSelect) petSelect.innerHTML = '<option value="">Select client first</option>';
+}
+
+// Shared mock pets for the booking-modal client→pet cascade (frontend demo).
+// TODO(BACKEND): get_pets.php?user_id=... replaces this entirely.
+function _sharedPetsForClient(userId) {
+  if (!window.SharedMockUsers) return [];
+  return window.SharedMockUsers.petsOfOwner(userId).map(function (p) {
+    return { id: p.petId, name: p.name, species: p.species };
+  });
 }
 
 function closeClerkBookModal() {
@@ -261,17 +283,24 @@ document.addEventListener('change', function(e) {
     if (!petSelect) return;
     if (!userId) { petSelect.innerHTML = '<option value="">Select client first</option>'; return; }
     petSelect.innerHTML = '<option value="">Loading pets...</option>';
+    var fillPets = function (pets) {
+      petSelect.innerHTML = pets.length
+        ? '<option value="">Choose a pet</option>' + pets.map(function(p) {
+            return '<option value="' + p.id + '">' + p.name + ' (' + p.species + ')</option>';
+          }).join('')
+        : '<option value="">No pets registered</option>';
+    };
     fetch('../php_files/get_pets.php?user_id=' + userId)
       .then(function(r) { return r.json(); })
       .then(function(data) {
         var pets = Array.isArray(data) ? data : (data.pets || []);
-        petSelect.innerHTML = pets.length
-          ? '<option value="">Choose a pet</option>' + pets.map(function(p) {
-              return '<option value="' + p.id + '">' + p.name + ' (' + p.type + ')</option>';
-            }).join('')
-          : '<option value="">No pets registered</option>';
+        if (pets.length) { fillPets(pets.map(function (p) { return { id: p.id, name: p.name, species: p.type || p.species }; })); return; }
+        fillPets(_sharedPetsForClient(userId));
       })
-      .catch(function() { petSelect.innerHTML = '<option value="">Failed to load pets</option>'; });
+      .catch(function() {
+        // TODO(BACKEND): get_pets.php?user_id=... is the only source when deployed.
+        fillPets(_sharedPetsForClient(userId));
+      });
   }
   if (e.target.id === 'clerkBookDate') {
     refreshClerkTimeSlots();
@@ -325,6 +354,8 @@ function submitClerkBooking(e) {
   var date    = document.getElementById('clerkBookDate').value;
   var time    = document.getElementById('clerkBookTime').value;
   var notes   = document.getElementById('clerkBookNotes').value.trim();
+  // service now carries the canonical catalog VALUE (FK-ready).
+  var svc = window.SharedMockUsers ? window.SharedMockUsers.serviceByValue(service) : null;
 
   if (!userId)  { showToast('Please select a client.', 'warning'); return; }
   if (!petId)   { showToast('Please select a pet.', 'warning'); return; }
@@ -335,7 +366,7 @@ function submitClerkBooking(e) {
   fetch('../php_files/book-appointment.php', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ user_id: parseInt(userId), pet_id: parseInt(petId), service: service, appointment_date: date, appointment_time: time, notes: notes })
+    body: JSON.stringify({ user_id: parseInt(userId), pet_id: parseInt(petId), service: service, service_id: svc ? svc.serviceId : null, appointment_date: date, appointment_time: time, notes: notes })
   })
     .then(function(r) { return r.json(); })
     .then(function(data) {

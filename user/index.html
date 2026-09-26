@@ -839,9 +839,12 @@
               <label class="form-label">Additional Notes / Symptoms <span style="font-weight:400;color:var(--text-dim);">(Optional)</span></label>
               <select class="form-select" id="visit_reason" name="visit_reason">
                 <option value="">Select context</option>
-                <option value="Routine Checkup / Scheduled Procedure">Routine Checkup / Scheduled Procedure</option>
-                <option value="Showing Mild Symptoms">Showing Mild Symptoms</option>
-                <option value="Follow-up Visit">Follow-up Visit</option>
+                <!-- Canonical visit contexts (frozen). TODO(BACKEND): keep
+                     these values stable for Vetty + the appointments table. -->
+                <option value="Routine check-up">Routine check-up</option>
+                <option value="Scheduled procedure">Scheduled procedure</option>
+                <option value="Showing mild symptoms">Showing mild symptoms</option>
+                <option value="Follow-up visit">Follow-up visit</option>
                 <option value="Other">Other</option>
               </select>
               <input type="text" class="form-input" id="visit_reason_custom" name="visit_reason_custom" placeholder="Please describe symptoms or notes..." style="display:none;margin-top:0.5rem;" />
@@ -1335,10 +1338,10 @@
     <!-- END VHS ASSISTANT CHATBOT -->
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-    <script src="../shared/vhs-ui.js?v=2.4.0"></script>
-    <script src="../shared/appointment-contract.js?v=2.4.0"></script>
-    <script src="../shared/mock-users.js?v=2.4.0"></script>
-    <script src="../shared/mock-appointments.js?v=2.4.0"></script>
-    <script src="user-script.js?v=2.4.1"></script>
+    <script src="../shared/vhs-ui.js?v=2.5.0"></script>
+    <script src="../shared/appointment-contract.js?v=2.5.0"></script>
+    <script src="../shared/mock-users.js?v=2.5.0"></script>
+    <script src="../shared/mock-appointments.js?v=2.5.0"></script>
+    <script src="user-script.js?v=2.5.0"></script>
   </body>
 </html>

@@ -7,7 +7,11 @@
    return reference_no) — the mappers in appointment-contract.js
    already consume this shape either way.
 
-   Scenario: today's clinic day is 2026-09-26.
+   Scenario: today's clinic day is 2026-09-26 (a SATURDAY → weekend
+   hours 10:00–18:00, hourly slots only). Every record below obeys the
+   frozen contracts: real services (shared/mock-users.js), selectable
+   slots (shared/vhs-ui.js getVHSTimeSlots), canonical visit contexts,
+   valid owners/pets/statuses.
    The trace appointment is apt301 (Luna, checked_in) — it must
    appear with identical identifiers in all three portals.
    ============================================================ */
@@ -19,10 +23,11 @@
     {
       appointmentId: 'apt301', referenceNo: 'VHS-20260926-A1B2C3',
       userId: 1, petId: 1, assignedVetId: 2,
-      service: 'General Consultation',
-      appointmentDate: '2026-09-26', appointmentTime: '09:00',
-      visitContext: 'Owner reports reduced appetite and repeated vomiting since yesterday.',
-      notes: '', status: 'checked_in', checkedInAt: '2026-09-26T08:42:00',
+      service: 'Consultation',
+      appointmentDate: '2026-09-26', appointmentTime: '10:00',
+      visitContext: 'Showing mild symptoms',
+      customVisitContext: 'Owner reports reduced appetite and repeated vomiting since yesterday.',
+      notes: '', status: 'checked_in', checkedInAt: '2026-09-26T09:42:00',
       owner: { name: 'Maria Santos', phone: '0917-123-4567' },
       pet: { name: 'Luna', species: 'Cat', breed: 'Persian' }
     },
@@ -31,8 +36,9 @@
       userId: 1, petId: 2, assignedVetId: 2,
       service: 'Dog Grooming',
       appointmentDate: '2026-09-15', appointmentTime: '14:00',
-      visitContext: 'Full groom package.',
-      notes: '', status: 'completed',
+      visitContext: 'Scheduled procedure',
+      customVisitContext: '',
+      notes: 'Full groom package.', status: 'completed',
       consultationStartedAt: '2026-09-15T14:02:00',
       consultationCompletedAt: '2026-09-15T14:40:00',
       owner: { name: 'Maria Santos', phone: '0917-123-4567' },
@@ -41,20 +47,22 @@
     {
       appointmentId: 'apt303', referenceNo: 'VHS-20260926-G7H8I9',
       userId: 3, petId: 5, assignedVetId: 2,
-      service: 'Wellness examination',
-      appointmentDate: '2026-09-26', appointmentTime: '10:00',
-      visitContext: 'Scheduled wellness visit; owner reports no current concerns.',
-      notes: '', status: 'confirmed', checkedInAt: null,
+      service: 'Consultation',
+      appointmentDate: '2026-09-26', appointmentTime: '11:00',
+      visitContext: 'Routine check-up',
+      customVisitContext: '',
+      notes: 'No current concerns reported.', status: 'confirmed', checkedInAt: null,
       owner: { name: 'Jamie Cruz', phone: '0919-555-6677' },
       pet: { name: 'Milo', species: 'Dog', breed: 'Aspin' }
     },
     {
       appointmentId: 'apt304', referenceNo: 'VHS-20260926-J4K5L6',
       userId: 2, petId: 4, assignedVetId: 3,
-      service: 'Emergency assessment',
-      appointmentDate: '2026-09-26', appointmentTime: '09:30',
-      visitContext: 'Owner reports difficulty breathing since early morning.',
-      notes: '', status: 'checked_in', checkedInAt: '2026-09-26T08:55:00',
+      service: 'Consultation',
+      appointmentDate: '2026-09-26', appointmentTime: '12:00',
+      visitContext: 'Showing mild symptoms',
+      customVisitContext: 'Owner reports difficulty breathing since early morning.',
+      notes: '', status: 'checked_in', checkedInAt: '2026-09-26T11:42:00',
       owner: { name: 'Sam Reyes', phone: '0918-222-3344' },
       pet: { name: 'Max', species: 'Dog', breed: 'Labrador retriever' }
     },
@@ -62,22 +70,24 @@
     {
       appointmentId: 'apt305', referenceNo: 'VHS-20260912-M7N8O9',
       userId: 1, petId: 1, assignedVetId: 2,
-      service: 'Vaccination — Rabies',
+      service: 'Vaccination',
       appointmentDate: '2026-09-12', appointmentTime: '11:00',
-      visitContext: 'Annual rabies booster.',
-      notes: '', status: 'completed',
+      visitContext: 'Scheduled procedure',
+      customVisitContext: '',
+      notes: 'Annual rabies booster.', status: 'completed',
       consultationStartedAt: '2026-09-12T11:02:00',
       consultationCompletedAt: '2026-09-12T11:25:00',
-      owner: { name: 'Maria Santos', phone: '0917-087-4321' },
+      owner: { name: 'Maria Santos', phone: '0917-123-4567' },
       pet: { name: 'Mochi', species: 'Cat', breed: 'Siamese' }
     },
     // Future record so Maria's upcoming list shows a confirmed future visit.
     {
       appointmentId: 'apt306', referenceNo: 'VHS-20261010-P3Q4R5',
       userId: 1, petId: 1, assignedVetId: 2,
-      service: 'Vaccination — FVRCP Booster',
-      appointmentDate: '2026-10-10', appointmentTime: '15:30',
-      visitContext: 'Annual FVRCP booster.',
+      service: 'Vaccination',
+      appointmentDate: '2026-10-10', appointmentTime: '15:00',
+      visitContext: 'Scheduled procedure',
+      customVisitContext: '',
       notes: '', status: 'confirmed', checkedInAt: null,
       owner: { name: 'Maria Santos', phone: '0917-123-4567' },
       pet: { name: 'Luna', species: 'Cat', breed: 'Persian' }

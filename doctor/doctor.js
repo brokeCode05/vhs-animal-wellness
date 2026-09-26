@@ -104,7 +104,10 @@
       date: a.appointmentDate,
       dateDisplay: new Date(`${a.appointmentDate}T12:00:00`).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }),
       service: a.service,
-      reason: a.visitContext,
+      // Effective visit context: canonical option + custom text when present.
+      reason: (a.customVisitContext
+        ? (a.visitContext ? a.visitContext + ': ' + a.customVisitContext : a.customVisitContext)
+        : a.visitContext) || '',
       severity: appt.ai_triage || 'Routine',
       checkedIn: a.status === 'checked_in' || !!appt.checked_in,
       aiSummary: appt.ai_summary || '',
