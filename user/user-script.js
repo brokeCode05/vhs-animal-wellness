@@ -2063,8 +2063,33 @@ function _apptStatusBadge(status) {
   var badge = document.getElementById('apptBadge');
   if (badge) { badge.textContent = upcoming.length; badge.style.display = upcoming.length > 0 ? '' : 'none'; }
 
+  // Dashboard “Upcoming Appointments” table consumes the SAME scoped,
+  // canonical list as My Appointments — no separate dashboard data.
+  _renderDashUpcoming(upcoming);
+
   _renderApptList('apptUpcoming', upcoming, 'upcoming');
   _renderApptList('apptPast', past, 'past');
+}
+
+// Dashboard quick-view table (Pet / Service / Date & Time / Status / Actions).
+// TODO(BACKEND): same endpoint as My Appointments, scoped to the session user.
+function _renderDashUpcoming(upcoming) {
+  var body = document.getElementById('dashApptBody');
+  if (!body) return;
+  if (!upcoming.length) {
+    body.innerHTML = '<tr class="empty-row"><td colspan="5" style="text-align:center;padding:2rem;color:var(--text-muted,#888);">No upcoming appointments. Book one to get started!</td></tr>';
+    return;
+  }
+  body.innerHTML = upcoming.map(function(a) {
+    var when = _fmtApptDateShort(a.date) + ' \u2022 ' + (_fmtApptTimeShort(a.time) || '\u2014');
+    return '<tr data-id="' + a.id + '">'
+      + '<td>' + escapeHtml(a.pet_name || '\u2014') + '</td>'
+      + '<td>' + escapeHtml(a.service || '\u2014') + '</td>'
+      + '<td>' + escapeHtml(when) + '</td>'
+      + '<td>' + _apptStatusBadge(a.status) + '</td>'
+      + '<td class="action-cell"><button class="btn-small" onclick="viewAppt(\'' + a.id + '\')">View</button></td>'
+      + '</tr>';
+  }).join('');
 }
 
 function _renderApptList(containerId, appts, mode) {
