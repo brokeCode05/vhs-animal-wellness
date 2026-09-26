@@ -17,3 +17,112 @@
   background: linear-gradient(135deg, #d4a84a 0%, #c9973a 100%) !important;
   box-shadow: 0 6px 20px rgba(201, 151, 58, 0.4) !important;
 }
+
+/* ─── Appointments table responsiveness (Clerk only) ──────────────
+   Reference IDs stay on one line, short columns don't wrap, and the
+   Actions column is pinned to the right edge so View / Check In /
+   Cancel stay fully visible even when the table scrolls horizontally
+   at narrower desktop widths (e.g. 1366px). */
+.table-wrapper {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+#allAppointmentsTable {
+  min-width: 860px;
+}
+
+#allAppointmentsTable th:first-child,
+#allAppointmentsTable td:first-child {
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+  font-size: 0.8rem;
+  letter-spacing: 0.01em;
+}
+
+/* Date & time, Owner, Status: single line to keep rows compact */
+#allAppointmentsTable th:nth-child(2),
+#allAppointmentsTable td:nth-child(2),
+#allAppointmentsTable th:nth-child(3),
+#allAppointmentsTable td:nth-child(3),
+#allAppointmentsTable th:nth-child(7),
+#allAppointmentsTable td:nth-child(7) {
+  white-space: nowrap;
+}
+
+/* Compact cell padding so the whole table fits at ~1366px without
+   scrolling; content stays readable — Service still wraps if needed. */
+#allAppointmentsTable th,
+#allAppointmentsTable td {
+  padding: 0.6rem 0.45rem;
+}
+
+#allAppointmentsTable td:nth-child(6) .status-badge {
+  font-size: 0.7rem;
+  padding: 0.2rem 0.5rem;
+}
+
+#allAppointmentsTable td.action-cell .btn-small {
+  display: inline-block;
+  padding: 0.4rem 0.6rem;
+  font-size: 0.8rem;
+}
+
+#allAppointmentsTable td.action-cell {
+  white-space: nowrap;
+}
+
+#allAppointmentsTable td.action-cell .btn-small {
+  display: inline-block;
+}
+
+/* Pinned Actions column — buttons never clip; content slides underneath.
+   (The id lives on the tbody, so the header is reached via :has().) */
+table:has(> tbody#allAppointmentsTable) thead th:last-child,
+#allAppointmentsTable td.action-cell {
+  position: sticky;
+  right: 0;
+  background: #fff;
+  box-shadow: -10px 0 12px -10px rgba(0, 0, 0, 0.18);
+}
+
+table:has(> tbody#allAppointmentsTable) thead th:last-child {
+  background: linear-gradient(135deg, var(--accent-bg) 0%, var(--accent-bg-2) 100%);
+}
+
+#allAppointmentsTable tbody tr:nth-child(even) td.action-cell {
+  background: rgb(252, 252, 252);
+}
+
+#allAppointmentsTable tbody tr:hover td.action-cell {
+  background: linear-gradient(135deg, var(--accent-bg-3) 0%, var(--accent-bg-4) 100%);
+}
+
+/* Narrower desktops (~1280px): tighten further so the table still fits
+   without scrolling; below ~1100px the horizontal scroll + pinned Actions
+   column takes over (min-width floor keeps cells readable). */
+@media (max-width: 1360px) and (min-width: 1100px) {
+  #allAppointmentsTable {
+    min-width: 0;
+  }
+
+  #allAppointmentsTable th,
+  #allAppointmentsTable td {
+    padding: 0.6rem 0.3rem;
+    font-size: 0.82rem;
+  }
+
+  #allAppointmentsTable td.action-cell .btn-small {
+    padding: 0.4rem 0.45rem;
+    font-size: 0.75rem;
+  }
+
+  #allAppointmentsTable td:first-child {
+    font-size: 0.72rem;
+  }
+
+  #allAppointmentsTable td:nth-child(6) .status-badge {
+    font-size: 0.65rem;
+    padding: 0.15rem 0.4rem;
+  }
+}
