@@ -211,7 +211,7 @@ function loadAppointments() {
   // TODO(BACKEND): Remove the mock fallback once get_appointments.php is wired.
   function useSharedMock(reason) {
     if (reason) console.warn('loadAppointments fallback to shared mock:', reason);
-    var source = (window.SharedMockAppointments && window.SharedMockAppointments.all()) || [];
+    var source = (window.SharedMockAppointments ? window.SharedMockAppointments.getAll() : []);
     var all = source.map(function(a) {
       return window.AppointmentContract ? window.AppointmentContract.toLegacyDisplay(window.AppointmentContract.fromLegacy(a)) : a;
     });
@@ -1678,7 +1678,7 @@ function initDashboardShared() {
 
     var sharedToday = window.SharedMockAppointments.today || new Date().toISOString().split('T')[0];
 
-    renderTodaysScheduleTable(window.SharedMockAppointments.all().map(function(a) {
+    renderTodaysScheduleTable(window.SharedMockAppointments.getAll().map(function(a) {
 
       return window.AppointmentContract ? window.AppointmentContract.toLegacyDisplay(window.AppointmentContract.fromLegacy(a)) : a;
 

@@ -258,7 +258,7 @@ function checkInAppointment() {
   if (document.getElementById('allAppointmentsTable')) loadAppointments();
   if (document.getElementById('todayScheduleTable') && window.SharedMockAppointments) {
     var contract = window.AppointmentContract;
-    renderTodaysScheduleTable(shared.all().map(function(a) {
+    renderTodaysScheduleTable(shared.getAll().map(function(a) {
       return contract ? contract.toLegacyDisplay(contract.fromLegacy(a)) : a;
     }).filter(function(a) { return a.date === (shared.today || new Date().toISOString().split('T')[0]); }));
   }
@@ -401,7 +401,7 @@ function _clerkSharedStatus(id, nextStatus, successMsg) {
   var tbody = document.getElementById('todayScheduleTable');
   if (tbody && window.SharedMockAppointments) {
     var contract = window.AppointmentContract;
-    renderTodaysScheduleTable(shared.all().map(function(a) {
+    renderTodaysScheduleTable(shared.getAll().map(function(a) {
       return contract ? contract.toLegacyDisplay(contract.fromLegacy(a)) : a;
     }).filter(function(a) { return a.date === (shared.today || new Date().toISOString().split('T')[0]); }));
   }

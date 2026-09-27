@@ -839,7 +839,20 @@ function _finalizeBooking() {
   var payload = _pendingBookingPayload;
   if (!payload) return;
 
-  var refNo = 'VHS-' + payload.appointment_date.replace(/-/g, '') + '-' + String(mockAppointmentsData.length + 1).padStart(4, '0');
+  // Sequential IDs derived from the WHOLE effective store so they never
+  // collide with seed records (apt301–306) or previously added bookings.
+  // TODO(BACKEND): book-appointment.php returns the real reference_no +
+  // appointment_id instead of this frontend counter.
+  var _seq = 0;
+  var _scan = function (a) {
+    var m = /^apt(\d+)$/.exec(String(a.appointmentId || a.id || ''));
+    if (m) _seq = Math.max(_seq, parseInt(m[1], 10));
+  };
+  if (window.SharedMockAppointments) window.SharedMockAppointments.getAll().forEach(_scan);
+  if (typeof mockAppointmentsData !== 'undefined') mockAppointmentsData.forEach(function (a) { _scan({ appointmentId: a.id }); });
+  var nextNum = _seq + 1;
+  var aptId = 'apt' + String(nextNum).padStart(3, '0');
+  var refNo = 'VHS-' + payload.appointment_date.replace(/-/g, '') + '-' + String(nextNum).padStart(4, '0');
 
   var _petDisplay = (_pendingBookingDisplay && _pendingBookingDisplay.petDisplay) || '';
   var _petName = _petDisplay ? _petDisplay.replace(/\s*\([^)]*\)$/, '').trim() : '';
@@ -857,12 +870,12 @@ function _finalizeBooking() {
   // TODO(BACKEND): persist service_id (payload.service → vet_services FK)
   // alongside the label once the services table exists.
 
-  // Build the booking directly in the canonical appointment contract so the
-  // record carries stable field names from creation.
-  // TODO(BACKEND): Send the pending payload to book-appointment.php and use
-  // the returned appointment_id + reference_no instead of the local counter.
+  // Build one canonical appointment and WRITE THROUGH the shared store so
+  // Clerk (and any other reader) sees the same record after refresh.
+  // TODO(BACKEND): AppointmentStore.add() becomes POST /appointments; the
+  // store returns the DB-assigned appointmentId/referenceNo.
   var canonical = window.AppointmentContract.fromLegacy({
-    appointmentId: 'apt' + String(mockAppointmentsData.length + 1).padStart(3, '0'),
+    appointmentId: aptId,
     referenceNo: refNo,
     userId: (_user.id || _user.userId || (window.SharedMockUsers ? window.SharedMockUsers.currentUserId : null)),
     petId: payload.pet_id,
@@ -877,15 +890,29 @@ function _finalizeBooking() {
     pet: { name: _petName, species: _petObj ? (_petObj.species || _petObj.type || '') : '', breed: _petObj ? (_petObj.breed || '') : '' }
   });
 
-  var newApt = window.AppointmentContract.toLegacyDisplay(canonical);
-  newApt.visit_reason = canonical.visitContext;
-  newApt.custom_visit_reason = canonical.customVisitContext || '';
-  newApt.notes = payload.notes || ''; // notes stay separate from context
+  var store = window.SharedMockAppointments; // AppointmentStore (shared/mock-appointments.js)
+  var stored = store ? store.add(canonical) : { ok: false, appointment: null };
+  if (!stored.ok || !stored.appointment) {
+    showToast(stored.error === 'duplicate'
+      ? 'This booking already exists. Please check My Appointments.'
+      : 'Could not save the booking. Please try again.', 'error');
+    return;
+  }
+  var savedRef = stored.appointment.referenceNo;
+  var savedId = stored.appointment.appointmentId;
 
-  mockAppointmentsData.push(newApt);
+  // Render from the STORED record — no User-only duplicate copy.
+  var newApt = window.AppointmentContract.toLegacyDisplay(
+    window.AppointmentContract.fromLegacy(stored.appointment)
+  );
+  newApt.visit_reason = stored.appointment.visitContext;
+  newApt.custom_visit_reason = stored.appointment.customVisitContext || '';
+  newApt.notes = stored.appointment.notes || '';
+  mockAppointmentsData.push(newApt); // display cache for this page-load only
+
   _pendingBookingPayload = null;
   _pendingBookingDisplay = null;
-  _showBookingSuccess(refNo, newApt);
+  _showBookingSuccess(savedRef, { id: savedId, reference_no: savedRef });
 }
 
 function _showBookingSuccess(refNo) {
