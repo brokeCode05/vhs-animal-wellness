@@ -725,8 +725,38 @@
   document.addEventListener('keydown', event => {
     if (event.key === 'Escape' && document.getElementById('document-preview-overlay').classList.contains('show')) closePreview();
   });
+  // ─── SHARED DOCTOR PROFILE / AVAILABILITY (Phase 2B) ────────────────────
+  // One shared Doctor store (shared/mock-doctors.js) is the single source of
+  // the signed-in doctor's identity + availability: Admin Accounts (account
+  // administration), Admin Doctors (availability) and this portal all read
+  // and write the same record. TODO(BACKEND): the availability select below
+  // becomes PATCH /doctors/:id/availability; identity comes from the
+  // authenticated session instead of doctor(1).
+  function _currentDoctor() {
+    return window.SharedMockDoctors ? window.SharedMockDoctors.currentDoctor() : null;
+  }
+  const _doctorRecord = _currentDoctor();
+  if (_doctorRecord) {
+    const greeting = document.getElementById('view-title');
+    if (greeting && _doctorRecord.name) {
+      greeting.textContent = 'Good morning, ' + _doctorRecord.name.replace(/^Dr\.?\s*/i, 'Dr. ');
+    }
+    const sidebarName = document.querySelector('.sidebar-user-name');
+    if (sidebarName && _doctorRecord.name) sidebarName.textContent = _doctorRecord.name;
+    const sidebarRole = document.querySelector('.sidebar-user-role');
+    if (sidebarRole && _doctorRecord.role) {
+      sidebarRole.textContent = _doctorRecord.role === 'Doctor' ? 'Veterinarian' : _doctorRecord.role;
+    }
+  }
+  // Availability select writes through the shared store, so Admin → Doctor
+  // and Doctor → Admin stay in sync via the same record.
   document.getElementById('availability').addEventListener('change', event => {
-    const paused = event.target.value !== 'On-Duty';
+    const value = event.target.value;
+    if (window.SharedMockDoctors && _doctorRecord) {
+      const MAP = { 'On-Duty': 'on_duty', 'On Break': 'on_break', 'On Leave': 'on_leave' };
+      window.SharedMockDoctors.setAvailability(_doctorRecord.doctorId, MAP[value] || 'on_duty');
+    }
+    const paused = value !== 'On-Duty';
     const status = document.getElementById('availability-status');
     status.textContent = paused ? 'New assignments paused' : 'Accepting new assignments';
     status.classList.toggle('assignments-paused', paused);
@@ -792,6 +822,20 @@
   }
   updateClock();
   setInterval(updateClock, 1000);
+  // Restore availability from the shared record (Admin-set values survive
+  // reload/navigation — Admin → Doctor direction of the shared state).
+  if (window.SharedMockDoctors) {
+    const _fresh = window.SharedMockDoctors.currentDoctor();
+    const REV = { on_duty: 'On-Duty', on_break: 'On Break', on_leave: 'On Leave' };
+    const availSel = document.getElementById('availability');
+    if (availSel && _fresh) {
+      availSel.value = REV[_fresh.availabilityStatus] || 'On-Duty';
+      const paused = availSel.value !== 'On-Duty';
+      const statusEl = document.getElementById('availability-status');
+      statusEl.textContent = paused ? 'New assignments paused' : 'Accepting new assignments';
+      statusEl.classList.toggle('assignments-paused', paused);
+    }
+  }
   if (patients.length) selectPatient(patients[0], false); // empty day → no selection
   showView(window.location.hash.slice(1), false);
 })();

@@ -70,26 +70,62 @@
 
     <main class="main-content">
       <div class="page-header">
-        <h1>Doctor Management</h1>
-        <p class="page-subtitle">Doctor availability and schedules will be managed here.</p>
+        <h1>Doctors</h1>
+        <p class="page-subtitle">Doctor directory and availability (On Duty / On Break / On Leave). Account administration lives in <a href="accounts.html">Accounts</a>.</p>
       </div>
 
-      <!-- Placeholder shell: functionality is not built yet (Phase 2).
-           Clean "not implemented" state — no fake data or fake actions. -->
+      <!-- Doctor operational management (Phase 2B).
+           Reads the ONE shared Doctor store (shared/mock-doctors.js) — the
+           same records as Accounts and the Doctor Portal. Availability is a
+           clinic working status, fully separate from account status. -->
       <section class="content-section">
-        <div class="placeholder-wrap">
-          <div class="placeholder-icon"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></div>
-          <span class="placeholder-badge">Frontend integration pending</span>
-          <h2 class="placeholder-title">Not yet implemented</h2>
-          <p class="placeholder-text">Doctor availability and schedules will be managed here. No fake data is shown — functionality arrives with the backend.</p>
-          <ul class="placeholder-list"><li>Doctor directory (from staff accounts, role = Veterinarian)</li><li>On Duty / On Break / On Leave status management</li><li>Assignment and schedule overview</li></ul>
+        <div class="section-header">
+          <h2 class="section-title">Doctor Directory</h2>
+          <span style="font-size:0.8rem;color:#6b7280;">Availability changes here are reflected in the Doctor Portal (and vice versa) via the shared Doctor store.</span>
         </div>
+        <div class="table-wrapper">
+          <table class="compact-table">
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Doctor</th>
+                <th>Contact / Profile</th>
+                <th>Account Status</th>
+                <th>Availability</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="doctorDirectoryTable">
+              <tr><td colspan="6" style="text-align:center;color:#888;">Loading doctors...</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p style="font-size:0.8rem;color:#6b7280;margin:0.75rem 0 0;">
+          An <strong>Inactive</strong> account means the Doctor's login is disabled
+          (set in <a href="accounts.html">Accounts</a>) — it is not an availability
+          value. Scheduling/calendars come later; no fake schedules are shown.
+        </p>
       </section>
+
+      <!-- Doctor profile view (read-only; account edits live in Accounts) -->
+      <div class="modal-overlay" id="viewDoctorModal">
+        <div class="modal-content" style="max-width:480px;">
+          <div class="modal-header">
+            <h2 class="modal-title">Doctor Profile</h2>
+            <button class="modal-close" onclick="closeViewDoctor()">&times;</button>
+          </div>
+          <div id="viewDoctorBody"></div>
+          <div style="display:flex;gap:0.75rem;margin-top:1rem;">
+            <button type="button" class="btn-secondary" onclick="closeViewDoctor()">Close</button>
+          </div>
+        </div>
+      </div>
     </main>
   </div>
 
-  <script src="../shared/vhs-ui.js?v=2.5.0"></script>
+  <script src="../shared/vhs-ui.js?v=2.7.0"></script>
   <script src="../shared/dashboard-shared.js?v=2.7.1"></script>
-  <script src="admin-portal.js?v=2.7.9"></script>
+  <script src="../shared/mock-doctors.js?v=2.7.0"></script>
+  <script src="admin-portal.js?v=2.8.0"></script>
 </body>
 </html>

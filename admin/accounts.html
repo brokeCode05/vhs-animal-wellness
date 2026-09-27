@@ -98,251 +98,127 @@
           </p>
         </div>
 
-        <!-- Staff Account Creation -->
-        <section class="content-section" action="add-staff.php">
+        <!-- Doctor Account Administration (Phase 2B).
+             Role model: User | Doctor | Admin. Only Doctors are creatable
+             here; there is ONE Admin account and no Clerk/Clinic Owner/
+             generic Staff roles. Availability is managed on the Doctors page. -->
+        <section class="content-section">
           <div class="section-header">
-            <h2 class="section-title">Staff Account Management</h2>
-            <button class="btn-primary" onclick="openCreateStaffModal()">
-              + Create Staff Account
+            <h2 class="section-title">Doctor Account Administration</h2>
+            <button class="btn-primary" onclick="openCreateDoctorModal()">
+              + Create Doctor
             </button>
           </div>
-
-          <!-- Search & Filter -->
           <div class="filter-bar">
             <input
               type="search"
               class="search-input"
-              placeholder="Search staff by name or email..."
-              id="searchStaff"
+              placeholder="Search doctors by name or email..."
+              id="searchDoctors"
             />
-            <select class="form-select" style="width: auto" id="filterRole">
-              <option value="all">All Roles</option>
-              <option value="veterinarian">Veterinarian</option>
-              <option value="admin">Administrator</option>
-            </select>
-            <select
-              class="form-select"
-              style="width: auto"
-              id="filterStaffStatus"
-            >
+            <select class="form-select" style="width: auto" id="filterDoctorStatus">
               <option value="all">All Status</option>
               <option value="active">Active</option>
               <option value="inactive">Inactive</option>
             </select>
           </div>
-
           <div class="table-wrapper">
             <table class="compact-table">
               <thead>
                 <tr>
                   <th>ID</th>
-                  <th>Name</th>
+                  <th>Doctor</th>
                   <th>Email</th>
-                  <th>Role</th>
                   <th>Contact</th>
+                  <th>Specialization</th>
                   <th>Created</th>
                   <th>Status</th>
                   <th>Actions</th>
                 </tr>
               </thead>
-              <tbody id="staffAccountsTable">
-                <tr>
-                  <td colspan="8" style="text-align: center; color: #888">
-                    Loading...
-                  </td>
-                </tr>
+              <tbody id="doctorAccountsTable">
+                <tr><td colspan="8" style="text-align:center;color:#888;">Loading doctors...</td></tr>
               </tbody>
             </table>
           </div>
+          <p style="font-size:0.8rem;color:#6b7280;margin:0.75rem 0 0;">
+            Availability (On Duty / On Break / On Leave) is managed on the
+            <a href="doctors.html">Doctors</a> page. Account credentials are
+            provisioned by the backend — not editable in this prototype.
+          </p>
         </section>
         <!-- Client Accounts: RETIRED in Phase 2A — client/User records
              are managed canonically in Clients & Pets. -->
       </main>
     </div>
 
-    <!-- Create Staff Account Modal -->
-    <div class="modal-overlay" id="createStaffModal">
-      <div class="modal-content">
+    <!-- Create Doctor Modal (role is fixed: Doctor — no selector) -->
+    <div class="modal-overlay" id="createDoctorModal">
+      <div class="modal-content" style="max-width:560px;">
         <div class="modal-header">
-          <h2 class="modal-title">Create Staff Account</h2>
-          <button class="modal-close" onclick="closeCreateStaffModal()">
-            &times;
-          </button>
+          <h2 class="modal-title">Create Doctor</h2>
+          <button class="modal-close" onclick="closeCreateDoctor()">&times;</button>
         </div>
-
-        <form id="createStaffForm" onsubmit="submitStaffAccount(event)">
-          <div class="form-row">
-            <div class="form-group">
-              <label class="form-label"
-                >Last Name <span class="required">*</span></label
-              >
-              <input
-                type="text"
-                class="form-input"
-                name="staffLastName"
-                placeholder="e.g. Dela Cruz"
-                required
-              />
-            </div>
-            <div class="form-group">
-              <label class="form-label"
-                >First Name <span class="required">*</span></label
-              >
-              <input
-                type="text"
-                class="form-input"
-                name="staffFirstName"
-                placeholder="e.g. Juan"
-                required
-              />
-            </div>
+        <p style="font-size:0.85rem;color:#6b7280;margin:0 0 1rem;">Creates a Doctor account. Role is fixed to <strong>Doctor</strong>. Credentials are provisioned by the backend (backend-pending in this prototype).</p>
+        <form id="createDoctorForm" onsubmit="submitCreateDoctor(event)">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.75rem;margin-bottom:0.75rem;">
+            <div class="form-group"><label class="form-label">First Name <span class="required">*</span></label><input class="form-input" id="newDoctorFirstName" required /></div>
+            <div class="form-group"><label class="form-label">Middle Name</label><input class="form-input" id="newDoctorMiddleName" /></div>
           </div>
-
-          <div class="form-row">
-            <div class="form-group">
-              <label class="form-label">Middle Name</label>
-              <input
-                type="text"
-                class="form-input"
-                name="staffMiddleName"
-                placeholder="e.g. Santos"
-              />
-            </div>
-            <div class="form-group">
-              <label class="form-label"
-                >Email Address <span class="required">*</span></label
-              >
-              <input
-                type="email"
-                class="form-input"
-                name="staffEmail"
-                placeholder="email@vhs.com"
-                required
-              />
-            </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.75rem;margin-bottom:0.75rem;">
+            <div class="form-group"><label class="form-label">Last Name <span class="required">*</span></label><input class="form-input" id="newDoctorLastName" required /></div>
+            <div class="form-group"><label class="form-label">Phone / Contact</label><input class="form-input" id="newDoctorPhone" /></div>
           </div>
-
-          <div class="form-row">
-            <div class="form-group">
-              <label class="form-label"
-                >Contact Number <span class="required">*</span></label
-              >
-              <input
-                type="tel"
-                class="form-input"
-                name="staffPhone"
-                placeholder="09XXXXXXXXX"
-                pattern="[0-9]{11}"
-                required
-              />
-            </div>
-            <div class="form-group">
-              <label class="form-label"
-                >Role <span class="required">*</span></label
-              >
-              <select class="form-select" name="staffRole" required>
-                <option value="">Select role</option>
-                <option value="veterinarian">Veterinarian</option>
-                <option value="admin">Administrator</option>
-              </select>
-            </div>
-          </div>
-
-          <div class="form-row">
-            <div class="form-group">
-              <label class="form-label"
-                >Password <span class="required">*</span></label
-              >
-              <input
-                type="password"
-                class="form-input"
-                name="staffPassword"
-                placeholder="Min. 8 characters"
-                minlength="8"
-                required
-              />
-            </div>
-            <div class="form-group">
-              <label class="form-label"
-                >Confirm Password <span class="required">*</span></label
-              >
-              <input
-                type="password"
-                class="form-input"
-                name="staffConfirmPassword"
-                placeholder="Re-enter password"
-                required
-              />
-            </div>
-          </div>
-
-          <div class="form-actions">
-            <button type="submit" class="btn-primary">Create Account</button>
-            <button
-              type="button"
-              class="btn-secondary"
-              onclick="closeCreateStaffModal()"
-            >
-              Cancel
-            </button>
+          <div class="form-group" style="margin-bottom:0.75rem;"><label class="form-label">Email <span class="required">*</span></label><input type="email" class="form-input" id="newDoctorEmail" required /></div>
+          <div class="form-group" style="margin-bottom:0.75rem;"><label class="form-label">Specialization (optional)</label><input class="form-input" id="newDoctorSpecialization" placeholder="e.g. General Practice" /></div>
+          <div style="display:flex;gap:0.75rem;margin-top:0.5rem;">
+            <button type="submit" class="btn-primary">Create Doctor</button>
+            <button type="button" class="btn-secondary" onclick="closeCreateDoctor()">Cancel</button>
           </div>
         </form>
       </div>
     </div>
 
-    <script src="../shared/vhs-ui.js?v=1787393620"></script>
-    <script src="../shared/dashboard-shared.js?v=1787393620"></script>
-    <script src="admin-script.js?v=1787393620"></script>
-    <script>
-      const PHP = "/php_files";
+    <!-- Edit Doctor Modal (account fields only; no passwords) -->
+    <div class="modal-overlay" id="editDoctorModal">
+      <div class="modal-content" style="max-width:560px;">
+        <div class="modal-header">
+          <h2 class="modal-title">Edit Doctor</h2>
+          <button class="modal-close" onclick="closeEditDoctor()">&times;</button>
+        </div>
+        <form id="editDoctorForm" onsubmit="submitEditDoctor(event)">
+          <input type="hidden" id="editDoctorId" />
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.75rem;margin-bottom:0.75rem;">
+            <div class="form-group"><label class="form-label">First Name <span class="required">*</span></label><input class="form-input" id="editDoctorFirstName" required /></div>
+            <div class="form-group"><label class="form-label">Middle Name</label><input class="form-input" id="editDoctorMiddleName" /></div>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.75rem;margin-bottom:0.75rem;">
+            <div class="form-group"><label class="form-label">Last Name <span class="required">*</span></label><input class="form-input" id="editDoctorLastName" required /></div>
+            <div class="form-group"><label class="form-label">Phone / Contact</label><input class="form-input" id="editDoctorPhone" /></div>
+          </div>
+          <div class="form-group" style="margin-bottom:0.75rem;"><label class="form-label">Email <span class="required">*</span></label><input type="email" class="form-input" id="editDoctorEmail" required /></div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.75rem;margin-bottom:0.75rem;">
+            <div class="form-group"><label class="form-label">Specialization</label><input class="form-input" id="editDoctorSpecialization" /></div>
+            <div class="form-group"><label class="form-label">Account Status</label>
+              <select class="form-select" id="editDoctorStatus">
+                <option value="active">Active</option>
+                <option value="inactive">Inactive</option>
+              </select>
+            </div>
+          </div>
+          <div style="display:flex;gap:0.75rem;margin-top:0.5rem;">
+            <button type="submit" class="btn-primary">Save</button>
+            <button type="button" class="btn-secondary" onclick="closeEditDoctor()">Cancel</button>
+          </div>
+        </form>
+      </div>
+    </div>
 
-      function fmtDate(str) {
-        if (!str) return "—";
-        return new Date(str).toLocaleDateString("en-US", {
-          year: "numeric",
-          month: "short",
-          day: "numeric",
-        });
-      }
-
-      // loadClients() removed in Phase 2A (client/User records live in Clients & Pets).
-
-      // ── Staff ──
-      async function loadStaff() {
-        const tbody = document.getElementById("staffAccountsTable");
-        try {
-          const res = await fetch(`${PHP}/get_staff.php`);
-          const data = await res.json();
-          tbody.innerHTML =
-            data.length ?
-              data
-                .map(
-                  (s, i) => `
-        <tr data-id="${s.id}">
-          <td>#S${String(i + 1).padStart(3, "0")}</td>
-          <td>${s.fullName}</td>
-          <td>${s.email}</td>
-          <td><span class="role-badge ${s.role}">${s.role}</span></td>
-          <td>${s.phone || "—"}</td>
-          <td>${fmtDate(s.created_at)}</td>
-          <td><span class="status-badge active">Active</span></td>
-          <td>
-            <button class="btn-small" onclick="viewStaff(${s.id})">View</button>
-            <button class="btn-small" onclick="editStaff(${s.id})">Edit</button>
-            <button class="btn-small" onclick="deactivateStaff(${s.id})">Deactivate</button>
-          </td>
-        </tr>`,
-                )
-                .join("")
-            : '<tr><td colspan="8" style="text-align:center;color:#888;">No staff accounts yet.</td></tr>';
-        } catch (e) {
-          tbody.innerHTML =
-            '<tr><td colspan="8" style="color:red;text-align:center;">Failed to load.</td></tr>';
-        }
-      }
-
-      // loadClients() retired in Phase 2A — client/User records live in Clients & Pets.
-      loadStaff();
-    </script>
+    <script src="../shared/vhs-ui.js?v=2.7.0"></script>
+    <script src="../shared/dashboard-shared.js?v=2.7.0"></script>
+    <script src="../shared/mock-doctors.js?v=2.7.0"></script>
+    <script src="admin-portal.js?v=2.8.0"></script>
+    <!-- Doctor account logic is shared in admin-portal.js (one implementation
+         for Accounts + Doctors pages; no duplicate per-page copies). -->
   </body>
 </html>

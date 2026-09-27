@@ -656,226 +656,271 @@ document.addEventListener('click', function (e) {
   }
 })();
 
-// ─── PHASE 2A: CLIENTS & PETS — User/Pet management ─────────────────────────
-// One canonical source (SharedMockUsers demo layer). Edits write through and
-// re-render immediately. Ownership stays ID-linked (ownerId), never by name.
-// TODO(BACKEND): Replace User profile persistence with User API calls
-// (updateUser->PUT /users/:id, addUser->POST /users, setUserStatus->PATCH,
-// updatePet->PUT /pets/:id); these UI handlers stay, only the store changes.
+// ─── PHASE 2B: DOCTOR ACCOUNTS + OPERATIONAL DIRECTORY ───────────────────
+// One shared Doctor store (shared/mock-doctors.js) powers three surfaces:
+//   Accounts  → account administration (create / edit / active-inactive)
+//   Doctors   → operational availability (On Duty / On Break / On Leave)
+//   Doctor Portal → reads/writes the same availability record
+// TODO(BACKEND): Replace Doctor persistence with Doctor/User API calls
+// (GET /doctors, POST /doctors, PUT /doctors/:id, PATCH account-status and
+// availability endpoints). localStorage lives only inside the shared store.
+// Account credentials are backend-provisioned — never stored here.
 
-function _esc(s) {
-  return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
-    return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+function _escD(s) {
+  return String(s == null ? "" : s).replace(/[&<>"']/g, (c) =>
+    ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
+
+function _fmtDateD(str) {
+  if (!str) return "—";
+  const d = new Date(str);
+  return isNaN(d)
+    ? str
+    : d.toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" });
+}
+
+function _acctBadge(status) {
+  const inactive = status === "inactive";
+  return `<span class="status-badge ${inactive ? "cancelled" : "completed"}">${inactive ? "Inactive" : "Active"}</span>`;
+}
+
+// ── Accounts page: Doctor Account Administration table ───────────────────
+let _doctorSearch = "";
+
+function _renderDoctorAccounts() {
+  const tbody = document.getElementById("doctorAccountsTable");
+  if (!tbody || !window.SharedMockDoctors) return;
+  const filter = document.getElementById("filterDoctorStatus");
+  const f = filter ? filter.value : "all";
+  const docs = window.SharedMockDoctors.doctors().filter((d) => {
+    if (f !== "all" && d.accountStatus !== f) return false;
+    if (_doctorSearch) {
+      const hay = (d.name + " " + d.email).toLowerCase();
+      if (!hay.includes(_doctorSearch)) return false;
+    }
+    return true;
   });
+  tbody.innerHTML = docs.length
+    ? docs
+        .map((d) => {
+          const inactive = d.accountStatus === "inactive";
+          return `
+        <tr data-id="${d.doctorId}">
+          <td>#D${String(d.doctorId).padStart(3, "0")}</td>
+          <td>${_escD(d.name)}</td>
+          <td>${_escD(d.email)}</td>
+          <td>${_escD(d.phone || "—")}</td>
+          <td>${_escD(d.specialization || "—")}</td>
+          <td>${_fmtDateD(d.createdAt)}</td>
+          <td>${_acctBadge(d.accountStatus)}</td>
+          <td class="action-cell" style="white-space:nowrap;">
+            <button class="btn-small" onclick="openEditDoctor(${d.doctorId})">Edit</button>
+            <button class="btn-small ${inactive ? "btn-success" : "btn-danger"}" onclick="toggleDoctorAccount(${d.doctorId})">${inactive ? "Activate" : "Deactivate"}</button>
+          </td>
+        </tr>`;
+        })
+        .join("")
+    : '<tr><td colspan="8" style="text-align:center;color:#888;">No doctor accounts found.</td></tr>';
 }
 
-function _statusBadgeHtml(status) {
-  var s = status === 'inactive' ? 'inactive' : 'active';
-  var label = s === 'inactive' ? 'Inactive' : 'Active';
-  var cls = s === 'inactive' ? 'status-badge cancelled' : 'status-badge completed';
-  return '<span class="' + cls + '">' + label + '</span>';
+// ── Create Doctor (role is fixed to Doctor — no role selector exists) ────
+function openCreateDoctorModal() {
+  document.getElementById("createDoctorForm").reset();
+  document.getElementById("createDoctorModal").classList.add("show");
 }
-
-function _renderClientsTable() {
-  var tbody = document.getElementById('clientsTable');
-  if (!tbody || !window.SharedMockUsers) return;
-  var owners = window.SharedMockUsers.users();
-  var pets = window.SharedMockUsers.pets();
-  tbody.innerHTML = owners.map(function (u, i) {
-    var petCount = pets.filter(function (p) { return String(p.ownerId) === String(u.userId); }).length;
-    var status = u.status === 'inactive' ? 'inactive' : 'active';
-    var toggleLabel = status === 'inactive' ? 'Activate' : 'Deactivate';
-    return '<tr data-id="' + u.userId + '">' +
-      '<td>#C' + String(i + 1).padStart(3, '0') + '</td>' +
-      '<td>' + _esc(u.name) + '</td>' +
-      '<td>' + _esc(u.email) + '</td>' +
-      '<td>' + _esc(u.phone || '\u2014') + '</td>' +
-      '<td>' + _esc(u.address || '\u2014') + '</td>' +
-      '<td>' + petCount + '</td>' +
-      '<td>' + _statusBadgeHtml(status) + '</td>' +
-      '<td class="action-cell" style="white-space:nowrap;">' +
-        '<button class="btn-small" onclick="viewOwnerProfile(' + u.userId + ')">View Profile</button> ' +
-        '<button class="btn-small" onclick="openEditUser(' + u.userId + ')">Edit</button> ' +
-        '<button class="btn-small' + (status === 'inactive' ? ' btn-success' : ' btn-danger') + '" onclick="toggleUserStatus(' + u.userId + ')">' + toggleLabel + '</button>' +
-      '</td>' +
-      '</tr>';
-  }).join('');
+function closeCreateDoctor() {
+  document.getElementById("createDoctorModal").classList.remove("show");
 }
-
-function _renderPetsTable() {
-  var tbody = document.getElementById('petsTable');
-  if (!tbody || !window.SharedMockUsers) return;
-  var pets = window.SharedMockUsers.pets();
-  var users = window.SharedMockUsers.users();
-  tbody.innerHTML = pets.map(function (p, i) {
-    var owner = users.find(function (u) { return String(u.userId) === String(p.ownerId); });
-    return '<tr data-id="' + p.petId + '">' +
-      '<td>#P' + String(i + 1).padStart(3, '0') + '</td>' +
-      '<td>' + _esc(p.name) + '</td>' +
-      '<td>' + _esc(p.species) + '</td>' +
-      '<td>' + _esc(p.breed || '\u2014') + '</td>' +
-      '<td>' + _esc(p.age || '\u2014') + '</td>' +
-      '<td>' + _esc(p.gender || '\u2014') + '</td>' +
-      '<td>' + _esc(owner ? owner.name : '\u2014') + '</td>' +
-      '<td>\u2014</td>' +
-      '<td class="action-cell" style="white-space:nowrap;">' +
-        '<button class="btn-small" onclick="viewPetProfile(' + p.petId + ')">View Pet</button> ' +
-        '<button class="btn-small" onclick="openEditPet(' + p.petId + ')">Edit</button>' +
-      '</td>' +
-      '</tr>';
-  }).join('');
-}
-
-// Re-render hook: called after every store write so both tabs stay current.
-function _refreshClientsPets() {
-  _renderClientsTable();
-  _renderPetsTable();
-}
-
-// ── Edit User ────────────────────────────────────────────────────────────────
-function openEditUser(id) {
-  var u = window.SharedMockUsers.byId(id);
-  if (!u) return;
-  document.getElementById('editUserId').value = u.userId;
-  document.getElementById('editUserFirstName').value = u.firstName || u.name.split(' ')[0] || '';
-  document.getElementById('editUserMiddleName').value = u.middleName || '';
-  document.getElementById('editUserLastName').value = u.lastName || u.name.split(' ').slice(1).join(' ') || '';
-  document.getElementById('editUserPhone').value = u.phone || '';
-  document.getElementById('editUserEmail').value = u.email || '';
-  document.getElementById('editUserAddress').value = u.address || '';
-  document.getElementById('editUserBirthdate').value = u.birthdate || '';
-  document.getElementById('editUserStatus').value = u.status === 'inactive' ? 'inactive' : 'active';
-  document.getElementById('editUserModal').classList.add('show');
-}
-function closeEditUser() { document.getElementById('editUserModal').classList.remove('show'); }
-function submitEditUser(e) {
+function submitCreateDoctor(e) {
   e.preventDefault();
-  var id = document.getElementById('editUserId').value;
-  var fields = {
-    firstName: document.getElementById('editUserFirstName').value.trim(),
-    middleName: document.getElementById('editUserMiddleName').value.trim(),
-    lastName: document.getElementById('editUserLastName').value.trim(),
-    phone: document.getElementById('editUserPhone').value.trim(),
-    email: document.getElementById('editUserEmail').value.trim(),
-    address: document.getElementById('editUserAddress').value.trim(),
-    birthdate: document.getElementById('editUserBirthdate').value,
-    status: document.getElementById('editUserStatus').value
-  };
-  fields.name = (fields.firstName + ' ' + fields.lastName).trim();
-  var result = window.SharedMockUsers.updateUser(id, fields);
-  if (!result.ok) { showToast('Could not save changes.', 'error'); return; }
-  closeEditUser();
-  _refreshClientsPets();
-  showToast('User updated. (demo state \u2014 not saved to a database)', 'success');
-}
-
-// ── Active / Inactive ────────────────────────────────────────────────────────
-function toggleUserStatus(id) {
-  var u = window.SharedMockUsers.byId(id);
-  if (!u) return;
-  var next = u.status === 'inactive' ? 'active' : 'inactive';
-  confirmAction(
-    (next === 'inactive' ? 'Deactivate' : 'Activate') + ' the account for ' + u.name + '?',
-    function () {
-      window.SharedMockUsers.setUserStatus(id, next);
-      _refreshClientsPets();
-      showToast('Account ' + next + '. (demo state \u2014 not saved to a database)', 'success');
-    },
-    { title: (next === 'inactive' ? 'Deactivate' : 'Activate') + ' Account', danger: next === 'inactive' }
+  const result = window.SharedMockDoctors.addDoctor({
+    firstName: document.getElementById("newDoctorFirstName").value.trim(),
+    middleName: document.getElementById("newDoctorMiddleName").value.trim(),
+    lastName: document.getElementById("newDoctorLastName").value.trim(),
+    email: document.getElementById("newDoctorEmail").value.trim(),
+    phone: document.getElementById("newDoctorPhone").value.trim(),
+    specialization: document.getElementById("newDoctorSpecialization").value.trim(),
+  });
+  if (!result.ok) {
+    showToast(
+      result.error === "duplicate_email"
+        ? "A doctor with that email already exists."
+        : "Please complete the required fields.",
+      "error",
+    );
+    return;
+  }
+  closeCreateDoctor();
+  _renderDoctorAccounts();
+  showToast(
+    `Doctor account created for ${result.doctor.name}. Credentials are provisioned by the backend (backend-pending demo state).`,
+    "success",
   );
 }
 
-// ── Create User (admin-assisted; canonical role: User) ──────────────────────
-function openCreateUserModal() {
-  document.getElementById('createUserForm').reset();
-  document.getElementById('createUserModal').classList.add('show');
+// ── Edit Doctor (account fields only; no passwords) ──────────────────────
+function openEditDoctor(id) {
+  const d = window.SharedMockDoctors.byId(id);
+  if (!d) return;
+  document.getElementById("editDoctorId").value = d.doctorId;
+  document.getElementById("editDoctorFirstName").value = d.firstName || "";
+  document.getElementById("editDoctorMiddleName").value = d.middleName || "";
+  document.getElementById("editDoctorLastName").value = d.lastName || "";
+  document.getElementById("editDoctorPhone").value = d.phone || "";
+  document.getElementById("editDoctorEmail").value = d.email || "";
+  document.getElementById("editDoctorSpecialization").value = d.specialization || "";
+  document.getElementById("editDoctorStatus").value =
+    d.accountStatus === "inactive" ? "inactive" : "active";
+  document.getElementById("editDoctorModal").classList.add("show");
 }
-function closeCreateUser() { document.getElementById('createUserModal').classList.remove('show'); }
-function submitCreateUser(e) {
+function closeEditDoctor() {
+  document.getElementById("editDoctorModal").classList.remove("show");
+}
+function submitEditDoctor(e) {
   e.preventDefault();
-  var fields = {
-    firstName: document.getElementById('newUserFirstName').value.trim(),
-    middleName: document.getElementById('newUserMiddleName').value.trim(),
-    lastName: document.getElementById('newUserLastName').value.trim(),
-    phone: document.getElementById('newUserPhone').value.trim(),
-    email: document.getElementById('newUserEmail').value.trim(),
-    address: document.getElementById('newUserAddress').value.trim(),
-    birthdate: document.getElementById('newUserBirthdate').value
-  };
-  var result = window.SharedMockUsers.addUser(fields);
+  const id = document.getElementById("editDoctorId").value;
+  const result = window.SharedMockDoctors.updateDoctor(id, {
+    firstName: document.getElementById("editDoctorFirstName").value.trim(),
+    middleName: document.getElementById("editDoctorMiddleName").value.trim(),
+    lastName: document.getElementById("editDoctorLastName").value.trim(),
+    email: document.getElementById("editDoctorEmail").value.trim(),
+    phone: document.getElementById("editDoctorPhone").value.trim(),
+    specialization: document.getElementById("editDoctorSpecialization").value.trim(),
+    accountStatus: document.getElementById("editDoctorStatus").value,
+  });
   if (!result.ok) {
-    showToast(result.error === 'duplicate_email' ? 'A user with that email already exists.' : 'Please complete the required fields.', 'error');
+    showToast("Could not save changes.", "error");
     return;
   }
-  closeCreateUser();
-  _refreshClientsPets();
-  showToast('User account created for ' + result.user.name + '. (demo state \u2014 not saved to a database)', 'success');
+  closeEditDoctor();
+  _renderDoctorAccounts();
+  showToast("Doctor account updated. (demo state — not saved to a database)", "success");
 }
 
-// ── Edit Pet (frozen contract fields; ownership by ownerId) ─────────────────
-function openEditPet(id) {
-  var p = window.SharedMockUsers.petById(id);
-  if (!p) return;
-  var owner = window.SharedMockUsers.byId(p.ownerId);
-  document.getElementById('editPetId').value = p.petId;
-  document.getElementById('editPetName').value = p.name || '';
-  document.getElementById('editPetOwnerName').value = owner ? owner.name : '\u2014';
-  var known = ['Dog', 'Cat', 'Bird', 'Rabbit'];
-  var speciesVal = known.indexOf(p.species) !== -1 ? p.species : (p.species ? 'Other' : '');
-  document.getElementById('editPetSpecies').value = speciesVal;
-  document.getElementById('editPetSpeciesCustom').style.display = speciesVal === 'Other' ? '' : 'none';
-  document.getElementById('editPetSpeciesCustom').value = speciesVal === 'Other' ? (p.species || '') : (p.speciesCustom || '');
-  document.getElementById('editPetBreed').value = p.breed || p.breedCustom || '';
-  document.getElementById('editPetGender').value = p.gender || '';
-  document.getElementById('editPetAge').value = p.age || 0;
-  document.getElementById('editPetWeightKg').value = p.weightKg || 0;
-  document.getElementById('editPetRepro').value = p.reproductiveStatus || '';
-  document.getElementById('editPetColor').value = p.color || '';
-  document.getElementById('editPetMicrochip').value = p.microchipId || '';
-  document.getElementById('editPetAllergies').value = p.allergies || '';
-  document.getElementById('editPetChronic').value = p.chronicConditions || '';
-  document.getElementById('editPetNotes').value = p.notes || '';
-  document.getElementById('editPetModal').classList.add('show');
-}
-function closeEditPet() { document.getElementById('editPetModal').classList.remove('show'); }
-function submitEditPet(e) {
-  e.preventDefault();
-  var id = document.getElementById('editPetId').value;
-  var speciesVal = document.getElementById('editPetSpecies').value;
-  var fields = {
-    name: document.getElementById('editPetName').value.trim(),
-    species: speciesVal === 'Other' ? (document.getElementById('editPetSpeciesCustom').value.trim() || 'Other') : speciesVal,
-    speciesCustom: speciesVal === 'Other' ? document.getElementById('editPetSpeciesCustom').value.trim() : '',
-    breed: document.getElementById('editPetBreed').value.trim(),
-    gender: document.getElementById('editPetGender').value,
-    age: parseInt(document.getElementById('editPetAge').value, 10) || 0,
-    weightKg: parseFloat(document.getElementById('editPetWeightKg').value) || 0,
-    reproductiveStatus: document.getElementById('editPetRepro').value,
-    color: document.getElementById('editPetColor').value.trim(),
-    microchipId: document.getElementById('editPetMicrochip').value.trim(),
-    allergies: document.getElementById('editPetAllergies').value.trim(),
-    chronicConditions: document.getElementById('editPetChronic').value.trim(),
-    notes: document.getElementById('editPetNotes').value.trim()
-  };
-  var result = window.SharedMockUsers.updatePet(id, fields);
-  if (!result.ok) { showToast('Could not save changes.', 'error'); return; }
-  closeEditPet();
-  _refreshClientsPets();
-  showToast('Pet updated. (demo state \u2014 not saved to a database)', 'success');
+// ── Activate / Deactivate (account status only — availability is a separate
+// concept managed on the Doctors page). Inactive Doctors are never deleted;
+// they remain listed for historical records. ──────────────────────────────
+function toggleDoctorAccount(id) {
+  const d = window.SharedMockDoctors.byId(id);
+  if (!d) return;
+  const next = d.accountStatus === "inactive" ? "active" : "inactive";
+  confirmAction(
+    `${next === "inactive" ? "Deactivate" : "Activate"} the account for ${d.name}?`,
+    () => {
+      window.SharedMockDoctors.setAccountStatus(id, next);
+      _renderDoctorAccounts();
+      showToast(`Doctor account ${next}. (demo state — not saved to a database)`, "success");
+    },
+    {
+      title: `${next === "inactive" ? "Deactivate" : "Activate"} Doctor Account`,
+      danger: next === "inactive",
+    },
+  );
 }
 
-// Escape closes the Phase 2A modals
-document.addEventListener('keydown', function (e) {
-  if (e.key !== 'Escape') return;
-  ['editUserModal', 'createUserModal', 'editPetModal'].forEach(function (id) {
-    var m = document.getElementById(id);
-    if (m && m.classList.contains('show')) m.classList.remove('show');
-  });
-});
+// ── Doctors page: operational directory + availability control ───────────
+const DOCTOR_AVAILABILITY_OPTIONS = [
+  { value: "on_duty", label: "On Duty" },
+  { value: "on_break", label: "On Break" },
+  { value: "on_leave", label: "On Leave" },
+];
 
-// Management renderers run after the Phase 1 fallback (same event, later
-// registration), then re-render on every write via _refreshClientsPets().
-document.addEventListener('DOMContentLoaded', function () {
-  if (!document.getElementById('clientsTable')) return;
-  _refreshClientsPets();
+function _availBadgeClass(v) {
+  return v === "on_duty" ? "completed" : v === "on_break" ? "rescheduled" : "cancelled";
+}
+function _availLabel(v) {
+  const o = DOCTOR_AVAILABILITY_OPTIONS.find((x) => x.value === v);
+  return o ? o.label : v;
+}
+
+function _renderDoctorDirectory() {
+  const tbody = document.getElementById("doctorDirectoryTable");
+  if (!tbody || !window.SharedMockDoctors) return;
+  const docs = window.SharedMockDoctors.doctors();
+  tbody.innerHTML = docs.length
+    ? docs
+        .map((d) => {
+          const opts = DOCTOR_AVAILABILITY_OPTIONS.map(
+            (o) =>
+              `<option value="${o.value}" ${d.availabilityStatus === o.value ? "selected" : ""}>${o.label}</option>`,
+          ).join("");
+          return `
+        <tr data-id="${d.doctorId}">
+          <td>#D${String(d.doctorId).padStart(3, "0")}</td>
+          <td>
+            <strong>${_escD(d.name)}</strong><br />
+            <span style="font-size:0.75rem;color:#6b7280;">${_escD(d.specialization || "General Practice")}</span>
+          </td>
+          <td>
+            ${_escD(d.email)}<br />
+            <span style="font-size:0.75rem;color:#6b7280;">${_escD(d.phone || "—")}</span>
+          </td>
+          <td>${_acctBadge(d.accountStatus)}</td>
+          <td>
+            <select class="form-select" style="width:auto;min-width:120px;" onchange="onDoctorAvailabilityChange(${d.doctorId}, this.value)" ${d.accountStatus === "inactive" ? "disabled title=\"Account inactive\"" : ""}>
+              ${opts}
+            </select>
+          </td>
+          <td class="action-cell" style="white-space:nowrap;">
+            <button class="btn-small" onclick="openViewDoctor(${d.doctorId})">View</button>
+          </td>
+        </tr>`;
+        })
+        .join("")
+    : '<tr><td colspan="6" style="text-align:center;color:#888;">No doctors found.</td></tr>';
+}
+
+// Availability change from the directory (Admin side of the shared record).
+function onDoctorAvailabilityChange(id, value) {
+  const d = window.SharedMockDoctors.byId(id);
+  window.SharedMockDoctors.setAvailability(id, value);
+  if (window.showToast) {
+    showToast(
+      `${d ? d.name : "Doctor"} → ${_availLabel(value)} (demo state — shared with the Doctor Portal)`,
+      "success",
+    );
+  }
+}
+
+// Lightweight profile view (no editing here — account edits live in Accounts).
+function openViewDoctor(id) {
+  const d = window.SharedMockDoctors.byId(id);
+  if (!d) return;
+  const body = document.getElementById("viewDoctorBody");
+  if (body) {
+    body.innerHTML = `
+      <div style="display:grid;grid-template-columns:auto 1fr;gap:0.4rem 1rem;font-size:0.9rem;">
+        <strong>Name</strong><span>${_escD(d.name)}</span>
+        <strong>Email</strong><span>${_escD(d.email)}</span>
+        <strong>Phone</strong><span>${_escD(d.phone || "—")}</span>
+        <strong>Specialization</strong><span>${_escD(d.specialization || "—")}</span>
+        <strong>Account</strong><span>${_acctBadge(d.accountStatus)}</span>
+        <strong>Availability</strong><span>${_escD(_availLabel(d.availabilityStatus))}</span>
+        <strong>Created</strong><span>${_fmtDateD(d.createdAt)}</span>
+      </div>
+      <p style="font-size:0.8rem;color:#6b7280;margin:0.9rem 0 0;">
+        Account details (name, email, contact, status) are edited in
+        <a href="accounts.html">Accounts</a> to avoid duplicate controls.
+      </p>`;
+  }
+  const m = document.getElementById("viewDoctorModal");
+  if (m) m.classList.add("show");
+}
+function closeViewDoctor() {
+  const m = document.getElementById("viewDoctorModal");
+  if (m) m.classList.remove("show");
+}
+
+// Init wiring for both pages (ids decide what runs).
+document.addEventListener("DOMContentLoaded", () => {
+  if (!window.SharedMockDoctors) return;
+  if (document.getElementById("doctorAccountsTable")) {
+    _renderDoctorAccounts();
+    document.getElementById("filterDoctorStatus")?.addEventListener("change", _renderDoctorAccounts);
+    document.getElementById("searchDoctors")?.addEventListener("input", (e) => {
+      _doctorSearch = e.target.value.trim().toLowerCase();
+      _renderDoctorAccounts();
+    });
+  }
+  if (document.getElementById("doctorDirectoryTable")) _renderDoctorDirectory();
 });
