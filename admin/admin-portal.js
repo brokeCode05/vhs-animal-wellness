@@ -655,3 +655,227 @@ document.addEventListener('click', function (e) {
     initClientsPets();
   }
 })();
+
+// ─── PHASE 2A: CLIENTS & PETS — User/Pet management ─────────────────────────
+// One canonical source (SharedMockUsers demo layer). Edits write through and
+// re-render immediately. Ownership stays ID-linked (ownerId), never by name.
+// TODO(BACKEND): Replace User profile persistence with User API calls
+// (updateUser->PUT /users/:id, addUser->POST /users, setUserStatus->PATCH,
+// updatePet->PUT /pets/:id); these UI handlers stay, only the store changes.
+
+function _esc(s) {
+  return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+    return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+  });
+}
+
+function _statusBadgeHtml(status) {
+  var s = status === 'inactive' ? 'inactive' : 'active';
+  var label = s === 'inactive' ? 'Inactive' : 'Active';
+  var cls = s === 'inactive' ? 'status-badge cancelled' : 'status-badge completed';
+  return '<span class="' + cls + '">' + label + '</span>';
+}
+
+function _renderClientsTable() {
+  var tbody = document.getElementById('clientsTable');
+  if (!tbody || !window.SharedMockUsers) return;
+  var owners = window.SharedMockUsers.users();
+  var pets = window.SharedMockUsers.pets();
+  tbody.innerHTML = owners.map(function (u, i) {
+    var petCount = pets.filter(function (p) { return String(p.ownerId) === String(u.userId); }).length;
+    var status = u.status === 'inactive' ? 'inactive' : 'active';
+    var toggleLabel = status === 'inactive' ? 'Activate' : 'Deactivate';
+    return '<tr data-id="' + u.userId + '">' +
+      '<td>#C' + String(i + 1).padStart(3, '0') + '</td>' +
+      '<td>' + _esc(u.name) + '</td>' +
+      '<td>' + _esc(u.email) + '</td>' +
+      '<td>' + _esc(u.phone || '\u2014') + '</td>' +
+      '<td>' + _esc(u.address || '\u2014') + '</td>' +
+      '<td>' + petCount + '</td>' +
+      '<td>' + _statusBadgeHtml(status) + '</td>' +
+      '<td class="action-cell" style="white-space:nowrap;">' +
+        '<button class="btn-small" onclick="viewOwnerProfile(' + u.userId + ')">View Profile</button> ' +
+        '<button class="btn-small" onclick="openEditUser(' + u.userId + ')">Edit</button> ' +
+        '<button class="btn-small' + (status === 'inactive' ? ' btn-success' : ' btn-danger') + '" onclick="toggleUserStatus(' + u.userId + ')">' + toggleLabel + '</button>' +
+      '</td>' +
+      '</tr>';
+  }).join('');
+}
+
+function _renderPetsTable() {
+  var tbody = document.getElementById('petsTable');
+  if (!tbody || !window.SharedMockUsers) return;
+  var pets = window.SharedMockUsers.pets();
+  var users = window.SharedMockUsers.users();
+  tbody.innerHTML = pets.map(function (p, i) {
+    var owner = users.find(function (u) { return String(u.userId) === String(p.ownerId); });
+    return '<tr data-id="' + p.petId + '">' +
+      '<td>#P' + String(i + 1).padStart(3, '0') + '</td>' +
+      '<td>' + _esc(p.name) + '</td>' +
+      '<td>' + _esc(p.species) + '</td>' +
+      '<td>' + _esc(p.breed || '\u2014') + '</td>' +
+      '<td>' + _esc(p.age || '\u2014') + '</td>' +
+      '<td>' + _esc(p.gender || '\u2014') + '</td>' +
+      '<td>' + _esc(owner ? owner.name : '\u2014') + '</td>' +
+      '<td>\u2014</td>' +
+      '<td class="action-cell" style="white-space:nowrap;">' +
+        '<button class="btn-small" onclick="viewPetProfile(' + p.petId + ')">View Pet</button> ' +
+        '<button class="btn-small" onclick="openEditPet(' + p.petId + ')">Edit</button>' +
+      '</td>' +
+      '</tr>';
+  }).join('');
+}
+
+// Re-render hook: called after every store write so both tabs stay current.
+function _refreshClientsPets() {
+  _renderClientsTable();
+  _renderPetsTable();
+}
+
+// ── Edit User ────────────────────────────────────────────────────────────────
+function openEditUser(id) {
+  var u = window.SharedMockUsers.byId(id);
+  if (!u) return;
+  document.getElementById('editUserId').value = u.userId;
+  document.getElementById('editUserFirstName').value = u.firstName || u.name.split(' ')[0] || '';
+  document.getElementById('editUserMiddleName').value = u.middleName || '';
+  document.getElementById('editUserLastName').value = u.lastName || u.name.split(' ').slice(1).join(' ') || '';
+  document.getElementById('editUserPhone').value = u.phone || '';
+  document.getElementById('editUserEmail').value = u.email || '';
+  document.getElementById('editUserAddress').value = u.address || '';
+  document.getElementById('editUserBirthdate').value = u.birthdate || '';
+  document.getElementById('editUserStatus').value = u.status === 'inactive' ? 'inactive' : 'active';
+  document.getElementById('editUserModal').classList.add('show');
+}
+function closeEditUser() { document.getElementById('editUserModal').classList.remove('show'); }
+function submitEditUser(e) {
+  e.preventDefault();
+  var id = document.getElementById('editUserId').value;
+  var fields = {
+    firstName: document.getElementById('editUserFirstName').value.trim(),
+    middleName: document.getElementById('editUserMiddleName').value.trim(),
+    lastName: document.getElementById('editUserLastName').value.trim(),
+    phone: document.getElementById('editUserPhone').value.trim(),
+    email: document.getElementById('editUserEmail').value.trim(),
+    address: document.getElementById('editUserAddress').value.trim(),
+    birthdate: document.getElementById('editUserBirthdate').value,
+    status: document.getElementById('editUserStatus').value
+  };
+  fields.name = (fields.firstName + ' ' + fields.lastName).trim();
+  var result = window.SharedMockUsers.updateUser(id, fields);
+  if (!result.ok) { showToast('Could not save changes.', 'error'); return; }
+  closeEditUser();
+  _refreshClientsPets();
+  showToast('User updated. (demo state \u2014 not saved to a database)', 'success');
+}
+
+// ── Active / Inactive ────────────────────────────────────────────────────────
+function toggleUserStatus(id) {
+  var u = window.SharedMockUsers.byId(id);
+  if (!u) return;
+  var next = u.status === 'inactive' ? 'active' : 'inactive';
+  confirmAction(
+    (next === 'inactive' ? 'Deactivate' : 'Activate') + ' the account for ' + u.name + '?',
+    function () {
+      window.SharedMockUsers.setUserStatus(id, next);
+      _refreshClientsPets();
+      showToast('Account ' + next + '. (demo state \u2014 not saved to a database)', 'success');
+    },
+    { title: (next === 'inactive' ? 'Deactivate' : 'Activate') + ' Account', danger: next === 'inactive' }
+  );
+}
+
+// ── Create User (admin-assisted; canonical role: User) ──────────────────────
+function openCreateUserModal() {
+  document.getElementById('createUserForm').reset();
+  document.getElementById('createUserModal').classList.add('show');
+}
+function closeCreateUser() { document.getElementById('createUserModal').classList.remove('show'); }
+function submitCreateUser(e) {
+  e.preventDefault();
+  var fields = {
+    firstName: document.getElementById('newUserFirstName').value.trim(),
+    middleName: document.getElementById('newUserMiddleName').value.trim(),
+    lastName: document.getElementById('newUserLastName').value.trim(),
+    phone: document.getElementById('newUserPhone').value.trim(),
+    email: document.getElementById('newUserEmail').value.trim(),
+    address: document.getElementById('newUserAddress').value.trim(),
+    birthdate: document.getElementById('newUserBirthdate').value
+  };
+  var result = window.SharedMockUsers.addUser(fields);
+  if (!result.ok) {
+    showToast(result.error === 'duplicate_email' ? 'A user with that email already exists.' : 'Please complete the required fields.', 'error');
+    return;
+  }
+  closeCreateUser();
+  _refreshClientsPets();
+  showToast('User account created for ' + result.user.name + '. (demo state \u2014 not saved to a database)', 'success');
+}
+
+// ── Edit Pet (frozen contract fields; ownership by ownerId) ─────────────────
+function openEditPet(id) {
+  var p = window.SharedMockUsers.petById(id);
+  if (!p) return;
+  var owner = window.SharedMockUsers.byId(p.ownerId);
+  document.getElementById('editPetId').value = p.petId;
+  document.getElementById('editPetName').value = p.name || '';
+  document.getElementById('editPetOwnerName').value = owner ? owner.name : '\u2014';
+  var known = ['Dog', 'Cat', 'Bird', 'Rabbit'];
+  var speciesVal = known.indexOf(p.species) !== -1 ? p.species : (p.species ? 'Other' : '');
+  document.getElementById('editPetSpecies').value = speciesVal;
+  document.getElementById('editPetSpeciesCustom').style.display = speciesVal === 'Other' ? '' : 'none';
+  document.getElementById('editPetSpeciesCustom').value = speciesVal === 'Other' ? (p.species || '') : (p.speciesCustom || '');
+  document.getElementById('editPetBreed').value = p.breed || p.breedCustom || '';
+  document.getElementById('editPetGender').value = p.gender || '';
+  document.getElementById('editPetAge').value = p.age || 0;
+  document.getElementById('editPetWeightKg').value = p.weightKg || 0;
+  document.getElementById('editPetRepro').value = p.reproductiveStatus || '';
+  document.getElementById('editPetColor').value = p.color || '';
+  document.getElementById('editPetMicrochip').value = p.microchipId || '';
+  document.getElementById('editPetAllergies').value = p.allergies || '';
+  document.getElementById('editPetChronic').value = p.chronicConditions || '';
+  document.getElementById('editPetNotes').value = p.notes || '';
+  document.getElementById('editPetModal').classList.add('show');
+}
+function closeEditPet() { document.getElementById('editPetModal').classList.remove('show'); }
+function submitEditPet(e) {
+  e.preventDefault();
+  var id = document.getElementById('editPetId').value;
+  var speciesVal = document.getElementById('editPetSpecies').value;
+  var fields = {
+    name: document.getElementById('editPetName').value.trim(),
+    species: speciesVal === 'Other' ? (document.getElementById('editPetSpeciesCustom').value.trim() || 'Other') : speciesVal,
+    speciesCustom: speciesVal === 'Other' ? document.getElementById('editPetSpeciesCustom').value.trim() : '',
+    breed: document.getElementById('editPetBreed').value.trim(),
+    gender: document.getElementById('editPetGender').value,
+    age: parseInt(document.getElementById('editPetAge').value, 10) || 0,
+    weightKg: parseFloat(document.getElementById('editPetWeightKg').value) || 0,
+    reproductiveStatus: document.getElementById('editPetRepro').value,
+    color: document.getElementById('editPetColor').value.trim(),
+    microchipId: document.getElementById('editPetMicrochip').value.trim(),
+    allergies: document.getElementById('editPetAllergies').value.trim(),
+    chronicConditions: document.getElementById('editPetChronic').value.trim(),
+    notes: document.getElementById('editPetNotes').value.trim()
+  };
+  var result = window.SharedMockUsers.updatePet(id, fields);
+  if (!result.ok) { showToast('Could not save changes.', 'error'); return; }
+  closeEditPet();
+  _refreshClientsPets();
+  showToast('Pet updated. (demo state \u2014 not saved to a database)', 'success');
+}
+
+// Escape closes the Phase 2A modals
+document.addEventListener('keydown', function (e) {
+  if (e.key !== 'Escape') return;
+  ['editUserModal', 'createUserModal', 'editPetModal'].forEach(function (id) {
+    var m = document.getElementById(id);
+    if (m && m.classList.contains('show')) m.classList.remove('show');
+  });
+});
+
+// Management renderers run after the Phase 1 fallback (same event, later
+// registration), then re-render on every write via _refreshClientsPets().
+document.addEventListener('DOMContentLoaded', function () {
+  if (!document.getElementById('clientsTable')) return;
+  _refreshClientsPets();
+});

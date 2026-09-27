@@ -94,7 +94,7 @@
         <div class="page-header">
           <h1>Account Management</h1>
           <p class="page-subtitle">
-            Manage user registrations and client accounts
+            Clinic-side accounts. Client (User) records live in Clients & Pets
           </p>
         </div>
 
@@ -117,10 +117,8 @@
             />
             <select class="form-select" style="width: auto" id="filterRole">
               <option value="all">All Roles</option>
-              <option value="owner">Clinic Owner</option>
-              <option value="clerk">Clerk</option>
-              <option value="vet">Veterinarian</option>
-              <option value="staff">Other Staff</option>
+              <option value="veterinarian">Veterinarian</option>
+              <option value="admin">Administrator</option>
             </select>
             <select
               class="form-select"
@@ -157,52 +155,8 @@
             </table>
           </div>
         </section>
-
-        <!-- Client Accounts -->
-        <section class="content-section">
-          <div class="section-header">
-            <h2 class="section-title">Client Accounts</h2>
-          </div>
-
-          <!-- Search & Filter -->
-          <div class="filter-bar">
-            <input
-              type="search"
-              class="search-input"
-              placeholder="Search by name, email, or contact..."
-              id="searchAccounts"
-            />
-            <select class="form-select" style="width: auto" id="filterStatus">
-              <option value="all">All Status</option>
-              <option value="active">Active</option>
-              <option value="inactive">Inactive</option>
-            </select>
-          </div>
-
-          <div class="table-wrapper">
-            <table class="compact-table">
-              <thead>
-                <tr>
-                  <th>ID</th>
-                  <th>Name</th>
-                  <th>Email</th>
-                  <th>Contact</th>
-                  <th>Pets</th>
-                  <th>Total Visits</th>
-                  <th>Status</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody id="approvedAccountsTable">
-                <tr>
-                  <td colspan="8" style="text-align: center; color: #888">
-                    Loading...
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </section>
+        <!-- Client Accounts: RETIRED in Phase 2A — client/User records
+             are managed canonically in Clients & Pets. -->
       </main>
     </div>
 
@@ -288,9 +242,8 @@
               >
               <select class="form-select" name="staffRole" required>
                 <option value="">Select role</option>
-                <option value="clinic owner">Clinic Owner</option>
-                <option value="clerk">Clerk</option>
                 <option value="veterinarian">Veterinarian</option>
+                <option value="admin">Administrator</option>
               </select>
             </div>
           </div>
@@ -352,39 +305,7 @@
         });
       }
 
-      // ── Approved clients (status = approved) ──
-      async function loadClients() {
-        const tbody = document.getElementById("approvedAccountsTable");
-        try {
-          const res = await fetch(`${PHP}/get_users.php?status=approved`);
-          const data = await res.json();
-          tbody.innerHTML =
-            data.length ?
-              data
-                .map(
-                  (u, i) => `
-        <tr data-id="${u.id}">
-          <td>#C${String(i + 1).padStart(3, "0")}</td>
-          <td>${u.fullName}</td>
-          <td>${u.email}</td>
-          <td>${u.phone || "—"}</td>
-          <td>—</td>
-          <td>—</td>
-          <td><span class="status-badge completed">Active</span></td>
-          <td>
-            <button class="btn-small" onclick="viewClient(${u.id})">View</button>
-            <button class="btn-small" onclick="editClient(${u.id})">Edit</button>
-            <button class="btn-small" onclick="deactivateClient(${u.id})">Deactivate</button>
-          </td>
-        </tr>`,
-                )
-                .join("")
-            : '<tr><td colspan="8" style="text-align:center;color:#888;">No approved clients yet.</td></tr>';
-        } catch (e) {
-          tbody.innerHTML =
-            '<tr><td colspan="8" style="color:red;text-align:center;">Failed to load.</td></tr>';
-        }
-      }
+      // loadClients() removed in Phase 2A (client/User records live in Clients & Pets).
 
       // ── Staff ──
       async function loadStaff() {
@@ -420,7 +341,7 @@
         }
       }
 
-      loadClients();
+      // loadClients() retired in Phase 2A — client/User records live in Clients & Pets.
       loadStaff();
     </script>
   </body>

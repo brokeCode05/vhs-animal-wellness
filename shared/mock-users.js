@@ -131,17 +131,142 @@
     return list.find(function (x) { return String(x[key]) === String(id); }) || null;
   }
 
-  global.SharedMockUsers = {
-    users: function () { return USERS.map(function (u) { return Object.assign({}, u); }); },
-    byId: function (id) { var u = byId(USERS, 'userId', id); return u ? Object.assign({}, u) : null; },
-    currentUserId: CURRENT_USER_ID,
-    currentUser: function () { return Object.assign({}, byId(USERS, 'userId', CURRENT_USER_ID)); },
+  // ── DEMO PERSISTENCE LAYER (frontend-only, one canonical source) ──────────
+  // Edits/creates made in Admin (and any future portal surface) persist in
+  // localStorage so User/Clerk-Admin reads stay consistent after reload.
+  // Seeds are never mutated: overrides apply on read, additions append.
+  // TODO(BACKEND): Replace User/Pet profile persistence with User API calls
+  // (GET/POST/PUT /users, /pets). This layer is deleted when the API lands.
+  var STORE_KEY = 'vhs_mock_users_pets_v1';
+  var DEMO = (function () {
+    try { return JSON.parse(localStorage.getItem(STORE_KEY) || '{}') || {}; }
+    catch (e) { return {}; }
+  })();
+  DEMO.userOverrides = DEMO.userOverrides || {};
+  DEMO.userAdded = DEMO.userAdded || [];
+  DEMO.petOverrides = DEMO.petOverrides || {};
+  DEMO.petAdded = DEMO.petAdded || [];
 
-    pets: function () { return PETS.map(function (p) { return Object.assign({}, p); }); },
-    petById: function (id) { var p = byId(PETS, 'petId', id); return p ? Object.assign({}, p) : null; },
+  function _save() {
+    try { localStorage.setItem(STORE_KEY, JSON.stringify(DEMO)); } catch (e) { /* storage unavailable */ }
+  }
+
+  function _allUsers() {
+    return USERS.map(function (u) {
+      var o = DEMO.userOverrides[u.userId];
+      return o ? Object.assign({}, u, o) : Object.assign({}, u);
+    }).concat(DEMO.userAdded.map(function (u) { return Object.assign({}, u); }));
+  }
+
+  function _allPets() {
+    return PETS.map(function (p) {
+      var o = DEMO.petOverrides[p.petId];
+      return o ? Object.assign({}, p, o) : Object.assign({}, p);
+    }).concat(DEMO.petAdded.map(function (p) { return Object.assign({}, p); }));
+  }
+
+  function _nextId(list, key) {
+    var max = 0;
+    list.forEach(function (x) { var n = parseInt(x[key], 10); if (!isNaN(n) && n > max) max = n; });
+    return max + 1;
+  }
+
+  global.SharedMockUsers = {
+    users: function () { return _allUsers(); },
+    byId: function (id) { return byId(_allUsers(), 'userId', id); },
+    currentUserId: CURRENT_USER_ID,
+    currentUser: function () { return Object.assign({}, byId(_allUsers(), 'userId', CURRENT_USER_ID)); },
+
+    pets: function () { return _allPets(); },
+    petById: function (id) { return byId(_allPets(), 'petId', id); },
     petsOfOwner: function (userId) {
-      return PETS.filter(function (p) { return String(p.ownerId) === String(userId); })
-        .map(function (p) { return Object.assign({}, p); });
+      return _allPets().filter(function (p) { return String(p.ownerId) === String(userId); });
+    },
+
+    // ── WRITE-THROUGH (Admin-assisted / demo edits) ──────────────────────
+    // TODO(BACKEND): PUT /users/:id
+    updateUser: function (id, fields) {
+      var added = DEMO.userAdded.find(function (u) { return String(u.userId) === String(id); });
+      if (added) {
+        Object.assign(added, fields || {});
+      } else {
+        var base = byId(USERS, 'userId', id);
+        if (!base) return { ok: false, error: 'not_found' };
+        DEMO.userOverrides[base.userId] = Object.assign({}, DEMO.userOverrides[base.userId] || {}, fields || {});
+      }
+      _save();
+      return { ok: true, user: this.byId(id) };
+    },
+    // TODO(BACKEND): POST /users — canonical role stays "User".
+    addUser: function (fields) {
+      var f = fields || {};
+      if (!f.firstName || !f.lastName || !f.email) return { ok: false, error: 'invalid' };
+      if (_allUsers().some(function (u) { return String(u.email).toLowerCase() === String(f.email).toLowerCase(); })) {
+        return { ok: false, error: 'duplicate_email' };
+      }
+      var user = {
+        userId: _nextId(_allUsers(), 'userId'),
+        firstName: f.firstName,
+        lastName: f.lastName,
+        middleName: f.middleName || '',
+        name: (f.firstName + ' ' + f.lastName).trim(),
+        phone: f.phone || '',
+        email: f.email,
+        address: f.address || '',
+        birthdate: f.birthdate || '',
+        role: 'User',
+        status: 'active'
+      };
+      DEMO.userAdded.push(user);
+      _save();
+      return { ok: true, user: Object.assign({}, user) };
+    },
+    // TODO(BACKEND): PATCH /users/:id/status (server-side audit event too)
+    setUserStatus: function (id, status) {
+      var s = status === 'inactive' ? 'inactive' : 'active';
+      return this.updateUser(id, { status: s });
+    },
+    // TODO(BACKEND): PUT /pets/:id
+    updatePet: function (id, fields) {
+      var added = DEMO.petAdded.find(function (p) { return String(p.petId) === String(id); });
+      if (added) {
+        Object.assign(added, fields || {});
+      } else {
+        var base = byId(PETS, 'petId', id);
+        if (!base) return { ok: false, error: 'not_found' };
+        DEMO.petOverrides[base.petId] = Object.assign({}, DEMO.petOverrides[base.petId] || {}, fields || {});
+      }
+      _save();
+      return { ok: true, pet: this.petById(id) };
+    },
+    // TODO(BACKEND): POST /pets — ownership is ownerId (never name-matched).
+    addPet: function (fields) {
+      var f = fields || {};
+      if (!f.name || !f.ownerId) return { ok: false, error: 'invalid' };
+      if (!_allUsers().some(function (u) { return String(u.userId) === String(f.ownerId); })) {
+        return { ok: false, error: 'owner_not_found' };
+      }
+      var pet = {
+        petId: _nextId(_allPets(), 'petId'),
+        ownerId: f.ownerId,
+        name: f.name,
+        species: f.species || '',
+        speciesCustom: f.speciesCustom || '',
+        breed: f.breed || '',
+        breedCustom: f.breedCustom || '',
+        gender: f.gender || '',
+        age: f.age || 0,
+        weightKg: f.weightKg || 0,
+        color: f.color || '',
+        reproductiveStatus: f.reproductiveStatus || '',
+        microchipId: f.microchipId || '',
+        allergies: f.allergies || '',
+        chronicConditions: f.chronicConditions || '',
+        notes: f.notes || ''
+      };
+      DEMO.petAdded.push(pet);
+      _save();
+      return { ok: true, pet: Object.assign({}, pet) };
     },
 
     services: function () { return SERVICES.map(function (s) { return Object.assign({}, s); }); },

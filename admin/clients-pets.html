@@ -84,6 +84,7 @@
         <section class="content-section">
           <div class="section-header">
             <h2 class="section-title">Registered Pet Owners</h2>
+            <button class="btn-primary" onclick="openCreateUserModal()">+ Create User</button>
           </div>
           <div class="filter-bar">
             <input type="search" class="search-input" placeholder="Search by name, email, or contact..." id="searchClients">
@@ -132,6 +133,121 @@
         </section>
       </div>
     </main>
+  </div>
+
+  <!-- Edit User Modal (Admin-assisted; canonical User structure) -->
+  <div class="modal-overlay" id="editUserModal">
+    <div class="modal-content" style="max-width:560px;">
+      <div class="modal-header">
+        <h2 class="modal-title">Edit User</h2>
+        <button class="modal-close" onclick="closeEditUser()">&times;</button>
+      </div>
+      <form id="editUserForm" onsubmit="submitEditUser(event)">
+        <input type="hidden" id="editUserId" />
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.75rem;margin-bottom:0.75rem;">
+          <div class="form-group"><label class="form-label">First Name <span style="color:#ef4444">*</span></label><input class="form-input" id="editUserFirstName" required /></div>
+          <div class="form-group"><label class="form-label">Middle Name</label><input class="form-input" id="editUserMiddleName" /></div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.75rem;margin-bottom:0.75rem;">
+          <div class="form-group"><label class="form-label">Last Name <span style="color:#ef4444">*</span></label><input class="form-input" id="editUserLastName" required /></div>
+          <div class="form-group"><label class="form-label">Phone</label><input class="form-input" id="editUserPhone" /></div>
+        </div>
+        <div class="form-group" style="margin-bottom:0.75rem;"><label class="form-label">Email <span style="color:#ef4444">*</span></label><input type="email" class="form-input" id="editUserEmail" required /></div>
+        <div class="form-group" style="margin-bottom:0.75rem;"><label class="form-label">Address</label><input class="form-input" id="editUserAddress" /></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.75rem;margin-bottom:0.75rem;">
+          <div class="form-group"><label class="form-label">Birthdate</label><input type="date" class="form-input" id="editUserBirthdate" /></div>
+          <div class="form-group"><label class="form-label">Account Status</label>
+            <select class="form-select" id="editUserStatus">
+              <option value="active">Active</option>
+              <option value="inactive">Inactive</option>
+            </select>
+          </div>
+        </div>
+        <div style="display:flex;gap:0.75rem;margin-top:0.5rem;">
+          <button type="submit" class="btn-primary">Save</button>
+          <button type="button" class="btn-secondary" onclick="closeEditUser()">Cancel</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Create User Modal (Admin-assisted; same canonical structure) -->
+  <div class="modal-overlay" id="createUserModal">
+    <div class="modal-content" style="max-width:560px;">
+      <div class="modal-header">
+        <h2 class="modal-title">Create User Account</h2>
+        <button class="modal-close" onclick="closeCreateUser()">&times;</button>
+      </div>
+      <p style="font-size:0.85rem;color:#6b7280;margin:0 0 1rem;">Assisted registration for walk-in clients. Role: <strong>User</strong> (canonical — same as self-registered users; no guest records).</p>
+      <form id="createUserForm" onsubmit="submitCreateUser(event)">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.75rem;margin-bottom:0.75rem;">
+          <div class="form-group"><label class="form-label">First Name <span style="color:#ef4444">*</span></label><input class="form-input" id="newUserFirstName" required /></div>
+          <div class="form-group"><label class="form-label">Middle Name</label><input class="form-input" id="newUserMiddleName" /></div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.75rem;margin-bottom:0.75rem;">
+          <div class="form-group"><label class="form-label">Last Name <span style="color:#ef4444">*</span></label><input class="form-input" id="newUserLastName" required /></div>
+          <div class="form-group"><label class="form-label">Phone</label><input class="form-input" id="newUserPhone" /></div>
+        </div>
+        <div class="form-group" style="margin-bottom:0.75rem;"><label class="form-label">Email <span style="color:#ef4444">*</span></label><input type="email" class="form-input" id="newUserEmail" required /></div>
+        <div class="form-group" style="margin-bottom:0.75rem;"><label class="form-label">Address</label><input class="form-input" id="newUserAddress" /></div>
+        <div class="form-group" style="margin-bottom:0.75rem;"><label class="form-label">Birthdate</label><input type="date" class="form-input" id="newUserBirthdate" /></div>
+        <div style="display:flex;gap:0.75rem;margin-top:0.5rem;">
+          <button type="submit" class="btn-primary">Create User</button>
+          <button type="button" class="btn-secondary" onclick="closeCreateUser()">Cancel</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Edit Pet Modal (frozen pet contract fields) -->
+  <div class="modal-overlay" id="editPetModal">
+    <div class="modal-content" style="max-width:640px;max-height:90vh;overflow-y:auto;">
+      <div class="modal-header">
+        <h2 class="modal-title">Edit Pet</h2>
+        <button class="modal-close" onclick="closeEditPet()">&times;</button>
+      </div>
+      <form id="editPetForm" onsubmit="submitEditPet(event)">
+        <input type="hidden" id="editPetId" />
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.75rem;margin-bottom:0.75rem;">
+          <div class="form-group"><label class="form-label">Pet Name <span style="color:#ef4444">*</span></label><input class="form-input" id="editPetName" required /></div>
+          <div class="form-group"><label class="form-label">Owner</label><input class="form-input" id="editPetOwnerName" disabled /></div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.75rem;margin-bottom:0.75rem;">
+          <div class="form-group"><label class="form-label">Species</label>
+            <select class="form-select" id="editPetSpecies" onchange="document.getElementById('editPetSpeciesCustom').style.display = this.value === 'Other' ? '' : 'none'">
+              <option value="">Select species</option>
+              <option>Dog</option><option>Cat</option><option>Bird</option><option>Rabbit</option><option>Other</option>
+            </select>
+          </div>
+          <div class="form-group"><label class="form-label">Custom species</label><input class="form-input" id="editPetSpeciesCustom" style="display:none;" /></div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.75rem;margin-bottom:0.75rem;">
+          <div class="form-group"><label class="form-label">Breed</label><input class="form-input" id="editPetBreed" /></div>
+          <div class="form-group"><label class="form-label">Gender</label>
+            <select class="form-select" id="editPetGender"><option value="">Select gender</option><option>Male</option><option>Female</option></select>
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:0.75rem;margin-bottom:0.75rem;">
+          <div class="form-group"><label class="form-label">Age (years)</label><input type="number" min="0" step="1" class="form-input" id="editPetAge" /></div>
+          <div class="form-group"><label class="form-label">Weight (kg)</label><input type="number" min="0" step="0.1" class="form-input" id="editPetWeightKg" /></div>
+          <div class="form-group"><label class="form-label">Reproductive Status</label>
+            <select class="form-select" id="editPetRepro">
+              <option value="">Select status</option>
+              <option>Intact</option><option>Spayed</option><option>Neutered</option><option>Not Sure</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-group" style="margin-bottom:0.75rem;"><label class="form-label">Color / Markings</label><input class="form-input" id="editPetColor" /></div>
+        <div class="form-group" style="margin-bottom:0.75rem;"><label class="form-label">Microchip ID</label><input class="form-input" id="editPetMicrochip" /></div>
+        <div class="form-group" style="margin-bottom:0.75rem;"><label class="form-label">Allergies</label><input class="form-input" id="editPetAllergies" /></div>
+        <div class="form-group" style="margin-bottom:0.75rem;"><label class="form-label">Chronic Conditions</label><input class="form-input" id="editPetChronic" /></div>
+        <div class="form-group" style="margin-bottom:0.75rem;"><label class="form-label">Notes</label><textarea class="form-textarea" rows="2" id="editPetNotes"></textarea></div>
+        <div style="display:flex;gap:0.75rem;margin-top:0.5rem;">
+          <button type="submit" class="btn-primary">Save</button>
+          <button type="button" class="btn-secondary" onclick="closeEditPet()">Cancel</button>
+        </div>
+      </form>
+    </div>
   </div>
 
   <!-- Owner Profile Modal -->
@@ -189,7 +305,7 @@
 
   <script src="../shared/vhs-ui.js?v=2.5.0"></script>
   <script src="../shared/appointment-contract.js?v=2.5.0"></script>
-  <script src="../shared/mock-users.js?v=2.5.0"></script>
+  <script src="../shared/mock-users.js?v=2.8.0"></script>
   <script src="../shared/dashboard-shared.js?v=2.7.1"></script>
   <script src="admin-portal.js?v=2.7.9"></script>
 </body>
