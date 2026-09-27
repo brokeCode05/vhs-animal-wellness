@@ -187,15 +187,72 @@
       _saveAdded();
       return { ok: true, appointment: this.byId(c.appointmentId) };
     },
-    // Generic field update (timestamps, context) — status goes through
-    // updateStatus() so transition guards stay in one place.
+    // Generic field update (timestamps, context). Seeds are updated through
+    // the OVERRIDES layer so the frozen fixtures stay intact on disk; added
+    // records are updated in place. Status is NOT set here — go through
+    // updateStatus()/setStatus() so transition guards stay in one place.
     // TODO(BACKEND): PATCH /appointments/:id on the API.
     update: function (id, fields) {
+      var f = fields || {};
+      delete f.status; // status changes only via setStatus()/updateStatus()
       var base = ADDED.find(function (a) { return String(a.appointmentId) === String(id); });
-      if (!base) return { ok: false, error: 'not_found' };
-      Object.assign(base, fields || {});
-      _saveAdded();
+      if (base) {
+        Object.assign(base, f);
+        _saveAdded();
+        return { ok: true, appointment: this.byId(id) };
+      }
+      var seeded = _allBase().find(function (a) { return String(a.appointmentId) === String(id); });
+      if (!seeded) return { ok: false, error: 'not_found' };
+      OVERRIDES[seeded.appointmentId] = Object.assign({}, OVERRIDES[seeded.appointmentId] || {}, f);
+      _saveOverrides();
       return { ok: true, appointment: this.byId(id) };
+    },
+
+    // ── RESCHEDULE (frontend-only, shared by all portals) ─────────────
+    // Updates appointmentDate/appointmentTime on the SAME record — the
+    // appointmentId and referenceNo never change, so every portal keeps
+    // pointing at one appointment. The record normally returns to
+    // 'confirmed'; "rescheduled" is never a permanent active state.
+    // TODO(BACKEND): PATCH /appointments/:id { appointment_date,
+    // appointment_time } — server validates the 2-hour cutoff, slot
+    // concurrency, and writes the reschedule history for audit.
+    reschedule: function (id, newDate, newTime) {
+      var base = _allBase().find(function (a) { return String(a.appointmentId) === String(id); });
+      if (!base) return { ok: false, error: 'not_found' };
+      var eff = effective(base);
+      var s = (window.AppointmentContract ? window.AppointmentContract.normalizeStatus(eff.status) : eff.status);
+      if (s !== 'confirmed' && s !== 'pending') return { ok: false, error: 'invalid_status' };
+      var canonicalTime = (window.AppointmentContract ? window.AppointmentContract.timeToHHMM(newTime) : newTime);
+      if (!newDate || !canonicalTime) return { ok: false, error: 'invalid' };
+      // Slot availability from EFFECTIVE store records only (old slot of this
+      // very appointment must not block itself while it still holds it).
+      if (!this.isSlotAvailable(newDate, canonicalTime, id)) return { ok: false, error: 'slot_taken' };
+      var result = this.update(id, {
+        appointmentDate: newDate,
+        appointmentTime: canonicalTime,
+        status: 'confirmed',
+        rescheduledFrom: { date: eff.appointmentDate, time: eff.appointmentTime, at: new Date().toISOString() }
+      });
+      return result;
+    },
+
+    // ── SLOT AVAILABILITY (frontend-demo mode) ────────────────────────
+    // Derived from the EFFECTIVE store records — never a portal-local booked
+    // array that could drift from the canonical state.
+    // TODO(BACKEND): GET /appointments/slots?date=... replaces this check.
+    takenSlots: function (dateStr, excludeAppointmentId) {
+      return this.all()
+        .filter(function (a) {
+          if (a.appointmentDate !== dateStr) return false;
+          var s = (window.AppointmentContract ? window.AppointmentContract.normalizeStatus(a.status) : a.status);
+          if (s === 'canceled' || s === 'completed' || s === 'no_show') return false;
+          if (excludeAppointmentId && String(a.appointmentId) === String(excludeAppointmentId)) return false;
+          return true;
+        })
+        .map(function (a) { return a.appointmentTime; });
+    },
+    isSlotAvailable: function (dateStr, timeHHMM, excludeAppointmentId) {
+      return this.takenSlots(dateStr, excludeAppointmentId).indexOf(timeHHMM) === -1;
     },
 
     // ── CHECK-IN STATE (frontend-only, shared by all portals) ────────────────
@@ -225,6 +282,13 @@
     // rejected, never invented.
     // TODO(BACKEND): Replace with the transition endpoints (e.g.
     // update_appointment_status.php) once the API owns state.
+    // Guarded transition for ANY lifecycle change (check-in, consultation
+    // start/complete, cancellations). One table, one place — every portal
+    // writes through this, so no portal can invent its own lifecycle.
+    // Normal lifecycle: confirmed → checked_in → in_consultation → completed.
+    // TODO(BACKEND): Replace with the transition endpoints (e.g.
+    // update_appointment_status.php) once the API owns state; Laravel then
+    // owns transition validation and timestamps.
     setStatus: function (id, nextStatus) {
       var base = _allBase().find(function (a) { return String(a.appointmentId) === String(id); });
       if (!base) return { ok: false, error: 'not_found' };
@@ -233,6 +297,8 @@
       var next = (window.AppointmentContract ? window.AppointmentContract.normalizeStatus(nextStatus) : nextStatus);
       var allowed = {
         'confirmed>checked_in': true,
+        'checked_in>in_consultation': true,
+        'in_consultation>completed': true,
         'confirmed>canceled': true,
         'pending>canceled': true,
         'pending>confirmed': true,
@@ -241,14 +307,19 @@
       };
       if (s === next && next === 'checked_in') return { ok: false, error: 'already' };
       if (!allowed[s + '>' + next]) return { ok: false, error: 'invalid_status' };
+      var stamp = new Date().toISOString();
+      // Canonical lifecycle timestamps — one name per event, no portal-local
+      // copies. Consultation start/complete ride with the status change.
+      var patch = { status: next };
+      if (next === 'checked_in') patch.checkedInAt = stamp;
+      if (next === 'in_consultation') patch.consultationStartedAt = stamp;
+      if (next === 'completed') patch.consultationCompletedAt = stamp;
       if (ADDED.some(function (a) { return String(a.appointmentId) === String(id); })) {
         // Added-session record: update the persisted copy itself.
-        base.status = next;
-        if (next === 'checked_in') base.checkedInAt = new Date().toISOString();
+        Object.assign(base, patch);
         _saveAdded();
       } else {
-        OVERRIDES[base.appointmentId] = { status: next };
-        if (next === 'checked_in') OVERRIDES[base.appointmentId].checkedInAt = new Date().toISOString();
+        OVERRIDES[base.appointmentId] = Object.assign({}, OVERRIDES[base.appointmentId] || {}, patch);
         _saveOverrides();
       }
       return { ok: true, appointment: this.byId(id) };

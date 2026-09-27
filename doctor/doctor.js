@@ -144,8 +144,23 @@
   // TODO(BACKEND): Status changes are local-only; the consultation API owns
   // the real lifecycle and timestamps once connected.
   const STATUS_LABELS = { upcoming: 'Upcoming', 'checked_in': 'Checked In', 'in_consultation': 'In Consultation', completed: 'Completed' };
+  // One canonical status source: the shared AppointmentStore record. Draft
+  // state and the checkedIn fixture are only fallbacks when the store record
+  // is unavailable, so Admin/Front-desk transitions (check-in, and any future
+  // cross-portal change) are always reflected here.
+  // TODO(BACKEND): GET /appointments/:id returns the live status instead.
   function statusFor(patient) {
     const draft = draftFor(patient);
+    if (window.SharedMockAppointments && patient.appointmentId) {
+      const rec = window.SharedMockAppointments.byId(patient.appointmentId);
+      if (rec) {
+        const s = window.AppointmentContract
+          ? window.AppointmentContract.normalizeStatus(rec.status)
+          : rec.status;
+        if (s === 'checked_in' || s === 'in_consultation' || s === 'completed' || s === 'canceled') return s;
+        return draft.status || 'upcoming';
+      }
+    }
     if (draft.status) return draft.status;
     return patient.checkedIn ? 'checked_in' : 'upcoming';
   }
@@ -438,9 +453,15 @@
     const draft = draftFor(patient);
     if (statusFor(patient) !== 'checked_in') return;
     if (draft.status === 'in_consultation' || draft.status === 'completed') return;
+    // Same record, same lifecycle: the shared store stamps
+    // consultationStartedAt and sets in_consultation for every portal.
+    // TODO(BACKEND): PATCH /appointments/:id/status { in_consultation }.
+    const store = window.SharedMockAppointments;
+    const result = store && patient.appointmentId ? store.setStatus(patient.appointmentId, 'in_consultation') : { ok: false };
+    if (store && patient.appointmentId && !result.ok) return; // guard rejected the transition
     captureDraft();
     draft.status = 'in_consultation';
-    draft.startedAt = new Date().toISOString();
+    draft.startedAt = (result && result.appointment && result.appointment.consultationStartedAt) || new Date().toISOString();
     draft.completedAt = null;
     draft.durationMinutes = null;
     draft.updatedAt = draft.startedAt;
@@ -538,6 +559,12 @@
       status.textContent = 'Complete the medicine, dosage, frequency, and duration, or remove the incomplete row.';
       return;
     }
+    // Same canonical record: the shared store stamps
+    // consultationCompletedAt and sets completed for every portal. The local
+    // duration/timer logic is preserved untouched.
+    // TODO(BACKEND): PATCH /appointments/:id/status { completed }.
+    const store = window.SharedMockAppointments;
+    if (store && selectedPatient.appointmentId) store.setStatus(selectedPatient.appointmentId, 'completed');
     draft.status = 'completed';
     draft.completedAt = new Date().toISOString();
     draft.durationMinutes = durationBetween(draft.startedAt, draft.completedAt);

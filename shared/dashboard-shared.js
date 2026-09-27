@@ -223,8 +223,7 @@ function loadAppointments() {
     renderAllAppointmentsTable(all);
     CalendarState.appointments = all.map(function(a) {
       return { id: a.id, date: a.date, owner: a.owner_name, pet: a.pet_name, service: a.service, status: a.status, type: a.status };
-    });
-    generateCalendar();
+    });    generateCalendar();
   }
 
   fetch('../php_files/get_appointments.php')
@@ -280,6 +279,26 @@ function loadAppointments() {
 }
 
 
+// ─── CALENDAR LIFECYCLE STYLING (shared) ────────────────────────────────────
+// Calendar items carry the canonical status so confirmed / checked_in /
+// in_consultation / completed each render distinctly; completed appointments
+// remain visible as history. Injected once; safe on every page.
+(function () {
+  if (document.getElementById('vhs-lifecycle-css')) return;
+  var style = document.createElement('style');
+  style.id = 'vhs-lifecycle-css';
+  style.textContent =
+    '.appointment-item.status-checked_in{background:linear-gradient(135deg,#dbeafe 0%,#bfdbfe 100%);border-left:3px solid #3b82f6;color:#1e3a8a;}' +
+    '.appointment-item.status-in_consultation{background:linear-gradient(135deg,#fef3c7 0%,#fde68a 100%);border-left:3px solid #f59e0b;color:#92400e;}' +
+    '.appointment-item.status-canceled,.appointment-item.status-cancelled{background:linear-gradient(135deg,#fee2e2 0%,#fecaca 100%);border-left:3px solid #f87171;color:#991b1b;text-decoration:line-through;}' +
+    '.legend-dot.status-confirmed{background:var(--accent,#7c3aed);}' +
+    '.legend-dot.status-checked_in{background:#3b82f6;}' +
+    '.legend-dot.status-in_consultation{background:#f59e0b;}' +
+    '.legend-dot.status-canceled{background:#f87171;}';
+  document.head.appendChild(style);
+})();
+
+
 
 function formatDateTime(date, time) {
 
@@ -325,7 +344,7 @@ function statusBadge(status) {
 
   // Accepts legacy and canonical values; renders the canonical lifecycle.
   var canonical = window.AppointmentContract ? window.AppointmentContract.normalizeStatus(status) : String(status || '').toLowerCase();
-  var map = { pending: 'pending', confirmed: 'scheduled', checked_in: 'confirmed', in_consultation: 'in-consultation', completed: 'completed', canceled: 'cancelled', no_show: 'cancelled', rescheduled: 'pending' };
+  var map = { pending: 'pending', confirmed: 'scheduled', checked_in: 'confirmed', in_consultation: 'confirmed', completed: 'completed', canceled: 'cancelled', no_show: 'cancelled', rescheduled: 'pending' };
 
   var cls = map[canonical] || 'info';
 
@@ -580,7 +599,22 @@ function _findCanonicalAppointment(idOrRef) {
     ['Notes / symptoms', a.notes || '—'],
     ['Status', statusBadge(a.status)]
   ];
-  if (checkedIn) rows.push(['Checked in', checkedIn]);
+  if (a.checked_in_at) {
+    var d = new Date(a.checked_in_at);
+    checkedIn = isNaN(d)
+      ? String(a.checked_in_at)
+      : d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) + ', ' +
+        d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+    rows.push(['Checked in', checkedIn]);
+  }
+  if (a.consultation_started_at) {
+    var ds = new Date(a.consultation_started_at);
+    rows.push(['Consultation started', isNaN(ds) ? String(a.consultation_started_at) : ds.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) + ', ' + ds.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })]);
+  }
+  if (a.consultation_completed_at) {
+    var dc = new Date(a.consultation_completed_at);
+    rows.push(['Consultation completed', isNaN(dc) ? String(a.consultation_completed_at) : dc.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) + ', ' + dc.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })]);
+  }
   if (body) {
     body.innerHTML = '<div style="border:1px solid #e5e7eb;border-radius:0.75rem;overflow:hidden;">' +
       rows.map(function(r) {
@@ -621,8 +655,11 @@ function renderAppointmentDetailsActions(a) {
   var btns = ['<button type="button" class="btn-secondary" onclick="closeAppointmentDetails()">Close</button>'];
   if (a.status === 'confirmed') {
     btns.unshift('<button type="button" class="btn-primary" onclick="closeAppointmentDetails(); openCheckInModal(\'' + (a.reference_no || a.id) + '\')">Check In Patient</button>');
+    if (typeof openAdminReschedule === 'function') {
+      btns.splice(1, 0, '<button type="button" class="btn-small" style="padding:0.55rem 1rem;font-size:0.9rem;" onclick="closeAppointmentDetails(); openAdminReschedule(\'' + a.id + '\')">Reschedule</button>');
+    }
     if (typeof cancelAppointment === 'function') {
-      btns.splice(1, 0, '<button type="button" class="btn-small btn-danger" style="padding:0.55rem 1rem;font-size:0.9rem;" onclick="closeAppointmentDetails(); cancelAppointment(\'' + a.id + '\')">Cancel</button>');
+      btns.splice(2, 0, '<button type="button" class="btn-small btn-danger" style="padding:0.55rem 1rem;font-size:0.9rem;" onclick="closeAppointmentDetails(); cancelAppointment(\'' + a.id + '\')">Cancel</button>');
     }
   }
   wrap.style.display = 'flex';

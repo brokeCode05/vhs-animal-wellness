@@ -679,6 +679,11 @@ function _refreshBookSlots() {
     return;
   }
   var slots = getVHSTimeSlots(dateVal);
+  var store = window.SharedMockAppointments;
+  // Booked-slot filtering derives from the EFFECTIVE canonical records (not a
+  // portal-local copy) so User, Admin, and reschedules never diverge.
+  // TODO(BACKEND): slot availability comes from the API's availability check.
+  var taken = store ? store.takenSlots(dateVal) : [];
   var today = new Date().toISOString().split('T')[0];
   if (dateVal === today) {
     var now = new Date();
@@ -693,6 +698,18 @@ function _refreshBookSlots() {
       if (ampm === 'PM' && h !== 12) h += 12;
       if (ampm === 'AM' && h === 12) h = 0;
       return h > cutoffHour;
+    });
+  }
+  if (taken.length) {
+    var toHHMM = window.AppointmentContract ? window.AppointmentContract.timeToHHMM : function(v){return v;};
+    var takenSet = taken.map(function(t){ return String(toHHMM(t)); });
+    slots = slots.filter(function(slot) {
+      var parts = String(slot).trim().match(/(\d{1,2}):(\d{2})\s*(AM|PM)/i);
+      if (!parts) return true;
+      var h = parseInt(parts[1], 10);
+      if (parts[3].toUpperCase() === 'PM' && h !== 12) h += 12;
+      if (parts[3].toUpperCase() === 'AM' && h === 12) h = 0;
+      return takenSet.indexOf(h + ':' + parts[2]) === -1;
     });
   }
   timeSelect.innerHTML = slots.length
@@ -901,14 +918,9 @@ function _finalizeBooking() {
   var savedRef = stored.appointment.referenceNo;
   var savedId = stored.appointment.appointmentId;
 
-  // Render from the STORED record — no User-only duplicate copy.
-  var newApt = window.AppointmentContract.toLegacyDisplay(
-    window.AppointmentContract.fromLegacy(stored.appointment)
-  );
-  newApt.visit_reason = stored.appointment.visitContext;
-  newApt.custom_visit_reason = stored.appointment.customVisitContext || '';
-  newApt.notes = stored.appointment.notes || '';
-  mockAppointmentsData.push(newApt); // display cache for this page-load only
+  // Render from the STORED record — re-derive the whole display list from the
+  // canonical store; no User-only duplicate copy is kept.
+  _syncFromStore();
 
   _pendingBookingPayload = null;
   _pendingBookingDisplay = null;
@@ -1044,25 +1056,9 @@ function viewAppt(id) {
 
 
 function rescheduleAppt(id) {
-
-  showConfirm(
-
-    "Do you want to reschedule this appointment?",
-
-    '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>',
-
-    "Reschedule",
-
-    () => {
-
-      openBookModal();
-
-      showToast("Please select a new date and time.", "info");
-
-    },
-
-  );
-
+  // Opens the real reschedule flow — the SAME appointment record is updated
+  // through SharedMockAppointments.reschedule() (never a duplicate record).
+  openRescheduleModal(id);
 }
 
 
@@ -2004,6 +2000,23 @@ var mockAppointmentsData = (function () {
   });
   return shared;
 })();
+
+// Re-projects the canonical shared store into the local display list so any
+// store change (lifecycle transition, reschedule, new booking) is reflected
+// without a page reload. One source of truth; this is a display projection.
+// TODO(BACKEND): replaced by a simple re-fetch of get_appointments.php.
+function _syncFromStore() {
+  var me = (window.SharedMockUsers ? window.SharedMockUsers.currentUserId : null);
+  mockAppointmentsData = (window.SharedMockAppointments ? window.SharedMockAppointments.all() : [])
+    .filter(function (a) { return !me || String(a.userId) === String(me); })
+    .map(function (a) {
+      var row = window.AppointmentContract.toLegacyDisplay(window.AppointmentContract.fromLegacy(a));
+      row.visit_reason = a.visitContext || '';
+      row.custom_visit_reason = a.customVisitContext || '';
+      row.notes = a.notes || '';
+      return row;
+    });
+}
 // Legacy User-portal fixtures retained for reference only — NOT rendered.
 // TODO(BACKEND): delete once real history comes from the API.
 var _legacyUserFixtures = [
@@ -2150,7 +2163,12 @@ function _renderApptList(containerId, appts, mode) {
   }
   container.innerHTML = appts.map(function(a) {
     var dateStr = _fmtApptDateShort(a.date);
-    var canAct = (window.AppointmentContract ? window.AppointmentContract.normalizeStatus(a.status) : a.status) === 'confirmed';
+    var canonicalStatus = (window.AppointmentContract ? window.AppointmentContract.normalizeStatus(a.status) : a.status);
+    // Lifecycle-aware actions. Reschedule/Cancel: confirmed only (2-hour
+    // cutoff still applies). Checked In / In Consultation are read-only with
+    // a status hint; terminal states show no actions.
+    var canAct = canonicalStatus === 'confirmed';
+    var inClinicFlow = canonicalStatus === 'checked_in' || canonicalStatus === 'in_consultation';
     var within2h = canAct && _isWithinTwoHours(a.date, a.time);
     var disabledCls = within2h ? ' disabled' : '';
     var disabledAttr = within2h ? ' disabled' : '';
@@ -2170,6 +2188,7 @@ function _renderApptList(containerId, appts, mode) {
       + (a.notes ? '<div class="appt-card-notes">' + escapeHtml(a.notes) + '</div>' : '')
       + (a.reference_no ? '<div class="appt-card-ref">Ref: ' + escapeHtml(a.reference_no) + '</div>' : '')
       + (within2h ? '<div class="appt-card-cutoff-note">Within 2-hour window — contact clinic for changes</div>' : '')
+      + (inClinicFlow ? '<div class="appt-card-cutoff-note">' + (canonicalStatus === 'checked_in' ? 'Checked in — please proceed to the front desk.' : 'Consultation in progress.') + '</div>' : '')
       + '</div>'
       + '<div class="appt-card-footer">'
       + (canAct
@@ -2274,6 +2293,24 @@ function _populateRescheduleSlots(dateStr) {
   var targetDate = dateStr || new Date().toISOString().split('T')[0];
   var slots = getVHSTimeSlots(targetDate);
   slots = _filterPastSlots(slots, targetDate);
+  // Hide slots already held by OTHER effective appointments (this
+  // appointment's own current slot stays selectable).
+  // TODO(BACKEND): slot availability comes from the API availability check.
+  var store = window.SharedMockAppointments;
+  if (store) {
+    var apptId = document.getElementById('rescheduleApptId') ? document.getElementById('rescheduleApptId').value : null;
+    var taken = store.takenSlots(targetDate, apptId);
+    var toHHMM = window.AppointmentContract ? window.AppointmentContract.timeToHHMM : function(v){return v;};
+    var takenSet = taken.map(function(t){ return String(toHHMM(t)); });
+    slots = slots.filter(function(slot) {
+      var parts = String(slot).trim().match(/(\d{1,2}):(\d{2})\s*(AM|PM)/i);
+      if (!parts) return true;
+      var h = parseInt(parts[1], 10);
+      if (parts[3].toUpperCase() === 'PM' && h !== 12) h += 12;
+      if (parts[3].toUpperCase() === 'AM' && h === 12) h = 0;
+      return takenSet.indexOf(h + ':' + parts[2]) === -1;
+    });
+  }
   timeSelect.innerHTML = '<option value="">Select time</option>' + slots.map(function(s) {
     return '<option value="' + s + '">' + s + '</option>';
   }).join('');
@@ -2335,6 +2372,31 @@ function submitReschedule(e) {
   var newTime = document.getElementById('rescheduleTime').value;
   var reason = _getResolvedValue('rescheduleReason', 'rescheduleReasonOther');
   if (!newDate || !newTime) { showToast('Please select a new date and time.', 'warning'); return; }
+  var store = window.SharedMockAppointments;
+  // Canonical record lookup — the store is the source of truth, not the
+  // page-load display cache. Same appointmentId/referenceNo are preserved by
+  // the store; only date/time move.
+  // TODO(BACKEND): PATCH /appointments/:id { appointment_date, appointment_time }.
+  var rec = store ? (store.byId(apptId) || store.byReference(apptId)) : null;
+  if (rec && store) {
+    if (_isWithinTwoHours(rec.appointmentDate, rec.appointmentTime)) { _showCutoffModal(); return; }
+    var result = store.reschedule(rec.appointmentId, newDate, newTime);
+    if (!result.ok) {
+      showToast(result.error === 'slot_taken'
+        ? 'That slot has just been taken. Please pick another time.'
+        : result.error === 'invalid_status'
+          ? 'Only confirmed appointments can be rescheduled.'
+          : 'Could not reschedule. Please try again.', 'error');
+      return;
+    }
+    if (reason) store.update(rec.appointmentId, { notes: (rec.notes ? rec.notes + ' | ' : '') + 'Rescheduled — ' + reason });
+    _syncFromStore();
+    closeModal('rescheduleModal');
+    showToast('Appointment rescheduled to ' + _fmtApptDateShort(newDate) + ' at ' + (_fmtApptTimeShort(result.appointment.appointmentTime) || newTime) + '.', 'success');
+    renderAppointmentCards();
+    return;
+  }
+  // No shared store loaded: legacy local behaviour.
   var appt = mockAppointmentsData.find(function(a) { return a.id === apptId; });
   if (appt) {
     appt.date = newDate;
@@ -2373,13 +2435,25 @@ function submitCancel(e) {
   var apptId = document.getElementById('cancelApptId').value;
   var reason = _getResolvedValue('cancelReason', 'cancelReasonOther');
   if (!reason) { showToast('Please select a cancellation reason.', 'warning'); return; }
-  var appt = mockAppointmentsData.find(function(a) { return a.id === apptId; });
-  if (appt) {
-    appt.status = 'canceled';
-    appt.notes = (appt.notes ? appt.notes + ' | ' : '') + 'Cancelled — ' + reason;
+  var store = window.SharedMockAppointments;
+  var rec = store ? (store.byId(apptId) || store.byReference(apptId)) : null;
+  if (rec && store) {
+    // Cancellation goes through the guarded store transition so every portal
+    // sees the same canceled state. TODO(BACKEND): status endpoint.
+    var result = store.setStatus(rec.appointmentId, 'canceled');
+    if (!result.ok) { showToast('This appointment can no longer be cancelled.', 'error'); return; }
+    if (reason) store.update(rec.appointmentId, { notes: (rec.notes ? rec.notes + ' | ' : '') + 'Cancelled — ' + reason });
+  } else {
+    // No shared store: legacy local behaviour.
+    var appt = mockAppointmentsData.find(function(a) { return a.id === apptId; });
+    if (appt) {
+      appt.status = 'canceled';
+      appt.notes = (appt.notes ? appt.notes + ' | ' : '') + 'Cancelled — ' + reason;
+    }
   }
   closeModal('cancelModal');
   showToast('Appointment cancelled.', 'warning');
+  _syncFromStore();
   renderAppointmentCards();
 }
 

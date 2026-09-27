@@ -60,6 +60,7 @@ function renderAllAppointmentsTable(all) {
       actions =
         '<button class="btn-small" onclick="viewAppointment(\'' + a.id + '\')">View</button> ' +
         '<button class="btn-small btn-success" onclick="openCheckInModal(\'' + a.reference_no + '\')">Check In</button> ' +
+        '<button class="btn-small" onclick="openAdminReschedule(\'' + a.id + '\')">Reschedule</button> ' +
         '<button class="btn-small btn-danger"  onclick="cancelAppointment(\'' + a.id + '\')">Cancel</button>';
     } else {
       // checked_in / in_consultation / completed / canceled: view only.
@@ -279,10 +280,77 @@ function checkInAppointment() {
   if (document.getElementById('allAppointmentsTable')) loadAppointments();
   if (document.getElementById('todayScheduleTable') && window.SharedMockAppointments) {
     var contract = window.AppointmentContract;
+    var _nowD = new Date();
+    var realToday = _nowD.getFullYear() + '-' + String(_nowD.getMonth() + 1).padStart(2, '0') + '-' + String(_nowD.getDate()).padStart(2, '0');
     renderTodaysScheduleTable(shared.getAll().map(function(a) {
       return contract ? contract.toLegacyDisplay(contract.fromLegacy(a)) : a;
-    }).filter(function(a) { return a.date === (shared.today || new Date().toISOString().split('T')[0]); }));
+    }).filter(function(a) { return a.date === realToday; }));
   }
+}
+
+// ─── ADMIN RESCHEDULE (same store path as the User flow) ─────────────────
+// Updates appointmentDate/appointmentTime on the SAME record through
+// SharedMockAppointments.reschedule() — never a duplicate appointment.
+// TODO(BACKEND): PATCH /appointments/:id { appointment_date, appointment_time }.
+function openAdminReschedule(idOrRef) {
+  var shared = window.SharedMockAppointments;
+  var rec = shared ? (shared.byId(idOrRef) || shared.byReference(idOrRef)) : null;
+  if (!rec) { showToast('Appointment not found.', 'error'); return; }
+  var s = window.AppointmentContract ? window.AppointmentContract.normalizeStatus(rec.status) : rec.status;
+  if (s !== 'confirmed' && s !== 'pending') {
+    showToast('Only confirmed appointments can be rescheduled.', 'warning');
+    return;
+  }
+  document.getElementById('adminRescheduleApptId').value = rec.appointmentId;
+  document.getElementById('adminRescheduleInfo').textContent =
+    (rec.referenceNo || '') + ' · ' + (rec.owner ? rec.owner.name : '') + ' · ' + (rec.pet ? rec.pet.name : '') +
+    ' · currently ' + rec.appointmentDate + ' ' + (window.AppointmentContract ? window.AppointmentContract.timeTo12h(rec.appointmentTime) : rec.appointmentTime);
+  document.getElementById('adminRescheduleDate').value = '';
+  _populateAdminRescheduleSlots();
+  var modal = document.getElementById('adminRescheduleModal');
+  if (modal) modal.classList.add('show');
+}
+function closeAdminReschedule() {
+  var modal = document.getElementById('adminRescheduleModal');
+  if (modal) modal.classList.remove('show');
+}
+function _populateAdminRescheduleSlots() {
+  var timeSel = document.getElementById('adminRescheduleTime');
+  var dateInput = document.getElementById('adminRescheduleDate');
+  if (!timeSel || !dateInput) return;
+  var dateVal = dateInput.value;
+  if (!dateVal) { timeSel.innerHTML = '<option value="">Select a date first</option>'; return; }
+  var slots = (typeof getVHSTimeSlots === 'function') ? getVHSTimeSlots(dateVal) : [];
+  var taken = window.SharedMockAppointments ? window.SharedMockAppointments.takenSlots(dateVal) : [];
+  var toHHMM = window.AppointmentContract ? window.AppointmentContract.timeToHHMM : function(v){return v;};
+  var takenSet = taken.map(function(t){ return String(toHHMM(t)); });
+  slots = slots.filter(function(slot) {
+    var parts = String(slot).trim().match(/(\d{1,2}):(\d{2})\s*(AM|PM)/i);
+    if (!parts) return true;
+    var h = parseInt(parts[1], 10);
+    if (parts[3].toUpperCase() === 'PM' && h !== 12) h += 12;
+    if (parts[3].toUpperCase() === 'AM' && h === 12) h = 0;
+    return takenSet.indexOf(h + ':' + parts[2]) === -1;
+  });
+  timeSel.innerHTML = slots.length
+    ? '<option value="">Select time</option>' + slots.map(function(s){ return '<option value="' + s + '">' + s + '</option>'; }).join('')
+    : '<option value="">No available slots that day</option>';
+}
+function submitAdminReschedule(e) {
+  e.preventDefault();
+  var id = document.getElementById('adminRescheduleApptId').value;
+  var newDate = document.getElementById('adminRescheduleDate').value;
+  var newTime = document.getElementById('adminRescheduleTime').value;
+  if (!newDate || !newTime) { showToast('Select a new date and time.', 'warning'); return; }
+  var shared = window.SharedMockAppointments;
+  var result = shared ? shared.reschedule(id, newDate, newTime) : { ok: false, error: 'not_found' };
+  if (!result.ok) {
+    showToast(result.error === 'slot_taken' ? 'That slot is already booked.' : 'Could not reschedule.', 'error');
+    return;
+  }
+  closeAdminReschedule();
+  showToast('Rescheduled to ' + newDate + ' ' + (window.AppointmentContract ? window.AppointmentContract.timeTo12h(result.appointment.appointmentTime) : result.appointment.appointmentTime) + ' (same Reference ' + result.appointment.referenceNo + ').', 'success');
+  if (document.getElementById('allAppointmentsTable')) loadAppointments();
 }
 
 document.addEventListener('keydown', function(e) {
