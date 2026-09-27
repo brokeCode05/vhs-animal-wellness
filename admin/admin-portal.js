@@ -25,7 +25,28 @@ function renderAllAppointmentsTable(all) {
     return;
   }
   var contract = window.AppointmentContract;
-  var rows = all.map(function(raw) {
+  // Operational ordering: today first (chronological by time), then future
+  // (nearest date, time within date), then past (most recent date first).
+  // Never Reference-ID order — front desk reads the schedule top-down.
+  var _nowD = new Date();
+  var todayKey = _nowD.getFullYear() + '-' + String(_nowD.getMonth() + 1).padStart(2, '0') + '-' + String(_nowD.getDate()).padStart(2, '0');
+  function _bucket(dateStr) {
+    if (!dateStr) return 2;
+    if (dateStr === todayKey) return 0;
+    return dateStr > todayKey ? 1 : 2; // string compare works for YYYY-MM-DD
+  }
+  var sorted = all.slice().sort(function (x, y) {
+    var bx = _bucket(x.date), by = _bucket(y.date);
+    if (bx !== by) return bx - by;
+    if (x.date !== y.date) {
+      // future: ascending (nearest first); past: descending (most recent first)
+      return bx === 1 ? (x.date < y.date ? -1 : 1) : (x.date > y.date ? -1 : 1);
+    }
+    var tx = (contract && contract.timeToHHMM ? contract.timeToHHMM(x.time) : x.time) || '';
+    var ty = (contract && contract.timeToHHMM ? contract.timeToHHMM(y.time) : y.time) || '';
+    return tx < ty ? -1 : tx > ty ? 1 : 0;
+  });
+  var rows = sorted.map(function(raw) {
     var a = contract ? contract.toLegacyDisplay(contract.fromLegacy(raw)) : raw;
     // Status-based clerk actions. Clerk NEVER completes a consultation —
     // checked_in → in_consultation → completed belongs to the Doctor.
@@ -462,3 +483,175 @@ document.addEventListener('click', function (e) {
   e.preventDefault();
   showToast('Frontend integration pending — this page has no functionality yet.', 'info');
 });
+
+// ─── PHASE 1 CLEANUP ────────────────────────────────────────────────────────
+
+// Sidebar active state: derive from the CURRENT page URL so a copied stale
+// "active" class can never highlight the wrong item (e.g. Documents active
+// on /admin/doctors.html). The hardcoded class stays for no-JS fallback;
+// this pass re-applies the correct state after load.
+(function () {
+  var page = (location.pathname.split('/').pop() || 'index.html').toLowerCase();
+  var items = document.querySelectorAll('.sidebar-nav .nav-item');
+  var matched = null;
+  items.forEach(function (item) {
+    item.classList.remove('active');
+    var href = (item.getAttribute('href') || '').split('/').pop().toLowerCase();
+    if (!matched && href === page && !item.classList.contains('nav-item-logout')) matched = item;
+  });
+  if (matched) matched.classList.add('active');
+})();
+
+// Dashboard stat cards: demo-mode counts from the SAME canonical shared
+// sources the rest of the portal reads — never invented values.
+// TODO(BACKEND): each count becomes one API call (GET /appointments,
+// GET /users, GET /pets) once the backend owns this data.
+(function () {
+  function setStat(labelText, value) {
+    document.querySelectorAll('.stat-card').forEach(function (card) {
+      var label = card.querySelector('.stat-label');
+      if (label && label.textContent.trim() === labelText) {
+        var val = card.querySelector('.stat-value');
+        if (val) val.textContent = value;
+      }
+    });
+  }
+  function computeCounts() {
+    var store = window.SharedMockAppointments;
+    var users = window.SharedMockUsers;
+    var contract = window.AppointmentContract;
+    if (store && contract) {
+      var confirmed = store.getAll().filter(function (a) {
+        return contract.normalizeStatus(a.status) === 'confirmed';
+      }).length;
+      setStat('Confirmed Appointments', String(confirmed));
+    }
+    if (users) {
+      setStat('Total Clients', String(users.users().length));
+      setStat('Total Pets', String(users.pets().length));
+    }
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', computeCounts);
+  } else {
+    computeCounts();
+  }
+})();
+
+// Clients & Pets demo fallback: populate the owner/pet tables from the
+// shared users/pets sources when the PHP endpoints are unreachable (static
+// hosting). No separate duplicate dataset — profile modals read the same
+// records by id.
+// TODO(BACKEND): get_users.php / get_pets.php replace these loaders.
+(function () {
+  function loadSharedClients() {
+    var tbody = document.getElementById('clientsTable');
+    if (!tbody || !window.SharedMockUsers) return;
+    // Skip if the backend fetch already populated rows.
+    if (tbody.dataset.backendLoaded === '1') return;
+    var owners = window.SharedMockUsers.users();
+    var pets = window.SharedMockUsers.pets();
+    tbody.innerHTML = owners.map(function (u, i) {
+      var petCount = pets.filter(function (p) { return String(p.ownerId) === String(u.userId); }).length;
+      return '<tr data-id="' + u.userId + '">' +
+        '<td>#C' + String(i + 1).padStart(3, '0') + '</td>' +
+        '<td>' + u.name + '</td>' +
+        '<td>' + u.email + '</td>' +
+        '<td>' + (u.phone || '\u2014') + '</td>' +
+        '<td>\u2014</td>' +
+        '<td>' + petCount + '</td>' +
+        '<td>\u2014</td>' +
+        '<td><button class="btn-small" onclick="viewOwnerProfile(' + u.userId + ')">View Profile</button></td>' +
+        '</tr>';
+    }).join('');
+  }
+
+  function loadSharedPets() {
+    var tbody = document.getElementById('petsTable');
+    if (!tbody || !window.SharedMockUsers) return;
+    if (tbody.dataset.backendLoaded === '1') return;
+    var pets = window.SharedMockUsers.pets();
+    var users = window.SharedMockUsers.users();
+    tbody.innerHTML = pets.map(function (p, i) {
+      var owner = users.find(function (u) { return String(u.userId) === String(p.ownerId); });
+      return '<tr data-id="' + p.petId + '">' +
+        '<td>#P' + String(i + 1).padStart(3, '0') + '</td>' +
+        '<td>' + p.name + '</td>' +
+        '<td>' + p.species + '</td>' +
+        '<td>' + (p.breed || '\u2014') + '</td>' +
+        '<td>' + (p.age || '\u2014') + '</td>' +
+        '<td>' + (p.gender || '\u2014') + '</td>' +
+        '<td>' + (owner ? owner.name : '\u2014') + '</td>' +
+        '<td>\u2014</td>' +
+        '<td><button class="btn-small" onclick="viewPetProfile(' + p.petId + ')">View Profile</button></td>' +
+        '</tr>';
+    }).join('');
+  }
+
+  // Profile modals with the same ids the shared renderers expect; populated
+  // from the shared sources so the demo shows real data instead of dashes.
+  window.viewOwnerProfile = window.viewOwnerProfile || function (id) {};
+  window.viewPetProfile = window.viewPetProfile || function (id) {};
+  var _origOwner = window.viewOwnerProfile;
+  var _origPet = window.viewPetProfile;
+
+  window.viewOwnerProfile = function (id) {
+    var u = window.SharedMockUsers ? window.SharedMockUsers.byId(id) : null;
+    if (u) {
+      var pets = window.SharedMockUsers.petsOfOwner(id);
+      var set = function (elId, val) { var el = document.getElementById(elId); if (el) el.textContent = val || '\u2014'; };
+      set('ownerName', u.name);
+      set('ownerEmail', u.email);
+      set('ownerPhone', u.phone);
+      var tbody = document.getElementById('ownerPetsTable');
+      if (tbody) {
+        tbody.innerHTML = pets.length ? pets.map(function (p) {
+          return '<tr><td>' + p.name + '</td><td>' + p.species + '</td><td>' + (p.breed || '\u2014') + '</td><td>' + (p.age || '\u2014') + '</td><td>\u2014</td></tr>';
+        }).join('') : '<tr><td colspan="5" style="text-align:center;color:#888;">No pets registered.</td></tr>';
+      }
+      var modal = document.getElementById('ownerProfileModal');
+      if (modal) modal.classList.add('show');
+      return;
+    }
+    _origOwner(id); // backend path when the id is not in the shared demo set
+  };
+
+  window.viewPetProfile = function (id) {
+    var p = window.SharedMockUsers ? window.SharedMockUsers.petById(id) : null;
+    if (p) {
+      var owner = window.SharedMockUsers.byId(p.ownerId);
+      var set = function (elId, val) { var el = document.getElementById(elId); if (el) el.textContent = val || '\u2014'; };
+      set('petName', p.name);
+      set('petType', p.species);
+      set('petBreed', p.breed);
+      set('petAge', p.age);
+      set('petSex', p.gender);
+      set('petOwner', owner ? owner.name : '\u2014');
+      var tbody = document.getElementById('petVaccinationTable');
+      if (tbody) tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:#888;">No vaccination records in the demo dataset.</td></tr>';
+      var modal = document.getElementById('petProfileModal');
+      if (modal) modal.classList.add('show');
+      return;
+    }
+    _origPet(id);
+  };
+
+  function closeProfile(id) {
+    var m = document.getElementById(id);
+    if (m) m.classList.remove('show');
+  }
+  window.closeOwnerProfile = window.closeOwnerProfile || function () { closeProfile('ownerProfileModal'); };
+  window.closePetProfile = window.closePetProfile || function () { closeProfile('petProfileModal'); };
+
+  // Populate after DOM ready; skip if a backend loader marked the tables.
+  function initClientsPets() {
+    if (!document.getElementById('clientsTable')) return;
+    loadSharedClients();
+    loadSharedPets();
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initClientsPets);
+  } else {
+    initClientsPets();
+  }
+})();
