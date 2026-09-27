@@ -115,6 +115,13 @@
     try { localStorage.setItem(ADDED_KEY, JSON.stringify(ADDED)); } catch (e) { /* storage unavailable */ }
   }
 
+  // Real current local date (YYYY-MM-DD) from the browser clock — NOT the
+  // UTC ISO slice, which lags a calendar day for UTC+8 evenings.
+  function _localToday() {
+    var d = new Date();
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  }
+
   function _allBase() {
     return MOCK_APPOINTMENTS.concat(ADDED);
   }
@@ -135,6 +142,11 @@
   }
 
   global.SharedMockAppointments = {
+    // ── TEST-DATE FIXTURE ──────────────────────────────────────────────
+    // Frozen clinic day used by the Sep 26 fixtures and the cross-portal
+    // trace (apt301). It is for development/testing ONLY — never the live
+    // queue filter. Pass it explicitly (todays(this.today)) to exercise
+    // the fixture day; todays() with no argument uses the REAL date.
     today: '2026-09-26',
     // Effective list = seed records (with status overrides) + appointments
     // added this session layer (already canonical). Every portal reads THIS.
@@ -147,7 +159,14 @@
       var base = _allBase().find(function (a) { return a.referenceNo === ref; });
       return base ? effective(base) : null;
     },
-    todays: function () { return this.all().filter(function (a) { return a.appointmentDate === '2026-09-26'; }); },
+    // Day list defaults to the REAL current local date. An explicit date
+    // argument (the test fixture, or any date) overrides it — intentionally,
+    // never silently.
+    // TODO(BACKEND): GET /appointments?date=<yyyy-mm-dd> replaces this filter.
+    todays: function (date) {
+      var target = date || _localToday();
+      return this.all().filter(function (a) { return a.appointmentDate === target; });
+    },
 
     // ── WRITE-THROUGH (frontend-only, shared by all portals) ───────────
     // User booking (and any future creator) appends a canonical record.

@@ -67,8 +67,13 @@
   // Portal-only extras must NOT collide with shared appointment IDs.
   // (User keeps its own historical fixtures locally; Doctor keeps EMR
   // history and consultation records keyed by petId/appointmentId.)
+  // Today's Patients uses the REAL current local date — the store's frozen
+  // `today` fixture ('2026-09-26') is test-only and is never consulted here.
+  // Pass SharedMockAppointments.today explicitly to exercise the fixture day.
+  // TODO(BACKEND): get_appointments.php?date=<today> returns this list.
+  const DOCTOR_TEST_DATE = null; // set '2026-09-26' ONLY to demo the fixture day
   const mockSchedule = (window.SharedMockAppointments
-    ? window.SharedMockAppointments.todays()
+    ? window.SharedMockAppointments.todays(DOCTOR_TEST_DATE)
     : []
   ).map(function (appt) {
     var emr = DOCTOR_EMR[appt.petId] || DOCTOR_EMR_DEFAULT(appt.pet ? appt.pet.name : '');
@@ -413,6 +418,15 @@
     return row;
   }
   function renderQueue() {
+    if (!patients.length) {
+      queue.replaceChildren();
+      const empty = element('tr');
+      const cell = element('td', 'No patients scheduled for today.', 'queue-empty');
+      cell.colSpan = 6;
+      empty.append(cell);
+      queue.append(empty);
+      return;
+    }
     queue.replaceChildren(...patients.map(renderQueueRow));
   }
   renderQueue();
@@ -447,7 +461,13 @@
     });
   }
   setInterval(tickTimers, 1000);
-  document.getElementById('queue-meta').textContent = `${patients[0].dateDisplay} · ${patients.length} appointments`;
+  // Header/meta date: same REAL local date the queue filters on (not the
+  // first patient's date, and no crash when today's list is empty).
+  {
+    const todayDisplay = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+    const countLine = patients.length === 1 ? '1 appointment' : `${patients.length} appointments`;
+    document.getElementById('queue-meta').textContent = `${todayDisplay} · ${countLine}`;
+  }
   form.addEventListener('input', event => {
     if (event.target.id === 'reviewed') {
       captureDraft();
@@ -772,6 +792,6 @@
   }
   updateClock();
   setInterval(updateClock, 1000);
-  selectPatient(patients[0], false);
+  if (patients.length) selectPatient(patients[0], false); // empty day → no selection
   showView(window.location.hash.slice(1), false);
 })();

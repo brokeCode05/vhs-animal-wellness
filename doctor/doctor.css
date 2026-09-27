@@ -360,3 +360,12 @@ input[type='checkbox'] { width: 17px; height: 17px; accent-color: var(--accent-d
   .doctor-portal *, .doctor-portal *::before, .doctor-portal *::after { animation: none !important; transition: none !important; }
   .doctor-portal .btn-primary:hover, .doctor-portal .sidebar .nav-item:hover .icon { transform: none; }
 }
+
+/* Empty-state row for Today's Patients (rendered by doctor.js when the
+   real-date queue has no appointments). */
+.doctor-portal .compact-table .queue-empty {
+  text-align: center;
+  padding: 2rem 1rem;
+  color: #6b7280;
+  font-style: italic;
+}
