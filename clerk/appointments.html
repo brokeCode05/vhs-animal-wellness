@@ -256,5 +256,26 @@
       <div id="appointmentDetailsActions" style="display:none;gap:0.75rem;margin-top:1rem;"></div>
     </div>
   </div>
+  <!-- PHASE 1 TRANSITION: the Clerk portal is merging into Admin.
+       Old pages stay working during the transition; /admin/ is canonical. -->
+  <div class="merge-banner" style="display:none;" id="mergeBanner">
+    <span>Clerk has merged into <strong>Admin — Front Desk &amp; Administration</strong>.</span>
+    <a href="../admin/appointments.html">Open the new page</a>
+  </div>
+  <script>
+    (function () {
+      try {
+        if (sessionStorage.getItem('vhs_merge_banner_dismissed')) return;
+        var b = document.getElementById('mergeBanner');
+        b.style.display = 'flex';
+        b.addEventListener('click', function (e) {
+          if (e.target.tagName !== 'A') {
+            b.style.display = 'none';
+            sessionStorage.setItem('vhs_merge_banner_dismissed', '1');
+          }
+        });
+      } catch (err) { /* storage unavailable */ }
+    })();
+  </script>
 </body>
 </html>

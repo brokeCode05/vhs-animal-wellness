@@ -215,7 +215,10 @@ function loadAppointments() {
     var all = source.map(function(a) {
       return window.AppointmentContract ? window.AppointmentContract.toLegacyDisplay(window.AppointmentContract.fromLegacy(a)) : a;
     });
-    var mockToday = (window.SharedMockAppointments && window.SharedMockAppointments.today) || new Date().toISOString().split('T')[0];
+    // Real current LOCAL date for the schedule filter (the store's `today`
+    // is a frozen test fixture and must not drive the live dashboard).
+    var _mockNow = new Date();
+    var mockToday = _mockNow.getFullYear() + '-' + String(_mockNow.getMonth() + 1).padStart(2, '0') + '-' + String(_mockNow.getDate()).padStart(2, '0');
     renderTodaysScheduleTable(all.filter(function(a) { return a.date === mockToday; }));
     renderAllAppointmentsTable(all);
     CalendarState.appointments = all.map(function(a) {
@@ -1676,7 +1679,10 @@ function initDashboardShared() {
 
   if (document.getElementById('todayScheduleTable') && window.SharedMockAppointments) {
 
-    var sharedToday = window.SharedMockAppointments.today || new Date().toISOString().split('T')[0];
+    // Real current LOCAL date (not the frozen test fixture, not UTC —
+    // the UTC slice lags a calendar day for UTC+8 evenings).
+    var _now = new Date();
+    var sharedToday = _now.getFullYear() + '-' + String(_now.getMonth() + 1).padStart(2, '0') + '-' + String(_now.getDate()).padStart(2, '0');
 
     renderTodaysScheduleTable(window.SharedMockAppointments.getAll().map(function(a) {
 

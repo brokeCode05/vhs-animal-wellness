@@ -162,5 +162,26 @@
   <script src="../shared/vhs-ui.js?v=2.5.0"></script>
   <script src="../shared/dashboard-shared.js?v=1787393620"></script>
   <script src="clerk-script.js?v=2.5.0"></script>
+  <!-- PHASE 1 TRANSITION: the Clerk portal is merging into Admin.
+       Old pages stay working during the transition; /admin/ is canonical. -->
+  <div class="merge-banner" style="display:none;" id="mergeBanner">
+    <span>Clerk has merged into <strong>Admin — Front Desk &amp; Administration</strong>.</span>
+    <a href="../admin/clients-pets.html">Open the new page</a>
+  </div>
+  <script>
+    (function () {
+      try {
+        if (sessionStorage.getItem('vhs_merge_banner_dismissed')) return;
+        var b = document.getElementById('mergeBanner');
+        b.style.display = 'flex';
+        b.addEventListener('click', function (e) {
+          if (e.target.tagName !== 'A') {
+            b.style.display = 'none';
+            sessionStorage.setItem('vhs_merge_banner_dismissed', '1');
+          }
+        });
+      } catch (err) { /* storage unavailable */ }
+    })();
+  </script>
 </body>
 </html>

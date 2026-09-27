@@ -1,0 +1,186 @@
+/* ============================================================
+   VHS UNIFIED ADMIN PORTAL — accent + shell additions
+   Base structure comes from admin/admin-style.css (imported by
+   the portal pages via admin-style link) — this file ONLY:
+     1. Sets the temporary Admin indigo accent variables
+        (compatible with the VHS purple; final role colors are
+        standardized later from the logo).
+     2. Styles the grouped sidebar (OPERATIONS / ADMINISTRATION).
+     3. Styles the clean placeholder state for pages whose
+        functionality is not built yet.
+   No redesign, no glassmorphism, no decorative clutter.
+   ============================================================ */
+
+@import url('./admin-style.css');
+
+/* ── Temporary Admin accent (blue/indigo, VHS-compatible) ───────── */
+:root {
+  --accent: #3977b4;
+  --accent-dark: #2d5f94;
+  --accent-deep: #234a73;
+  --accent-light: #8ab4e3;
+  --accent-hover: #4a87c6;
+  --accent-hover-dark: #33689c;
+  --accent-soft: rgba(57, 119, 180, 0.13);
+  --accent-soft-2: rgba(45, 95, 148, 0.09);
+  --accent-border: rgba(45, 95, 148, 0.16);
+  --accent-shadow: rgba(35, 74, 115, 0.28);
+  --accent-glow: rgba(138, 180, 227, 0.18);
+  --accent-shimmer: rgba(219, 233, 246, 0.85);
+  --accent-bg: #eef4fa;
+  --accent-bg-2: #e1ecf6;
+  --accent-bg-3: #f6fafd;
+  --accent-bg-4: #edf4fb;
+  --accent-badge-bg: #dbe9f6;
+  --accent-badge-bg-2: #c9def0;
+  --accent-badge-border: #a3c8e8;
+  --accent-sched-bg: #e7f0f9;
+  --accent-sched-bg-2: #d8e7f5;
+}
+
+/* Buttons follow the indigo accent (match the accent pattern used
+   by the other portals; gradients only, no glow). */
+.btn-primary {
+  background: linear-gradient(135deg, #3977b4 0%, #2d5f94 100%) !important;
+  color: white !important;
+  box-shadow: 0 4px 14px rgba(57, 119, 180, 0.3) !important;
+}
+.btn-primary:hover {
+  background: linear-gradient(135deg, #4a87c6 0%, #3977b4 100%) !important;
+  box-shadow: 0 6px 20px rgba(57, 119, 180, 0.4) !important;
+}
+.btn-secondary {
+  background: #ffffff !important;
+  color: #475569 !important;
+  border: 1.5px solid #e2e8f0 !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06) !important;
+}
+.btn-secondary:hover {
+  background: #f8fafc !important;
+  border-color: #cbd5e1 !important;
+}
+
+/* ── Grouped sidebar (OPERATIONS / ADMINISTRATION) ──────────────── */
+.sidebar-nav .nav-group {
+  margin: 1.1rem 0 0.4rem;
+  padding: 0 1rem;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #9ca3af;
+  display: block;
+  user-select: none;
+}
+.sidebar-nav .nav-group:first-child {
+  margin-top: 0.4rem;
+}
+
+/* ── Clean placeholder state for not-yet-implemented pages ─────── */
+.placeholder-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 4rem 1.5rem;
+  background: #fff;
+  border: 1px solid var(--border, #e2e8f0);
+  border-radius: 1.25rem;
+}
+.placeholder-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 64px;
+  height: 64px;
+  border-radius: 1rem;
+  background: var(--accent-soft);
+  color: var(--accent-dark);
+  margin-bottom: 1.25rem;
+}
+.placeholder-title {
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: #111827;
+  margin: 0 0 0.4rem;
+}
+.placeholder-text {
+  font-size: 0.92rem;
+  color: #6b7280;
+  max-width: 460px;
+  margin: 0 0 1.25rem;
+  line-height: 1.55;
+}
+.placeholder-list {
+  text-align: left;
+  font-size: 0.85rem;
+  color: #4b5563;
+  background: var(--accent-bg);
+  border: 1px solid var(--accent-border);
+  border-radius: 0.75rem;
+  padding: 1rem 1.25rem 1rem 2.25rem;
+  margin: 0 0 1.25rem;
+  max-width: 480px;
+}
+.placeholder-list li {
+  margin: 0.35rem 0;
+}
+.placeholder-badge {
+  display: inline-block;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--accent-dark);
+  background: var(--accent-badge-bg);
+  border: 1px solid var(--accent-badge-border);
+  border-radius: 999px;
+  padding: 0.25rem 0.75rem;
+  margin-bottom: 1rem;
+}
+
+/* ── Portal identity (navbar brand subtitle) ───────────────────── */
+.navbar-brand {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.brand-subtitle {
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: #6b7280;
+  border-left: 1px solid #d1d5db;
+  padding-left: 0.5rem;
+  margin-left: 0.1rem;
+  white-space: nowrap;
+}
+@media (max-width: 768px) {
+  .brand-subtitle { display: none; }
+}
+
+/* ── Transition banner (old Clerk pages during the merge) ──────── */
+.merge-banner {
+  position: fixed;
+  left: 50%;
+  bottom: 1.25rem;
+  transform: translateX(-50%);
+  z-index: 3000;
+  background: #111827;
+  color: #f9fafb;
+  font-size: 0.85rem;
+  padding: 0.65rem 1.1rem;
+  border-radius: 999px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  max-width: calc(100vw - 2rem);
+}
+.merge-banner a {
+  color: #c4b5fd;
+  font-weight: 600;
+  text-decoration: underline;
+  white-space: nowrap;
+}
