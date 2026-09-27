@@ -1549,7 +1549,23 @@ const mockPetsData = ((window.SharedMockUsers ? window.SharedMockUsers.petsOfOwn
     id: p.petId,
     name: p.name,
     species: p.species,
+    speciesCustom: p.speciesCustom || '',
     breed: p.breed,
+    breedCustom: p.breedCustom || '',
+    gender: p.gender || '',
+    age: p.age || 0,
+    // Canonical contract carries weightKg/microchipId; the portal's display
+    // names (weight/microchip) are aliases so Admin edits surface here too.
+    weight: p.weightKg || 0,
+    weightKg: p.weightKg || 0,
+    color: p.color || '',
+    reproductiveStatus: p.reproductiveStatus || '',
+    microchip: p.microchipId || '',
+    microchipId: p.microchipId || '',
+    allergies: p.allergies || '',
+    chronicConditions: p.chronicConditions || '',
+    notes: p.notes || '',
+    ownerId: p.ownerId,
     owner: { name: ownerUser ? ownerUser.name : '', phone: ownerUser ? ownerUser.phone : '' }
   });
 });

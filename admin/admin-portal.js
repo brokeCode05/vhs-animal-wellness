@@ -992,3 +992,408 @@ document.addEventListener("DOMContentLoaded", () => {
   }
   if (document.getElementById("doctorDirectoryTable")) _renderDoctorDirectory();
 });
+// ─── PHASE 2A POLISH: CLIENTS & PETS FULL MANAGEMENT ─────────────────────
+// Complete User/Pet management on the canonical shared store:
+//   • Tables (Pet Owners / All Pets) with compact, non-overflowing actions
+//   • Semantic action buttons: View=neutral, Edit=accent, Activate=success,
+//     Deactivate=danger (portal.css .btn-view/.btn-edit/.btn-success/.btn-danger)
+//   • Owner Profile modal: full canonical fields + pets + Account Access
+//   • Pet Profile modal: full frozen pet contract + vaccination section
+//   • Register Pet: Admin-assisted creation via SharedMockUsers.addPet()
+//     (ownership linked strictly by ownerId — never by name matching)
+// All reads/writes go through window.SharedMockUsers. No portal-level
+// localStorage. TODO(BACKEND): each call site maps 1:1 to REST endpoints —
+//   table loads → GET /users, /pets; saves → PUT /users/:id, PUT /pets/:id;
+//   create → POST /users, POST /pets; status → PATCH /users/:id/status;
+//   Account Access (reset/unlock) → future auth-service endpoints; the
+//   frontend never displays, sets, or stores credentials.
+(function () {
+  'use strict';
+
+  if (!document.getElementById('clientsTable') && !document.getElementById('petsTable')) return;
+
+  var SMU = function () { return window.SharedMockUsers || null; };
+  function esc(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+  function txt(v) { return (v == null || String(v).trim() === '') ? '' : String(v); }
+  function dash(v) { var t = txt(v); return t || '\u2014'; }
+
+  // ── Table renders (compact semantic actions; wrap cleanly, no overflow) ──
+  function ownerActions(u) {
+    var inactive = u.status === 'inactive';
+    return (
+      '<button class="btn-small btn-view" onclick="viewOwnerProfile(' + u.userId + ')">View Profile</button> ' +
+      '<button class="btn-small btn-edit" onclick="openEditUser(' + u.userId + ')">Edit</button> ' +
+      '<button class="btn-small ' + (inactive ? 'btn-success' : 'btn-danger') + '" onclick="toggleUserStatus(' + u.userId + ')">' + (inactive ? 'Activate' : 'Deactivate') + '</button>'
+    );
+  }
+
+  function renderClientsTable() {
+    var tbody = document.getElementById('clientsTable');
+    if (!tbody || !SMU()) return;
+    if (tbody.dataset.backendLoaded === '1') return;
+    var owners = SMU().users();
+    var pets = SMU().pets();
+    if (!owners.length) {
+      tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:#888;">No clients yet.</td></tr>';
+      return;
+    }
+    tbody.innerHTML = owners.map(function (u, i) {
+      var petCount = pets.filter(function (p) { return String(p.ownerId) === String(u.userId); }).length;
+      return '<tr data-id="' + u.userId + '">' +
+        '<td>#C' + String(i + 1).padStart(3, '0') + '</td>' +
+        '<td>' + esc(u.name) + '</td>' +
+        '<td>' + esc(u.email) + '</td>' +
+        '<td>' + esc(dash(u.phone)) + '</td>' +
+        '<td>' + esc(dash(u.address)) + '</td>' +
+        '<td>' + petCount + '</td>' +
+        '<td class="action-cell">' + ownerActions(u) + '</td>' +
+        '</tr>';
+    }).join('');
+  }
+
+  function petTypeLabel(p) {
+    if (p.species === 'Other') return p.speciesCustom ? p.speciesCustom : 'Other';
+    return p.species || '\u2014';
+  }
+
+  // Last completed/attended visit per pet, derived from the canonical
+  // appointment store (TODO(BACKEND): GET /appointments?pet_id=...&last=1).
+  function lastVisitLabel(petId) {
+    var store = window.SharedMockAppointments;
+    if (!store || !store.getAll) return '\u2014';
+    var now = new Date();
+    var todayStr = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
+    var past = store.getAll().filter(function (a) {
+      var d = a.appointmentDate || a.appointment_date || '';
+      return String(a.petId) === String(petId) &&
+        ['canceled', 'no_show'].indexOf(String(a.status)) === -1 &&
+        d <= todayStr;
+    });
+    if (!past.length) return '\u2014';
+    var last = past.map(function (a) { return String(a.appointmentDate || a.appointment_date || ''); }).sort().pop();
+    return _fmtDateD(last);
+  }
+
+  function renderPetsTable() {
+    var tbody = document.getElementById('petsTable');
+    if (!tbody || !SMU()) return;
+    if (tbody.dataset.backendLoaded === '1') return;
+    var pets = SMU().pets();
+    var users = SMU().users();
+    if (!pets.length) {
+      tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;color:#888;">No pets yet.</td></tr>';
+      return;
+    }
+    tbody.innerHTML = pets.map(function (p, i) {
+      var owner = users.find(function (u) { return String(u.userId) === String(p.ownerId); });
+      return '<tr data-id="' + p.petId + '">' +
+        '<td>#P' + String(i + 1).padStart(3, '0') + '</td>' +
+        '<td>' + esc(p.name) + '</td>' +
+        '<td>' + esc(petTypeLabel(p)) + '</td>' +
+        '<td>' + esc(dash(p.breed === 'Other' ? (p.breedCustom || 'Other') : p.breed)) + '</td>' +
+        '<td>' + (p.age ? p.age + ' yr' : '\u2014') + '</td>' +
+        '<td>' + esc(dash(p.gender)) + '</td>' +
+        '<td>' + esc(owner ? owner.name : '\u2014') + '</td>' +
+        '<td>' + esc(lastVisitLabel(p.petId)) + '</td>' +
+        '<td class="action-cell">' +
+          '<button class="btn-small btn-view" onclick="viewPetProfile(' + p.petId + ')">View Profile</button> ' +
+          '<button class="btn-small btn-edit" onclick="openEditPet(' + p.petId + ')">Edit</button>' +
+        '</td>' +
+        '</tr>';
+    }).join('');
+  }
+
+  // ── Owner Profile modal: full canonical fields + pets + Account Access ──
+  window.viewOwnerProfile = function (id) {
+    var u = SMU() ? SMU().byId(id) : null;
+    if (!u) { showToast('User not found.', 'error'); return; }
+    var pets = SMU().petsOfOwner(id);
+    var middle = txt(u.middleName);
+    var initials = middle ? middle.split(/\s+/).map(function (w) { return w.charAt(0).toUpperCase() + '.'; }).join(' ') : '';
+    var fullName = [u.firstName, u.middleName, u.lastName].filter(Boolean).join(' ');
+    var set = function (elId, val) { var el = document.getElementById(elId); if (el) el.textContent = val || '\u2014'; };
+    set('ownerName', fullName || u.name);
+    set('ownerMiddle', initials);
+    set('ownerEmail', u.email);
+    set('ownerPhone', u.phone);
+    set('ownerDob', u.birthdate ? _fmtDateD(u.birthdate) : '');
+    set('ownerAddress', u.address);
+    var st = document.getElementById('ownerStatus');
+    if (st) st.innerHTML = '<span class="status-badge ' + (u.status === 'inactive' ? 'cancelled' : 'completed') + '">' + (u.status === 'inactive' ? 'Inactive' : 'Active') + '</span>';
+    var cnt = document.getElementById('ownerPetCount');
+    if (cnt) cnt.textContent = pets.length ? '(' + pets.length + ') ' + pets.map(function (p) { return p.name; }).join(', ') : '';
+    var tbody = document.getElementById('ownerPetsTable');
+    if (tbody) {
+      tbody.innerHTML = pets.length ? pets.map(function (p) {
+        return '<tr><td>' + esc(p.name) + '</td><td>' + esc(petTypeLabel(p)) + '</td><td>' + esc(dash(p.breed)) + '</td><td>' + (p.age ? p.age + ' yr' : '\u2014') + '</td><td>\u2014</td></tr>';
+      }).join('') : '<tr><td colspan="5" style="text-align:center;color:#888;">No pets registered.</td></tr>';
+    }
+    var section = document.getElementById('ownerAccessSection');
+    if (section) section.dataset.userId = String(u.userId);
+    var modal = document.getElementById('ownerProfileModal');
+    if (modal) modal.classList.add('show');
+  };
+  window.closeOwnerProfile = function () { var m = document.getElementById('ownerProfileModal'); if (m) m.classList.remove('show'); };
+
+  // Account Access: honest backend-pending placeholders. No passwords are
+  // displayed, set, read, or stored anywhere on the frontend.
+  // TODO(BACKEND): POST /auth/password-reset { email } and
+  // POST /auth/users/:id/unlock — issued and enforced by the auth service.
+  window.accountAccessAction = function (kind) {
+    var section = document.getElementById('ownerAccessSection');
+    var uid = section ? section.dataset.userId : '';
+    var u = uid ? (SMU() ? SMU().byId(uid) : null) : null;
+    if (kind === 'reset') {
+      showToast('Password reset will be sent through the authentication backend once connected.', 'info');
+    } else if (kind === 'unlock') {
+      showToast('Account unlocking will be enforced by the authentication backend once connected.', 'info');
+    }
+  };
+
+  // ── Pet Profile modal: full frozen pet contract ─────────────────────────
+  window.viewPetProfile = function (id) {
+    var p = SMU() ? SMU().petById(id) : null;
+    if (!p) { showToast('Pet not found.', 'error'); return; }
+    var owner = SMU().byId(p.ownerId);
+    var set = function (elId, val) { var el = document.getElementById(elId); if (el) el.textContent = val || '\u2014'; };
+    set('petName', p.name);
+    set('petOwner', owner ? owner.name : '');
+    set('petSpecies', petTypeLabel(p));
+    set('petBreed', p.breed === 'Other' ? (p.breedCustom || 'Other') : p.breed);
+    set('petGender', p.gender);
+    set('petAge', p.age ? p.age + ' years' : '');
+    set('petWeight', p.weightKg ? p.weightKg + ' kg' : '');
+    set('petRepro', p.reproductiveStatus);
+    set('petColor', p.color);
+    set('petMicrochip', p.microchipId);
+    set('petAllergies', p.allergies);
+    set('petChronic', p.chronicConditions);
+    set('petNotes', p.notes);
+    var tbody = document.getElementById('petVaccinationTable');
+    if (tbody) tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:#888;">No vaccination records in the demo dataset.</td></tr>';
+    var modal = document.getElementById('petProfileModal');
+    if (modal) modal.classList.add('show');
+  };
+  window.closePetProfile = function () { var m = document.getElementById('petProfileModal'); if (m) m.classList.remove('show'); };
+
+  // ── Edit User ────────────────────────────────────────────────────────────
+  window.openEditUser = function (id) {
+    var u = SMU() ? SMU().byId(id) : null;
+    if (!u) { showToast('User not found.', 'error'); return; }
+    document.getElementById('editUserId').value = u.userId;
+    document.getElementById('editUserFirstName').value = txt(u.firstName);
+    document.getElementById('editUserMiddleName').value = txt(u.middleName);
+    document.getElementById('editUserLastName').value = txt(u.lastName);
+    document.getElementById('editUserPhone').value = txt(u.phone);
+    document.getElementById('editUserEmail').value = txt(u.email);
+    document.getElementById('editUserAddress').value = txt(u.address);
+    document.getElementById('editUserBirthdate').value = txt(u.birthdate);
+    document.getElementById('editUserStatus').value = u.status === 'inactive' ? 'inactive' : 'active';
+    document.getElementById('editUserModal').classList.add('show');
+  };
+  window.closeEditUser = function () { document.getElementById('editUserModal').classList.remove('show'); };
+  window.openEditUserFromProfile = function () {
+    var section = document.getElementById('ownerAccessSection');
+    var uid = section ? section.dataset.userId : '';
+    if (!uid) return;
+    window.closeOwnerProfile();
+    window.openEditUser(uid);
+  };
+  window.submitEditUser = function (e) {
+    e.preventDefault();
+    var id = document.getElementById('editUserId').value;
+    var firstName = document.getElementById('editUserFirstName').value.trim();
+    var lastName = document.getElementById('editUserLastName').value.trim();
+    var result = SMU().updateUser(id, {
+      firstName: firstName,
+      middleName: document.getElementById('editUserMiddleName').value.trim(),
+      lastName: lastName,
+      // Keep the single display name in sync for every portal that reads it.
+      name: (firstName + ' ' + lastName).trim(),
+      phone: document.getElementById('editUserPhone').value.trim(),
+      email: document.getElementById('editUserEmail').value.trim(),
+      address: document.getElementById('editUserAddress').value.trim(),
+      birthdate: document.getElementById('editUserBirthdate').value,
+      status: document.getElementById('editUserStatus').value
+    });
+    if (!result.ok) {
+      showToast(result.error === 'duplicate_email' ? 'That email is already in use by another account.' : 'Could not save changes.', 'error');
+      return;
+    }
+    closeEditUser();
+    renderClientsTable();
+    showToast('User profile updated.', 'success');
+  };
+
+  // ── Create User (assisted; role stays canonical "User") ──────────────────
+  window.openCreateUserModal = function () {
+    document.getElementById('createUserForm').reset();
+    document.getElementById('createUserModal').classList.add('show');
+  };
+  window.closeCreateUser = function () { document.getElementById('createUserModal').classList.remove('show'); };
+  window.submitCreateUser = function (e) {
+    e.preventDefault();
+    var result = SMU().addUser({
+      firstName: document.getElementById('newUserFirstName').value.trim(),
+      middleName: document.getElementById('newUserMiddleName').value.trim(),
+      lastName: document.getElementById('newUserLastName').value.trim(),
+      phone: document.getElementById('newUserPhone').value.trim(),
+      email: document.getElementById('newUserEmail').value.trim(),
+      address: document.getElementById('newUserAddress').value.trim(),
+      birthdate: document.getElementById('newUserBirthdate').value
+    });
+    if (!result.ok) {
+      showToast(result.error === 'duplicate_email' ? 'A user with that email already exists.' : 'Please complete the required fields.', 'error');
+      return;
+    }
+    closeCreateUser();
+    renderClientsTable();
+    showToast('User account created for ' + result.user.name + '.', 'success');
+  };
+
+  // ── Account status (Active / Inactive only — no fake auth states) ────────
+  window.toggleUserStatus = function (id) {
+    var u = SMU().byId(id);
+    if (!u) return;
+    var next = u.status === 'inactive' ? 'active' : 'inactive';
+    confirmAction(
+      (next === 'inactive' ? 'Deactivate' : 'Activate') + ' the account for ' + u.name + '?',
+      function () {
+        SMU().setUserStatus(id, next);
+        renderClientsTable();
+        showToast('Account ' + next + '.', 'success');
+      },
+      { title: (next === 'inactive' ? 'Deactivate' : 'Activate') + ' User Account', danger: next === 'inactive' }
+    );
+  };
+
+  // ── Edit Pet ─────────────────────────────────────────────────────────────
+  window.openEditPet = function (id) {
+    var p = SMU() ? SMU().petById(id) : null;
+    if (!p) { showToast('Pet not found.', 'error'); return; }
+    var owner = SMU().byId(p.ownerId);
+    document.getElementById('editPetId').value = p.petId;
+    document.getElementById('editPetName').value = txt(p.name);
+    document.getElementById('editPetOwnerName').value = owner ? owner.name : '\u2014';
+    var speciesSel = document.getElementById('editPetSpecies');
+    var known = ['Dog', 'Cat', 'Bird', 'Rabbit'];
+    if (p.species === 'Other' || (p.species && known.indexOf(p.species) === -1)) {
+      speciesSel.value = 'Other';
+      document.getElementById('editPetSpeciesCustom').style.display = '';
+      document.getElementById('editPetSpeciesCustom').value = p.species === 'Other' ? txt(p.speciesCustom) : p.species;
+    } else {
+      speciesSel.value = txt(p.species);
+      document.getElementById('editPetSpeciesCustom').style.display = 'none';
+      document.getElementById('editPetSpeciesCustom').value = '';
+    }
+    document.getElementById('editPetBreed').value = txt(p.breed);
+    document.getElementById('editPetGender').value = txt(p.gender);
+    document.getElementById('editPetAge').value = p.age || '';
+    document.getElementById('editPetWeightKg').value = p.weightKg || '';
+    document.getElementById('editPetRepro').value = txt(p.reproductiveStatus);
+    document.getElementById('editPetColor').value = txt(p.color);
+    document.getElementById('editPetMicrochip').value = txt(p.microchipId);
+    document.getElementById('editPetAllergies').value = txt(p.allergies);
+    document.getElementById('editPetChronic').value = txt(p.chronicConditions);
+    document.getElementById('editPetNotes').value = txt(p.notes);
+    document.getElementById('editPetModal').classList.add('show');
+  };
+  window.closeEditPet = function () { document.getElementById('editPetModal').classList.remove('show'); };
+  window.submitEditPet = function (e) {
+    e.preventDefault();
+    var id = document.getElementById('editPetId').value;
+    var speciesVal = document.getElementById('editPetSpecies').value;
+    var fields = {
+      name: document.getElementById('editPetName').value.trim(),
+      species: speciesVal,
+      speciesCustom: speciesVal === 'Other' ? document.getElementById('editPetSpeciesCustom').value.trim() : '',
+      breed: document.getElementById('editPetBreed').value.trim(),
+      gender: document.getElementById('editPetGender').value,
+      age: parseInt(document.getElementById('editPetAge').value, 10) || 0,
+      weightKg: parseFloat(document.getElementById('editPetWeightKg').value) || 0,
+      reproductiveStatus: document.getElementById('editPetRepro').value,
+      color: document.getElementById('editPetColor').value.trim(),
+      microchipId: document.getElementById('editPetMicrochip').value.trim(),
+      allergies: document.getElementById('editPetAllergies').value.trim(),
+      chronicConditions: document.getElementById('editPetChronic').value.trim(),
+      notes: document.getElementById('editPetNotes').value.trim()
+    };
+    var result = SMU().updatePet(id, fields);
+    if (!result.ok) { showToast('Could not save changes.', 'error'); return; }
+    closeEditPet();
+    renderPetsTable();
+    showToast('Pet profile updated.', 'success');
+  };
+
+  // ── Register Pet (Admin-assisted, canonical contract, ownerId-linked) ────
+  window.addNewPet = function () {
+    var sel = document.getElementById('regPetOwner');
+    sel.innerHTML = '<option value="">Select owner</option>' + SMU().users().map(function (u) {
+      return '<option value="' + u.userId + '">' + esc(u.name + ' \u2014 ' + u.email) + '</option>';
+    }).join('');
+    document.getElementById('registerPetForm').reset();
+    document.getElementById('regPetSpeciesCustom').style.display = 'none';
+    document.getElementById('registerPetModal').classList.add('show');
+  };
+  window.closeRegisterPet = function () { document.getElementById('registerPetModal').classList.remove('show'); };
+  window.submitRegisterPet = function (e) {
+    e.preventDefault();
+    var speciesVal = document.getElementById('regPetSpecies').value;
+    var result = SMU().addPet({
+      ownerId: document.getElementById('regPetOwner').value,
+      name: document.getElementById('regPetName').value.trim(),
+      species: speciesVal,
+      speciesCustom: speciesVal === 'Other' ? document.getElementById('regPetSpeciesCustom').value.trim() : '',
+      breed: document.getElementById('regPetBreed').value.trim(),
+      gender: document.getElementById('regPetGender').value,
+      age: parseInt(document.getElementById('regPetAge').value, 10) || 0,
+      weightKg: parseFloat(document.getElementById('regPetWeightKg').value) || 0,
+      reproductiveStatus: document.getElementById('regPetRepro').value,
+      color: document.getElementById('regPetColor').value.trim(),
+      microchipId: document.getElementById('regPetMicrochip').value.trim(),
+      allergies: document.getElementById('regPetAllergies').value.trim(),
+      chronicConditions: document.getElementById('regPetChronic').value.trim(),
+      notes: document.getElementById('regPetNotes').value.trim()
+    });
+    if (!result.ok) {
+      showToast(result.error === 'owner_not_found' ? 'Selected owner no longer exists.' : 'Please choose an owner and provide a pet name.', 'error');
+      return;
+    }
+    closeRegisterPet();
+    renderPetsTable();
+    renderClientsTable();
+    showToast('Pet registered for ' + (SMU().byId(result.pet.ownerId) || {}).name + '.', 'success');
+  };
+
+  // Live type filter (All Pets tab).
+  function setupPetTypeFilter() {
+    var sel = document.getElementById('filterPetType');
+    if (!sel) return;
+    sel.addEventListener('change', function () {
+      var v = sel.value;
+      var tbody = document.getElementById('petsTable');
+      if (!tbody) return;
+      tbody.querySelectorAll('tr[data-id]').forEach(function (tr) {
+        if (v === 'all') { tr.style.display = ''; return; }
+        var p = SMU() ? SMU().petById(tr.dataset.id) : null;
+        var match = p && ((v === 'other' && (p.species === 'Other' || ['dog', 'cat', 'bird', 'rabbit'].indexOf(String(p.species).toLowerCase()) === -1)) || String(p.species).toLowerCase() === v);
+        tr.style.display = match ? '' : 'none';
+      });
+    });
+  }
+
+  function init() {
+    renderClientsTable();
+    renderPetsTable();
+    setupPetTypeFilter();
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    init();
+  }
+})();

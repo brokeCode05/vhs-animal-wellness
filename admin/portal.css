@@ -184,3 +184,103 @@
   text-decoration: underline;
   white-space: nowrap;
 }
+
+/* ── Semantic action buttons (Phase 2A polish) ────────────────────
+   One consistent meaning across tables (existing VHS palette only):
+     View → neutral · Edit → accent · Activate → success (green)
+     Deactivate → danger (red) · Save → .btn-primary (accent)
+     Cancel → .btn-secondary (neutral)
+   Action cells wrap cleanly instead of overflowing at 100% zoom;
+   doctor cells keep their inline nowrap (unchanged behavior). */
+.compact-table td.action-cell {
+  white-space: normal;
+}
+.action-cell .btn-small {
+  display: inline-flex;
+  margin: 0.2rem 0.3rem 0.2rem 0;
+}
+.btn-small.btn-view {
+  color: #475569;
+  border-color: #e2e8f0;
+  background: #ffffff;
+}
+.btn-small.btn-view:hover {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+  color: #475569;
+  transform: none;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+.btn-small.btn-edit {
+  color: var(--accent-dark);
+  border-color: var(--accent-badge-border);
+  background: var(--accent-bg);
+}
+.btn-small.btn-edit:hover {
+  background: linear-gradient(135deg, #3977b4 0%, #2d5f94 100%);
+  color: #ffffff;
+  border-color: transparent;
+  transform: none;
+  box-shadow: 0 3px 10px rgba(57, 119, 180, 0.3);
+}
+.btn-small.btn-success {
+  color: #15803d;
+  border-color: #bbf7d0;
+  background: #f0fdf4;
+}
+.btn-small.btn-success:hover {
+  background: linear-gradient(135deg, #22c55e 0%, #15803d 100%);
+  color: #ffffff;
+  border-color: transparent;
+  transform: none;
+  box-shadow: 0 3px 10px rgba(21, 128, 61, 0.3);
+}
+.btn-small.btn-danger {
+  color: #b91c1c;
+  border-color: #fecaca;
+  background: #fef2f2;
+}
+.btn-small.btn-danger:hover {
+  background: linear-gradient(135deg, #ef4444 0%, #b91c1c 100%);
+  color: #ffffff;
+  border-color: transparent;
+  transform: none;
+  box-shadow: 0 3px 10px rgba(185, 28, 28, 0.3);
+}
+
+/* Clients & Pets density: keep all columns + actions visible without
+   horizontal scrolling at common desktop widths (1280 / 1024). */
+@media (max-width: 1440px) {
+  #clientsTable th, #clientsTable td,
+  #petsTable th, #petsTable td {
+    padding: 0.85rem 0.9rem;
+  }
+}
+/* Narrow desktops: secondary columns move out of the table (values stay
+   available in the profile modals) and action buttons stack vertically,
+   so everything stays reachable without horizontal scrolling. */
+@media (max-width: 1200px) {
+  #clientsTableHead th:nth-child(5), #clientsTable td:nth-child(5),
+  #petsTableHead th:nth-child(8), #petsTable td:nth-child(8) {
+    display: none;
+  }
+  #clientsTable td.action-cell .btn-small,
+  #petsTable td.action-cell .btn-small {
+    display: flex;
+    width: 100%;
+    justify-content: center;
+    margin: 0.2rem 0;
+  }
+}
+/* Very narrow desktop shells: contact email also yields to the
+   profile modal (name + phone remain in the row). */
+@media (max-width: 1024px) {
+  #clientsTableHead th:nth-child(3), #clientsTable td:nth-child(3) {
+    display: none;
+  }
+  #clientsTableHead th, #clientsTable td,
+  #petsTableHead th, #petsTable td {
+    padding: 0.7rem 0.6rem;
+    font-size: 0.875rem;
+  }
+}
