@@ -2593,15 +2593,31 @@ function _renderPetCards(pets, grid, dashGrid, petCount) {
   var statPets = document.getElementById('statPets');
   if (statPets) statPets.textContent = pets.length;
 
-  // ── Dashboard quick view (compact cards) ──
+  // ── Dashboard quick view (concise preview in the dedicated My Pets
+  //     card language: photo/avatar block, species badge, metadata line,
+  //     one clear View action). All render paths funnel through here.
+  //     TODO(BACKEND): same pet endpoint as My Pets, limited rows.
   if (dashGrid) {
     dashGrid.innerHTML = pets.length
       ? pets.map(function (p) {
-          var subtitle = [p.breed, p.species || p.type, p.age ? p.age + ' yrs' : ''].filter(Boolean).join(' \u00b7 ');
+          var sp = p.species || p.type || '';
+          var avatar = p.photo
+            ? '<img src="' + p.photo + '" alt="' + escapeHtml(p.name) + '">'
+            : petEmoji(sp);
+          var meta = [
+            p.breed ? escapeHtml(p.breed) : '',
+            sp ? escapeHtml(sp) : '',
+            p.age ? escapeHtml(String(p.age)) + ' yrs' : ''
+          ].filter(Boolean).join(' \u00b7 ');
           return (
             '<div class="pet-card" style="cursor:pointer" onclick="showSection(\'pets\')">'
-            + '<div class="pet-avatar">' + petEmoji(p.species || p.type) + '</div>'
-            + '<div class="pet-info" style="flex:1"><h3>' + escapeHtml(p.name) + '</h3><p>' + subtitle + '</p></div>'
+            + '<div class="pet-avatar">' + avatar + '</div>'
+            + '<div class="pet-info" style="flex:1;min-width:0">'
+            + '<div class="pet-name-row"><h3>' + escapeHtml(p.name) + '</h3>'
+            + (sp ? '<span class="pet-card-species-badge">' + escapeHtml(sp) + '</span>' : '')
+            + '</div>'
+            + (meta ? '<p>' + meta + '</p>' : '')
+            + '</div>'
             + '<button class="btn-small" onclick="event.stopPropagation();showSection(\'pets\')">View</button>'
             + '</div>'
           );

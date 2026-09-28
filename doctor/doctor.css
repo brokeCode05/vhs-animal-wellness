@@ -1,33 +1,36 @@
 /* ============================================================
-   DOCTOR PORTAL — Phase 1 UI consistency pass
+   DOCTOR PORTAL — Phase 3.2 visual-system pass
    Inherits admin/admin-style.css + shared/dashboard-theme.css.
-   This file only: (1) applies the User-portal purple accent so
-   every shared token resolves purple, (2) styles doctor-specific
-   workflow pieces (queue, EMR, SOAP, orders, draft bar).
-   Navbar, sidebar, buttons, inputs, focus rings, and transitions
-   come from the shared system, same as the other portals.
+   This file only: (1) applies the Doctor role accent — a restrained
+   dark gold / brown-gold family (dark for text & actions on white,
+   pale gold for soft fills; never bright yellow text on white),
+   (2) styles doctor-specific workflow pieces (queue, EMR, SOAP,
+   orders, draft bar). Navbar, sidebar, buttons, inputs, focus
+   rings, and transitions come from the shared system.
    ============================================================ */
 :root {
-  /* User portal accent family (user/user-accent.css) */
-  --accent: #6d4ab1;
-  --accent-dark: #563aa4;
-  --accent-deep: #452f85;
-  --accent-light: #a78bfa;
-  --accent-hover: #7c59c4;
-  --accent-hover-dark: #6146a0;
-  --accent-soft: rgba(109, 74, 177, 0.12);
-  --accent-soft-2: rgba(86, 58, 164, 0.08);
-  --accent-border: rgba(86, 58, 164, 0.16);
-  --accent-shadow: rgba(69, 47, 133, 0.32);
-  --accent-bg: #f3eefc;
-  --accent-bg-2: #ebe3fa;
-  --accent-bg-3: #faf8ff;
-  --accent-bg-4: #f4f0fd;
-  --accent-badge-bg: #ece5fb;
-  --accent-badge-bg-2: #ded2f8;
-  --accent-badge-border: #c3b3ef;
+  /* Doctor gold accent family — mapped through --portal-accent* in
+     shared/dashboard-theme.css. All text/identity tones pass WCAG AA
+     on white (~#8b5422 is the darkest workhorse). */
+  --accent: #8b6f1f;
+  --accent-dark: #8b5422;
+  --accent-deep: #6f430e;
+  --accent-light: #d9b452;
+  --accent-hover: #a07717;
+  --accent-hover-dark: #6f4310;
+  --accent-soft: rgba(139, 111, 31, 0.13);
+  --accent-soft-2: rgba(139, 84, 34, 0.08);
+  --accent-border: rgba(139, 84, 34, 0.18);
+  --accent-shadow: rgba(111, 67, 14, 0.28);
+  --accent-bg: #f9f6ec;
+  --accent-bg-2: #f2ecd9;
+  --accent-bg-3: #fcfaf3;
+  --accent-bg-4: #f7f3e7;
+  --accent-badge-bg: #f4eeda;
+  --accent-badge-bg-2: #ece2c6;
+  --accent-badge-border: #d9c68c;
   --doctor-motion: 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-  --doctor-border: #e4dfe9;
+  --doctor-border: #e7e0d2;
   --doctor-muted: #6c6078;
 }
 
@@ -56,7 +59,7 @@ body.doctor-portal { line-height: 1.5; }
 .record-heading-actions { display: flex; align-items: center; gap: 0.6rem; }
 .record-heading-actions .btn-primary, .record-heading-actions .btn-secondary { padding: 0.45rem 0.95rem; min-height: 38px; font-size: 0.85rem; }
 .doctor-portal .section-title { font-size: 1.15rem; margin: 0; }
-.helper { color: #756781; font-size: 0.875rem; }
+.helper { color: var(--doctor-muted); font-size: 0.875rem; }
 .section-intro { margin: 0 0 1rem; }
 
 /* ===== PATIENT QUEUE — clinic list (Clerk compact-table pattern) ===== */
@@ -64,9 +67,9 @@ body.doctor-portal { line-height: 1.5; }
 .patient-queue td { padding: 0.8rem 1rem; vertical-align: middle; white-space: nowrap; }
 .patient-queue td.q-service { white-space: normal; min-width: 9rem; }
 .queue-row { cursor: pointer; transition: background-color 0.2s ease, box-shadow 0.2s ease; }
-.q-time { font-size: 0.85rem; font-weight: 700; color: #594967; font-variant-numeric: tabular-nums; }
+.q-time { font-size: 0.85rem; font-weight: 700; color: var(--accent-hover-dark); font-variant-numeric: tabular-nums; }
 .q-name { font-size: 0.9375rem; font-weight: 800; color: #3b2d4a; }
-.q-owner, .q-service { font-size: 0.875rem; color: #746382; overflow: hidden; text-overflow: ellipsis; max-width: 11rem; }
+.q-owner, .q-service { font-size: 0.875rem; color: var(--doctor-muted); overflow: hidden; text-overflow: ellipsis; max-width: 11rem; }
 .queue-row:hover { background: #fafbfc; }
 .queue-row[aria-pressed='true'] { background: var(--accent-soft); box-shadow: inset 3px 0 0 var(--accent); }
 
@@ -81,21 +84,21 @@ body.doctor-portal { line-height: 1.5; }
 .appt-status.checked_in { background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%); color: #1e40af; border: 1px solid #93c5fd; }
 .appt-status.in_consultation { background: var(--accent-badge-bg); color: var(--accent-dark); border: 1px solid var(--accent-badge-border); }
 .appt-status.completed { background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%); color: #065f46; border: 1px solid #6ee7b7; }
-.q-done-note { font-size: 0.8rem; color: #756781; }
-.consultation-timer { display: flex; align-items: center; gap: 0.4rem; margin-top: 0.35rem; font-size: 0.85rem; color: #594967; }
+.q-done-note { font-size: 0.8rem; color: var(--doctor-muted); }
+.consultation-timer { display: flex; align-items: center; gap: 0.4rem; margin-top: 0.35rem; font-size: 0.85rem; color: var(--accent-hover-dark); }
 .consultation-timer .timer-value { font-weight: 800; font-variant-numeric: tabular-nums; color: var(--accent-dark); }
 /* Locked clinical views: one short line, no warning cards. */
-.locked-message { color: #756781; font-size: 0.95rem; margin: 0 0 0.9rem; }
+.locked-message { color: var(--doctor-muted); font-size: 0.95rem; margin: 0 0 0.9rem; }
 #locked-notice .btn-primary { margin-bottom: 0.25rem; }
 
 /* ===== SELECTED PATIENT / CONTEXT BAR ===== */
 .patient-context {
   display: flex; align-items: center; justify-content: space-between; gap: 1rem;
-  margin-bottom: 1rem; padding: 0 0.25rem 1rem; border-bottom: 1px solid #ded6e6;
+  margin-bottom: 1rem; padding: 0 0.25rem 1rem; border-bottom: 1px solid var(--doctor-border);
 }
-.context-label { color: #766781; font-size: 0.8rem; }
+.context-label { color: var(--doctor-muted); font-size: 0.8rem; }
 .patient-context h2 { font-size: 1.65rem; line-height: 1.25; }
-.patient-context p { font-size: 0.9rem; color: #665672; margin-top: 0.3rem; line-height: 1.6; }
+.patient-context p { font-size: 0.9rem; color: var(--doctor-muted); margin-top: 0.3rem; line-height: 1.6; }
 
 /* ===== PATIENT EMR ===== */
 #patient-record h3 { margin-bottom: 0.25rem; }
@@ -103,21 +106,21 @@ body.doctor-portal { line-height: 1.5; }
 #patient-record > h3:not(:first-child) { font-size: 1.1rem; margin-bottom: 0.65rem; }
 #patient-record > p { font-size: 0.95rem; }
 #patient-record > p:first-of-type { color: var(--doctor-muted); }
-.pet-details { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1rem; margin: 1rem 0; padding-bottom: 1rem; border-bottom: 1px solid #eee7f4; }
-dt { font-size: 0.75rem; color: #756781; }
+.pet-details { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1rem; margin: 1rem 0; padding-bottom: 1rem; border-bottom: 1px solid var(--doctor-border); }
+dt { font-size: 0.75rem; color: var(--doctor-muted); }
 dd { margin: 0.2rem 0 0; font-weight: 700; font-size: 0.95rem; overflow-wrap: anywhere; }
-.visit-reason { padding: 0.9rem 1rem; background: #f7f5fa; border-radius: 0.5rem; margin-bottom: 1rem; line-height: 1.65; }
+.visit-reason { padding: 0.9rem 1rem; background: var(--accent-bg-3); border-radius: 0.5rem; margin-bottom: 1rem; line-height: 1.65; }
 
 /* Dated medical-history timeline, matching the User portal pattern. */
 .history { list-style: none; padding: 0.1rem 0 0; margin: 0; }
 .history li {
   position: relative; display: grid; grid-template-columns: 90px minmax(0, 1fr);
   column-gap: 1.25rem; padding: 0 0 1rem 1.1rem; margin-left: 0.25rem;
-  border-left: 1px solid #ded4e9; font-size: 0.875rem;
+  border-left: 1px solid var(--doctor-border); font-size: 0.875rem;
 }
 .history li:last-child { padding-bottom: 0; border-color: transparent; }
 .history li::before { content: ''; position: absolute; width: 7px; height: 7px; border-radius: 50%; background: var(--accent); top: 0.45rem; left: -4px; }
-.history time { grid-row: 1 / 3; padding-top: 0.1rem; font-size: 0.8rem; color: #756781; font-variant-numeric: tabular-nums; }
+.history time { grid-row: 1 / 3; padding-top: 0.1rem; font-size: 0.8rem; color: var(--doctor-muted); font-variant-numeric: tabular-nums; }
 .history strong { font-size: 0.9rem; }
 .history p { grid-column: 2; margin: 0.15rem 0 0; line-height: 1.6; }
 
@@ -127,45 +130,45 @@ dd { margin: 0.2rem 0 0; font-weight: 700; font-size: 0.95rem; overflow-wrap: an
 .ai-strip {
   display: grid; grid-template-columns: auto 1fr; gap: 0.2rem 0.65rem;
   align-items: center; padding: 0.6rem 0.8rem; margin-bottom: 1.25rem;
-  background: #f7f4fb; border-left: 3px solid #c5b5df; border-radius: 0.35rem;
+  background: var(--accent-bg-3); border-left: 3px solid var(--accent-light); border-radius: 0.35rem;
 }
 .ai-chip {
   grid-row: 1 / 3; align-self: start; display: inline-grid; place-items: center;
   min-width: 1.5rem; height: 1.5rem; border-radius: 0.4rem;
-  background: #ede5f7; color: var(--accent-dark); font-size: 0.7rem; font-weight: 800;
+  background: var(--accent-badge-bg); color: var(--accent-dark); font-size: 0.7rem; font-weight: 800;
 }
 .ai-body { display: flex; align-items: baseline; gap: 0.6rem; flex-wrap: wrap; }
-.ai-body strong { font-size: 0.8rem; color: #634783; }
-.ai-body span { font-size: 0.72rem; color: #857a92; }
+.ai-body strong { font-size: 0.8rem; color: var(--accent-dark); }
+.ai-body span { font-size: 0.72rem; color: var(--doctor-muted); }
 #ai-summary { grid-column: 2; margin: 0; font-size: 0.875rem; line-height: 1.6; color: #4d4259; }
 .soap-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1.5rem 2rem; }
 .soap-block { min-width: 0; }
 .soap-block h3 {
   display: flex; align-items: baseline; gap: 0.55rem; flex-wrap: wrap;
-  margin: 0 0 0.85rem; padding-bottom: 0.5rem; border-bottom: 1px solid #e7e0ee;
+  margin: 0 0 0.85rem; padding-bottom: 0.5rem; border-bottom: 1px solid var(--doctor-border);
 }
 .soap-letter {
   display: inline-grid; place-items: center; width: 1.7rem; height: 1.7rem;
-  background: #f0eaf8; color: var(--accent-dark); border-radius: 0.45rem;
+  background: var(--accent-badge-bg); color: var(--accent-dark); border-radius: 0.45rem;
   font-family: 'Nunito', sans-serif; font-size: 0.8rem; font-weight: 800;
   transform: translateY(0.25rem);
 }
 .soap-name { font-size: 1.05rem; font-weight: 800; color: #3b2d4a; }
-.soap-hint { font-size: 0.75rem; color: #857a92; }
+.soap-hint { font-size: 0.75rem; color: var(--doctor-muted); }
 .vitals-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.65rem; margin-bottom: 1rem; }
 
 /* ===== PRESCRIPTIONS & LAB REQUESTS ===== */
 .medicine-row {
-  display: grid; grid-template-columns: 1.4fr 0.8fr 1fr 0.9fr auto;
-  gap: 0.6rem; align-items: end; padding: 0.85rem 0.9rem;
-  margin-bottom: 0.6rem; border: 1px solid #e5dcee; border-radius: 0.5rem; min-width: 0;
+  display: grid; grid-template-columns: 1.4fr 0.8fr 1fr 0.9fr auto;  gap: 0.6rem; align-items: end; padding: 0.85rem 0.9rem;
+
+  margin-bottom: 0.6rem; border: 1px solid var(--doctor-border); border-radius: 0.5rem; min-width: 0;
 }
 .medicine-instructions { grid-column: 1 / 5; }
 .medicine-row .btn-small { align-self: end; }
 .medicine-row legend { font-size: 0.8rem; font-weight: 700; padding: 0 0.3rem; }
-.lab-options { border: 0; border-top: 1px solid #e5dcee; margin-top: 1.25rem; padding: 1rem 0 0; display: block; }
+.lab-options { border: 0; border-top: 1px solid var(--doctor-border); margin-top: 1.25rem; padding: 1rem 0 0; display: block; }
 .lab-options legend { font-size: 0.95rem; font-weight: 700; padding-right: 0.5rem; }
-.lab-options-hint { display: block; font-size: 0.75rem; color: #857a92; margin: 0.2rem 0 0.75rem; }
+.lab-options-hint { display: block; font-size: 0.75rem; color: var(--doctor-muted); margin: 0.2rem 0 0.75rem; }
 .lab-options-grid { display: flex; flex-wrap: wrap; gap: 0.75rem 1.5rem; }
 .lab-options label, .review-check label { display: flex; align-items: center; gap: 0.5rem; font-size: 0.875rem; min-height: 36px; cursor: pointer; }
 input[type='checkbox'] { width: 17px; height: 17px; accent-color: var(--accent-dark); flex-shrink: 0; }
@@ -243,7 +246,7 @@ input[type='checkbox'] { width: 17px; height: 17px; accent-color: var(--accent-d
 }
 
 /* ===== FORM CONTROLS — shared system styling ===== */
-.doctor-portal .form-label { margin-bottom: 0.4rem; font-weight: 700; font-size: 0.9rem; color: #594967; }
+.doctor-portal .form-label { margin-bottom: 0.4rem; font-weight: 700; font-size: 0.9rem; color: var(--accent-hover-dark); }
 .doctor-portal .form-input, .doctor-portal .form-select, .doctor-portal .form-textarea {
   border: 1.5px solid var(--accent-border); background: #fffdfe; color: #3b2d4a;
   border-radius: 0.625rem; padding: 0.65rem 0.75rem; font-size: 1rem; line-height: 1.5; min-width: 0;
@@ -251,7 +254,7 @@ input[type='checkbox'] { width: 17px; height: 17px; accent-color: var(--accent-d
 }
 .doctor-portal .form-input, .doctor-portal .form-select { min-height: 44px; }
 .doctor-portal .form-textarea { min-height: 100px; resize: vertical; }
-.doctor-portal .form-input:hover, .doctor-portal .form-select:hover, .doctor-portal .form-textarea:hover { border-color: #bca8d4; }
+.doctor-portal .form-input:hover, .doctor-portal .form-select:hover, .doctor-portal .form-textarea:hover { border-color: var(--accent-light); }
 .doctor-portal .form-input:focus, .doctor-portal .form-select:focus, .doctor-portal .form-textarea:focus {
   background: #ffffff; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft);
 }
@@ -263,7 +266,7 @@ input[type='checkbox'] { width: 17px; height: 17px; accent-color: var(--accent-d
   min-height: 44px; white-space: normal; line-height: 1.4; cursor: pointer;
   transition: all var(--doctor-motion); -webkit-tap-highlight-color: transparent;
 }
-.doctor-portal .btn-primary { background: linear-gradient(135deg, #8b5cf6 0%, #6d4ab1 100%); color: #ffffff; box-shadow: 0 4px 14px rgba(109, 74, 177, 0.3); }
+.doctor-portal .btn-primary { background: linear-gradient(135deg, var(--accent) 0%, var(--accent-dark) 100%); color: #ffffff; box-shadow: 0 4px 14px var(--accent-shadow); }
 .doctor-portal .btn-secondary { background: #ffffff; color: #475569; border: 1.5px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06); }
 .doctor-portal button:disabled { background: #f8fafc; color: #94a3b8; border-color: #e2e8f0; box-shadow: none; cursor: not-allowed; transform: none; }
 

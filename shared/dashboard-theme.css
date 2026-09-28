@@ -47,6 +47,102 @@
   --border: var(--accent-border);
 }
 
+/* ===== PORTAL ACCENT SYSTEM (Phase 3.2) =====
+ * The shared shell (navbar, sidebar, cards, buttons, forms, tables)
+ * resolves --accent* from whichever role accent file loads last.
+ * --portal-accent* are the semantic, portal-agnostic names for that
+ * role color: User purple/lavender, Admin blue/teal/indigo, Doctor
+ * dark gold/brown-gold. Portal components should prefer these names
+ * so no portal accidentally hardcodes another's hex values.
+ * Semantic state colors (success/danger/warning/info) stay independent
+ * of these variables by design — accent is identity, not state.
+ */
+:root {
+  --portal-accent: var(--accent);
+  --portal-accent-hover: var(--accent-hover);
+  --portal-accent-dark: var(--accent-dark);
+  --portal-accent-soft: var(--accent-soft);
+  --portal-accent-border: var(--accent-border);
+  --portal-accent-text: var(--accent-dark);
+  --portal-accent-focus: var(--accent-soft);
+}
+
+/* ===== SHARED SHELL NORMALIZATION (Phase 3.2) =====
+ * Consistent icon/identity grammar across all portals. Values are
+ * structural only (size, weight, spacing) so each portal keeps its
+ * own accent colors.
+ */
+.sidebar .nav-item .icon svg,
+.sidebar-avatar svg {
+  width: 20px;
+  height: 20px;
+}
+
+.sidebar-avatar { stroke-width: 1.8; }
+.sidebar-avatar svg { stroke-width: 1.8; }
+
+.nav-item .icon svg { stroke-width: 1.8; }
+.nav-item .icon { width: 22px; }
+.nav-item .icon svg { flex-shrink: 0; }
+
+/* Uniform sidebar identity block: circular avatar, same name/role
+ * typography and spacing in every portal. */
+.sidebar-user-info {
+  gap: 0.15rem;
+  text-align: center;
+  min-width: 0;
+}
+
+.sidebar-user-name {
+  font-weight: 700;
+  font-size: 0.9rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+.sidebar-user-role {
+  font-weight: 600;
+  font-size: 0.72rem;
+  color: var(--portal-accent);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+/* Standard inline-action sizing: compact, icon+label, no hover lift
+ * (keeps table rows calm and predictable across portals). */
+.btn-small {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  padding: 0.5rem 1rem;
+  min-height: 38px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  border-radius: 0.625rem;
+}
+
+.btn-small svg { width: 14px; height: 14px; flex-shrink: 0; }
+
+/* Navbar brand block: shared title/subtitle hierarchy. */
+.navbar-brand .brand-subtitle {
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: rgba(255, 255, 255, 0.75);
+  border-left: 1px solid rgba(255, 255, 255, 0.35);
+  padding-left: 0.5rem;
+  margin-left: 0.1rem;
+  white-space: nowrap;
+  align-self: center;
+}
+
+@media (max-width: 768px) {
+  .navbar-brand .brand-subtitle { display: none; }
+}
+
 /* ===== BASE ===== */
 body {
   font-family: "Nunito", "Segoe UI", sans-serif;
@@ -1172,8 +1268,8 @@ body.modal-open {
 .form-select optgroup {
   font-weight: 700;
   font-size: 0.8rem;
-  color: #6d4ab1;
-  background: #f5eefc;
+  color: var(--accent-dark);
+  background: var(--accent-bg);
   padding: 0.5rem 0.6rem;
   border-top: 1px solid var(--accent-border);
 }

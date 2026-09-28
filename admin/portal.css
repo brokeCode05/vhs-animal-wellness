@@ -21,6 +21,15 @@
   --accent-light: #8ab4e3;
   --accent-hover: #4a87c6;
   --accent-hover-dark: #33689c;
+  /* Phase 3.2: semantic portal-accent names (shared grammar; the
+     blue/indigo family is the Admin role accent). */
+  --portal-accent: var(--accent);
+  --portal-accent-hover: var(--accent-hover);
+  --portal-accent-dark: var(--accent-dark);
+  --portal-accent-soft: var(--accent-soft);
+  --portal-accent-border: var(--accent-border);
+  --portal-accent-text: var(--accent-dark);
+  --portal-accent-focus: var(--accent-soft);
   --accent-soft: rgba(57, 119, 180, 0.13);
   --accent-soft-2: rgba(45, 95, 148, 0.09);
   --accent-border: rgba(45, 95, 148, 0.16);
