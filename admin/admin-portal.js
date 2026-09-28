@@ -431,13 +431,16 @@ function refreshClerkTimeSlots(prefilledTime) {
 
 function submitClerkBooking(e) {
   e.preventDefault();
-  // TODO(BACKEND): POST book-appointment.php and use the returned
-  // reference_no. The endpoint requires a live PHP/MySQL host, so the demo
-  // keeps this button clearly unavailable instead of faking persistence.
-  showToast('Booking requires the backend (PHP/MySQL host). Not available in the frontend demo.', 'warning');
-  return;
-  /* eslint-disable no-unreachable */
   var userId  = document.getElementById('clerkClientSelect').value;
+  var petId   = document.getElementById('clerkPetSelect').value;
+  var service = document.getElementById('clerkBookService').value;
+  var date    = document.getElementById('clerkBookDate').value;
+  var time    = document.getElementById('clerkBookTime').value;
+  var notes   = document.getElementById('clerkBookNotes').value.trim();
+  // service now carries the canonical catalog VALUE (FK-ready).
+  var svc = window.SharedMockUsers ? window.SharedMockUsers.serviceByValue(service) : null;
+
+  if (!userId)  { showToast('Please select a client.', 'warning'); return; }
   var petId   = document.getElementById('clerkPetSelect').value;
   var service = document.getElementById('clerkBookService').value;
   var date    = document.getElementById('clerkBookDate').value;
@@ -452,22 +455,50 @@ function submitClerkBooking(e) {
   if (!date)    { showToast('Please select a date.', 'warning'); return; }
   if (!time)    { showToast('Please select a time.', 'warning'); return; }
 
-  fetch('../php_files/book-appointment.php', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ user_id: parseInt(userId), pet_id: parseInt(petId), service: service, service_id: svc ? svc.serviceId : null, appointment_date: date, appointment_time: time, notes: notes })
-  })
-    .then(function(r) { return r.json(); })
-    .then(function(data) {
-      if (data.status === 'success') {
-        showToast('Appointment booked successfully!', 'success');
-        closeClerkBookModal();
-        loadAppointments();
-      } else {
-        showToast('Booking failed: ' + (data.message || 'Unknown error'), 'error');
-      }
-    })
-    .catch(function() { showToast('Network error.', 'error'); });
+  if (!window.SharedMockAppointments) { showToast('Shared appointment store unavailable.', 'error'); return; }
+  // Sequential IDs derived from the whole effective store — same scheme as
+  // User booking, so records never collide.
+  // TODO(BACKEND): POST book-appointment.php replaces this write-through and
+  // returns the DB-assigned reference_no / appointment_id.
+  var _seq = 0;
+  window.SharedMockAppointments.getAll().forEach(function (a) {
+    var m = /^apt(\d+)$/.exec(String(a.appointmentId || a.id || ''));
+    if (m) _seq = Math.max(_seq, parseInt(m[1], 10));
+  });
+  var nextNum = _seq + 1;
+  var aptId = 'apt' + String(nextNum).padStart(3, '0');
+  var refNo = 'VHS-' + date.replace(/-/g, '') + '-' + String(nextNum).padStart(4, '0');
+
+  // Identity is resolved strictly by ID: owner by userId, pet by petId.
+  var owner = window.SharedMockUsers
+    ? window.SharedMockUsers.users().find(function (u) { return String(u.userId) === String(userId); })
+    : null;
+  var pet = window.SharedMockUsers ? window.SharedMockUsers.petById(petId) : null;
+
+  // One canonical record written through the SAME store the User, Doctor,
+  // and Clerk portals read.
+  var canonical = window.AppointmentContract.fromLegacy({
+    appointmentId: aptId,
+    referenceNo: refNo,
+    userId: userId,
+    petId: petId,
+    service: service,
+    appointmentDate: date,
+    appointmentTime: time,
+    notes: notes,
+    status: 'confirmed',
+    owner: { name: owner ? owner.name : '', phone: owner ? (owner.phone || '') : '' },
+    pet: { name: pet ? pet.name : '', species: pet ? (pet.species || '') : '', breed: pet ? (pet.breed || '') : '' }
+  });
+
+  var stored = window.SharedMockAppointments.add(canonical);
+  if (!stored.ok || !stored.appointment) {
+    showToast(stored.error === 'duplicate' ? 'This booking already exists.' : 'Could not save the booking. Please try again.', 'error');
+    return;
+  }
+  closeClerkBookModal();
+  showToast('Appointment booked (Reference ' + stored.appointment.referenceNo + '). Demo state \u2014 not saved to a database.', 'success');
+  loadAppointments();
 }
 
 // ─── CLERK ACTIONS (frontend-demo honest mode) ───────────────────────────────
@@ -1479,6 +1510,9 @@ document.addEventListener("DOMContentLoaded", () => {
     document.getElementById('serviceIdField').value = '';
     document.getElementById('serviceModalTitle').textContent = 'Add Service';
     document.getElementById('svcActive').value = 'active';
+    // Custom-category field only shows when "Other" is selected.
+    document.getElementById('svcGroupCustomWrap').style.display = 'none';
+    document.getElementById('svcGroupCustom').value = '';
     document.getElementById('serviceModal').classList.add('show');
   };
   window.closeServiceModal = function () {
@@ -1493,7 +1527,18 @@ document.addEventListener("DOMContentLoaded", () => {
     document.getElementById('svcLabel').value = s.label;
     var grp = document.getElementById('svcGroup');
     var known = [].some.call(grp.options, function (o) { return o.value === s.group; });
-    if (known) grp.value = s.group; else grp.value = 'Other';
+    var customWrap = document.getElementById('svcGroupCustomWrap');
+    var customInput = document.getElementById('svcGroupCustom');
+    if (known) {
+      grp.value = s.group;
+      customWrap.style.display = 'none';
+      customInput.value = '';
+    } else {
+      // Previously-saved custom category: show "Other" plus its original text.
+      grp.value = 'Other';
+      customWrap.style.display = '';
+      customInput.value = s.group;
+    }
     document.getElementById('svcPrice').value = s.price || '';
     document.getElementById('svcActive').value = s.active === false ? 'inactive' : 'active';
     document.getElementById('serviceModal').classList.add('show');
@@ -1501,9 +1546,16 @@ document.addEventListener("DOMContentLoaded", () => {
   window.submitService = function (e) {
     e.preventDefault();
     var id = document.getElementById('serviceIdField').value;
+    var grp = document.getElementById('svcGroup').value;
+    // "Other" resolves to the typed custom category (falls back to Other
+    // itself when left blank, so no empty group is ever stored).
+    var customWrap = document.getElementById('svcGroupCustomWrap');
+    if (grp === 'Other' && customWrap.style.display !== 'none') {
+      grp = document.getElementById('svcGroupCustom').value.trim() || 'Other';
+    }
     var fields = {
       label: document.getElementById('svcLabel').value.trim(),
-      group: document.getElementById('svcGroup').value,
+      group: grp,
       price: document.getElementById('svcPrice').value.trim(),
       active: document.getElementById('svcActive').value !== 'inactive'
     };
@@ -1549,6 +1601,17 @@ document.addEventListener("DOMContentLoaded", () => {
       showToast('Service deleted.', 'success');
     }, { title: 'Delete Service', danger: true });
   };
+
+  // ── SERVICES MANAGEMENT PAGE ════════════════════════════════════════════
+  // Category "Other" reveals a custom-category input; selecting any
+  // predefined category hides it again (no stale custom text lingers).
+  document.getElementById('svcGroup')?.addEventListener('change', function () {
+    var wrap = document.getElementById('svcGroupCustomWrap');
+    if (!wrap) return;
+    var isOther = this.value === 'Other';
+    wrap.style.display = isOther ? '' : 'none';
+    if (!isOther) document.getElementById('svcGroupCustom').value = '';
+  });
 
   function initServicesPage() {
     if (!document.getElementById('servicesTable')) return;

@@ -35,6 +35,9 @@ function showSection(name) {
   // Clinic Info section reads the shared settings layer so Admin edits
   // surface here after reload/navigation. HTML keeps the fallback copy.
   // TODO(BACKEND): served with GET /api/clinic-settings.
+  if (name === 'services' && window.SharedMockUsers && window.SharedMockUsers.activeServices) {
+    _renderServiceCardsFromCatalog();
+  }
   if (name === 'clinic' && window.VHSClinicSettings) {
     var info = window.VHSClinicSettings.clinicInfo();
     var map = { clinicAddress: info.address, clinicPhone: info.phone, clinicEmail: info.email, clinicWebsite: info.website };
@@ -551,9 +554,44 @@ function renderApptRows(tbodyId, appts, cols) {
 
     .join("");
 
+}// Render the User "Available Services" grid from the SHARED effective
+// catalog (same source as booking) so Admin edits surface here after
+// reload/navigation. TODO(BACKEND): GET /api/services on the public API.
+function _renderServiceCardsFromCatalog() {
+  var grid = document.getElementById('userServicesGrid');
+  if (!grid || !window.SharedMockUsers || !window.SharedMockUsers.activeServices) return;
+  var list = window.SharedMockUsers.activeServices();
+  var icons = [
+    '<path d="M4.8 2.3A.3.3 0 1 0 5 2H4a2 2 0 0 0-2 2v5a6 6 0 0 0 6 6 6 6 0 0 0 6-6V4a2 2 0 0 0-2-2h-1a.2.2 0 1 0 .3.3"/><path d="M8 15v1a6 6 0 0 0 6 6 6 6 0 0 0 6-6v-4"/><circle cx="20" cy="10" r="2"/>',
+    '<path d="m18 2 4 4"/><path d="m17 7 3-3"/><path d="M19 9 8.7 19.3c-1 1-2.5 1-3.4 0l-.6-.6c-1-1-1-2.5 0-3.4L15 5"/><path d="m9 11 4 4"/><path d="m5 19-3 3"/>',
+    '<path d="M8 2v4"/><path d="M16 2v4"/><rect width="16" height="18" x="4" y="4" rx="2"/><path d="M12 11v4"/><path d="M12 17v2"/>',
+    '<path d="M12 22a7 7 0 0 0 7-7c0-2-1-3.9-3-5.5s-3.5-4-4-6.5c-.5 2.5-2 4.9-4 6.5C6 11.1 5 13 5 15a7 7 0 0 0 7 7z"/><path d="M10 13a2 2 0 0 0 4 0"/>',
+    '<path d="M9.5 4.5v3h3"/><path d="M4 12V6a2 2 0 0 1 2-2h2"/><path d="M15 10h3a2 2 0 0 1 2 2v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15"/>',
+    '<path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/>'
+  ];
+  var html = '';
+  var cur = '';
+  list.forEach(function(s, i) {
+    if (s.group !== cur) {
+      if (cur) html += '</div></div>';
+      html += '<h3 class="category-title">' + escapeHtml(s.group) + '</h3><div class="services-grid">';
+      cur = s.group;
+    }
+    html += '<div class="service-card-user">'
+      + '<div class="service-icon-wrap"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + icons[i % icons.length] + '</svg></div>'
+      + '<h3>' + escapeHtml(s.label) + '</h3>'
+      + '<div class="service-price">' + escapeHtml(s.price || 'Contact us for pricing') + '</div>'
+      + '<button class="btn-primary" data-service="' + escapeHtml(s.value) + '">Book Now</button>'
+      + '</div>';
+  });
+  if (cur) html += '</div>';
+  grid.innerHTML = html;
+  // onclick assignment (not addEventListener) so re-renders never stack handlers.
+  grid.onclick = function (e) {
+    var btn = e.target.closest('button[data-service]');
+    if (btn) openBookModal(btn.getAttribute('data-service'));
+  };
 }
-
-
 
 function openBookModal(serviceName) {
   _wizardStep = 1;
@@ -561,7 +599,6 @@ function openBookModal(serviceName) {
   openModal('bookModal');
 
   var user = _getSessionUser();
-
   // Load user's pets into pet_id select (scoped to the logged-in owner)
   var petSelect = document.getElementById('pet_id');
   if (petSelect) {
@@ -584,21 +621,24 @@ function openBookModal(serviceName) {
       : window.SharedMockUsers.services();
     var groups = {};
     activeList.forEach(function(s) {
-      (groups[s.group] = groups[s.group] || []).push(s.label);
+      (groups[s.group] = groups[s.group] || []).push(s);
     });
+    // Option value = canonical catalog value (FK-ready); label shows the
+    // current price so the booking wizard always reflects Admin edits.
     svcSelect.innerHTML = '<option value="">Choose a service</option>' +
       Object.keys(groups).map(function(g) {
-        return '<optgroup label="' + escapeHtml(g) + '">' + groups[g].map(function(label) {
-          return '<option value="' + escapeHtml(label) + '">' + escapeHtml(label) + '</option>';
+        return '<optgroup label="' + escapeHtml(g) + '">' + groups[g].map(function(s) {
+          return '<option value="' + escapeHtml(s.value) + '">' + escapeHtml(s.label + (s.price ? ' (' + s.price + ')' : '')) + '</option>';
         }).join('') + '</optgroup>';
       }).join('');
   }
 
-  // Pre-select service if provided (normalized to the canonical label)
+  // Pre-select service if provided (normalized to the canonical value)
   if (serviceName && svcSelect) {
-    svcSelect.value = window.SharedMockUsers
-      ? window.SharedMockUsers.serviceLabel(serviceName)
-      : serviceName;
+    var svcHit = window.SharedMockUsers && window.SharedMockUsers.serviceByValue
+      ? window.SharedMockUsers.serviceByValue(serviceName)
+      : null;
+    svcSelect.value = svcHit ? svcHit.value : serviceName;
   }
 
   _setBookDateConstraints();
@@ -664,6 +704,10 @@ function _renderBookSummary() {
   }
   var petText = petSel && petSel.value ? petSel.options[petSel.selectedIndex].text : '\u2014';
   var svcText = svcSel && svcSel.value ? svcSel.options[svcSel.selectedIndex].text : '\u2014';
+  // Current catalog price for the selected service (shared layer)
+  var svcObj = window.SharedMockUsers && svcSel && svcSel.value && window.SharedMockUsers.serviceByValue
+    ? window.SharedMockUsers.serviceByValue(svcSel.value)
+    : null;
   var dateFormatted = dateVal ? _fmtApptDateShort(dateVal) : '\u2014';
   var user = _getSessionUser();
   var ownerName = ((user.firstName || '') + ' ' + (user.lastName || '')).trim();
@@ -677,6 +721,7 @@ function _renderBookSummary() {
     summary.innerHTML = '<div class="book-summary-title">Booking Summary</div>'
       + '<div class="book-summary-row"><span>Pet</span><span>' + escapeHtml(petText) + '</span></div>'
       + '<div class="book-summary-row"><span>Service</span><span>' + escapeHtml(svcText) + '</span></div>'
+      + (svcObj && svcObj.price ? '<div class="book-summary-row"><span>Service Price</span><span>' + escapeHtml(svcObj.price) + '</span></div>' : '')
       + '<div class="book-summary-row"><span>Date</span><span>' + dateFormatted + '</span></div>'
       + '<div class="book-summary-row"><span>Time</span><span>' + escapeHtml(timeVal || '\u2014') + '</span></div>'
       + (reasonText && reasonText !== '\u2014' ? '<div class="book-summary-row"><span>Notes</span><span>' + escapeHtml(reasonText) + '</span></div>' : '')
@@ -916,12 +961,12 @@ function _finalizeBooking() {
   }
   var _petObj = mockPetsData.find(function(p) { return String(p.id) === String(payload.pet_id); });
   var _user = _getSessionUser();
-  // Canonical service label from the shared catalog (no variants).
-  var _serviceLabel = window.SharedMockUsers
-    ? window.SharedMockUsers.serviceLabel(payload.service)
-    : payload.service;
-  // TODO(BACKEND): persist service_id (payload.service → vet_services FK)
-  // alongside the label once the services table exists.
+  // Store the canonical catalog VALUE (FK-ready). serviceLabel() resolves
+  // the display label on every portal, so records stay readable even if the
+  // service is later renamed, re-priced, or deactivated.
+  var _serviceValue = payload.service;
+  // TODO(BACKEND): persist service_id alongside the value; snapshot
+  // price_at_booking on the appointment at creation time.
 
   // Build one canonical appointment and WRITE THROUGH the shared store so
   // Clerk (and any other reader) sees the same record after refresh.
@@ -932,7 +977,7 @@ function _finalizeBooking() {
     referenceNo: refNo,
     userId: (_user.id || _user.userId || (window.SharedMockUsers ? window.SharedMockUsers.currentUserId : null)),
     petId: payload.pet_id,
-    service: _serviceLabel,
+    service: _serviceValue,
     appointmentDate: payload.appointment_date,
     appointmentTime: payload.appointment_time,
     visitContext: payload.visit_reason,
@@ -2046,6 +2091,11 @@ var mockAppointmentsData = (function () {
     var row = window.AppointmentContract.toLegacyDisplay(
       window.AppointmentContract.fromLegacy(a)
     );
+    // Same label resolution as _syncFromStore: value-stored records display
+    // the current canonical label; label-stored ones pass through unchanged.
+    if (window.SharedMockUsers && window.SharedMockUsers.serviceLabel && row.service) {
+      row.service = window.SharedMockUsers.serviceLabel(row.service) || row.service;
+    }
     row.visit_reason = a.visitContext || '';
     row.notes = a.visitContext || '';
     return row;
@@ -2063,6 +2113,12 @@ function _syncFromStore() {
     .filter(function (a) { return !me || String(a.userId) === String(me); })
     .map(function (a) {
       var row = window.AppointmentContract.toLegacyDisplay(window.AppointmentContract.fromLegacy(a));
+      // Records may store the canonical catalog VALUE; display the current
+      // canonical LABEL. serviceLabel() is idempotent for label-stored
+      // records, so historical data stays readable either way.
+      if (window.SharedMockUsers && window.SharedMockUsers.serviceLabel && row.service) {
+        row.service = window.SharedMockUsers.serviceLabel(row.service) || row.service;
+      }
       row.visit_reason = a.visitContext || '';
       row.custom_visit_reason = a.customVisitContext || '';
       row.notes = a.notes || '';
@@ -3436,6 +3492,10 @@ function initCustomDropdown(selectId, opts) {
 }
 
 document.addEventListener("DOMContentLoaded", () => {
+
+  // Service cards render from the shared catalog (same source as booking)
+  // so the visible grid always matches Admin's current services.
+  _renderServiceCardsFromCatalog();
 
   // ── Virtual keyboard scroll-into-view for mobile inputs ──
   // When the virtual keyboard opens on iOS/Android, ensure the focused

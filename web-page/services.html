@@ -477,6 +477,8 @@
   </div>
 
   <script src="../shared/vhs-ui.js"></script>
+  <script src="../shared/mock-users.js?v=2.10.0"></script>
+  <script src="website-services.js"></script>
   <script src="script.js"></script>
   <script>
   /* ── Service Detail Modal ── */
@@ -504,6 +506,17 @@
     if(m)m.addEventListener('click',function(e){if(e.target===m){m.classList.remove('active');document.body.style.overflow='';}});
     if(bk)bk.addEventListener('click',function(){m.classList.remove('active');document.body.style.overflow='';var lb=document.getElementById('navLoginBtn');if(lb)lb.click();});
   })();
+  </script>
+  <script>
+    // Public services display reads the SAME shared catalog as the portals
+    // (Admin edits surface here after reload). TODO(BACKEND): GET /api/services.
+    (function () {
+      function run() {
+        if (window.VHSWebsiteServices) window.VHSWebsiteServices.enhanceDetailedCards(document);
+      }
+      if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', run);
+      else run();
+    })();
   </script>
 </body>
 </html>

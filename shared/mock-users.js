@@ -9,6 +9,11 @@
 
    TODO(BACKEND): Replace with get_users.php / get_pets.php and a
    services table. The helpers below keep the same call sites.
+
+   v2.10.0 — service edits push through to every consumer (active-only
+   admin/clerk booking lists, User service cards, public website);
+   updateService never wipes a category with a stale/blank value;
+   backend snapshot note (price_at_booking) added at the boundary.
    ============================================================ */
 (function (global) {
   'use strict';
@@ -96,6 +101,9 @@
   // historical appointments keep their stored value/label and stay readable.
   // TODO(BACKEND): serve from a vet_services table (serviceId → FK);
   // status changes become PATCH /api/services/:id/status.
+  // TODO(BACKEND): snapshot the price/service details onto each appointment
+  // at booking time (e.g. price_at_booking) so later catalog edits never
+  // change what a historical appointment actually cost.
   var SERVICES = [
     // Preventive & Wellness
     { serviceId: 1,  value: 'consultation',                        label: 'Consultation',                       group: 'Preventive & Wellness', price: '₱300.00 – ₱2,000.00' },
@@ -341,6 +349,10 @@
     },
     // TODO(BACKEND): PATCH /api/services/:id (label/price/category edits).
     updateService: function (id, fields) {
+      var f = Object.assign({}, fields || {});
+      // Empty category means "unchanged" — never wipe an existing category
+      // (including a custom one) with stale or blank text.
+      if (!f.group) delete f.group;
       var added = SVC_DEMO.added.find(function (s) { return String(s.serviceId) === String(id); });
       if (added) {
         Object.assign(added, fields || {});

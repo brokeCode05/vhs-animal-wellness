@@ -1233,6 +1233,19 @@
     </div>
 
     <script src="../shared/vhs-ui.js"></script>
+    <script src="../shared/mock-users.js?v=2.10.0"></script>
+    <script src="website-services.js"></script>
     <script src="script.js"></script>
+    <script>
+      // Homepage service teasers sync name/price from the SAME shared catalog
+      // as the portals. TODO(BACKEND): GET /api/services.
+      (function () {
+        function run() {
+          if (window.VHSWebsiteServices) window.VHSWebsiteServices.enhanceTeaserCards(document);
+        }
+        if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', run);
+        else run();
+      })();
+    </script>
   </body>
 </html>

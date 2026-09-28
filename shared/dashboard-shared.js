@@ -8,6 +8,10 @@
 
    VHS_TIME_SLOTS is defined in vhs-ui.js.
 
+   v2.10.0 — custom-dropdown change events now bubble (fixes the Admin
+   booking client→pet cascade never firing); admin/clerk booking service
+   lists offer active services only, same as User booking.
+
    ============================================ */
 
 
@@ -213,7 +217,14 @@ function loadAppointments() {
     if (reason) console.warn('loadAppointments fallback to shared mock:', reason);
     var source = (window.SharedMockAppointments ? window.SharedMockAppointments.getAll() : []);
     var all = source.map(function(a) {
-      return window.AppointmentContract ? window.AppointmentContract.toLegacyDisplay(window.AppointmentContract.fromLegacy(a)) : a;
+      var d = window.AppointmentContract ? window.AppointmentContract.toLegacyDisplay(window.AppointmentContract.fromLegacy(a)) : a;
+      // Display the canonical service LABEL; records may store the stable
+      // catalog VALUE (new bookings are FK-ready). serviceLabel() resolves
+      // labels, values, and known legacy variants idempotently.
+      if (window.SharedMockUsers && window.SharedMockUsers.serviceLabel && d.service) {
+        d.service = window.SharedMockUsers.serviceLabel(d.service) || d.service;
+      }
+      return d;
     });
     // Real current LOCAL date for the schedule filter (the store's `today`
     // is a frozen test fixture and must not drive the live dashboard).
@@ -1755,7 +1766,10 @@ function _esc(s) {
 function _renderSharedServiceOptions(selectId) {
   var select = document.getElementById(selectId);
   if (!select || !window.SharedMockUsers) return;
-  var services = window.SharedMockUsers.services();
+  // NEW bookings offer ACTIVE services only — same rule as the User portal.
+  var services = window.SharedMockUsers.activeServices
+    ? window.SharedMockUsers.activeServices()
+    : window.SharedMockUsers.services();
   if (!services.length) return;
   var groups = {};
   services.forEach(function (s) {
@@ -1843,7 +1857,9 @@ function initCustomDropdown(selectId, opts) {
           select.value = opt.value;
           trigger.querySelector('.cd-trigger-text').textContent = opt.text;
           closePanel();
-          select.dispatchEvent(new Event('change'));
+          // Must bubble: portal cascades (client → pet) listen via delegated
+          // document-level change handlers.
+          select.dispatchEvent(new Event('change', { bubbles: true }));
         });
         optionsWrap.appendChild(item);
       });
