@@ -2593,9 +2593,10 @@ function _renderPetCards(pets, grid, dashGrid, petCount) {
   var statPets = document.getElementById('statPets');
   if (statPets) statPets.textContent = pets.length;
 
-  // ── Dashboard quick view (concise preview in the dedicated My Pets
-  //     card language: photo/avatar block, species badge, metadata line,
-  //     one clear View action). All render paths funnel through here.
+  // -- Dashboard quick view - compact echo of the dedicated My Pets
+  //     card: same avatar tile (photo support), name + species badge +
+  //     breed identity row, AGE/WEIGHT stat boxes, one primary View
+  //     action. All render paths funnel through here.
   //     TODO(BACKEND): same pet endpoint as My Pets, limited rows.
   if (dashGrid) {
     dashGrid.innerHTML = pets.length
@@ -2604,21 +2605,22 @@ function _renderPetCards(pets, grid, dashGrid, petCount) {
           var avatar = p.photo
             ? '<img src="' + p.photo + '" alt="' + escapeHtml(p.name) + '">'
             : petEmoji(sp);
-          var meta = [
-            p.breed ? escapeHtml(p.breed) : '',
-            sp ? escapeHtml(sp) : '',
-            p.age ? escapeHtml(String(p.age)) + ' yrs' : ''
-          ].filter(Boolean).join(' \u00b7 ');
           return (
             '<div class="pet-card" style="cursor:pointer" onclick="showSection(\'pets\')">'
-            + '<div class="pet-avatar">' + avatar + '</div>'
-            + '<div class="pet-info" style="flex:1;min-width:0">'
-            + '<div class="pet-name-row"><h3>' + escapeHtml(p.name) + '</h3>'
+            + '<div class="pet-dash-top">'
+            + '<div class="pet-dash-avatar">' + avatar + '</div>'
+            + '<div class="pet-dash-heading">'
+            + '<div class="pet-dash-title"><h3>' + escapeHtml(p.name) + '</h3>'
             + (sp ? '<span class="pet-card-species-badge">' + escapeHtml(sp) + '</span>' : '')
             + '</div>'
-            + (meta ? '<p>' + meta + '</p>' : '')
+            + (p.breed ? '<p class="pet-dash-breed">' + escapeHtml(p.breed) + '</p>' : '')
             + '</div>'
-            + '<button class="btn-small" onclick="event.stopPropagation();showSection(\'pets\')">View</button>'
+            + '</div>'
+            + '<div class="pet-dash-stats">'
+            + '<div class="pet-stat-box"><div class="pet-stat-label">AGE</div><div class="pet-stat-val">' + (p.age ? escapeHtml(String(p.age)) + ' yrs' : '\u2014') + '</div></div>'
+            + '<div class="pet-stat-box"><div class="pet-stat-label">WEIGHT</div><div class="pet-stat-val">' + (p.weight ? escapeHtml(String(p.weight)) + ' kg' : '\u2014') + '</div></div>'
+            + '</div>'
+            + '<div class="pet-dash-footer"><button class="btn-primary pet-dash-view" onclick="event.stopPropagation();showSection(\'pets\')">View</button></div>'
             + '</div>'
           );
         }).join('')

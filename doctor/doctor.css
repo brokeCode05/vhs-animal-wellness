@@ -37,7 +37,7 @@
 body.doctor-portal { line-height: 1.5; }
 /* Page scrolling (not a nested scroll area) for long clinical forms. */
 .doctor-portal .main-wrapper { overflow: visible; }
-.doctor-portal .main-content { overflow: visible; background: var(--accent-bg); }
+.doctor-portal .main-content { overflow: visible; background: #faf8ff; }
 
 /* ===== PAGE HEADER / AVAILABILITY ===== */
 .doctor-portal .page-header { padding: 1.5rem 1.75rem; margin-bottom: 1.25rem; }

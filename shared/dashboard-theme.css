@@ -48,16 +48,25 @@
 }
 
 /* ===== PORTAL ACCENT SYSTEM (Phase 3.2) =====
- * The shared shell (navbar, sidebar, cards, buttons, forms, tables)
- * resolves --accent* from whichever role accent file loads last.
- * --portal-accent* are the semantic, portal-agnostic names for that
- * role color: User purple/lavender, Admin blue/teal/indigo, Doctor
- * dark gold/brown-gold. Portal components should prefer these names
- * so no portal accidentally hardcodes another's hex values.
+ * --accent* resolves from whichever role accent file loads last
+ * (User purple / Admin blue / Doctor gold) and is a SECONDARY accent:
+ * action buttons, selected tabs, focus states, small highlights.
+ * The SHELL — navbar, sidebar, avatars, page surfaces — is shared VHS
+ * violet identity and never follows the role accent (--vhs-shell-*).
  * Semantic state colors (success/danger/warning/info) stay independent
- * of these variables by design — accent is identity, not state.
+ * of both by design — accent is identity, not state.
  */
 :root {
+  /* VHS shell identity — logo violet family, constant across portals.
+   * Sourced from the VHS logo purple (admin reference treatment). */
+  --vhs-shell-deep: #1a0545;
+  --vhs-shell-dark: #452985;
+  --vhs-shell: #563aa4;
+  --vhs-shell-light: #8b5cf6;
+  --vhs-shell-soft: rgba(109, 74, 177, 0.08);
+  --vhs-shell-border: rgba(109, 74, 177, 0.14);
+  --vhs-shell-shadow: rgba(69, 47, 133, 0.32);
+
   --portal-accent: var(--accent);
   --portal-accent-hover: var(--accent-hover);
   --portal-accent-dark: var(--accent-dark);
@@ -164,18 +173,18 @@ h1, h2, h3, h4, h5, h6,
   background: transparent;
 }
 
-/* ===== TOP NAVBAR ===== */
+/* ===== TOP NAVBAR — shared VHS violet shell ===== */
 .top-navbar {
-  background: linear-gradient(135deg, var(--accent-deep) 0%, var(--accent-dark) 45%, var(--accent) 100%);
-  box-shadow: 0 4px 24px var(--accent-shadow);
+  background: linear-gradient(135deg, var(--vhs-shell-deep) 0%, var(--vhs-shell-dark) 40%, var(--vhs-shell) 100%);
+  box-shadow: 0 4px 24px var(--vhs-shell-shadow);
 }
 
 .top-navbar::before {
-  background: radial-gradient(circle, var(--accent-glow) 0%, transparent 70%);
+  background: radial-gradient(circle, rgba(255, 170, 0, 0.12) 0%, transparent 70%);
 }
 
 .top-navbar::after {
-  background: linear-gradient(90deg, transparent, var(--accent-shimmer), rgba(255, 255, 255, 0.55), transparent);
+  background: linear-gradient(90deg, transparent, rgba(255, 170, 0, 0.8), rgba(255, 255, 255, 0.6), transparent);
 }
 
 
@@ -238,10 +247,10 @@ h1, h2, h3, h4, h5, h6,
 .hamburger-menu.active span:nth-child(2) { opacity: 0; }
 .hamburger-menu.active span:nth-child(3) { transform: translateY(-6.5px) rotate(-45deg); }
 
-/* ===== SIDEBAR ===== */
+/* ===== SIDEBAR — shared VHS violet shell ===== */
 .sidebar {
   background: linear-gradient(180deg, #ffffff 0%, #faf8ff 100%);
-  border-right: 1px solid var(--accent-border);
+  border-right: 1px solid var(--vhs-shell-border);
   box-shadow: 4px 0 24px rgba(0, 0, 0, 0.06);
 }
 
@@ -262,9 +271,9 @@ h1, h2, h3, h4, h5, h6,
   width: 64px;
   height: 64px;
   border-radius: 50%;
-  background: linear-gradient(135deg, var(--accent) 0%, var(--accent-light) 100%);
+  background: linear-gradient(135deg, var(--vhs-shell) 0%, var(--vhs-shell-light) 100%);
   border: 3px solid #ffffff;
-  box-shadow: 0 2px 8px var(--accent-shadow);
+  box-shadow: 0 2px 8px var(--vhs-shell-shadow);
   margin-bottom: 0.65rem;
   display: flex;
   align-items: center;
@@ -290,7 +299,7 @@ h1, h2, h3, h4, h5, h6,
 }
 
 .sidebar-user-role {
-  color: var(--accent);
+  color: var(--vhs-shell);
   font-size: 0.7rem;
 }
 
