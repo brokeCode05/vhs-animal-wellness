@@ -71,25 +71,75 @@
     <main class="main-content">
       <div class="page-header">
         <h1>Clinic Settings</h1>
-        <p class="page-subtitle">Clinic-wide operating rules will be managed here.</p>
+        <p class="page-subtitle">Operating configuration used by every booking and scheduling flow</p>
       </div>
 
-      <!-- Placeholder shell: functionality is not built yet (Phase 2).
-           Clean "not implemented" state — no fake data or fake actions. -->
-      <section class="content-section">
-        <div class="placeholder-wrap">
-          <div class="placeholder-icon"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></div>
-          <span class="placeholder-badge">Frontend integration pending</span>
-          <h2 class="placeholder-title">Not yet implemented</h2>
-          <p class="placeholder-text">Clinic-wide operating rules will be managed here. No fake data is shown — functionality arrives with the backend.</p>
-          <ul class="placeholder-list"><li>Clinic hours (weekday / weekend)</li><li>Slot rules and booking window</li><li>Cancellation cutoff and no-show grace period</li><li>Clinic contact information</li></ul>
+      <form id="clinicSettingsForm" onsubmit="submitClinicSettings(event)">
+        <section class="content-section">
+          <h2 class="section-title">Clinic Hours</h2>
+          <p style="font-size:0.8rem;color:#6b7280;margin:0 0 1rem;">Appointment <strong>start</strong> times run from first to last appointment (both inclusive).</p>
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:0.75rem;">
+            <div class="form-group"><label class="form-label">Weekday first appointment (Mon–Fri)</label><input type="time" class="form-input" id="csWeekdayFirst" /></div>
+            <div class="form-group"><label class="form-label">Weekday last appointment (Mon–Fri)</label><input type="time" class="form-input" id="csWeekdayLast" /></div>
+            <div class="form-group"><label class="form-label">Weekend first appointment (Sat–Sun)</label><input type="time" class="form-input" id="csWeekendFirst" /></div>
+            <div class="form-group"><label class="form-label">Weekend last appointment (Sat–Sun)</label><input type="time" class="form-input" id="csWeekendLast" /></div>
+          </div>
+        </section>
+
+        <section class="content-section">
+          <h2 class="section-title">Booking Rules</h2>
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:0.75rem;">
+            <div class="form-group"><label class="form-label">Slot interval (minutes)</label>
+              <select class="form-select" id="csSlotInterval">
+                <option value="30">30 minutes</option>
+                <option value="60">60 minutes</option>
+              </select>
+            </div>
+          </div>
+        </section>
+
+        <section class="content-section">
+          <h2 class="section-title">Appointment Policies</h2>
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:0.75rem;">
+            <div class="form-group"><label class="form-label">Cancellation cutoff (minutes before)</label><input type="number" min="0" step="15" class="form-input" id="csCancelCutoff" /></div>
+            <div class="form-group"><label class="form-label">Reschedule cutoff (minutes before)</label><input type="number" min="0" step="15" class="form-input" id="csReschedCutoff" /></div>
+          </div>
+        </section>
+
+        <section class="content-section">
+          <h2 class="section-title">No-Show Policy</h2>
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:0.75rem;">
+            <div class="form-group"><label class="form-label">No-show grace period (minutes)</label><input type="number" min="0" step="5" class="form-input" id="csNoShowGrace" /></div>
+          </div>
+          <p style="font-size:0.8rem;color:#6b7280;margin:0.5rem 0 0;">
+            Stored as the canonical value for future backend enforcement — no automatic no-show processing happens in this system yet.
+          </p>
+        </section>
+
+        <section class="content-section">
+          <h2 class="section-title">Clinic Contact Information</h2>
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:0.75rem;">
+            <div class="form-group"><label class="form-label">Clinic name</label><input class="form-input" id="csClinicName" /></div>
+            <div class="form-group"><label class="form-label">Phone</label><input class="form-input" id="csPhone" /></div>
+            <div class="form-group"><label class="form-label">Email</label><input type="email" class="form-input" id="csEmail" /></div>
+            <div class="form-group"><label class="form-label">Website</label><input class="form-input" id="csWebsite" /></div>
+          </div>
+          <div class="form-group"><label class="form-label">Address</label><textarea class="form-textarea" rows="2" id="csAddress"></textarea></div>
+        </section>
+
+        <div style="display:flex;gap:0.75rem;margin:1rem 0 2rem;">
+          <button type="submit" class="btn-primary">Save Settings</button>
+          <button type="button" class="btn-secondary" onclick="resetClinicSettingsForm()">Reset Changes</button>
+          <button type="button" class="btn-secondary" onclick="restoreClinicDefaults()">Restore Defaults</button>
         </div>
-      </section>
+      </form>
     </main>
   </div>
 
-  <script src="../shared/vhs-ui.js?v=2.5.0"></script>
-  <script src="../shared/dashboard-shared.js?v=2.8.0"></script>
-  <script src="admin-portal.js?v=2.10.0"></script>
-</body>
-</html>
+  <script src="../shared/vhs-ui.js?v=2.6.0"></script>
+  <script src="../shared/clinic-settings.js?v=1.0.0"></script>
+  <script src="../shared/appointment-contract.js?v=2.5.0"></script>
+  <script src="../shared/mock-users.js?v=2.9.0"></script>
+  <script src="../shared/mock-appointments.js?v=2.8.0"></script>
+  <script src="../shared/dashboard-shared.js?v=2.9.0"></script>
+  <script src="admin-portal.js?v=2.11.0"></script>

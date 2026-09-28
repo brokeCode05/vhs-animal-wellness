@@ -1285,37 +1285,26 @@ function generateWeekView() {
 
     daySlots.push(typeof getVHSTimeSlots === 'function' ? getVHSTimeSlots(ds) : VHS_TIME_SLOTS);
 
-  }
-
-
-
-  // Union of all time slots across the week (to ensure consistent rows)
-
-  var allSlots = [
-
-    { label: '8:00 AM', hour: 8 },
-
-    { label: '9:00 AM', hour: 9 },
-
-    { label: '10:00 AM', hour: 10 },
-
-    { label: '11:00 AM', hour: 11 },
-
-    { label: '12:00 PM', hour: 12 },
-
-    { label: '1:00 PM', hour: 13 },
-
-    { label: '2:00 PM', hour: 14 },
-
-    { label: '3:00 PM', hour: 15 },
-
-    { label: '4:00 PM', hour: 16 },
-
-    { label: '5:00 PM', hour: 17 },
-
-    { label: '6:00 PM', hour: 18 },
-
-  ];
+  }  // Union of all time slots across the week (to ensure consistent rows).
+  // Derived from the shared ClinicSettings generator so Admin-managed hours
+  // and slot intervals drive the week grid (no hardcoded hour list).
+  // TODO(BACKEND): settings arrive with GET /api/clinic-settings.
+  var seen = {};
+  var allSlots = [];
+  daySlots.forEach(function (slots) {
+    slots.forEach(function (label) {
+      if (!seen[label]) { seen[label] = true; allSlots.push({ label: label }); }
+    });
+  });
+  var _slotRank = function (label) {
+    var p = String(label).trim().match(/(\d{1,2}):(\d{2})\s*(AM|PM)/i);
+    if (!p) return 0;
+    var h = parseInt(p[1], 10);
+    if (p[3].toUpperCase() === 'PM' && h !== 12) h += 12;
+    if (p[3].toUpperCase() === 'AM' && h === 12) h = 0;
+    return h * 60 + parseInt(p[2], 10);
+  };
+  allSlots.sort(function (a, b) { return _slotRank(a.label) - _slotRank(b.label); });
 
   // Filter to only hours that at least one day in this week is open
 

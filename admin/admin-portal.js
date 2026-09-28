@@ -1397,3 +1397,256 @@ document.addEventListener("DOMContentLoaded", () => {
     init();
   }
 })();
+// ─── PHASE 3: SERVICES MANAGEMENT + CLINIC SETTINGS ──────────────────────
+// Both pages read/write ONLY the shared layers — no portal-side storage:
+//   Services       → SharedMockUsers service CRUD (persistence lives in
+//                    shared/mock-users.js, storage inside the module)
+//   Clinic config  → VHSClinicSettings (defaults + overrides inside
+//                    shared/clinic-settings.js)
+// TODO(BACKEND): Services → GET/POST/PATCH /api/services(:id)(/status);
+// Clinic Settings → GET /api/clinic-settings + PATCH /api/clinic-settings.
+// The backend will own validation, authorization, historical consistency,
+// and concurrency-sensitive scheduling.
+(function () {
+  'use strict';
+
+  function escS(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+
+  // ══ SERVICES MANAGEMENT PAGE ════════════════════════════════════════════
+  var _svcSearch = '';
+  var _svcCategory = 'all';
+  var _svcStatus = 'all';
+
+  function _serviceCategoryOptions() {
+    var sel = document.getElementById('filterServiceCategory');
+    if (!sel || !window.SharedMockUsers) return;
+    var cats = {};
+    window.SharedMockUsers.services().forEach(function (s) { cats[s.group] = true; });
+    var current = sel.value || 'all';
+    sel.innerHTML = '<option value="all">All Categories</option>' + Object.keys(cats).sort().map(function (c) {
+      return '<option value="' + escS(c) + '">' + escS(c) + '</option>';
+    }).join('');
+    if ([].some.call(sel.options, function (o) { return o.value === current; })) sel.value = current;
+  }
+
+  function _serviceBadge(active) {
+    return active !== false
+      ? '<span class="status-badge completed">Active</span>'
+      : '<span class="status-badge cancelled">Inactive</span>';
+  }
+
+  function renderServicesTable() {
+    var tbody = document.getElementById('servicesTable');
+    if (!tbody || !window.SharedMockUsers) return;
+    var all = window.SharedMockUsers.services();
+    _serviceCategoryOptions();
+    var list = all.filter(function (s) {
+      if (_svcCategory !== 'all' && s.group !== _svcCategory) return false;
+      var inactive = s.active === false;
+      if (_svcStatus === 'active' && inactive) return false;
+      if (_svcStatus === 'inactive' && !inactive) return false;
+      if (_svcSearch && (s.label + ' ' + s.group).toLowerCase().indexOf(_svcSearch) === -1) return false;
+      return true;
+    });
+    tbody.innerHTML = list.length ? list.map(function (s) {
+      var inactive = s.active === false;
+      var inUse = window.SharedMockUsers.serviceInUse(s.value) || window.SharedMockUsers.serviceInUse(s.label);
+      return '<tr data-id="' + s.serviceId + '">' +
+        '<td>#S' + String(s.serviceId).padStart(3, '0') + '</td>' +
+        '<td><strong>' + escS(s.label) + '</strong><br /><span style="font-size:0.75rem;color:#6b7280;">' + escS(s.value) + '</span></td>' +
+        '<td>' + escS(s.group) + '</td>' +
+        '<td>' + escS(s.price || '\u2014') + '</td>' +
+        '<td>' + _serviceBadge(s.active) + '</td>' +
+        '<td class="action-cell">' +
+          '<button class="btn-small btn-edit" onclick="openEditService(' + s.serviceId + ')">Edit</button> ' +
+          (inactive
+            ? '<button class="btn-small btn-success" onclick="toggleServiceStatus(' + s.serviceId + ')">Activate</button>'
+            : '<button class="btn-small btn-danger" onclick="toggleServiceStatus(' + s.serviceId + ')">Deactivate</button>') +
+          (window.SharedMockUsers.canDeleteService && window.SharedMockUsers.canDeleteService(s.serviceId)
+            ? ' <button class="btn-small btn-danger" onclick="deleteUnusedService(' + s.serviceId + ')">Delete</button>'
+            : '') +
+        '</td>' +
+        '</tr>';
+    }).join('') : '<tr><td colspan="6" style="text-align:center;color:#888;">No services match the current filters.</td></tr>';
+  }
+
+  window.openCreateServiceModal = function () {
+    document.getElementById('serviceForm').reset();
+    document.getElementById('serviceIdField').value = '';
+    document.getElementById('serviceModalTitle').textContent = 'Add Service';
+    document.getElementById('svcActive').value = 'active';
+    document.getElementById('serviceModal').classList.add('show');
+  };
+  window.closeServiceModal = function () {
+    document.getElementById('serviceModal').classList.remove('show');
+  };
+  window.openEditService = function (id) {
+    var s = window.SharedMockUsers.serviceById(id);
+    if (!s) { showToast('Service not found.', 'error'); return; }
+    document.getElementById('serviceForm').reset();
+    document.getElementById('serviceIdField').value = s.serviceId;
+    document.getElementById('serviceModalTitle').textContent = 'Edit Service';
+    document.getElementById('svcLabel').value = s.label;
+    var grp = document.getElementById('svcGroup');
+    var known = [].some.call(grp.options, function (o) { return o.value === s.group; });
+    if (known) grp.value = s.group; else grp.value = 'Other';
+    document.getElementById('svcPrice').value = s.price || '';
+    document.getElementById('svcActive').value = s.active === false ? 'inactive' : 'active';
+    document.getElementById('serviceModal').classList.add('show');
+  };
+  window.submitService = function (e) {
+    e.preventDefault();
+    var id = document.getElementById('serviceIdField').value;
+    var fields = {
+      label: document.getElementById('svcLabel').value.trim(),
+      group: document.getElementById('svcGroup').value,
+      price: document.getElementById('svcPrice').value.trim(),
+      active: document.getElementById('svcActive').value !== 'inactive'
+    };
+    if (!fields.label) { showToast('Service name is required.', 'warning'); return; }
+    var result = id
+      ? window.SharedMockUsers.updateService(id, fields)
+      : window.SharedMockUsers.addService(fields);
+    if (!result.ok) {
+      showToast(result.error === 'duplicate'
+        ? 'A service with that name or key already exists.'
+        : 'Could not save the service.', 'error');
+      return;
+    }
+    closeServiceModal();
+    renderServicesTable();
+    showToast(id ? 'Service updated. Existing appointments keep their stored service.' : 'Service added to the catalog.', 'success');
+  };
+  window.toggleServiceStatus = function (id) {
+    var s = window.SharedMockUsers.serviceById(id);
+    if (!s) return;
+    var next = s.active === false;
+    confirmAction(
+      (next ? 'Activate' : 'Deactivate') + ' "' + s.label + '"?' + (next ? '' : ' It will no longer be offered for new bookings; existing appointments are unaffected.'),
+      function () {
+        window.SharedMockUsers.setServiceStatus(id, next);
+        renderServicesTable();
+        showToast('Service ' + (next ? 'activated' : 'deactivated') + '.', 'success');
+      },
+      { title: (next ? 'Activate' : 'Deactivate') + ' Service', danger: !next }
+    );
+  };
+  window.deleteUnusedService = function (id) {
+    var s = window.SharedMockUsers.serviceById(id);
+    if (!s) return;
+    confirmAction('Delete "' + s.label + '" permanently? This is only possible for unused, newly created services.', function () {
+      var r = window.SharedMockUsers.deleteService(id);
+      if (!r.ok) {
+        showToast(r.error === 'in_use' ? 'Service is referenced by appointments — archive it instead.' : 'Service cannot be deleted.', 'error');
+        renderServicesTable();
+        return;
+      }
+      renderServicesTable();
+      showToast('Service deleted.', 'success');
+    }, { title: 'Delete Service', danger: true });
+  };
+
+  function initServicesPage() {
+    if (!document.getElementById('servicesTable')) return;
+    renderServicesTable();
+    document.getElementById('searchServices')?.addEventListener('input', function (e) {
+      _svcSearch = e.target.value.trim().toLowerCase();
+      renderServicesTable();
+    });
+    document.getElementById('filterServiceCategory')?.addEventListener('change', function (e) {
+      _svcCategory = e.target.value;
+      renderServicesTable();
+    });
+    document.getElementById('filterServiceStatus')?.addEventListener('change', function (e) {
+      _svcStatus = e.target.value;
+      renderServicesTable();
+    });
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initServicesPage);
+  } else {
+    initServicesPage();
+  }
+
+  // ══ CLINIC SETTINGS PAGE ════════════════════════════════════════════════
+  function _setField(id, val) { var el = document.getElementById(id); if (el) el.value = val; }
+
+  function populateClinicSettings() {
+    if (!document.getElementById('clinicSettingsForm') || !window.VHSClinicSettings) return;
+    var s = window.VHSClinicSettings.get();
+    _setField('csWeekdayFirst', s.hours.weekday.firstAppointment);
+    _setField('csWeekdayLast', s.hours.weekday.lastAppointment);
+    _setField('csWeekendFirst', s.hours.weekend.firstAppointment);
+    _setField('csWeekendLast', s.hours.weekend.lastAppointment);
+    _setField('csSlotInterval', String(s.slotIntervalMinutes));
+    _setField('csCancelCutoff', s.cancellationCutoffMinutes);
+    _setField('csReschedCutoff', s.rescheduleCutoffMinutes);
+    _setField('csNoShowGrace', s.noShowGraceMinutes);
+    _setField('csClinicName', s.clinicInfo.name);
+    _setField('csPhone', s.clinicInfo.phone);
+    _setField('csEmail', s.clinicInfo.email);
+    _setField('csWebsite', s.clinicInfo.website);
+    _setField('csAddress', s.clinicInfo.address);
+  }
+
+  window.submitClinicSettings = function (e) {
+    e.preventDefault();
+    if (!window.VHSClinicSettings) return;
+    var result = window.VHSClinicSettings.update({
+      hours: {
+        weekday: {
+          firstAppointment: document.getElementById('csWeekdayFirst').value || undefined,
+          lastAppointment: document.getElementById('csWeekdayLast').value || undefined
+        },
+        weekend: {
+          firstAppointment: document.getElementById('csWeekendFirst').value || undefined,
+          lastAppointment: document.getElementById('csWeekendLast').value || undefined
+        }
+      },
+      slotIntervalMinutes: parseInt(document.getElementById('csSlotInterval').value, 10),
+      cancellationCutoffMinutes: parseInt(document.getElementById('csCancelCutoff').value, 10),
+      rescheduleCutoffMinutes: parseInt(document.getElementById('csReschedCutoff').value, 10),
+      noShowGraceMinutes: parseInt(document.getElementById('csNoShowGrace').value, 10),
+      clinicInfo: {
+        name: document.getElementById('csClinicName').value.trim(),
+        phone: document.getElementById('csPhone').value.trim(),
+        email: document.getElementById('csEmail').value.trim(),
+        website: document.getElementById('csWebsite').value.trim(),
+        address: document.getElementById('csAddress').value.trim()
+      }
+    });
+    if (result.ok) {
+      showToast('Clinic settings saved. Booking flows pick these up on their next load.', 'success');
+      populateClinicSettings();
+    } else {
+      showToast('Could not save settings.', 'error');
+    }
+  };
+
+  window.resetClinicSettingsForm = function () {
+    populateClinicSettings();
+    showToast('Unsaved changes discarded.', 'info');
+  };
+
+  window.restoreClinicDefaults = function () {
+    confirmAction('Restore ALL clinic settings to the VHS defaults? Saved customizations will be cleared.', function () {
+      window.VHSClinicSettings.reset();
+      populateClinicSettings();
+      showToast('Clinic settings restored to defaults.', 'success');
+    }, { title: 'Restore Defaults', danger: true });
+  };
+
+  function initClinicSettingsPage() {
+    if (!document.getElementById('clinicSettingsForm')) return;
+    populateClinicSettings();
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initClinicSettingsPage);
+  } else {
+    initClinicSettingsPage();
+  }
+})();

@@ -92,7 +92,10 @@
   // `value` is the stored value on appointments (snake_case, stable for the
   // backend FK); `label` is what every portal displays. Stored service on
   // records may be the label too; serviceLabel() resolves both.
-  // TODO(BACKEND): serve from a vet_services table (serviceId → FK).
+  // `active:false` (set via Admin) removes a service from NEW bookings only;
+  // historical appointments keep their stored value/label and stay readable.
+  // TODO(BACKEND): serve from a vet_services table (serviceId → FK);
+  // status changes become PATCH /api/services/:id/status.
   var SERVICES = [
     // Preventive & Wellness
     { serviceId: 1,  value: 'consultation',                        label: 'Consultation',                       group: 'Preventive & Wellness', price: '₱300.00 – ₱2,000.00' },
@@ -138,6 +141,26 @@
   // TODO(BACKEND): Replace User/Pet profile persistence with User API calls
   // (GET/POST/PUT /users, /pets). This layer is deleted when the API lands.
   var STORE_KEY = 'vhs_mock_users_pets_v1';
+  var SVC_STORE_KEY = 'vhs_mock_services_v1';
+  var SVC_DEMO = (function () {
+    try { return JSON.parse(localStorage.getItem(SVC_STORE_KEY) || '{}') || {}; }
+    catch (e) { return {}; }
+  })();
+  SVC_DEMO.overrides = SVC_DEMO.overrides || {};   // serviceId → partial fields
+  SVC_DEMO.added = SVC_DEMO.added || [];           // Admin-created services
+
+  function _saveServices() {
+    try { localStorage.setItem(SVC_STORE_KEY, JSON.stringify(SVC_DEMO)); } catch (e) { /* storage unavailable */ }
+  }
+
+  // Effective catalog: seeds with overrides applied, then Admin additions.
+  // Canonical serviceIds/keys are never regenerated — seeds keep theirs.
+  function _effectiveServices() {
+    return SERVICES.map(function (s) {
+      var o = SVC_DEMO.overrides[s.serviceId];
+      return o ? Object.assign({}, s, o) : Object.assign({}, s);
+    }).concat(SVC_DEMO.added.map(function (s) { return Object.assign({}, s); }));
+  }
   var DEMO = (function () {
     try { return JSON.parse(localStorage.getItem(STORE_KEY) || '{}') || {}; }
     catch (e) { return {}; }
@@ -269,12 +292,93 @@
       return { ok: true, pet: Object.assign({}, pet) };
     },
 
-    services: function () { return SERVICES.map(function (s) { return Object.assign({}, s); }); },
-    serviceById: function (id) { return byId(SERVICES, 'serviceId', id) ? Object.assign({}, byId(SERVICES, 'serviceId', id)) : null; },
+    services: function () { return _effectiveServices(); },
+    // Active services only — the list every NEW booking offers.
+    activeServices: function () {
+      return _effectiveServices().filter(function (s) { return s.active !== false; });
+    },
+    serviceById: function (id) {
+      var hit = _effectiveServices().find(function (s) { return String(s.serviceId) === String(id); });
+      return hit ? Object.assign({}, hit) : null;
+    },
     serviceByValue: function (value) {
       var v = String(value || '').trim().toLowerCase();
-      var hit = SERVICES.find(function (s) { return s.value === v || s.label.toLowerCase() === v; });
+      var hit = _effectiveServices().find(function (s) { return s.value === v || s.label.toLowerCase() === v; });
       return hit ? Object.assign({}, hit) : null;
+    },
+    // True when the service value/label is referenced by any appointment.
+    // TODO(BACKEND): enforced server-side with FK/integrity checks.
+    serviceInUse: function (valueOrLabel) {
+      if (!window.SharedMockAppointments || !window.SharedMockAppointments.getAll) return false;
+      var target = String(valueOrLabel || '').toLowerCase();
+      return window.SharedMockAppointments.getAll().some(function (a) {
+        var stored = String(a.service || a.serviceValue || '').toLowerCase();
+        return stored === target;
+      });
+    },
+    // ── SERVICE CRUD (Admin Services page; all via this module only) ────
+    // TODO(BACKEND): POST /api/services (name/price/category uniqueness,
+    // validation, and audit history live server-side).
+    addService: function (fields) {
+      var f = fields || {};
+      if (!f.label) return { ok: false, error: 'invalid' };
+      var exists = _effectiveServices().some(function (s) {
+        return s.label.toLowerCase() === String(f.label).toLowerCase() ||
+               String(s.value) === String(f.value || '').toLowerCase();
+      });
+      if (exists) return { ok: false, error: 'duplicate' };
+      var svc = {
+        serviceId: _nextId(_effectiveServices(), 'serviceId'),
+        value: f.value || String(f.label).trim().toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, ''),
+        label: f.label,
+        group: f.group || 'Other',
+        price: f.price || 'Contact us for pricing',
+        active: f.active !== false
+      };
+      SVC_DEMO.added.push(svc);
+      _saveServices();
+      return { ok: true, service: Object.assign({}, svc) };
+    },
+    // TODO(BACKEND): PATCH /api/services/:id (label/price/category edits).
+    updateService: function (id, fields) {
+      var added = SVC_DEMO.added.find(function (s) { return String(s.serviceId) === String(id); });
+      if (added) {
+        Object.assign(added, fields || {});
+      } else {
+        var base = SERVICES.find(function (s) { return String(s.serviceId) === String(id); });
+        if (!base) return { ok: false, error: 'not_found' };
+        SVC_DEMO.overrides[base.serviceId] = Object.assign({}, SVC_DEMO.overrides[base.serviceId] || {}, fields || {});
+      }
+      _saveServices();
+      var hit = this.serviceById(id);
+      return hit ? { ok: true, service: hit } : { ok: false, error: 'not_found' };
+    },
+    // TODO(BACKEND): PATCH /api/services/:id/status — inactive services
+    // disappear from new booking only; history keeps its stored value.
+    setServiceStatus: function (id, active) {
+      return this.updateService(id, { active: active !== false });
+    },
+    // Hard delete only for Admin-created, appointment-unused services.
+    // Canonical seed services are never deletable (referential safety).
+    deleteService: function (id) {
+      var idx = SVC_DEMO.added.findIndex(function (s) { return String(s.serviceId) === String(id); });
+      if (idx === -1) return { ok: false, error: 'not_deletable' };
+      if (this.serviceInUse(SVC_DEMO.added[idx].value) || this.serviceInUse(SVC_DEMO.added[idx].label)) {
+        return { ok: false, error: 'in_use' };
+      }
+      SVC_DEMO.added.splice(idx, 1);
+      _saveServices();
+      return { ok: true };
+    },
+    _resetServices: function () {
+      try { localStorage.removeItem(SVC_STORE_KEY); } catch (e) { /* ignore */ }
+    },
+    // Deletable = Admin-created AND not referenced by any appointment.
+    canDeleteService: function (id) {
+      var added = SVC_DEMO.added.some(function (s) { return String(s.serviceId) === String(id); });
+      if (!added) return false;
+      var svc = this.serviceById(id);
+      return svc ? !(this.serviceInUse(svc.value) || this.serviceInUse(svc.label)) : false;
     },
     // Resolve ANY stored form (value, label, or legacy variant) to the
     // canonical label every portal displays.

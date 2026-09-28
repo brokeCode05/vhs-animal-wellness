@@ -32,6 +32,35 @@ function showSection(name) {
 
   });
 
+  // Clinic Info section reads the shared settings layer so Admin edits
+  // surface here after reload/navigation. HTML keeps the fallback copy.
+  // TODO(BACKEND): served with GET /api/clinic-settings.
+  if (name === 'clinic' && window.VHSClinicSettings) {
+    var info = window.VHSClinicSettings.clinicInfo();
+    var map = { clinicAddress: info.address, clinicPhone: info.phone, clinicEmail: info.email, clinicWebsite: info.website };
+    Object.keys(map).forEach(function (id) {
+      var el = document.getElementById(id);
+      if (el && map[id]) el.textContent = map[id];
+    });
+    var hrs = document.getElementById('clinicHoursList');
+    if (hrs && window.VHSClinicSettings.slotsFor) {
+      var f = window.VHSClinicSettings.hoursFor(1);   // a weekday
+      var w = window.VHSClinicSettings.hoursFor(6);   // a weekend day
+      var fmt = function (t) {
+        var m = String(t).match(/^(\d{1,2}):(\d{2})/);
+        if (!m) return t;
+        var mins = parseInt(m[1], 10) * 60 + parseInt(m[2], 10);
+        var h24 = Math.floor(mins / 60), mm = mins % 60;
+        var ampm = h24 >= 12 ? 'PM' : 'AM';
+        return ((h24 % 12) || 12) + ':' + (mm < 10 ? '0' : '') + mm + ' ' + ampm;
+      };
+      hrs.innerHTML =
+        '<div class="hours-row"><span>Monday \u2013 Friday</span><span class="hours-time">' + fmt(f.firstAppointment) + ' \u2013 ' + fmt(f.lastAppointment) + ' (appointment starts)</span></div>' +
+        '<div class="hours-row"><span>Saturday \u2013 Sunday</span><span class="hours-time">' + fmt(w.firstAppointment) + ' \u2013 ' + fmt(w.lastAppointment) + ' (appointment starts)</span></div>' +
+        '<div class="hours-row holiday"><span>Holidays</span><span class="hours-time">By appointment only</span></div>';
+    }
+  }
+
   closeMobileSidebar();
 
 }
@@ -546,10 +575,15 @@ function openBookModal(serviceName) {
 
   // Service options come from the SHARED catalog so the value stored on the
   // appointment matches Clerk/Doctor displays exactly (no label variants).
+  // Only ACTIVE services are offered for NEW bookings; inactive ones stay
+  // readable on historical records via serviceLabel() resolution.
   var svcSelect = document.getElementById('service_id');
   if (svcSelect && window.SharedMockUsers) {
+    var activeList = window.SharedMockUsers.activeServices
+      ? window.SharedMockUsers.activeServices()
+      : window.SharedMockUsers.services();
     var groups = {};
-    window.SharedMockUsers.services().forEach(function(s) {
+    activeList.forEach(function(s) {
       (groups[s.group] = groups[s.group] || []).push(s.label);
     });
     svcSelect.innerHTML = '<option value="">Choose a service</option>' +
@@ -684,20 +718,22 @@ function _refreshBookSlots() {
   // portal-local copy) so User, Admin, and reschedules never diverge.
   // TODO(BACKEND): slot availability comes from the API's availability check.
   var taken = store ? store.takenSlots(dateVal) : [];
-  var today = new Date().toISOString().split('T')[0];
-  if (dateVal === today) {
+  var today = new Date();
+  var todayStr = today.getFullYear() + '-' + String(today.getMonth() + 1).padStart(2, '0') + '-' + String(today.getDate()).padStart(2, '0');
+  if (dateVal === todayStr) {
+    // Same-day bookable slots = strictly AFTER now (times are STARTS; the
+    // last slot of the day must remain selectable all day).
     var now = new Date();
-    var cutoffHour = now.getHours();
-    var cutoffMin = now.getMinutes();
-    if (cutoffMin > 0) cutoffHour += 1;
+    var nowMins = now.getHours() * 60 + now.getMinutes();
     slots = slots.filter(function(slot) {
       var parts = slot.trim().match(/(\d{1,2}):(\d{2})\s*(AM|PM)/i);
       if (!parts) return true;
       var h = parseInt(parts[1], 10);
+      var m = parseInt(parts[2], 10);
       var ampm = parts[3].toUpperCase();
       if (ampm === 'PM' && h !== 12) h += 12;
       if (ampm === 'AM' && h === 12) h = 0;
-      return h > cutoffHour;
+      return (h * 60 + m) > nowMins;
     });
   }
   if (taken.length) {
@@ -2186,8 +2222,11 @@ function _renderApptList(containerId, appts, mode) {
     var canAct = canonicalStatus === 'confirmed';
     var inClinicFlow = canonicalStatus === 'checked_in' || canonicalStatus === 'in_consultation';
     var within2h = canAct && _isWithinTwoHours(a.date, a.time);
-    var disabledCls = within2h ? ' disabled' : '';
-    var disabledAttr = within2h ? ' disabled' : '';
+    var withinCancel = canAct && _isWithinCancelCutoff(a.date, a.time);
+    var reschedCls = within2h ? ' disabled' : '';
+    var reschedAttr = within2h ? ' disabled' : '';
+    var cancelCls = withinCancel ? ' disabled' : '';
+    var cancelAttr = withinCancel ? ' disabled' : '';
     return (
       '<div class="appt-card">'
       + '<div class="appt-card-header">'
@@ -2203,13 +2242,13 @@ function _renderApptList(containerId, appts, mode) {
       + '<div class="appt-card-service">' + escapeHtml(a.service) + '</div>'
       + (a.notes ? '<div class="appt-card-notes">' + escapeHtml(a.notes) + '</div>' : '')
       + (a.reference_no ? '<div class="appt-card-ref">Ref: ' + escapeHtml(a.reference_no) + '</div>' : '')
-      + (within2h ? '<div class="appt-card-cutoff-note">Within 2-hour window — contact clinic for changes</div>' : '')
+      + (within2h || withinCancel ? '<div class="appt-card-cutoff-note">Within ' + (window.VHSClinicSettings ? window.VHSClinicSettings.cutoffLabel(within2h ? 'reschedule' : 'cancel') : '2 hours') + ' window — contact clinic for changes</div>' : '')
       + (inClinicFlow ? '<div class="appt-card-cutoff-note">' + (canonicalStatus === 'checked_in' ? 'Checked in — please proceed to the front desk.' : 'Consultation in progress.') + '</div>' : '')
       + '</div>'
       + '<div class="appt-card-footer">'
       + (canAct
-        ? '<button class="btn-small' + disabledCls + '" onclick="openRescheduleModal(\'' + a.id + '\')"' + disabledAttr + '>Reschedule</button>'
-        + '<button class="btn-small btn-danger' + disabledCls + '" onclick="openCancelModal(\'' + a.id + '\')"' + disabledAttr + '>Cancel</button>'
+        ? '<button class="btn-small' + reschedCls + '" onclick="openRescheduleModal(\'' + a.id + '\')"' + reschedAttr + '>Reschedule</button>'
+        + '<button class="btn-small btn-danger' + cancelCls + '" onclick="openCancelModal(\'' + a.id + '\')"' + cancelAttr + '>Cancel</button>'
         : '')
       + '<button class="btn-small btn-link" onclick="viewAppt(\'' + a.id + '\')">View Details</button>'
       + '</div>'
@@ -2226,12 +2265,17 @@ function switchApptTab(tab) {
   document.getElementById('apptPast').classList.toggle('active', tab === 'past');
 }
 
-// ─── 2-HOUR CUT-OFF LOGIC ────────────────────────────────────────────────────
+// ─── POLICY CUT-OFF LOGIC (values from shared ClinicSettings) ────────────────
 
-// Returns true if the appointment is within 2 hours of now (or already past)
+// Returns true if the appointment is within the configured cutoff window
+// (default 2 hours; Admin-managed in Clinic Settings) of now, or past.
 function _isWithinTwoHours(dateStr, timeStr) {
   if (!dateStr || !timeStr) return false;
-  // Accepts canonical HH:MM and legacy "10:30 AM" strings.
+  var settings = window.VHSClinicSettings;
+  if (settings && settings.isWithinCutoff) {
+    return settings.isWithinCutoff(dateStr, window.AppointmentContract ? window.AppointmentContract.timeToHHMM(timeStr) : timeStr, 'reschedule');
+  }
+  // Static fallback if the settings module is unavailable.
   var canonical = window.AppointmentContract ? window.AppointmentContract.timeToHHMM(timeStr) : timeStr;
   var parts = String(canonical).trim().match(/^(\d{1,2}):(\d{2})/);
   if (!parts) return false;
@@ -2246,13 +2290,23 @@ function _isWithinTwoHours(dateStr, timeStr) {
   return diffHours <= 2;
 }
 
-// Returns time slots filtered to exclude those within 2 hours of now (same-day only)
+// Cancel eligibility uses the cancellation cutoff (shared setting).
+function _isWithinCancelCutoff(dateStr, timeStr) {
+  var settings = window.VHSClinicSettings;
+  if (settings && settings.isWithinCutoff) {
+    return settings.isWithinCutoff(dateStr, window.AppointmentContract ? window.AppointmentContract.timeToHHMM(timeStr) : timeStr, 'cancel');
+  }
+  return _isWithinTwoHours(dateStr, timeStr);
+}
+
+// Returns time slots filtered to exclude those already past (same-day only).
+// Times are STARTS: the last slot of the day stays selectable all day.
 function _filterPastSlots(slots, dateStr) {
-  var today = new Date().toISOString().split('T')[0];
-  if (dateStr !== today) return slots;
+  var today = new Date();
+  var todayStr = today.getFullYear() + '-' + String(today.getMonth() + 1).padStart(2, '0') + '-' + String(today.getDate()).padStart(2, '0');
+  if (dateStr !== todayStr) return slots;
   var now = new Date();
-  var cutoffHour = now.getHours() + 2;
-  var cutoffMin = now.getMinutes();
+  var nowMins = now.getHours() * 60 + now.getMinutes();
   return slots.filter(function(slot) {
     var parts = slot.trim().match(/(\d{1,2}):(\d{2})\s*(AM|PM)/i);
     if (!parts) return true;
@@ -2261,13 +2315,13 @@ function _filterPastSlots(slots, dateStr) {
     var ampm = parts[3].toUpperCase();
     if (ampm === 'PM' && h !== 12) h += 12;
     if (ampm === 'AM' && h === 12) h = 0;
-    if (h > cutoffHour) return true;
-    if (h === cutoffHour && m > cutoffMin) return true;
-    return false;
+    return (h * 60 + m) > nowMins;
   });
 }
 
 function _showCutoffModal() {
+  var win = document.getElementById('cutoffWindowText');
+  if (win && window.VHSClinicSettings) win.textContent = window.VHSClinicSettings.cutoffLabel('reschedule');
   openModal('cutoffModal');
 }
 
@@ -2429,7 +2483,7 @@ function submitReschedule(e) {
 function openCancelModal(apptId) {
   var appt = mockAppointmentsData.find(function(a) { return a.id === apptId; });
   if (!appt) return;
-  if (_isWithinTwoHours(appt.date, appt.time)) {
+  if (_isWithinCancelCutoff(appt.date, appt.time)) {
     _showCutoffModal();
     return;
   }

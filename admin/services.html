@@ -71,25 +71,86 @@
     <main class="main-content">
       <div class="page-header">
         <h1>Service Management</h1>
-        <p class="page-subtitle">The clinic service catalog and prices will be managed here.</p>
+        <p class="page-subtitle">The canonical VHS service catalog used by every booking flow</p>
       </div>
 
-      <!-- Placeholder shell: functionality is not built yet (Phase 2).
-           Clean "not implemented" state — no fake data or fake actions. -->
       <section class="content-section">
-        <div class="placeholder-wrap">
-          <div class="placeholder-icon"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></div>
-          <span class="placeholder-badge">Frontend integration pending</span>
-          <h2 class="placeholder-title">Not yet implemented</h2>
-          <p class="placeholder-text">The clinic service catalog and prices will be managed here. No fake data is shown — functionality arrives with the backend.</p>
-          <ul class="placeholder-list"><li>Service list backed by the shared catalog (shared/mock-users.js)</li><li>Add / edit services and prices</li><li>Activate / deactivate services</li></ul>
+        <div class="section-header">
+          <h2 class="section-title">Service Catalog</h2>
+          <button class="btn-primary" onclick="openCreateServiceModal()">+ Add Service</button>
         </div>
+        <div class="filter-bar">
+          <input type="search" class="search-input" placeholder="Search by service name..." id="searchServices">
+          <select class="form-select" style="width:auto;" id="filterServiceCategory">
+            <option value="all">All Categories</option>
+          </select>
+          <select class="form-select" style="width:auto;" id="filterServiceStatus">
+            <option value="all">All Statuses</option>
+            <option value="active">Active</option>
+            <option value="inactive">Inactive</option>
+          </select>
+        </div>
+        <div class="table-wrapper">
+          <table class="compact-table" id="servicesTableWrap">
+            <thead id="servicesTableHead">
+              <tr><th>ID</th><th>Service</th><th>Category</th><th>Price</th><th>Status</th><th>Actions</th></tr>
+            </thead>
+            <tbody id="servicesTable">
+              <tr><td colspan="6" style="text-align:center;color:#888;">Loading services…</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p style="font-size:0.8rem;color:#6b7280;margin:0.75rem 0 0;">
+          Inactive services disappear from new bookings but remain readable on historical appointment records.
+          Seed services referenced by appointments cannot be hard-deleted (archive instead).
+        </p>
       </section>
     </main>
   </div>
 
-  <script src="../shared/vhs-ui.js?v=2.5.0"></script>
-  <script src="../shared/dashboard-shared.js?v=2.8.0"></script>
-  <script src="admin-portal.js?v=2.10.0"></script>
-</body>
-</html>
+  <!-- Service Modal (Add / Edit; canonical catalog contract) -->
+  <div class="modal-overlay" id="serviceModal">
+    <div class="modal-content" style="max-width:560px;">
+      <div class="modal-header">
+        <h2 class="modal-title" id="serviceModalTitle">Add Service</h2>
+        <button class="modal-close" onclick="closeServiceModal()">&times;</button>
+      </div>
+      <form id="serviceForm" onsubmit="submitService(event)">
+        <input type="hidden" id="serviceIdField" />
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.75rem;margin-bottom:0.75rem;">
+          <div class="form-group"><label class="form-label">Service Name <span style="color:#ef4444">*</span></label><input class="form-input" id="svcLabel" required /></div>
+          <div class="form-group"><label class="form-label">Category</label>
+            <select class="form-select" id="svcGroup">
+              <option>Preventive &amp; Wellness</option>
+              <option>Diagnostics</option>
+              <option>Surgery &amp; Procedures</option>
+              <option>Pet Care</option>
+              <option>Specialized Care</option>
+              <option>Other</option>
+            </select>
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.75rem;margin-bottom:0.75rem;">
+          <div class="form-group"><label class="form-label">Price (display)</label><input class="form-input" id="svcPrice" placeholder="e.g. ₱300.00 – ₱2,000.00" /></div>
+          <div class="form-group"><label class="form-label">Status</label>
+            <select class="form-select" id="svcActive">
+              <option value="active">Active</option>
+              <option value="inactive">Inactive</option>
+            </select>
+          </div>
+        </div>
+        <div style="display:flex;gap:0.75rem;margin-top:0.5rem;">
+          <button type="submit" class="btn-primary">Save</button>
+          <button type="button" class="btn-secondary" onclick="closeServiceModal()">Cancel</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script src="../shared/vhs-ui.js?v=2.6.0"></script>
+  <script src="../shared/clinic-settings.js?v=1.0.0"></script>
+  <script src="../shared/appointment-contract.js?v=2.5.0"></script>
+  <script src="../shared/mock-users.js?v=2.9.0"></script>
+  <script src="../shared/mock-appointments.js?v=2.8.0"></script>
+  <script src="../shared/dashboard-shared.js?v=2.9.0"></script>
+  <script src="admin-portal.js?v=2.11.0"></script>

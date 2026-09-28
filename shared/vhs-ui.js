@@ -32,13 +32,22 @@ const VHS_HOURS = {
 };
 
 // Return time slots appropriate for a given date string (YYYY-MM-DD).
-// Hourly slots inside that day's open window (slot start < close).
+// Delegates to the canonical ClinicSettings generator (hours + slot
+// interval, last appointment start INCLUSIVE) so every portal follows
+// the same Admin-managed configuration. Falls back to the static list
+// when the settings module is absent (order-independent script loads).
+// TODO(BACKEND): replace with an API availability check per date.
 function getVHSTimeSlots(dateStr) {
+  if (window.VHSClinicSettings && window.VHSClinicSettings.slotsFor) {
+    var slots = window.VHSClinicSettings.slotsFor(dateStr);
+    if (slots.length) return slots;
+    if (dateStr && !isNaN(new Date(dateStr + 'T12:00:00'))) return [];
+  }
   if (!dateStr) return VHS_TIME_SLOTS;
   var d = new Date(dateStr + 'T12:00:00');
   var day = d.getDay();
   var h = VHS_HOURS[day];
-  var slots = [];
+  var slots2 = [];
   var allSlots = [
     { label: '8:00 AM', hour: 8 },
     { label: '9:00 AM', hour: 9 },
@@ -53,9 +62,9 @@ function getVHSTimeSlots(dateStr) {
     { label: '6:00 PM', hour: 18 },
   ];
   allSlots.forEach(function(s) {
-    if (s.hour >= h.open && s.hour < h.close) slots.push(s.label);
+    if (s.hour >= h.open && s.hour <= h.close) slots2.push(s.label);
   });
-  return slots;
+  return slots2;
 }
 
 // ── TOAST ──────────────────────────────────────────────────────────────────
