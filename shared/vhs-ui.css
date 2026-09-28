@@ -37,7 +37,7 @@
   border-radius: 0.875rem;
   background: #ffffff;
   box-shadow: 0 8px 32px rgba(0,0,0,0.14), 0 2px 8px rgba(0,0,0,0.08);
-  border-left: 4px solid #6d4ab1;
+  border-left: 4px solid #6546A8;
   pointer-events: all;
   animation: toastSlideIn 0.35s cubic-bezier(0.34,1.56,0.64,1) both;
   position: relative;
@@ -184,7 +184,7 @@
 .vhs-modal-accent.success { background: linear-gradient(90deg, #10b981, #34d399); }
 .vhs-modal-accent.error   { background: linear-gradient(90deg, #ef4444, #f87171); }
 .vhs-modal-accent.info    { background: linear-gradient(90deg, #3b82f6, #60a5fa); }
-.vhs-modal-accent.prompt  { background: linear-gradient(90deg, #6d4ab1, #8b5cf6); }
+.vhs-modal-accent.prompt  { background: linear-gradient(90deg, #3C1F78, #6546A8); }
 .vhs-modal-accent.underwork { background: linear-gradient(90deg, #64748b, #94a3b8); }
 
 .vhs-modal-body {
@@ -237,8 +237,8 @@
   outline: none;
 }
 .vhs-modal-input:focus {
-  border-color: #6d4ab1;
-  box-shadow: 0 0 0 3px rgba(109,74,177,0.12);
+  border-color: #6546A8;
+  box-shadow: 0 0 0 3px rgba(101,70,168,0.12);
   background: #fff;
 }
 
@@ -263,11 +263,11 @@
   max-width: 160px;
 }
 .vhs-btn-primary {
-  background: linear-gradient(135deg, #6d4ab1, #8b5cf6);
+  background: linear-gradient(135deg, #6546A8, #3C1F78);
   color: #fff;
-  box-shadow: 0 4px 12px rgba(109,74,177,0.3);
+  box-shadow: 0 4px 12px rgba(60,31,120,0.3);
 }
-.vhs-btn-primary:hover { transform: translateY(-1px); box-shadow: 0 6px 16px rgba(109,74,177,0.4); }
+.vhs-btn-primary:hover { transform: translateY(-1px); box-shadow: 0 6px 16px rgba(60,31,120,0.38); }
 .vhs-btn-primary:active { transform: translateY(0); }
 
 .vhs-btn-confirm {

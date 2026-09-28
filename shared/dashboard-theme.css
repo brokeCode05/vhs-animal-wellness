@@ -57,15 +57,22 @@
  * of both by design — accent is identity, not state.
  */
 :root {
-  /* VHS shell identity — logo violet family, constant across portals.
-   * Sourced from the VHS logo purple (admin reference treatment). */
-  --vhs-shell-deep: #1a0545;
-  --vhs-shell-dark: #452985;
-  --vhs-shell: #563aa4;
-  --vhs-shell-light: #8b5cf6;
-  --vhs-shell-soft: rgba(109, 74, 177, 0.08);
-  --vhs-shell-border: rgba(109, 74, 177, 0.14);
-  --vhs-shell-shadow: rgba(69, 47, 133, 0.32);
+  /* VHS shell identity — shared brand violet, constant across portals.
+   * Deep violet #3C1F78 / rich violet #6546A8 (VHS logo family). */
+  --vhs-shell-deep: #241356;
+  --vhs-shell-dark: #3C1F78;
+  --vhs-shell: #6546A8;
+  --vhs-shell-light: #8a6bd0;
+  --vhs-shell-soft: rgba(60, 31, 120, 0.06);
+  --vhs-shell-border: rgba(60, 31, 120, 0.14);
+  --vhs-shell-shadow: rgba(36, 19, 86, 0.28);
+
+  /* Shared neutral surfaces — content readability layer. */
+  --vhs-neutral-bg: #F7F7FA;
+  --vhs-neutral-surface: #FFFFFF;
+  --vhs-neutral-text: #242033;
+  --vhs-neutral-muted: #756F82;
+  --vhs-neutral-border: #E5E1EC;
 
   --portal-accent: var(--accent);
   --portal-accent-hover: var(--accent-hover);
@@ -155,8 +162,8 @@
 /* ===== BASE ===== */
 body {
   font-family: "Nunito", "Segoe UI", sans-serif;
-  background: linear-gradient(180deg, #fdf9ff 0%, #f3ecfa 100%);
-  color: #3b2d4a;
+  background: var(--vhs-neutral-bg);
+  color: var(--vhs-neutral-text);
 }
 
 h1, h2, h3, h4, h5, h6,
@@ -175,16 +182,17 @@ h1, h2, h3, h4, h5, h6,
 
 /* ===== TOP NAVBAR — shared VHS violet shell ===== */
 .top-navbar {
-  background: linear-gradient(135deg, var(--vhs-shell-deep) 0%, var(--vhs-shell-dark) 40%, var(--vhs-shell) 100%);
+  background: linear-gradient(135deg, var(--vhs-shell-deep) 0%, var(--vhs-shell-dark) 45%, var(--vhs-shell) 100%);
   box-shadow: 0 4px 24px var(--vhs-shell-shadow);
 }
 
 .top-navbar::before {
-  background: radial-gradient(circle, rgba(255, 170, 0, 0.12) 0%, transparent 70%);
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.06) 0%, transparent 70%);
 }
 
 .top-navbar::after {
-  background: linear-gradient(90deg, transparent, rgba(255, 170, 0, 0.8), rgba(255, 255, 255, 0.6), transparent);
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.35), transparent);
+  animation: none;
 }
 
 
@@ -378,8 +386,8 @@ h1, h2, h3, h4, h5, h6,
 
 /* ===== CONTENT SECTIONS ===== */
 .content-section {
-  background: #ffffff;
-  border: 1px solid var(--accent-border);
+  background: var(--vhs-neutral-surface);
+  border: 1px solid var(--vhs-neutral-border);
   border-radius: 1rem;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
   position: relative;
@@ -410,7 +418,7 @@ h1, h2, h3, h4, h5, h6,
 }
 
 .page-header h1 {
-  color: #3b2d4a;
+  color: var(--vhs-neutral-text);
 }
 
 .page-subtitle {
@@ -419,19 +427,19 @@ h1, h2, h3, h4, h5, h6,
 
 /* ===== TABLES ===== */
 .table-wrapper {
-  border: 1px solid var(--accent-border);
+  border: 1px solid var(--vhs-neutral-border);
   border-radius: 0.875rem;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.04);
   overflow: hidden;
 }
 
 .compact-table thead {
-  background: linear-gradient(135deg, var(--accent-bg) 0%, var(--accent-bg-2) 100%);
+  background: var(--vhs-neutral-bg, #F7F7FA);
 }
 
 .compact-table th {
-  color: var(--accent-dark);
-  border-bottom: 2px solid var(--accent-border);
+  color: var(--vhs-neutral-text, #242033);
+  border-bottom: 2px solid var(--vhs-neutral-border, #E5E1EC);
   font-size: 0.75rem;
   font-weight: 700;
 }
@@ -731,7 +739,7 @@ h1, h2, h3, h4, h5, h6,
 
 .pet-full-card::before,
 .service-card-user::before {
-  background: linear-gradient(90deg, var(--accent), var(--accent-light));
+  background: var(--vhs-shell);
 }
 
 .pet-full-card:hover,
@@ -863,7 +871,7 @@ h1, h2, h3, h4, h5, h6,
   width: 2.5rem;
   height: 3px;
   border-radius: 3px;
-  background: linear-gradient(90deg, var(--accent), var(--accent-light));
+  background: var(--vhs-shell, #6546A8);
   transition: width 0.3s ease;
 }
 
@@ -889,12 +897,12 @@ h1, h2, h3, h4, h5, h6,
   border-bottom: none;
 }
 
-/* Empty-state table row */
+/* Empty-state table row - neutral muted on every portal */
 .compact-table .empty-row td,
 .compact-table tr td[colspan] {
   padding: 2.5rem 1rem;
   text-align: center;
-  color: var(--accent-dark) !important;
+  color: var(--vhs-neutral-muted, #756F82) !important;
   font-weight: 600;
   font-size: 0.95rem;
   letter-spacing: 0.01em;
@@ -1277,10 +1285,10 @@ body.modal-open {
 .form-select optgroup {
   font-weight: 700;
   font-size: 0.8rem;
-  color: var(--accent-dark);
-  background: var(--accent-bg);
+  color: var(--vhs-shell);
+  background: var(--vhs-neutral-bg);
   padding: 0.5rem 0.6rem;
-  border-top: 1px solid var(--accent-border);
+  border-top: 1px solid var(--vhs-neutral-border);
 }
 
 .form-select option {

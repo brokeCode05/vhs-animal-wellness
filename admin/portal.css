@@ -11,52 +11,46 @@
    No redesign, no glassmorphism, no decorative clutter.
    ============================================================ */
 
-@import url('./admin-style.css');
+@import url('./admin-style.css?v=3.4.2');
 
 /* ── Temporary Admin accent (blue/indigo, VHS-compatible) ───────── */
 :root {
-  --accent: #3977b4;
-  --accent-dark: #2d5f94;
-  --accent-deep: #234a73;
-  --accent-light: #8ab4e3;
-  --accent-hover: #4a87c6;
-  --accent-hover-dark: #33689c;
-  /* Phase 3.2: semantic portal-accent names (shared grammar; the
-     blue/indigo family is the Admin role accent). */
-  --portal-accent: var(--accent);
-  --portal-accent-hover: var(--accent-hover);
-  --portal-accent-dark: var(--accent-dark);
-  --portal-accent-soft: var(--accent-soft);
-  --portal-accent-border: var(--accent-border);
-  --portal-accent-text: var(--accent-dark);
-  --portal-accent-focus: var(--accent-soft);
-  --accent-soft: rgba(57, 119, 180, 0.13);
-  --accent-soft-2: rgba(45, 95, 148, 0.09);
-  --accent-border: rgba(45, 95, 148, 0.16);
-  --accent-shadow: rgba(35, 74, 115, 0.28);
-  --accent-glow: rgba(138, 180, 227, 0.18);
-  --accent-shimmer: rgba(219, 233, 246, 0.85);
-  --accent-bg: #eef4fa;
-  --accent-bg-2: #e1ecf6;
-  --accent-bg-3: #f6fafd;
-  --accent-bg-4: #edf4fb;
-  --accent-badge-bg: #dbe9f6;
-  --accent-badge-bg-2: #c9def0;
-  --accent-badge-border: #a3c8e8;
-  --accent-sched-bg: #e7f0f9;
-  --accent-sched-bg-2: #d8e7f5;
+  /* Admin role accent - teal-blue #2F8098 family (secondary accent:
+     check-in/action controls, editable controls, filters, focus).
+     Shell stays VHS violet. */
+  --accent: #2F8098;
+  --accent-dark: #236374;
+  --accent-deep: #1B4A58;
+  --accent-light: #7FB8C6;
+  --accent-hover: #3A93AC;
+  --accent-hover-dark: #2A7080;
+  --accent-soft: rgba(47, 128, 152, 0.12);
+  --accent-soft-2: rgba(35, 99, 116, 0.09);
+  --accent-border: rgba(35, 99, 116, 0.18);
+  --accent-shadow: rgba(27, 74, 88, 0.28);
+  --accent-glow: rgba(127, 184, 198, 0.18);
+  --accent-shimmer: rgba(215, 233, 238, 0.85);
+  --accent-bg: #eef5f7;
+  --accent-bg-2: #e2edf0;
+  --accent-bg-3: #f5fafb;
+  --accent-bg-4: #e8f1f4;
+  --accent-badge-bg: #d9e9ee;
+  --accent-badge-bg-2: #c6dde4;
+  --accent-badge-border: #9cc4cf;
+  --accent-sched-bg: #e4eff2;
+  --accent-sched-bg-2: #d5e5ea;
 }
 
 /* Buttons follow the indigo accent (match the accent pattern used
    by the other portals; gradients only, no glow). */
 .btn-primary {
-  background: linear-gradient(135deg, #3977b4 0%, #2d5f94 100%) !important;
+  background: linear-gradient(135deg, #2F8098 0%, #236374 100%) !important;
   color: white !important;
-  box-shadow: 0 4px 14px rgba(57, 119, 180, 0.3) !important;
+  box-shadow: 0 4px 14px rgba(47, 128, 152, 0.3) !important;
 }
 .btn-primary:hover {
-  background: linear-gradient(135deg, #4a87c6 0%, #3977b4 100%) !important;
-  box-shadow: 0 6px 20px rgba(57, 119, 180, 0.4) !important;
+  background: linear-gradient(135deg, #3A93AC 0%, #2F8098 100%) !important;
+  box-shadow: 0 6px 20px rgba(47, 128, 152, 0.38) !important;
 }
 .btn-secondary {
   background: #ffffff !important;
@@ -226,11 +220,11 @@
   background: var(--accent-bg);
 }
 .btn-small.btn-edit:hover {
-  background: linear-gradient(135deg, #3977b4 0%, #2d5f94 100%);
+  background: linear-gradient(135deg, #2F8098 0%, #236374 100%);
   color: #ffffff;
   border-color: transparent;
   transform: none;
-  box-shadow: 0 3px 10px rgba(57, 119, 180, 0.3);
+  box-shadow: 0 3px 10px rgba(47, 128, 152, 0.3);
 }
 .btn-small.btn-success {
   color: #15803d;

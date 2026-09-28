@@ -4,38 +4,40 @@
    ============================================================ */
 
 :root {
-  --accent: #6d4ab1;
-  --accent-dark: #563aa4;
-  --accent-deep: #452f85;
-  --accent-light: #a78bfa;
-  --accent-hover: #7c59c4;
-  --accent-hover-dark: #6146a0;
-  --accent-soft: rgba(109, 74, 177, 0.12);
-  --accent-soft-2: rgba(86, 58, 164, 0.08);
-  --accent-border: rgba(86, 58, 164, 0.16);
-  --accent-shadow: rgba(69, 47, 133, 0.32);
-  --accent-glow: rgba(167, 139, 250, 0.16);
-  --accent-shimmer: rgba(215, 205, 250, 0.85);
-  --accent-bg: #f3eefc;
-  --accent-bg-2: #ebe3fa;
-  --accent-bg-3: #faf8ff;
-  --accent-bg-4: #f4f0fd;
-  --accent-badge-bg: #ece5fb;
-  --accent-badge-bg-2: #ded2f8;
-  --accent-badge-border: #c3b3ef;
-  --accent-sched-bg: #f0eafc;
-  --accent-sched-bg-2: #e6ddf9;
+  /* User role accent - lavender-purple #7757D9 family (secondary accent:
+     actions, tabs, focus, small highlights). Shell stays VHS violet. */
+  --accent: #7757D9;
+  --accent-dark: #5C3FB8;
+  --accent-deep: #4A31A0;
+  --accent-light: #a58ae8;
+  --accent-hover: #8568e0;
+  --accent-hover-dark: #6a4cc4;
+  --accent-soft: rgba(119, 87, 217, 0.12);
+  --accent-soft-2: rgba(92, 63, 184, 0.08);
+  --accent-border: rgba(92, 63, 184, 0.18);
+  --accent-shadow: rgba(74, 49, 160, 0.3);
+  --accent-glow: rgba(165, 138, 232, 0.16);
+  --accent-shimmer: rgba(219, 210, 248, 0.85);
+  --accent-bg: #f4f1fc;
+  --accent-bg-2: #ece7fa;
+  --accent-bg-3: #faf9fe;
+  --accent-bg-4: #f1edfc;
+  --accent-badge-bg: #eae4f9;
+  --accent-badge-bg-2: #dcd2f4;
+  --accent-badge-border: #c3b4ec;
+  --accent-sched-bg: #f0ecfb;
+  --accent-sched-bg-2: #e5def8;
 }
 
 /* Button overrides — match purple accent */
 .btn-primary {
-  background: linear-gradient(135deg, #8b5cf6 0%, #6d4ab1 100%) !important;
+  background: linear-gradient(135deg, #7757D9 0%, #5C3FB8 100%) !important;
   color: white !important;
-  box-shadow: 0 4px 14px rgba(109, 74, 177, 0.3) !important;
+  box-shadow: 0 4px 14px rgba(92, 63, 184, 0.3) !important;
 }
 .btn-primary:hover {
-  background: linear-gradient(135deg, #9a6ff8 0%, #8b5cf6 100%) !important;
-  box-shadow: 0 6px 20px rgba(109, 74, 177, 0.4) !important;
+  background: linear-gradient(135deg, #8568e0 0%, #7757D9 100%) !important;
+  box-shadow: 0 6px 20px rgba(92, 63, 184, 0.38) !important;
 }
 .btn-secondary {
   background: #ffffff !important;

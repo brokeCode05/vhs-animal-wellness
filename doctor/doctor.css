@@ -9,35 +9,36 @@
    rings, and transitions come from the shared system.
    ============================================================ */
 :root {
-  /* Doctor gold accent family — mapped through --portal-accent* in
-     shared/dashboard-theme.css. All text/identity tones pass WCAG AA
-     on white (~#8b5422 is the darkest workhorse). */
-  --accent: #8b6f1f;
-  --accent-dark: #8b5422;
-  --accent-deep: #6f430e;
-  --accent-light: #d9b452;
-  --accent-hover: #a07717;
-  --accent-hover-dark: #6f4310;
-  --accent-soft: rgba(139, 111, 31, 0.13);
-  --accent-soft-2: rgba(139, 84, 34, 0.08);
-  --accent-border: rgba(139, 84, 34, 0.18);
-  --accent-shadow: rgba(111, 67, 14, 0.28);
-  --accent-bg: #f9f6ec;
-  --accent-bg-2: #f2ecd9;
+  /* Doctor role accent - warm gold #B98522 family, restrained (secondary
+     accent: Start Consultation, active clinical nav, thin highlights).
+     Text/actions use the darker #8F6512 / #7A570F tones for WCAG AA on
+     white; never light gold text on white. Shell stays VHS violet. */
+  --accent: #B98522;
+  --accent-dark: #8F6512;
+  --accent-deep: #6F4E0D;
+  --accent-light: #D9A94E;
+  --accent-hover: #A0741B;
+  --accent-hover-dark: #7A570F;
+  --accent-soft: rgba(185, 133, 34, 0.12);
+  --accent-soft-2: rgba(143, 101, 18, 0.08);
+  --accent-border: rgba(143, 101, 18, 0.2);
+  --accent-shadow: rgba(111, 78, 13, 0.26);
+  --accent-bg: #faf6ec;
+  --accent-bg-2: #f3ecd9;
   --accent-bg-3: #fcfaf3;
-  --accent-bg-4: #f7f3e7;
-  --accent-badge-bg: #f4eeda;
-  --accent-badge-bg-2: #ece2c6;
-  --accent-badge-border: #d9c68c;
+  --accent-bg-4: #f7f2e4;
+  --accent-badge-bg: #f4ecd7;
+  --accent-badge-bg-2: #ecdfc0;
+  --accent-badge-border: #d9c489;
   --doctor-motion: 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-  --doctor-border: #e7e0d2;
-  --doctor-muted: #6c6078;
+  --doctor-border: #E5E1EC;
+  --doctor-muted: #756F82;
 }
 
 body.doctor-portal { line-height: 1.5; }
 /* Page scrolling (not a nested scroll area) for long clinical forms. */
 .doctor-portal .main-wrapper { overflow: visible; }
-.doctor-portal .main-content { overflow: visible; background: #faf8ff; }
+.doctor-portal .main-content { overflow: visible; background: var(--vhs-neutral-bg, #F7F7FA); }
 
 /* ===== PAGE HEADER / AVAILABILITY ===== */
 .doctor-portal .page-header { padding: 1.5rem 1.75rem; margin-bottom: 1.25rem; }
@@ -62,13 +63,16 @@ body.doctor-portal { line-height: 1.5; }
 .helper { color: var(--doctor-muted); font-size: 0.875rem; }
 .section-intro { margin: 0 0 1rem; }
 
-/* ===== PATIENT QUEUE — clinic list (Clerk compact-table pattern) ===== */
-/* Table wrapper/thead/row styles come from admin + shared styles, like Clerk. */
+/* ===== PATIENT QUEUE - clinic list (Clerk compact-table pattern) ===== */
+/* Table wrapper/thead/row styles come from admin + shared styles, like Clerk.
+   Queue header stays NEUTRAL - gold is reserved for actions/active states. */
+.doctor-portal .compact-table thead { background: var(--vhs-neutral-bg, #F7F7FA); }
+.doctor-portal .compact-table th { color: var(--vhs-neutral-text, #242033); border-bottom: 2px solid var(--vhs-neutral-border, #E5E1EC); }
 .patient-queue td { padding: 0.8rem 1rem; vertical-align: middle; white-space: nowrap; }
 .patient-queue td.q-service { white-space: normal; min-width: 9rem; }
 .queue-row { cursor: pointer; transition: background-color 0.2s ease, box-shadow 0.2s ease; }
-.q-time { font-size: 0.85rem; font-weight: 700; color: var(--accent-hover-dark); font-variant-numeric: tabular-nums; }
-.q-name { font-size: 0.9375rem; font-weight: 800; color: #3b2d4a; }
+.q-time { font-size: 0.85rem; font-weight: 700; color: var(--doctor-muted); font-variant-numeric: tabular-nums; }
+.q-name { font-size: 0.9375rem; font-weight: 800; color: var(--vhs-neutral-text, #242033); }
 .q-owner, .q-service { font-size: 0.875rem; color: var(--doctor-muted); overflow: hidden; text-overflow: ellipsis; max-width: 11rem; }
 .queue-row:hover { background: #fafbfc; }
 .queue-row[aria-pressed='true'] { background: var(--accent-soft); box-shadow: inset 3px 0 0 var(--accent); }
@@ -246,7 +250,7 @@ input[type='checkbox'] { width: 17px; height: 17px; accent-color: var(--accent-d
 }
 
 /* ===== FORM CONTROLS — shared system styling ===== */
-.doctor-portal .form-label { margin-bottom: 0.4rem; font-weight: 700; font-size: 0.9rem; color: var(--accent-hover-dark); }
+.doctor-portal .form-label { margin-bottom: 0.4rem; font-weight: 700; font-size: 0.9rem; color: var(--vhs-neutral-text, #242033); }
 .doctor-portal .form-input, .doctor-portal .form-select, .doctor-portal .form-textarea {
   border: 1.5px solid var(--accent-border); background: #fffdfe; color: #3b2d4a;
   border-radius: 0.625rem; padding: 0.65rem 0.75rem; font-size: 1rem; line-height: 1.5; min-width: 0;
@@ -266,7 +270,7 @@ input[type='checkbox'] { width: 17px; height: 17px; accent-color: var(--accent-d
   min-height: 44px; white-space: normal; line-height: 1.4; cursor: pointer;
   transition: all var(--doctor-motion); -webkit-tap-highlight-color: transparent;
 }
-.doctor-portal .btn-primary { background: linear-gradient(135deg, var(--accent) 0%, var(--accent-dark) 100%); color: #ffffff; box-shadow: 0 4px 14px var(--accent-shadow); }
+.doctor-portal .btn-primary { background: linear-gradient(135deg, #A0741B 0%, #8F6512 100%); color: #ffffff; box-shadow: 0 4px 14px var(--accent-shadow); }
 .doctor-portal .btn-secondary { background: #ffffff; color: #475569; border: 1.5px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06); }
 .doctor-portal button:disabled { background: #f8fafc; color: #94a3b8; border-color: #e2e8f0; box-shadow: none; cursor: not-allowed; transform: none; }
 
