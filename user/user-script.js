@@ -3949,3 +3949,56 @@ if (chatbotInput) {
 
 })();
 
+// ============================================================
+// PHASE 5: MY DOCUMENTS - scoped finalized client-facing documents.
+// Reads ONLY the signed-in user's documents via
+// SharedDocuments.forUser(currentUser). No cross-user leakage.
+// TODO(BACKEND): GET /documents?user_id=me returns the scoped list.
+// ============================================================
+function _currentUserIdSafe() {
+  var u = _getSessionUser();
+  return u.id || u.userId || (window.SharedMockUsers ? window.SharedMockUsers.currentUserId : '');
+}
+
+function _renderUserDocuments() {
+  var list = document.getElementById('userDocsList');
+  if (!list || !window.SharedDocuments) return;
+  var docs = window.SharedDocuments.forUser(_currentUserIdSafe());
+  if (!docs.length) {
+    list.innerHTML = '<div class="appt-empty"><p>No documents yet. Documents are issued when the veterinarian completes a consultation.</p></div>';
+    return;
+  }
+  list.innerHTML = docs.map(function (d) {
+    var typeLabel = window.SharedDocuments.typeLabel(d.type);
+    var when = new Date(d.issuedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    return '<div class="appt-card">'
+      + '<div class="appt-card-header"><span class="appt-datetime">' + when + '</span>'
+      + '<span class="status-badge info" style="text-transform:none;">' + typeLabel + '</span></div>'
+      + '<div class="appt-card-body">'
+      + '<div class="appt-card-pet"><div class="appt-pet-avatar">' + petEmoji('doc') + '</div>'
+      + '<div><div class="appt-pet-name">' + (d.petName || '') + '</div>'
+      + '<div class="appt-pet-breed">Ref: ' + (d.referenceNo || '') + (d.service ? ' · ' + d.service : '') + '</div></div></div>'
+      + '</div>'
+      + '<div class="appt-card-footer"><button class="btn-small btn-link" onclick="openUserDocument(\'' + d.docId + '\')">View Document</button></div>'
+      + '</div>';
+  }).join('');
+}
+
+window.openUserDocument = function (docId) {
+  var docs = window.SharedDocuments.forUser(_currentUserIdSafe());
+  // Ownership re-check at render time: only own documents are viewable.
+  var d = docs.find(function (x) { return x.docId === docId; });
+  if (!d || !window.SharedDocumentRender) return;
+  document.getElementById('userDocViewerBody').innerHTML = window.SharedDocumentRender.render(d);
+  document.getElementById('userDocPrint').onclick = function () { window.print(); }; // TODO(BACKEND): server-side PDF.
+  openModal('userDocViewerModal');
+};
+
+window.closeUserDocViewer = function () { closeModal('userDocViewerModal'); };
+
+// Re-render on section entry and after bookings refresh.
+var _origShowSection = window.showSection;
+window.showSection = function (name) {
+  if (_origShowSection) _origShowSection(name);
+  if (name === 'documents') _renderUserDocuments();
+};

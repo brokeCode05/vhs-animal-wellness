@@ -319,3 +319,23 @@
     margin-bottom: 0.1rem;
   }
 }
+/* ===== APPOINTMENT DETAILS (Phase 5): narrow-width usability =====
+   Check In / Reschedule / Cancel stack full-width below 480px so
+   they stay readable and reachable; long detail values wrap. */
+@media (max-width: 480px) {
+  #appointmentDetailsActions {
+    flex-direction: column;
+  }
+  #appointmentDetailsActions .btn-primary,
+  #appointmentDetailsActions .btn-small,
+  #appointmentDetailsActions .btn-secondary {
+    width: 100%;
+    text-align: center;
+  }
+  #appointmentDetailsBody > div > div {
+    flex-wrap: wrap;
+  }
+  #appointmentDetailsBody span:last-child {
+    word-break: break-word;
+  }
+}

@@ -581,6 +581,15 @@
     draft.durationMinutes = durationBetween(draft.startedAt, draft.completedAt);
     draft.saved = true;
     draft.updatedAt = draft.completedAt;
+    // Phase 5: finalization creates the client-facing documents
+    // (summary, prescription, lab request). Internal SOAP narrative
+    // stays Doctor-only and is never stored in the shared layer.
+    // TODO(BACKEND): the consultation API performs this fan-out in the
+    // completion transaction instead of the frontend.
+    if (window.SharedDocuments && selectedPatient.appointmentId) {
+      const _rec = window.SharedMockAppointments ? window.SharedMockAppointments.byId(selectedPatient.appointmentId) : null;
+      if (_rec) window.SharedDocuments.finalizeFromConsultation(buildConsultation(selectedPatient), _rec);
+    }
     // Immediate terminal state: the primary button becomes a non-interactive
     // confirmation (no second completion attempt); View Clinical Document
     // remains available in the record actions.

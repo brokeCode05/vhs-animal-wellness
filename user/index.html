@@ -94,6 +94,15 @@
           <a
             href="#"
             class="nav-item"
+            data-section="documents"
+            onclick="showSection('documents')"
+          >
+            <span class="icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></span>
+            <span class="label">My Documents</span>
+          </a>
+          <a
+            href="#"
+            class="nav-item"
             data-section="profile"
             onclick="showSection('profile')"
           >
@@ -557,6 +566,33 @@
             <!-- Rendered by user-script.js from the shared service catalog
                  (shared/mock-users.js) so Admin edits surface here after
                  reload/navigation. TODO(BACKEND): GET /api/services. -->
+          </div>
+        </section>
+        <section id="section-documents" class="page-section">
+          <div class="page-header">
+            <h1>My Documents</h1>
+            <p class="page-subtitle">
+              Finalized documents issued for your pets' completed consultations.
+            </p>
+          </div>
+          <div id="userDocsList">
+            <!-- Scoped to the signed-in user by shared/document-store.js
+                 (SharedDocuments.forUser). No cross-user data is rendered.
+                 TODO(BACKEND): GET /documents?user_id=me. -->
+          </div>
+          <!-- Document viewer (print-style) -->
+          <div class="modal-overlay" id="userDocViewerModal">
+            <div class="modal-content" style="max-width:720px;max-height:88vh;overflow-y:auto;">
+              <div class="modal-header">
+                <h2 class="modal-title">Document Preview</h2>
+                <button class="modal-close" onclick="closeUserDocViewer()">&times;</button>
+              </div>
+              <div id="userDocViewerBody" style="border:1px solid #e5e7eb;border-radius:0.75rem;padding:1.5rem;background:#fff;"></div>
+              <div style="display:flex;gap:0.75rem;margin-top:1rem;">
+                <button type="button" class="btn-secondary" id="userDocPrint">Print</button>
+                <button type="button" class="btn-primary" onclick="closeUserDocViewer()">Done</button>
+              </div>
+            </div>
           </div>
         </section>
       </main>
@@ -1135,6 +1171,8 @@
     <script src="../shared/mock-users.js?v=2.10.0"></script>
     <script src="../shared/mock-appointments.js?v=2.8.0"></script>
     <script src="../shared/audit-store.js?v=1.0.0"></script>
-    <script src="user-script.js?v=3.6.0"></script>
+    <script src="../shared/document-store.js?v=1.0.0"></script>
+    <script src="../shared/document-render.js?v=1.0.0"></script>
+    <script src="user-script.js?v=3.7.0"></script>
   </body>
 </html>

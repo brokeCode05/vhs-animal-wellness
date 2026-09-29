@@ -4,10 +4,9 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link rel="icon" type="image/png" href="../web-page/image/vhs-assets/vhs-logo.png">
-  <link rel="icon" type="image/png" href="../web-page/image/vhs-assets/vhs-logo.png">
   <title>Documents - VHS Admin</title>
   <link rel="stylesheet" href="../shared/dashboard-theme.css?v=3.4.6">
-  <link rel="stylesheet" href="portal.css?v=3.0.1">
+  <link rel="stylesheet" href="portal.css?v=3.0.2">
   <link rel="stylesheet" href="../shared/vhs-ui.css?v=2.6.0">
   <link rel="stylesheet" href="../shared/dashboard-icons.css?v=2.5.0">
 </head>
@@ -76,32 +75,52 @@
         <p class="page-subtitle">Centralized client-facing clinic documents</p>
       </div>
 
-      <!-- Placeholder shell: future centralized list of FINALIZED
-           client-facing documents. Internal SOAP notes are NOT exposed
-           here — they stay in the Doctor portal. No storage yet. -->
+      <!-- Finalized client-facing documents (frontend demo):
+           shared/document-store.js. Internal SOAP notes are NOT
+           exposed here - they stay in the Doctor portal. -->
       <section class="content-section">
-        <div class="placeholder-wrap">
-          <div class="placeholder-icon"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></div>
-          <span class="placeholder-badge">Frontend integration pending</span>
-          <h2 class="placeholder-title">Not yet implemented</h2>
-          <p class="placeholder-text">
-            This page will list finalized client-facing documents issued during
-            consultations. Only completed documents appear here — internal
-            consultation notes remain in the Doctor portal.
-          </p>
-          <ul class="placeholder-list">
-            <li>Consultation Summary</li>
-            <li>Prescription</li>
-            <li>Lab Request</li>
-            <li>Lab Result</li>
-            <li>Receipt (later, if needed)</li>
-          </ul>
-          <p class="placeholder-text" style="margin-bottom:0;">
-            Document storage and retrieval will be connected when the backend
-            document endpoints are available.
-          </p>
+        <div class="filter-bar">
+          <select class="form-select" style="width:auto;" id="filterDocType" aria-label="Filter by document type">
+            <option value="all">All Types</option>
+            <option value="consultation_summary">Consultation Summaries</option>
+            <option value="prescription">Prescriptions</option>
+            <option value="lab_request">Lab Requests</option>
+            <option value="lab_result">Lab Results</option>
+            <option value="receipt">Receipts</option>
+          </select>
+          <span id="docCount" style="margin-left:auto;font-size:0.85rem;color:#6b7280;"></span>
         </div>
+        <div class="table-wrapper">
+          <table class="compact-table">
+            <thead>
+              <tr><th>Issued</th><th>Type</th><th>Reference</th><th>Pet</th><th>Owner</th><th>Service</th><th>Actions</th></tr>
+            </thead>
+            <tbody id="documentsTableBody">
+              <tr><td colspan="7" style="text-align:center;color:#888;">Loading documents…</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p style="font-size:0.8rem;color:#6b7280;margin:0.75rem 0 0;">
+          Demo mode: documents are frontend-only records. TODO(BACKEND): Replace document demo
+          persistence with document API/storage - the backend generates and stores the
+          authoritative document records server-side.
+        </p>
       </section>
+
+      <!-- Document viewer (print-style) -->
+      <div class="modal-overlay" id="docViewerModal" onclick="if (event.target === this) closeDocViewer()">
+        <div class="modal-content" style="max-width:720px;max-height:88vh;overflow-y:auto;">
+          <div class="modal-header">
+            <h2 class="modal-title">Document Preview</h2>
+            <button class="modal-close" onclick="closeDocViewer()">&times;</button>
+          </div>
+          <div id="docViewerBody" style="border:1px solid #e5e7eb;border-radius:0.75rem;padding:1.5rem;background:#fff;"></div>
+          <div style="display:flex;gap:0.75rem;margin-top:1rem;">
+            <button type="button" class="btn-secondary" id="docViewerPrint">Print</button>
+            <button type="button" class="btn-primary" onclick="closeDocViewer()">Done</button>
+          </div>
+        </div>
+      </div>
     </main>
   </div>
 
@@ -110,5 +129,8 @@
   <script src="../shared/dashboard-shared.js?v=2.9.0"></script>
   <script src="../shared/audit-store.js?v=1.0.0"></script>
   <script src="admin-portal.js?v=2.13.0"></script>
+  <script src="../shared/document-store.js?v=1.0.0"></script>
+  <script src="../shared/document-render.js?v=1.0.0"></script>
+  <script src="documents-page.js?v=1.0.0"></script>
 </body>
 </html>
