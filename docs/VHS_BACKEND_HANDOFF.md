@@ -136,11 +136,17 @@ Portal files (`admin/admin-portal.js`, `doctor/doctor.js`, `user/user-script.js`
 - **Doctor seed:** one doctor (Dr. Santos, `vet-001`, General Practice, active, on_duty) to preserve the demo identity.
 - **Users/Pets:** the 3 demo users + 5 pets are DEMO fixtures, NOT required production seed. Seed only if the team wants the demo to keep working pre-auth.
 
-## 14. Legacy cleanup notes (do NOT delete in Phase 6)
+## 14. Legacy cleanup notes
 
-- `clerk/clerk-script.js`, `clerk/clerk-style.css`, `clerk/clerk-accent.css` — unreferenced after Clerk retirement (pages are redirect stubs).
-- `admin/admin-script.js` + `admin/admin/website.html` pair — self-contained legacy website editor, no inbound links.
-- These are **Phase 6+ cleanup debt**; removal only with explicit approval after backend lands.
+Removed in the approved post-freeze repository cleanup (all had zero inbound references; see commit history for the cleanup commit):
+
+- `clerk/clerk-script.js`, `clerk/clerk-style.css`, `clerk/clerk-accent.css` — retired Clerk implementation; pages are redirect stubs.
+- `admin/admin-script.js` + `admin/website.html` — legacy website editor pair, no inbound links, all features stubs or superseded by the current Admin portal.
+- `admin/admin-accent.css` — accent layer never referenced by any page or stylesheet.
+- Root `image/` copies (section/service images + duplicate `vhs-assets/vhs-logo.png`) — every live reference resolves to `web-page/image/vhs-assets/`.
+- `certs/ca.pem`, root `index.php` — zero references (superseded by `web-page/index.php`).
+
+The `/clerk/` route folder is intentionally KEPT: its four HTML pages are the redirect stubs preserving old URLs.
 
 ## 15. Backend developer workflow (recommended)
 

@@ -18,17 +18,18 @@ Veterinary clinic management system with a public website, role-based dashboards
 │   ├── style.css          # Main styles
 │   ├── warm-theme.css     # Theme overrides
 │   └── image/             # Website images and assets
-├── admin/                 # Admin dashboard
+├── admin/                 # Admin dashboard (canonical; also serves the retired Clerk routes)
 │   ├── index.html         # Dashboard overview
-│   ├── accounts.html      # Staff & client account management
+│   ├── accounts.html      # Doctor account management (Doctor role only)
 │   ├── appointments.html  # Appointment management
 │   ├── clients-pets.html  # Client & pet management
-│   └── website.html       # Website content editor
-├── clerk/                 # Clerk dashboard
-│   ├── index.html         # Dashboard overview
-│   ├── appointments.html  # Appointment scheduling
-│   ├── clients.html       # Client management
-│   └── clients-pets.html  # Pet management
+│   ├── documents.html     # Finalized client-facing documents
+│   ├── services.html      # Service catalog management
+│   ├── clinic-settings.html # Clinic operating configuration
+│   ├── doctors.html       # Doctor directory & availability
+│   ├── audit-log.html     # Read-only audit trail
+│   └── audit-log-renderer.js / documents-page.js / portal.css
+├── clerk/                 # RETIRED: redirect stubs to /admin/ (old URLs stay alive)
 ├── user/                  # Pet owner dashboard
 │   ├── index.html         # Dashboard (pets, appointments, profile)
 │   ├── petDB.php          # Pet CRUD handler
