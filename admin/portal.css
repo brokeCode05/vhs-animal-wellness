@@ -287,3 +287,35 @@
     font-size: 0.875rem;
   }
 }
+/* ===== AUDIT LOG (Phase 4.1): stacked cards on narrow screens =====
+   Desktop/tablet keep the 5-column table; below 640px each entry
+   renders as a stacked block using data-label captions. */
+@media (max-width: 640px) {
+  .audit-table-wrap thead {
+    display: none;
+  }
+  .audit-table-wrap tr {
+    display: block;
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 0.75rem;
+    margin: 0 0 0.75rem;
+    padding: 0.75rem 0.9rem;
+  }
+  .audit-table-wrap td {
+    display: block;
+    border: none;
+    padding: 0.15rem 0;
+    white-space: normal;
+  }
+  .audit-table-wrap td::before {
+    content: attr(data-label);
+    display: block;
+    font-size: 0.68rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #6b7280;
+    margin-bottom: 0.1rem;
+  }
+}

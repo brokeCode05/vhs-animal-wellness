@@ -326,7 +326,16 @@
     draft.medicines.forEach(addMedicine);
     form.querySelectorAll('[name="labs"]').forEach(input => { input.checked = draft.labs.includes(input.value); });
     document.getElementById('reviewed').checked = draft.reviewed;
-    document.getElementById('complete-consultation').disabled = statusFor(patient) !== 'in_consultation';
+    const _completeBtn = document.getElementById('complete-consultation');
+    _completeBtn.disabled = statusFor(patient) !== 'in_consultation';
+    // Completed patients keep the finished state visible on the primary button.
+    if (statusFor(patient) === 'completed') {
+      _completeBtn.textContent = 'Consultation Completed';
+      _completeBtn.classList.add('btn-completed');
+    } else {
+      _completeBtn.textContent = 'Complete Consultation';
+      _completeBtn.classList.remove('btn-completed');
+    }
     document.getElementById('ai-summary').textContent = patient.aiSummary;
     document.getElementById('context-name').textContent = patient.name;
     document.getElementById('context-appointment').textContent = `${patient.species} · ${patient.breed} · ${patient.dateDisplay}, ${patient.time} · ${patient.service}`;
@@ -572,6 +581,15 @@
     draft.durationMinutes = durationBetween(draft.startedAt, draft.completedAt);
     draft.saved = true;
     draft.updatedAt = draft.completedAt;
+    // Immediate terminal state: the primary button becomes a non-interactive
+    // confirmation (no second completion attempt); View Clinical Document
+    // remains available in the record actions.
+    // TODO(BACKEND): Restore document delivery action when backend
+    // document/release workflow exists.
+    const _completeBtn = document.getElementById('complete-consultation');
+    _completeBtn.textContent = 'Consultation Completed';
+    _completeBtn.disabled = true;
+    _completeBtn.classList.add('btn-completed');
     renderQueue();
     renderHeader(currentView);
     renderRecordActions(selectedPatient);

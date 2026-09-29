@@ -388,3 +388,11 @@ html::-webkit-scrollbar { width: 0; height: 0; display: none; }
 body.doctor-portal { scrollbar-width: none; -ms-overflow-style: none; }
 body.doctor-portal::-webkit-scrollbar { width: 0; height: 0; display: none; }
 .doctor-portal .main-content::-webkit-scrollbar { width: 0; height: 0; display: none; }
+/* Phase 4.1: terminal state of the primary consultation action —
+   non-clickable, clearly done; semantic colors unchanged. */
+.btn-completed {
+  background: #e7f6ef;
+  color: #0f7a5a;
+  border: 1px solid #b5e5d0;
+  cursor: not-allowed;
+}

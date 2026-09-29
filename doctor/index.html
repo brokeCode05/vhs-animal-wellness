@@ -3,17 +3,19 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="icon" type="image/png" href="../web-page/image/vhs-assets/vhs-logo.png">
+  <link rel="icon" type="image/png" href="../web-page/image/vhs-assets/vhs-logo.png">
   <title>Today’s Patients - VHS Doctor</title>
   <link rel="stylesheet" href="../admin/admin-style.css?v=3.4.4">
-  <link rel="stylesheet" href="../shared/dashboard-theme.css?v=3.4.5">
+  <link rel="stylesheet" href="../shared/dashboard-theme.css?v=3.4.6">
   <link rel="stylesheet" href="../shared/dashboard-icons.css">
-  <link rel="stylesheet" href="doctor.css?v=3.4.5">
+  <link rel="stylesheet" href="doctor.css?v=3.4.6">
   <script src="../shared/appointment-contract.js?v=2.8.0"></script>
   <script src="../shared/mock-users.js?v=2.5.0"></script>
   <script src="../shared/mock-doctors.js?v=2.7.0"></script>
   <script src="../shared/mock-appointments.js?v=2.8.0"></script>
   <script src="../shared/audit-store.js?v=1.0.0"></script>
-  <script src="doctor.js?v=2.9.0" defer></script>
+  <script src="doctor.js?v=2.10.0" defer></script>
 </head>
 <body class="doctor-portal">
   <a class="skip-link" href="#workspace">Skip to current view</a>
@@ -89,8 +91,8 @@
         </section>
         <div class="draft-footer">
           <div class="review-check"><label><input type="checkbox" id="reviewed" name="reviewed"> I have reviewed this consultation draft.</label></div>
-          <div class="draft-actions"><div><strong id="draft-state">Unsaved draft</strong><p class="helper">Drafts reset on reload.</p></div><button class="btn-secondary" type="submit">Save draft</button><button class="btn-secondary" type="button" id="preview-document">Preview Clinical Document</button><button class="btn-primary" type="button" id="complete-consultation">Complete Consultation</button><button class="btn-secondary" type="button" disabled aria-describedby="handoff-note">Send to Front Desk</button></div>
-          <p id="handoff-note" class="helper">Sending requires backend integration.</p>
+          <div class="draft-actions"><div><strong id="draft-state">Unsaved draft</strong><p class="helper">Drafts reset on reload.</p></div><button class="btn-secondary" type="submit">Save draft</button><button class="btn-secondary" type="button" id="preview-document">Preview Clinical Document</button><button class="btn-primary" type="button" id="complete-consultation">Complete Consultation</button></div>
+          <!-- TODO(BACKEND): Restore document delivery action when backend document/release workflow exists. -->
           <p id="save-status" role="status"></p>
         </div>
       </form>

@@ -658,14 +658,15 @@ function _fmtDetailsTime(timeStr) {
   return t || '—';
 }
 
-// Status-based action row inside the details panel. Clerk cannot complete a
+// Status-based action row inside the details panel. Admin cannot complete a
 // consultation — completion belongs to the Doctor workflow.
+// Phase 4.1: no footer Close button — the top-right X closes the modal.
 function renderAppointmentDetailsActions(a) {
   var wrap = document.getElementById('appointmentDetailsActions');
   if (!wrap) return;
-  var btns = ['<button type="button" class="btn-secondary" onclick="closeAppointmentDetails()">Close</button>'];
+  var btns = [];
   if (a.status === 'confirmed') {
-    btns.unshift('<button type="button" class="btn-primary" onclick="closeAppointmentDetails(); openCheckInModal(\'' + (a.reference_no || a.id) + '\')">Check In Patient</button>');
+    btns.push('<button type="button" class="btn-primary" onclick="closeAppointmentDetails(); openCheckInModal(\'' + (a.reference_no || a.id) + '\')">Check In Patient</button>');
     if (typeof openAdminReschedule === 'function') {
       btns.splice(1, 0, '<button type="button" class="btn-small" style="padding:0.55rem 1rem;font-size:0.9rem;" onclick="closeAppointmentDetails(); openAdminReschedule(\'' + a.id + '\')">Reschedule</button>');
     }

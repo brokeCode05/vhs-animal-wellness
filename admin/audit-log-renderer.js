@@ -121,13 +121,15 @@
       var record = e.referenceNo
         ? esc(e.referenceNo)
         : (e.entityType === 'appointment' ? '—' : esc(e.entityType === 'clinic_settings' ? 'Clinic settings' : (e.entityType || '') + ' #' + (e.entityId || '—')));
+      // Actor: name as primary text, small muted role label beneath (no badge, no dot).
+      var actorCell = '<span style="display:block;font-weight:600;">' + esc(e.actorName || '—') + '</span>' +
+        (e.actorType ? '<span style="display:block;font-size:0.75rem;color:#6b7280;">' + esc(e.actorType) + '</span>' : '');
       return '<tr>' +
-        '<td style="white-space:nowrap;">' + fmtDateTime(e.timestamp) + '</td>' +
-        '<td style="white-space:nowrap;">' + esc(e.actorName || e.actorType || '—') +
-        (e.actorType ? ' <span class="status-badge info" style="margin-left:0.35rem;">' + esc(e.actorType) + '</span>' : '') + '</td>' +
-        '<td>' + esc(ACTION_LABELS[e.action] || e.action) + '</td>' +
-        '<td style="white-space:nowrap;">' + record + '</td>' +
-        '<td>' + esc(e.description || '') + '</td>' +
+        '<td style="white-space:nowrap;" data-label="Date &amp; Time">' + fmtDateTime(e.timestamp) + '</td>' +
+        '<td data-label="Actor">' + actorCell + '</td>' +
+        '<td data-label="Action">' + esc(ACTION_LABELS[e.action] || e.action) + '</td>' +
+        '<td style="white-space:nowrap;" data-label="Record / Reference">' + record + '</td>' +
+        '<td data-label="Details">' + esc(e.description || '') + '</td>' +
         '</tr>';
     }).join('');
   }
