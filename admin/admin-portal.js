@@ -344,6 +344,9 @@ function submitAdminReschedule(e) {
   var newTime = document.getElementById('adminRescheduleTime').value;
   if (!newDate || !newTime) { showToast('Select a new date and time.', 'warning'); return; }
   var shared = window.SharedMockAppointments;
+  var _before = shared ? shared.byId(id) : null;
+  var oldDate = _before ? _before.appointmentDate : '';
+  var oldTime = _before ? _before.appointmentTime : '';
   var result = shared ? shared.reschedule(id, newDate, newTime) : { ok: false, error: 'not_found' };
   if (!result.ok) {
     showToast(result.error === 'slot_taken' ? 'That slot is already booked.' : 'Could not reschedule.', 'error');
@@ -351,7 +354,7 @@ function submitAdminReschedule(e) {
   }
   closeAdminReschedule();
   showToast('Rescheduled to ' + newDate + ' ' + (window.AppointmentContract ? window.AppointmentContract.timeTo12h(result.appointment.appointmentTime) : result.appointment.appointmentTime) + ' (same Reference ' + result.appointment.referenceNo + ').', 'success');
-  _auditAdmin({ action: 'appointment_rescheduled', entityType: 'appointment', entityId: result.appointment.appointmentId, referenceNo: result.appointment.referenceNo, description: 'Admin rescheduled ' + result.appointment.referenceNo + ' to ' + newDate + ' ' + newTime, metadata: { appointmentDate: newDate, appointmentTime: newTime } });
+  _auditAdmin({ action: 'appointment_rescheduled', entityType: 'appointment', entityId: result.appointment.appointmentId, referenceNo: result.appointment.referenceNo, description: 'Admin rescheduled ' + result.appointment.referenceNo + ' from ' + oldDate + ' ' + oldTime + ' to ' + newDate + ' ' + newTime, metadata: { previousDate: oldDate, previousTime: oldTime, appointmentDate: newDate, appointmentTime: newTime } });
   if (document.getElementById('allAppointmentsTable')) loadAppointments();
 }
 
@@ -395,6 +398,9 @@ document.addEventListener('change', function(e) {
   }
   if (e.target.id === 'adminBookDate') {
     refreshAdminTimeSlots();
+  }
+  if (e.target.id === 'adminRescheduleDate') {
+    _populateAdminRescheduleSlots();
   }
 });
 
