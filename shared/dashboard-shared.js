@@ -1968,10 +1968,10 @@ function initAllCustomDropdowns() {
   initCustomDropdown('adminPetSelect', { placeholder: 'Select client first', searchPlaceholder: 'Search pets...', emptyText: 'No pets found' });
   initCustomDropdown('adminBookTime', { placeholder: 'Select time', searchPlaceholder: 'Search time...', emptyText: 'No slots available' });
 
-  initCustomDropdown('clerkBookService', { searchPlaceholder: 'Search services...', emptyText: 'No services found' });
-  _renderSharedServiceOptions('clerkBookService');
+  initCustomDropdown('adminBookService', { searchPlaceholder: 'Search services...', emptyText: 'No services found' });
   _renderSharedServiceOptions('adminBookService');
-  initCustomDropdown('clerkClientSelect', { placeholder: 'Select client', searchPlaceholder: 'Search clients...', emptyText: 'No clients found' });
-  initCustomDropdown('clerkPetSelect', { placeholder: 'Select client first', searchPlaceholder: 'Search pets...', emptyText: 'No pets found' });
-  initCustomDropdown('clerkBookTime', { placeholder: 'Select time', searchPlaceholder: 'Search time...', emptyText: 'No slots available' });
+  _renderSharedServiceOptions('adminBookService');
+  initCustomDropdown('adminClientSelect', { placeholder: 'Select client', searchPlaceholder: 'Search clients...', emptyText: 'No clients found' });
+  initCustomDropdown('adminPetSelect', { placeholder: 'Select client first', searchPlaceholder: 'Search pets...', emptyText: 'No pets found' });
+  initCustomDropdown('adminBookTime', { placeholder: 'Select time', searchPlaceholder: 'Search time...', emptyText: 'No slots available' });
 }

@@ -998,6 +998,7 @@ function _finalizeBooking() {
   }
   var savedRef = stored.appointment.referenceNo;
   var savedId = stored.appointment.appointmentId;
+  if (window.AuditLog) window.AuditLog.add({ actor: _userAuditActor(), action: 'appointment_created', entityType: 'appointment', entityId: savedId, referenceNo: savedRef, description: _userAuditActor().actorName + ' booked appointment ' + savedRef, metadata: { appointmentDate: payload.appointment_date, appointmentTime: payload.appointment_time, service: payload.service } });
 
   // Render from the STORED record — re-derive the whole display list from the
   // canonical store; no User-only duplicate copy is kept.
@@ -1006,6 +1007,12 @@ function _finalizeBooking() {
   _pendingBookingPayload = null;
   _pendingBookingDisplay = null;
   _showBookingSuccess(savedRef, { id: savedId, reference_no: savedRef });
+}
+
+function _userAuditActor() {
+  var u = _getSessionUser();
+  // TODO(BACKEND): Resolve actor from authenticated server session.
+  return { actorType: 'User', actorId: u.id || u.userId || '', actorName: u.name || 'Pet Owner' };
 }
 
 function _showBookingSuccess(refNo) {
@@ -2517,6 +2524,7 @@ function submitReschedule(e) {
     }
     if (reason) store.update(rec.appointmentId, { notes: (rec.notes ? rec.notes + ' | ' : '') + 'Rescheduled — ' + reason });
     _syncFromStore();
+    if (window.AuditLog) window.AuditLog.add({ actor: _userAuditActor(), action: 'appointment_rescheduled', entityType: 'appointment', entityId: rec.appointmentId, referenceNo: rec.referenceNo || '', description: _userAuditActor().actorName + ' rescheduled ' + (rec.referenceNo || '') + ' to ' + newDate + ' ' + newTime, metadata: { appointmentDate: newDate, appointmentTime: newTime } });
     closeModal('rescheduleModal');
     showToast('Appointment rescheduled to ' + _fmtApptDateShort(newDate) + ' at ' + (_fmtApptTimeShort(result.appointment.appointmentTime) || newTime) + '.', 'success');
     renderAppointmentCards();
@@ -2569,6 +2577,7 @@ function submitCancel(e) {
     var result = store.setStatus(rec.appointmentId, 'canceled');
     if (!result.ok) { showToast('This appointment can no longer be cancelled.', 'error'); return; }
     if (reason) store.update(rec.appointmentId, { notes: (rec.notes ? rec.notes + ' | ' : '') + 'Cancelled — ' + reason });
+    if (window.AuditLog) window.AuditLog.add({ actor: _userAuditActor(), action: 'appointment_canceled', entityType: 'appointment', entityId: rec.appointmentId, referenceNo: rec.referenceNo || '', description: _userAuditActor().actorName + ' cancelled appointment ' + (rec.referenceNo || ''), metadata: { reason: reason || '' } });
   } else {
     // No shared store: legacy local behaviour.
     var appt = mockAppointmentsData.find(function(a) { return a.id === apptId; });

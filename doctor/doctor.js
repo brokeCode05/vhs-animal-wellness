@@ -459,6 +459,7 @@
     const store = window.SharedMockAppointments;
     const result = store && patient.appointmentId ? store.setStatus(patient.appointmentId, 'in_consultation') : { ok: false };
     if (store && patient.appointmentId && !result.ok) return; // guard rejected the transition
+    if (window.AuditLog) window.AuditLog.add({ actor: { actorType: 'Doctor', actorId: VETERINARIAN.id, actorName: VETERINARIAN.name }, action: 'consultation_started', entityType: 'appointment', entityId: patient.appointmentId, referenceNo: patient.referenceNo || '', description: VETERINARIAN.name + ' started consultation for ' + patient.name });
     captureDraft();
     draft.status = 'in_consultation';
     draft.startedAt = (result && result.appointment && result.appointment.consultationStartedAt) || new Date().toISOString();
@@ -565,6 +566,7 @@
     // TODO(BACKEND): PATCH /appointments/:id/status { completed }.
     const store = window.SharedMockAppointments;
     if (store && selectedPatient.appointmentId) store.setStatus(selectedPatient.appointmentId, 'completed');
+    if (window.AuditLog) window.AuditLog.add({ actor: { actorType: 'Doctor', actorId: VETERINARIAN.id, actorName: VETERINARIAN.name }, action: 'consultation_completed', entityType: 'appointment', entityId: selectedPatient.appointmentId, referenceNo: selectedPatient.referenceNo || '', description: VETERINARIAN.name + ' completed consultation for ' + selectedPatient.name });
     draft.status = 'completed';
     draft.completedAt = new Date().toISOString();
     draft.durationMinutes = durationBetween(draft.startedAt, draft.completedAt);
@@ -781,7 +783,13 @@
     const value = event.target.value;
     if (window.SharedMockDoctors && _doctorRecord) {
       const MAP = { 'On-Duty': 'on_duty', 'On Break': 'on_break', 'On Leave': 'on_leave' };
+      const _prevAvail = _doctorRecord.availabilityStatus;
       window.SharedMockDoctors.setAvailability(_doctorRecord.doctorId, MAP[value] || 'on_duty');
+      if (window.AuditLog) {
+        const _next = MAP[value] || 'on_duty';
+        const _lab = { on_duty: 'On Duty', on_break: 'On Break', on_leave: 'On Leave' };
+        window.AuditLog.add({ actor: { actorType: 'Doctor', actorId: VETERINARIAN.id, actorName: VETERINARIAN.name }, action: 'doctor_availability_changed', entityType: 'doctor', entityId: _doctorRecord.doctorId, description: VETERINARIAN.name + ' set own availability to ' + (_lab[_next] || _next), metadata: { previous: _lab[_prevAvail] || _prevAvail || '', new: _lab[_next] || _next } });
+      }
     }
     const paused = value !== 'On-Duty';
     const status = document.getElementById('availability-status');

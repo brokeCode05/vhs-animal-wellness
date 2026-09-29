@@ -643,7 +643,9 @@ function _completeLogin(data) {
   setTimeout(() => {
     if (data.role === "admin") window.location.href = "../admin/index.html";
     else if (data.role === "clerk")
-      window.location.href = "../clerk/index.html";
+      // Admin is canonical: the standalone Clerk portal is no longer
+      // maintained, so former clerk accounts land in the Admin portal.
+      window.location.href = "../admin/index.html";
     else window.location.href = "../user/index.html";
   }, 1000);
 }

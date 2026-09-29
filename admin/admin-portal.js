@@ -1,7 +1,7 @@
 /* ============================================
-   VHS CLERK DASHBOARD — Clerk-specific script
+   VHS ADMIN PORTAL — canonical operations script
    Shared logic lives in shared/dashboard-shared.js
-   Clerk permissions:
+   Admin portal permissions (Admin is canonical; the legacy Clerk copy in /clerk/ is no longer maintained):
      [x] Approve / reject appointments
      [x] Book appointments for clients
      [x] View clients & pets
@@ -12,7 +12,7 @@
    are provided by shared/vhs-ui.js
 ============================================ */
 
-// ─── APPOINTMENTS TABLE (clerk-specific render) ───────────────────────────────
+// ─── APPOINTMENTS TABLE ───────────────────────────────
 // Rows are normalized into the shared canonical appointment contract before
 // rendering, so check-in and future flows can rely on stable field names.
 // TODO(BACKEND): get_appointments.php does not return reference_no yet;
@@ -48,7 +48,7 @@ function renderAllAppointmentsTable(all) {
   });
   var rows = sorted.map(function(raw) {
     var a = contract ? contract.toLegacyDisplay(contract.fromLegacy(raw)) : raw;
-    // Status-based clerk actions. Clerk NEVER completes a consultation —
+    // Status-based front-desk actions. Admin NEVER completes a consultation —
     // checked_in → in_consultation → completed belongs to the Doctor.
     var actions = '';
     if (a.status === 'pending') {
@@ -82,13 +82,13 @@ function renderAllAppointmentsTable(all) {
   tbody.innerHTML = rows.join('');
 }
 
-// ─── CLERK BOOKING MODAL ──────────────────────────────────────────────────────
+// ─── ADMIN BOOKING MODAL ──────────────────────────────────────────────────────
 
-function addNewAppointment() { openClerkBookModal(); }
+function addNewAppointment() { openAdminBookModal(); }
 
 // Clicking a calendar day or time cell opens booking modal with that date (and optionally time)
 window.onCalendarDayClick = function(dateStr, timeSlot) {
-  openClerkBookModal(dateStr, timeSlot);
+  openAdminBookModal(dateStr, timeSlot);
 };
 
 // Calendar appointment items open the SAME details panel as the table's
@@ -110,23 +110,23 @@ window.onQrScan = function(qrPayload) {
   openCheckInModal(String(qrPayload || '').trim());
 };
 
-function openClerkBookModal(prefilledDate, prefilledTime) {
-  var modal = document.getElementById('clerkBookModal');
+function openAdminBookModal(prefilledDate, prefilledTime) {
+  var modal = document.getElementById('adminBookModal');
   if (!modal) return;
   modal.classList.add('show');
   document.body.classList.add('modal-open');
-  document.getElementById('clerkBookForm')?.reset();
+  document.getElementById('adminBookForm')?.reset();
 
-  var dateInput = document.getElementById('clerkBookDate');
+  var dateInput = document.getElementById('adminBookDate');
   if (dateInput) {
     dateInput.min = new Date().toISOString().split('T')[0];
     if (prefilledDate) {
       dateInput.value = prefilledDate;
-      refreshClerkTimeSlots(prefilledTime);
+      refreshAdminTimeSlots(prefilledTime);
     }
   }
 
-  var clientSelect = document.getElementById('clerkClientSelect');
+  var clientSelect = document.getElementById('adminClientSelect');
   if (clientSelect) {
     clientSelect.innerHTML = '<option value="">Loading clients...</option>';
     var fillClients = function (users) {
@@ -155,7 +155,7 @@ function openClerkBookModal(prefilledDate, prefilledTime) {
       });
   }
 
-  var petSelect = document.getElementById('clerkPetSelect');
+  var petSelect = document.getElementById('adminPetSelect');
   if (petSelect) petSelect.innerHTML = '<option value="">Select client first</option>';
 }
 
@@ -168,8 +168,8 @@ function _sharedPetsForClient(userId) {
   });
 }
 
-function closeClerkBookModal() {
-  document.getElementById('clerkBookModal')?.classList.remove('show');
+function closeAdminBookModal() {
+  document.getElementById('adminBookModal')?.classList.remove('show');
   document.body.classList.remove('modal-open');
 }
 
@@ -275,6 +275,7 @@ function checkInAppointment() {
   }
   closeCheckInModal();
   showToast('Patient checked in. Reference ' + result.appointment.referenceNo + '.', 'success');
+  _auditAdmin({ action: 'patient_checked_in', entityType: 'appointment', entityId: result.appointment.appointmentId, referenceNo: result.appointment.referenceNo, description: 'Admin checked in ' + (result.appointment.pet ? result.appointment.pet.name : 'patient') + ' — ' + result.appointment.referenceNo, metadata: { owner: result.appointment.owner ? result.appointment.owner.name : '', pet: result.appointment.pet ? result.appointment.pet.name : '' } });
   // Refresh whichever appointment views exist on this page so the same
   // shared record shows Checked In immediately.
   if (document.getElementById('allAppointmentsTable')) loadAppointments();
@@ -350,12 +351,13 @@ function submitAdminReschedule(e) {
   }
   closeAdminReschedule();
   showToast('Rescheduled to ' + newDate + ' ' + (window.AppointmentContract ? window.AppointmentContract.timeTo12h(result.appointment.appointmentTime) : result.appointment.appointmentTime) + ' (same Reference ' + result.appointment.referenceNo + ').', 'success');
+  _auditAdmin({ action: 'appointment_rescheduled', entityType: 'appointment', entityId: result.appointment.appointmentId, referenceNo: result.appointment.referenceNo, description: 'Admin rescheduled ' + result.appointment.referenceNo + ' to ' + newDate + ' ' + newTime, metadata: { appointmentDate: newDate, appointmentTime: newTime } });
   if (document.getElementById('allAppointmentsTable')) loadAppointments();
 }
 
 document.addEventListener('keydown', function(e) {
-  if (e.key === 'Escape' && document.getElementById('clerkBookModal')?.classList.contains('show')) {
-    closeClerkBookModal();
+  if (e.key === 'Escape' && document.getElementById('adminBookModal')?.classList.contains('show')) {
+    closeAdminBookModal();
   }
   if (e.key === 'Escape' && document.getElementById('checkInModal')?.classList.contains('show')) {
     closeCheckInModal();
@@ -366,9 +368,9 @@ document.addEventListener('keydown', function(e) {
 });
 
 document.addEventListener('change', function(e) {
-  if (e.target.id === 'clerkClientSelect') {
+  if (e.target.id === 'adminClientSelect') {
     var userId = e.target.value;
-    var petSelect = document.getElementById('clerkPetSelect');
+    var petSelect = document.getElementById('adminPetSelect');
     if (!petSelect) return;
     if (!userId) { petSelect.innerHTML = '<option value="">Select client first</option>'; return; }
     petSelect.innerHTML = '<option value="">Loading pets...</option>';
@@ -391,14 +393,14 @@ document.addEventListener('change', function(e) {
         fillPets(_sharedPetsForClient(userId));
       });
   }
-  if (e.target.id === 'clerkBookDate') {
-    refreshClerkTimeSlots();
+  if (e.target.id === 'adminBookDate') {
+    refreshAdminTimeSlots();
   }
 });
 
-function refreshClerkTimeSlots(prefilledTime) {
-  var dateInput  = document.getElementById('clerkBookDate');
-  var timeSelect = document.getElementById('clerkBookTime');
+function refreshAdminTimeSlots(prefilledTime) {
+  var dateInput  = document.getElementById('adminBookDate');
+  var timeSelect = document.getElementById('adminBookTime');
   if (!timeSelect) return;
   if (!dateInput || !dateInput.value) {
     timeSelect.innerHTML = '<option value="">Select date first</option>';
@@ -429,23 +431,23 @@ function refreshClerkTimeSlots(prefilledTime) {
     });
 }
 
-function submitClerkBooking(e) {
+function submitAdminBooking(e) {
   e.preventDefault();
-  var userId  = document.getElementById('clerkClientSelect').value;
-  var petId   = document.getElementById('clerkPetSelect').value;
-  var service = document.getElementById('clerkBookService').value;
-  var date    = document.getElementById('clerkBookDate').value;
-  var time    = document.getElementById('clerkBookTime').value;
-  var notes   = document.getElementById('clerkBookNotes').value.trim();
+  var userId  = document.getElementById('adminClientSelect').value;
+  var petId   = document.getElementById('adminPetSelect').value;
+  var service = document.getElementById('adminBookService').value;
+  var date    = document.getElementById('adminBookDate').value;
+  var time    = document.getElementById('adminBookTime').value;
+  var notes   = document.getElementById('adminBookNotes').value.trim();
   // service now carries the canonical catalog VALUE (FK-ready).
   var svc = window.SharedMockUsers ? window.SharedMockUsers.serviceByValue(service) : null;
 
   if (!userId)  { showToast('Please select a client.', 'warning'); return; }
-  var petId   = document.getElementById('clerkPetSelect').value;
-  var service = document.getElementById('clerkBookService').value;
-  var date    = document.getElementById('clerkBookDate').value;
-  var time    = document.getElementById('clerkBookTime').value;
-  var notes   = document.getElementById('clerkBookNotes').value.trim();
+  var petId   = document.getElementById('adminPetSelect').value;
+  var service = document.getElementById('adminBookService').value;
+  var date    = document.getElementById('adminBookDate').value;
+  var time    = document.getElementById('adminBookTime').value;
+  var notes   = document.getElementById('adminBookNotes').value.trim();
   // service now carries the canonical catalog VALUE (FK-ready).
   var svc = window.SharedMockUsers ? window.SharedMockUsers.serviceByValue(service) : null;
 
@@ -476,7 +478,7 @@ function submitClerkBooking(e) {
   var pet = window.SharedMockUsers ? window.SharedMockUsers.petById(petId) : null;
 
   // One canonical record written through the SAME store the User, Doctor,
-  // and Clerk portals read.
+  // and Doctor portals read.
   var canonical = window.AppointmentContract.fromLegacy({
     appointmentId: aptId,
     referenceNo: refNo,
@@ -496,17 +498,18 @@ function submitClerkBooking(e) {
     showToast(stored.error === 'duplicate' ? 'This booking already exists.' : 'Could not save the booking. Please try again.', 'error');
     return;
   }
-  closeClerkBookModal();
+  closeAdminBookModal();
   showToast('Appointment booked (Reference ' + stored.appointment.referenceNo + '). Demo state \u2014 not saved to a database.', 'success');
+  _auditAdmin({ action: 'appointment_created', entityType: 'appointment', entityId: stored.appointment.appointmentId, referenceNo: stored.appointment.referenceNo, description: 'Admin booked appointment ' + stored.appointment.referenceNo + ' for ' + (stored.appointment.owner ? stored.appointment.owner.name : 'client'), metadata: { appointmentDate: stored.appointment.appointmentDate, appointmentTime: stored.appointment.appointmentTime, service: stored.appointment.service } });
   loadAppointments();
 }
 
-// ─── CLERK ACTIONS (frontend-demo honest mode) ───────────────────────────────
+// ─── ADMIN STATUS ACTIONS (frontend-demo honest mode) ───────────────────────────────
 // Approve / reject / cancel write to the SAME shared mock state the User and
 // Doctor portals read. No database persistence is claimed.
 // TODO(BACKEND): Route through update_appointment_status.php (ENUM must be
 // expanded first — see doctor/AUDIT-cross-portal-appointments.md).
-function _clerkSharedStatus(id, nextStatus, successMsg) {
+function _adminSharedStatus(id, nextStatus, successMsg) {
   var shared = window.SharedMockAppointments;
   if (!shared) { showToast('Shared mock state unavailable.', 'error'); return; }
   var result = shared.setStatus(id, nextStatus);
@@ -517,6 +520,11 @@ function _clerkSharedStatus(id, nextStatus, successMsg) {
     return;
   }
   showToast(successMsg + ' (demo state — not saved to a database)', 'success');
+  var _action = nextStatus === 'confirmed' ? 'appointment_approved'
+    : (nextStatus === 'canceled' && /reject/i.test(successMsg || '')) ? 'appointment_rejected'
+    : 'appointment_canceled';
+  var _appt = result.appointment || {};
+  _auditAdmin({ action: _action, entityType: 'appointment', entityId: _appt.appointmentId || id, referenceNo: _appt.referenceNo || '', description: 'Admin ' + (_action === 'appointment_approved' ? 'approved' : _action === 'appointment_rejected' ? 'rejected' : 'cancelled') + ' appointment ' + (_appt.referenceNo || id), metadata: { status: nextStatus } });
   if (document.getElementById('allAppointmentsTable')) loadAppointments();
   var tbody = document.getElementById('todayScheduleTable');
   if (tbody && window.SharedMockAppointments) {
@@ -529,7 +537,7 @@ function _clerkSharedStatus(id, nextStatus, successMsg) {
 
 function approveAppointment(id) {
   confirmAction('Approve this appointment?', function() {
-    _clerkSharedStatus(id, 'confirmed', 'Appointment approved');
+    _adminSharedStatus(id, 'confirmed', 'Appointment approved');
   }, {
     title: 'Approve Appointment',
     icon: '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>',
@@ -539,7 +547,7 @@ function approveAppointment(id) {
 
 function rejectAppointment(id) {
   confirmAction('Reject this appointment?', function() {
-    _clerkSharedStatus(id, 'canceled', 'Appointment rejected');
+    _adminSharedStatus(id, 'canceled', 'Appointment rejected');
   }, {
     title: 'Reject Appointment',
     icon: '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>',
@@ -549,7 +557,7 @@ function rejectAppointment(id) {
 
 function cancelAppointment(id) {
   confirmAction('Cancel this appointment?', function() {
-    _clerkSharedStatus(id, 'canceled', 'Appointment cancelled');
+    _adminSharedStatus(id, 'canceled', 'Appointment cancelled');
   }, {
     title: 'Cancel Appointment',
     icon: '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>',
@@ -557,12 +565,25 @@ function cancelAppointment(id) {
   });
 }
 
-// ─── CLERK-ONLY CLIENT ACTIONS ────────────────────────────────────────────────
+// ─── CLIENT SHORTCUTS ────────────────────────────────────────────────
 
 function viewClientDetails(id) { showUnderWork('Client registration details'); }
 function viewClient(id)        { showUnderWork('Client profile view'); }
 function editClient(id)        { showUnderWork('Edit client'); }
-function addNewOwner()         { window.location.href = 'clients.html'; }
+function addNewOwner()         { window.location.href = 'clients-pets.html'; }
+
+// ─── PHASE 4: SHARED AUDIT TRAIL (frontend demo) ────────────────────────
+// Every successful write in this file is mirrored into the shared audit
+// store (shared/audit-store.js) at the exact spot the action succeeds.
+// Entries are prototype records only.
+// TODO(BACKEND): Replace frontend audit persistence with server-generated
+// audit records — the API writes audit_log inside the same DB transaction
+// as the action; the frontend is never the audit authority.
+function _auditAdmin(event) {
+  if (!window.AuditLog) return;
+  event.actor = window.AuditLog.adminActor();
+  window.AuditLog.add(event);
+}
 
 // ─── INIT ─────────────────────────────────────────────────────────────────────
 
@@ -573,7 +594,7 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 // ─── UNIFIED ADMIN PORTAL (Phase 1) ─────────────────────────────────────────
-// Operational pages reuse the Clerk implementation above (AppointmentStore,
+// Operational pages reuse the front-desk implementation above (AppointmentStore,
 // contract, check-in, details, walk-in booking). Administration pages are
 // placeholder-only until Phase 2 — no fake data, no fake actions.
 document.addEventListener('click', function (e) {
@@ -855,6 +876,7 @@ function submitCreateDoctor(e) {
     `Doctor account created for ${result.doctor.name}. Credentials are provisioned by the backend (backend-pending demo state).`,
     "success",
   );
+  _auditAdmin({ action: 'doctor_created', entityType: 'doctor', entityId: result.doctor.doctorId, description: 'Admin created doctor account for ' + result.doctor.name });
 }
 
 // ── Edit Doctor (account fields only; no passwords) ──────────────────────
@@ -894,6 +916,8 @@ function submitEditDoctor(e) {
   closeEditDoctor();
   _renderDoctorAccounts();
   showToast("Doctor account updated. (demo state — not saved to a database)", "success");
+  var _doc = window.SharedMockDoctors.byId(id);
+  _auditAdmin({ action: 'doctor_updated', entityType: 'doctor', entityId: id, description: 'Admin updated doctor profile — ' + (_doc ? _doc.name : id) });
 }
 
 // ── Activate / Deactivate (account status only — availability is a separate
@@ -909,6 +933,7 @@ function toggleDoctorAccount(id) {
       window.SharedMockDoctors.setAccountStatus(id, next);
       _renderDoctorAccounts();
       showToast(`Doctor account ${next}. (demo state — not saved to a database)`, "success");
+      _auditAdmin({ action: next === 'inactive' ? 'doctor_deactivated' : 'doctor_activated', entityType: 'doctor', entityId: id, description: 'Admin ' + (next === 'inactive' ? 'deactivated' : 'activated') + ' doctor account — ' + d.name });
     },
     {
       title: `${next === "inactive" ? "Deactivate" : "Activate"} Doctor Account`,
@@ -972,6 +997,7 @@ function _renderDoctorDirectory() {
 // Availability change from the directory (Admin side of the shared record).
 function onDoctorAvailabilityChange(id, value) {
   const d = window.SharedMockDoctors.byId(id);
+  const _prevAvail = d ? d.availabilityStatus : '';
   window.SharedMockDoctors.setAvailability(id, value);
   if (window.showToast) {
     showToast(
@@ -979,6 +1005,7 @@ function onDoctorAvailabilityChange(id, value) {
       "success",
     );
   }
+  _auditAdmin({ action: 'doctor_availability_changed', entityType: 'doctor', entityId: id, description: 'Admin set ' + (d ? d.name : 'Doctor') + ' availability to ' + _availLabel(value), metadata: { previous: _availLabel(_prevAvail), new: _availLabel(value) } });
 }
 
 // Lightweight profile view (no editing here — account edits live in Accounts).
@@ -1258,6 +1285,8 @@ document.addEventListener("DOMContentLoaded", () => {
     closeEditUser();
     renderClientsTable();
     showToast('User profile updated.', 'success');
+    var _u = SMU().byId(id);
+    _auditAdmin({ action: 'user_updated', entityType: 'user', entityId: id, description: 'Admin updated profile — ' + (_u ? _u.name : id) });
   };
 
   // ── Create User (assisted; role stays canonical "User") ──────────────────
@@ -1284,6 +1313,7 @@ document.addEventListener("DOMContentLoaded", () => {
     closeCreateUser();
     renderClientsTable();
     showToast('User account created for ' + result.user.name + '.', 'success');
+    _auditAdmin({ action: 'user_created', entityType: 'user', entityId: result.user.userId, description: 'Admin created account for ' + result.user.name });
   };
 
   // ── Account status (Active / Inactive only — no fake auth states) ────────
@@ -1297,6 +1327,7 @@ document.addEventListener("DOMContentLoaded", () => {
         SMU().setUserStatus(id, next);
         renderClientsTable();
         showToast('Account ' + next + '.', 'success');
+        _auditAdmin({ action: next === 'inactive' ? 'user_deactivated' : 'user_activated', entityType: 'user', entityId: id, description: 'Admin ' + (next === 'inactive' ? 'deactivated' : 'activated') + ' account — ' + u.name });
       },
       { title: (next === 'inactive' ? 'Deactivate' : 'Activate') + ' User Account', danger: next === 'inactive' }
     );
@@ -1358,6 +1389,8 @@ document.addEventListener("DOMContentLoaded", () => {
     closeEditPet();
     renderPetsTable();
     showToast('Pet profile updated.', 'success');
+    var _p = SMU().petById(id);
+    _auditAdmin({ action: 'pet_updated', entityType: 'pet', entityId: id, description: 'Admin updated pet profile — ' + (_p ? _p.name : id) });
   };
 
   // ── Register Pet (Admin-assisted, canonical contract, ownerId-linked) ────
@@ -1398,6 +1431,7 @@ document.addEventListener("DOMContentLoaded", () => {
     renderPetsTable();
     renderClientsTable();
     showToast('Pet registered for ' + (SMU().byId(result.pet.ownerId) || {}).name + '.', 'success');
+    _auditAdmin({ action: 'pet_registered', entityType: 'pet', entityId: result.pet.petId, description: 'Admin registered pet ' + result.pet.name + ' for ' + ((SMU().byId(result.pet.ownerId) || {}).name || 'owner') });
   };
 
   // Live type filter (All Pets tab).
@@ -1572,6 +1606,7 @@ document.addEventListener("DOMContentLoaded", () => {
     closeServiceModal();
     renderServicesTable();
     showToast(id ? 'Service updated. Existing appointments keep their stored service.' : 'Service added to the catalog.', 'success');
+    _auditAdmin({ action: id ? 'service_updated' : 'service_created', entityType: 'service', entityId: result.service.serviceId, description: 'Admin ' + (id ? 'updated service' : 'created service') + ' — ' + result.service.label, metadata: { price: result.service.price || '', active: result.service.active !== false } });
   };
   window.toggleServiceStatus = function (id) {
     var s = window.SharedMockUsers.serviceById(id);
@@ -1583,6 +1618,7 @@ document.addEventListener("DOMContentLoaded", () => {
         window.SharedMockUsers.setServiceStatus(id, next);
         renderServicesTable();
         showToast('Service ' + (next ? 'activated' : 'deactivated') + '.', 'success');
+        _auditAdmin({ action: next ? 'service_activated' : 'service_deactivated', entityType: 'service', entityId: id, description: 'Admin ' + (next ? 'activated' : 'deactivated') + ' service — ' + s.label });
       },
       { title: (next ? 'Activate' : 'Deactivate') + ' Service', danger: !next }
     );
@@ -1599,6 +1635,7 @@ document.addEventListener("DOMContentLoaded", () => {
       }
       renderServicesTable();
       showToast('Service deleted.', 'success');
+      _auditAdmin({ action: 'service_deleted', entityType: 'service', entityId: id, description: 'Admin deleted service — ' + s.label });
     }, { title: 'Delete Service', danger: true });
   };
 
@@ -1685,6 +1722,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (result.ok) {
       showToast('Clinic settings saved. Booking flows pick these up on their next load.', 'success');
       populateClinicSettings();
+      _auditAdmin({ action: 'clinic_settings_updated', entityType: 'clinic_settings', entityId: 'clinic', description: 'Admin updated clinic settings' });
     } else {
       showToast('Could not save settings.', 'error');
     }
@@ -1700,6 +1738,7 @@ document.addEventListener("DOMContentLoaded", () => {
       window.VHSClinicSettings.reset();
       populateClinicSettings();
       showToast('Clinic settings restored to defaults.', 'success');
+      _auditAdmin({ action: 'clinic_settings_updated', entityType: 'clinic_settings', entityId: 'clinic', description: 'Admin restored clinic settings to defaults' });
     }, { title: 'Restore Defaults', danger: true });
   };
 

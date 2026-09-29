@@ -71,26 +71,59 @@
     <main class="main-content">
       <div class="page-header">
         <h1>Audit Log</h1>
-        <p class="page-subtitle">A read-only activity trail of portal actions will appear here.</p>
+        <p class="page-subtitle">Read-only activity trail of actions performed across the portals.</p>
       </div>
 
-      <!-- Placeholder shell: functionality is not built yet (Phase 2).
-           Clean "not implemented" state — no fake data or fake actions. -->
+      <!-- Audit trail (frontend demo): read-only table over the shared
+           audit store (shared/audit-store.js). No create/update/delete
+           controls — filters are view-side only. -->
       <section class="content-section">
-        <div class="placeholder-wrap">
-          <div class="placeholder-icon"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></div>
-          <span class="placeholder-badge">Frontend integration pending</span>
-          <h2 class="placeholder-title">Not yet implemented</h2>
-          <p class="placeholder-text">A read-only activity trail of portal actions will appear here. No fake data is shown — functionality arrives with the backend.</p>
-          <ul class="placeholder-list"><li>Appointment check-ins, cancellations, reschedules</li><li>Consultation start / completion</li><li>Account, service, and settings changes</li></ul>
+        <div class="filter-bar">
+          <select class="form-select" style="width:auto;" id="auditFilterActor" aria-label="Filter by actor type">
+            <option value="all">All Actors</option>
+            <option value="Admin">Admin</option>
+            <option value="Doctor">Doctor</option>
+            <option value="User">User</option>
+          </select>
+          <select class="form-select" style="width:auto;" id="auditFilterCategory" aria-label="Filter by category">
+            <option value="all">All Categories</option>
+            <option value="appointments">Appointments</option>
+            <option value="consultations">Consultations</option>
+            <option value="doctors">Doctors</option>
+            <option value="users_pets">Users &amp; Pets</option>
+            <option value="services">Services</option>
+            <option value="clinic">Clinic Settings</option>
+          </select>
+          <input type="date" class="form-input" style="width:auto;" id="auditFilterDate" aria-label="Filter by date">
+          <button type="button" class="btn-secondary" id="auditFilterClear">Clear Filters</button>
+          <span id="auditCount" style="margin-left:auto;font-size:0.85rem;color:#6b7280;"></span>
         </div>
+        <div class="table-wrapper">
+          <table class="compact-table">
+            <thead>
+              <tr><th>Date &amp; Time</th><th>Actor</th><th>Action</th><th>Record / Reference</th><th>Details</th></tr>
+            </thead>
+            <tbody id="auditTableBody">
+              <tr><td colspan="5" style="text-align:center;color:#888;">Loading audit log…</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p style="font-size:0.8rem;color:#6b7280;margin:0.75rem 0 0;">
+          Demo mode: entries are frontend-only records of actions performed in this browser.
+          TODO(BACKEND): audit entries will be generated server-side — each action becomes an API request,
+          Laravel performs the transaction, and the backend writes the authoritative audit_log record
+          (e.g. Check In → status transaction → audit record; Start Consultation → status transaction → audit record;
+          Service edit → service transaction → audit record). The frontend is never trusted as the final audit source.
+        </p>
       </section>
     </main>
   </div>
 
   <script src="../shared/vhs-ui.js?v=2.6.0"></script>
   <script src="../shared/clinic-settings.js?v=1.0.0"></script>
+  <script src="../shared/audit-store.js?v=1.0.0"></script>
+  <script src="audit-log-renderer.js?v=1.0.0"></script>
   <script src="../shared/dashboard-shared.js?v=2.9.0"></script>
-  <script src="admin-portal.js?v=2.11.0"></script>
+  <script src="admin-portal.js?v=2.13.0"></script>
 </body>
 </html>
