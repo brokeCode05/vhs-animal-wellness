@@ -113,7 +113,7 @@ body.doctor-portal { line-height: 1.5; }
 .pet-details { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1rem; margin: 1rem 0; padding-bottom: 1rem; border-bottom: 1px solid var(--doctor-border); }
 dt { font-size: 0.75rem; color: var(--doctor-muted); }
 dd { margin: 0.2rem 0 0; font-weight: 700; font-size: 0.95rem; overflow-wrap: anywhere; }
-.visit-reason { padding: 0.9rem 1rem; background: var(--accent-bg-3); border-radius: 0.5rem; margin-bottom: 1rem; line-height: 1.65; }
+.visit-reason { padding: 0.9rem 1rem; background: var(--vhs-shell-soft); border-radius: 0.5rem; margin-bottom: 1rem; line-height: 1.65; }
 
 /* Dated medical-history timeline, matching the User portal pattern. */
 .history { list-style: none; padding: 0.1rem 0 0; margin: 0; }
@@ -123,7 +123,7 @@ dd { margin: 0.2rem 0 0; font-weight: 700; font-size: 0.95rem; overflow-wrap: an
   border-left: 1px solid var(--doctor-border); font-size: 0.875rem;
 }
 .history li:last-child { padding-bottom: 0; border-color: transparent; }
-.history li::before { content: ''; position: absolute; width: 7px; height: 7px; border-radius: 50%; background: var(--accent); top: 0.45rem; left: -4px; }
+.history li::before { content: ''; position: absolute; width: 7px; height: 7px; border-radius: 50%; background: var(--vhs-shell); top: 0.45rem; left: -4px; }
 .history time { grid-row: 1 / 3; padding-top: 0.1rem; font-size: 0.8rem; color: var(--doctor-muted); font-variant-numeric: tabular-nums; }
 .history strong { font-size: 0.9rem; }
 .history p { grid-column: 2; margin: 0.15rem 0 0; line-height: 1.6; }
@@ -134,7 +134,7 @@ dd { margin: 0.2rem 0 0; font-weight: 700; font-size: 0.95rem; overflow-wrap: an
 .ai-strip {
   display: grid; grid-template-columns: auto 1fr; gap: 0.2rem 0.65rem;
   align-items: center; padding: 0.6rem 0.8rem; margin-bottom: 1.25rem;
-  background: var(--accent-bg-3); border-left: 3px solid var(--accent-light); border-radius: 0.35rem;
+  background: var(--vhs-shell-soft); border-left: 3px solid var(--vhs-shell-light); border-radius: 0.35rem;
 }
 .ai-chip {
   grid-row: 1 / 3; align-self: start; display: inline-grid; place-items: center;
@@ -376,3 +376,15 @@ input[type='checkbox'] { width: 17px; height: 17px; accent-color: var(--accent-d
   color: #6b7280;
   font-style: italic;
 }
+
+/* ===== PAGE SCROLLBAR — visual suppression only (Phase 3.2d) =====
+ * Hide the Doctor page scrollbar for a cleaner clinical canvas.
+ * Scrolling itself is untouched: wheel, touchpad, keyboard, and touch
+ * all keep working (no overflow changes anywhere).
+ * The scrolling box is the viewport (html), so the rules target html;
+ * doctor.css loads only on Doctor pages, keeping this portal-scoped. */
+html { scrollbar-width: none; -ms-overflow-style: none; }
+html::-webkit-scrollbar { width: 0; height: 0; display: none; }
+body.doctor-portal { scrollbar-width: none; -ms-overflow-style: none; }
+body.doctor-portal::-webkit-scrollbar { width: 0; height: 0; display: none; }
+.doctor-portal .main-content::-webkit-scrollbar { width: 0; height: 0; display: none; }

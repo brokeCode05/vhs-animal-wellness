@@ -1750,8 +1750,8 @@ body {
 /* Sidebar profile card - handled by shared/dashboard-theme.css */
 
 .sidebar-avatar {
-  background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%);
-  box-shadow: 0 4px 12px rgba(109,74,177,0.35);
+  background: linear-gradient(135deg, var(--vhs-shell) 0%, var(--vhs-shell-light) 100%);
+  box-shadow: 0 2px 8px var(--vhs-shell-shadow);
   border: 2px solid rgba(255,255,255,0.3);
 }
 
@@ -1761,17 +1761,19 @@ body {
 }
 
 .sidebar .nav-item:hover {
-  background: linear-gradient(135deg, rgba(109,74,177,0.07) 0%, rgba(109,74,177,0.12) 100%);
+  background: var(--vhs-shell-soft);
+  color: var(--vhs-shell-dark);
   transform: translateX(6px);
 }
 
 .sidebar .nav-item.active {
-  background: linear-gradient(135deg, rgba(109,74,177,0.14) 0%, rgba(109,74,177,0.2) 100%);
-  box-shadow: 0 4px 14px rgba(109,74,177,0.18);
+  background: var(--vhs-shell-soft);
+  color: var(--vhs-shell-dark);
+  box-shadow: 0 4px 14px rgba(36,19,86,0.14);
 }
 
 .sidebar .nav-item.active::before {
-  background: linear-gradient(180deg, var(--primary-light), var(--secondary));
+  background: var(--vhs-shell);
   width: 3px;
   border-radius: 0 3px 3px 0;
 }
@@ -1843,7 +1845,7 @@ body {
   position: absolute;
   top: 0; left: 0; right: 0;
   height: 3px;
-  background: linear-gradient(90deg, var(--primary), var(--primary-light), var(--secondary));
+  background: linear-gradient(90deg, var(--vhs-shell), var(--vhs-shell-light), var(--vhs-shell-dark));
   opacity: 0;
   transition: opacity var(--transition);
 }
@@ -1890,7 +1892,7 @@ body {
   border-radius: 1rem;
   box-shadow: 0 2px 12px rgba(0,0,0,0.05);
   margin-bottom: 1.75rem;
-  border-left: 4px solid var(--primary);
+  border-left: 4px solid var(--vhs-shell);
   position: relative;
   overflow: hidden;
 }
@@ -1901,7 +1903,7 @@ body {
   right: -30px; top: -30px;
   width: 120px; height: 120px;
   border-radius: 50%;
-  background: radial-gradient(circle, rgba(109,74,177,0.06) 0%, transparent 70%);
+  background: radial-gradient(circle, var(--vhs-shell-soft) 0%, transparent 70%);
   pointer-events: none;
 }
 
@@ -1942,8 +1944,8 @@ body {
 
 /* === BADGE UPGRADE === */
 .badge-count {
-  background: linear-gradient(135deg, var(--secondary), #e69500);
-  box-shadow: 0 2px 8px rgba(255,170,0,0.4);
+  background: var(--vhs-shell-dark);
+  box-shadow: 0 2px 8px rgba(36,19,86,0.25);
   font-size: 0.7rem;
   padding: 0.2rem 0.55rem;
 }
@@ -1963,7 +1965,7 @@ body {
   display: inline-block;
   width: 4px;
   height: 1.1em;
-  background: linear-gradient(180deg, var(--primary), var(--secondary));
+  background: var(--vhs-shell-dark);
   border-radius: 2px;
   flex-shrink: 0;
 }
@@ -1972,7 +1974,7 @@ body {
 .modal-content {
   border-radius: 1.25rem;
   box-shadow: 0 30px 80px rgba(0,0,0,0.2);
-  border-top: 4px solid var(--primary);
+  border-top: 4px solid var(--vhs-shell);
 }
 
 /* === SCROLLBAR HIDDEN === */
@@ -1980,13 +1982,14 @@ body {
 
 /* === CALENDAR UPGRADE === */
 .calendar-day-header {
-  background: linear-gradient(135deg, var(--primary-dark) 0%, var(--primary) 100%);
+  background: var(--vhs-neutral-bg, #F7F7FA);
+  color: var(--vhs-neutral-text, #242033);
   letter-spacing: 0.08em;
 }
 
 .calendar-day.today {
-  background: linear-gradient(135deg, rgba(109,74,177,0.06) 0%, rgba(109,74,177,0.1) 100%);
-  border: 2px solid var(--primary);
+  background: linear-gradient(135deg, rgba(60,31,120,0.06) 0%, rgba(60,31,120,0.1) 100%);
+  border: 2px solid var(--vhs-shell);
 }
 
 /* === LOGOUT ITEM === */
