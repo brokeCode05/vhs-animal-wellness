@@ -14,7 +14,7 @@
 | Final roles | **User · Doctor · Admin** (exactly three; no Clerk/Owner/Staff) |
 | Clerk portal | **RETIRED** — `/clerk/*` URLs are redirect stubs to `/admin/*`. Never revive. |
 | Phase 6 backend handoff docs | **COMPLETE** (commit `99c9003`) — contracts, schema, API surface, Laravel map, role matrix |
-| Repository cleanup | **COMPLETE** (commit `b75e41d`) — legacy Clerk/Admin-editor assets removed (see §9) |
+| Repository cleanup | **COMPLETE** (commit `b75e41d`) — legacy Clerk/Admin-editor assets removed (see §10) |
 | Backend implementation | **NOT STARTED** — Laravel + MySQL. This is your phase. |
 | AI triage (Vetty) | Not started, explicitly out of scope for now. Do not add. |
 
@@ -31,6 +31,7 @@ The three live portals are `/user/`, `/doctor/`, `/admin/`, backed by shared dem
 | 5 | [VHS_LARAVEL_MAP.md](VHS_LARAVEL_MAP.md) | Concrete Laravel structure: models, migration order, controllers → services → models, route skeleton, and the store→endpoint deletion list. |
 | 6 | [VHS_ROLE_PERMISSIONS.md](VHS_ROLE_PERMISSIONS.md) | The role/permission matrix and server-audit rules. Implement as policies + middleware. |
 | 7 | [vhs_schema.sql](vhs_schema.sql) | Runnable reference DDL for all 13 tables. Status ENUMs mirror the frontend exactly. |
+| 8 | [VHS_SHARED_LAYER_MAP.md](VHS_SHARED_LAYER_MAP.md) | Dependency + migration audit of every `/shared` file: consumers, globals, category, backend replacement, final fate, and exact safe-deletion conditions. |
 
 Then read [VHS_FRONTEND_BACKEND_WIRING.md](VHS_FRONTEND_BACKEND_WIRING.md) for the per-domain chain of custody: UI → current store → future API → controller → service → model/table, with the exact frozen source files each chain will replace.
 
@@ -203,13 +204,23 @@ The backend **owns** all of the following. The frontend is only a presentation/w
 - **Do not let the frontend write authoritative audit events** — audit rows are server-generated inside the action transaction; the frontend store is a prototype.
 - **Do not use a global `UNIQUE(date, time)`** — it would block future multi-doctor capacity and mis-handle freed slots; use transaction serialization (see 4.8).
 
-## 9. Repository cleanup status
+## 9. Shared Frontend Layer
+
+`/shared` (13 files) mixes three kinds of responsibility — know which is which before touching anything. **Do NOT delete or reorganize `/shared` during initial Laravel setup**; deletion is a per-file, per-consumer decision.
+
+- **Permanent frontend utilities (stay):** shared UI/theme (`dashboard-theme.css`, `dashboard-icons.css`, `vhs-ui.css`), the shared UI logic layer (`dashboard-shared.js`, `vhs-ui.js`), the appointment contract (`appointment-contract.js`), and the document renderer (`document-render.js`).
+- **Temporary mock persistence (disappear after cutover):** `mock-appointments.js`, `mock-users.js` (users + pets + services), `mock-doctors.js`, `clinic-settings.js`, `audit-store.js`, `document-store.js` — browser stores standing in for the backend.
+- **Migration happens consumer-by-consumer:** replace one store at a time per the cutover order (§6); a store is removed only after every page stops loading it and every script stops referencing it.
+
+**Refer to [VHS_SHARED_LAYER_MAP.md](VHS_SHARED_LAYER_MAP.md) before removing anything** — it is the authority on each file's consumers, globals, final fate (KEEP / KEEP BUT REWIRE / REPLACE THEN DELETE), and exact safe-deletion conditions.
+
+## 10. Repository cleanup status
 
 Repository cleanup was **completed** (commit `b75e41d`). Removed legacy: retired Clerk implementation JS/CSS (`clerk/clerk-script.js`, `clerk/clerk-style.css`, `clerk/clerk-accent.css`), the obsolete Admin website/editor pair (`admin/admin-script.js` + `admin/website.html`), the never-referenced `admin/admin-accent.css`, unused root image assets, `certs/ca.pem`, and root `index.php`.
 
 Intentionally kept: the `/clerk/` redirect-stub HTML routes (preserve old URLs), runtime upload directories, and the legacy `web-page/index.php` backend reference where useful. **Do not repeat cleanup** — those paths are already handled; just don't recreate them.
 
-## 10. Backend handoff checklist
+## 11. Backend handoff checklist
 
 ### Before backend coding
 - [ ] Read the handoff docs in §2 order (+ VHS_FRONTEND_BACKEND_WIRING.md)

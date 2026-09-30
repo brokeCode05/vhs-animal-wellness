@@ -2,7 +2,7 @@
 
 > Purpose: map the **frozen frontend architecture** (UI → shared demo store → future API → Laravel controller → domain service → model/table) so the backend developer knows exactly where each frontend call will later be replaced.
 > **Do not modify the frozen frontend files listed here** — they are the replacement map, not the work item. The backend swaps store internals (or provides an adapter) domain-by-domain; UI files stay untouched.
-> Contracts: [VHS_DATA_CONTRACT.md](VHS_DATA_CONTRACT.md) (field shapes, snake_case accepted) · Final decisions: [BACKEND_START_HERE.md](BACKEND_START_HERE.md) §4 · Endpoints detail: [VHS_API_CONTRACT.md](VHS_API_CONTRACT.md) · Laravel structure: [VHS_LARAVEL_MAP.md](VHS_LARAVEL_MAP.md).
+> Contracts: [VHS_DATA_CONTRACT.md](VHS_DATA_CONTRACT.md) (field shapes, snake_case accepted) · Final decisions: [BACKEND_START_HERE.md](BACKEND_START_HERE.md) §4 · Endpoints detail: [VHS_API_CONTRACT.md](VHS_API_CONTRACT.md) · Laravel structure: [VHS_LARAVEL_MAP.md](VHS_LARAVEL_MAP.md) · Shared-file dependency audit: [VHS_SHARED_LAYER_MAP.md](VHS_SHARED_LAYER_MAP.md) (per-file consumers, globals, final fates, safe-deletion conditions — the authority on when a shared file may be removed).
 
 **Chain notation:** `FRONTEND UI → CURRENT SHARED STORE → FUTURE API → CONTROLLER → SERVICE → MODEL/TABLE`
 
@@ -271,4 +271,4 @@ The frontend remains a presentation/workflow layer — it never grants authority
 | `admin/appointments.html` | Appointment modals (incl. hidden reschedule id field) | unchanged UI |
 | `shared/dashboard-shared.js` | Shared render helpers (details modal) | unchanged UI |
 
-*Freeze reminder: these files are the map, not the work item. Backend integration happens by swapping store internals/adapter — the UI files above stay frozen.*
+*Freeze reminder: these files are the map, not the work item. Backend integration happens by swapping store internals/adapter — the UI files above stay frozen. For each shared file's exact consumers, globals, final fate (KEEP / KEEP BUT REWIRE / REPLACE THEN DELETE), and safe-deletion conditions, see [VHS_SHARED_LAYER_MAP.md](VHS_SHARED_LAYER_MAP.md); for the adapter approach (contracts stay, stores become API-backed services), see §16 and the cutover order in §13.*
