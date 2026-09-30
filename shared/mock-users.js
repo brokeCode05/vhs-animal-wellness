@@ -1,17 +1,26 @@
 /* ============================================================
-   SHARED MOCK USERS / PETS / SERVICES — stable identity data
-   One source for User, Clerk, and Doctor so owner/pet/service
-   relationships are identical across portals. Domains stay
-   separate and link through IDs:
+   SHARED MOCK USERS / PETS / SERVICES — demo data layer (TEMPORARY)
+
+   Currently owns the demo data + browser persistence for THREE
+   domains (despite the filename): demo Users, demo Pets, and the
+   canonical 26-service catalog. Domains stay separate and link
+   through IDs:
      user (userId) → pets (petId → ownerId)
      appointment (userId, petId) → user + pet
    Ownership is NEVER inferred from names.
 
-   TODO(BACKEND): Replace with get_users.php / get_pets.php and a
-   services table. The helpers below keep the same call sites.
+   This is the temporary frontend data layer standing in for the
+   backend. Backend replacement: the User / Pet / Service APIs
+   (see docs/VHS_SHARED_LAYER_MAP.md §2.7). Consumers: Admin portal,
+   User portal, public website (via web-page/website-services.js).
+   The file is retired ONLY after all consumers have moved to API
+   adapters — do not delete it early.
+
+   TODO(BACKEND): Replace with the users/pets/services API groups.
+   The helpers below keep the same call sites.
 
    v2.10.0 — service edits push through to every consumer (active-only
-   admin/clerk booking lists, User service cards, public website);
+   Admin booking lists, User service cards, public website);
    updateService never wipes a category with a stale/blank value;
    backend snapshot note (price_at_booking) added at the boundary.
    ============================================================ */
@@ -144,7 +153,7 @@
 
   // ── DEMO PERSISTENCE LAYER (frontend-only, one canonical source) ──────────
   // Edits/creates made in Admin (and any future portal surface) persist in
-  // localStorage so User/Clerk-Admin reads stay consistent after reload.
+  // localStorage so User/Admin reads stay consistent after reload.
   // Seeds are never mutated: overrides apply on read, additions append.
   // TODO(BACKEND): Replace User/Pet profile persistence with User API calls
   // (GET/POST/PUT /users, /pets). This layer is deleted when the API lands.

@@ -1,10 +1,8 @@
 /* ============================================================
    VHS DASHBOARD THEME — shared design system
-   Admin / Clerk / User portals
-   Loaded AFTER admin-style.css / clerk-style.css / user-style.css
-   The role accent colors come from a per-role accent file
-   loaded after this one (admin-accent.css / clerk-accent.css /
-   user-accent.css) which only overrides the --accent* vars.
+   Admin / User / Doctor portals (Clerk portal is retired)
+   Loaded AFTER each portal's base stylesheet, before its accent file
+   (user-accent.css) which only overrides the --accent* vars.
    ============================================================ */
 
 /* ===== FONTS ===== */
@@ -599,8 +597,7 @@ h1, h2, h3, h4, h5, h6,
 
 /* Status badges — role-tinted fills */
 .type-badge.guest,
-.status-badge.in-progress,
-.role-badge.clerk {
+.status-badge.in-progress {
   background: linear-gradient(135deg, var(--accent-badge-bg) 0%, var(--accent-badge-bg-2) 100%);
   color: var(--accent-dark);
   border: 1px solid var(--accent-badge-border);
@@ -922,7 +919,7 @@ body.modal-open {
 /* ===== MODALS — entrance animation =====
    NOTE: fill-mode 'backwards' only — 'both'/'forwards' would
    permanently force opacity:1 and break modals that hide via
-   inline opacity:0 (e.g. admin/clerk booking modals). */
+   inline opacity:0 (e.g. Admin booking modals). */
 .modal-overlay.show {
   animation: dashFadeIn 0.25s ease backwards;
 }

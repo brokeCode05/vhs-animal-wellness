@@ -1,10 +1,18 @@
 /* ============================================
-   VHS SHARED UI — Enhanced Modals & Toasts
-   Used by: admin, clerk, user dashboards
+   VHS SHARED UI — generic UI helpers (modals, toasts)
+   Used by: Admin portal, User portal, public website.
+   (Clerk portal is retired; /clerk/* pages are redirects.)
+
+   NOTE: getVHSTimeSlots() is currently tied to the demo clinic
+   settings store (shared/clinic-settings.js). VHS_TIME_SLOTS /
+   VHS_CLINIC_HOURS / VHS_HOURS are temporary slot constants kept
+   only as offline fallbacks — after backend integration both come
+   from the availability API (see docs/VHS_SHARED_LAYER_MAP.md §2.8).
    ============================================ */
 
 // ── SHARED CONSTANTS ───────────────────────────────────────────────────────
-// Single definition used by user, admin, and clerk booking modals.
+// Legacy static slot fallback for booking modals (Admin + User);
+// superseded by the ClinicSettings generator inside getVHSTimeSlots().
 const VHS_TIME_SLOTS = [
   '9:00 AM','10:00 AM','11:00 AM','12:00 PM',
   '1:00 PM','2:00 PM','3:00 PM','4:00 PM','5:00 PM','6:00 PM'

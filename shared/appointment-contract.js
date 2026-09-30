@@ -1,7 +1,6 @@
 /* ============================================================
    APPOINTMENT CONTRACT — shared frontend model + mappers
-   One canonical shape for User / Clerk / Doctor so the upcoming
-   Clerk Check-In workflow can rely on stable field names.
+   One canonical shape for User / Admin / Doctor portals.
 
    Domains stay separate: appointment ↔ pet/EMR ↔ consultation,
    linked by IDs. This file must stay framework-free.
@@ -83,7 +82,7 @@
     return appointment;
   }
 
-  // Snake_case projection for existing renderers (Clerk table, User cards)
+  // Snake_case projection for existing renderers (Admin tables, User cards)
   // so they can adopt the contract without changing their templates.
   function toLegacyDisplay(appt) {
     if (!appt) return {};

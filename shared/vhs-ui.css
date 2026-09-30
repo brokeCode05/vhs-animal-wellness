@@ -1,6 +1,7 @@
 /* ============================================
    VHS SHARED UI — Enhanced Modals & Toasts
-   Used by: admin, clerk, user dashboards
+   Used by: Admin portal, User portal, public website.
+   (Clerk portal is retired; /clerk/* pages are redirects.)
    ============================================ */
 
 /* ── HIDDEN SCROLLBAR ── */

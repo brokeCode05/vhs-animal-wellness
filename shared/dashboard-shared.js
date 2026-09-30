@@ -1,15 +1,17 @@
 /* ============================================
 
-   VHS DASHBOARD SHARED — Common logic for
+   VHS DASHBOARD SHARED — dashboard UI framework
 
-   Admin and Clerk dashboards.
+   Currently used by the ADMIN portal only (all 7 admin pages).
+   The User and Doctor portals keep local copies of overlapping
+   helpers; historical Clerk sharing is retired (no Clerk portal).
 
    Loaded AFTER vhs-ui.js, BEFORE role script.
 
    VHS_TIME_SLOTS is defined in vhs-ui.js.
 
    v2.10.0 — custom-dropdown change events now bubble (fixes the Admin
-   booking client→pet cascade never firing); admin/clerk booking service
+   booking client→pet cascade never firing); Admin booking service
    lists offer active services only, same as User booking.
 
    ============================================ */
@@ -148,7 +150,7 @@ function removeRow(id) {
 
 
 
-// ─── TODAY'S SCHEDULE (clerk dashboard) ───────────────────────────────────
+// ─── TODAY'S SCHEDULE (Admin dashboard) ───────────────────────────────────
 // Compact same-day list for #todayScheduleTable. Columns mirror the dashboard
 // markup (Time/Owner/Pet/Service/Type/Status); reference_no is surfaced as the
 // Type cell until the backend serves a real visit type.
@@ -210,8 +212,9 @@ function renderTodaysScheduleTable(all) {
 
 function loadAppointments() {
 
-  // Backend data first; the shared canonical mock dataset keeps Clerk (and
-  // the calendar) populated for frontend-only testing until the API is live.
+  // Backend data first; the shared canonical mock dataset keeps the Admin
+  // dashboard (and the calendar) populated for frontend-only testing until
+  // the API is live.
   // TODO(BACKEND): Remove the mock fallback once get_appointments.php is wired.
   function useSharedMock(reason) {
     if (reason) console.warn('loadAppointments fallback to shared mock:', reason);
@@ -409,9 +412,7 @@ function filterAppointments() {
 
 // ─── SHARED APPOINTMENT STATUS UPDATE ────────────────────────────────────────
 
-// Note: admin version accepts an optional onSuccess callback; clerk version does not.
-
-// Both are handled here — onSuccess is simply ignored if not provided.
+// Note: both Admin and User variants are handled here — onSuccess is simply ignored if not provided.
 
 
 
@@ -1702,12 +1703,12 @@ function initDashboardShared() {
 
 
 
-  // Clerk dashboard “Today's Schedule”: feed from the shared canonical mock
-  // dataset so the same test records appear across User/Clerk/Doctor.
-  // TODO(BACKEND): Once get_appointments.php is live, renderTodaysScheduleTable
+  // Admin dashboard “Today's Schedule”: feed from the shared canonical mock
+  // dataset so the same test records appear across Admin/User/Doctor.
+  // TODO(BACKEND): Once the appointment API is live, renderTodaysScheduleTable
   // is called from loadAppointments() with real same-day rows instead.
   // Portal hook: calendar appointment items open the shared details panel
-  // (clerk-script.js defines this; guarded so Admin keeps the info toast).
+  // (admin-portal.js defines this; guarded so Admin keeps the info toast).
   if (typeof window.onCalendarAppointmentClick !== 'function') {
     window.onCalendarAppointmentClick = function(apt) {
       if (apt && apt.id) { openAppointmentDetails(apt.id); return; }
@@ -1755,7 +1756,7 @@ function initDashboardShared() {
 var _cdAllPanels = [];  // global registry of all custom dropdowns
 
 // Render the SHARED service catalog (shared/mock-users.js) into a booking
-// select, grouped by category. Keeps Clerk/Admin booking in sync with the
+// select, grouped by category. Keeps Admin booking in sync with the
 // User portal — one canonical list, no per-portal variants.
 // TODO(BACKEND): replace the source with a vet_services fetch; option values
 // stay the canonical service values (FK-ready).

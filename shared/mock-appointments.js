@@ -1,6 +1,6 @@
 /* ============================================================
    SHARED MOCK APPOINTMENTS — canonical contract shape
-   One dataset consumed by User, Clerk, and Doctor so the three
+   One dataset consumed by User, Admin, and Doctor so the three
    portals render the SAME records during frontend testing.
 
    TODO(BACKEND): Replace with get_appointments.php (which must
@@ -66,7 +66,7 @@
       owner: { name: 'Sam Reyes', phone: '0918-222-3344' },
       pet: { name: 'Max', species: 'Dog', breed: 'Labrador retriever' }
     },
-    // Past record so User "history" and Clerk completed filters have data.
+    // Past record so User "history" and Admin completed filters have data.
     {
       appointmentId: 'apt305', referenceNo: 'VHS-20260912-M7N8O9',
       userId: 1, petId: 1, assignedVetId: 2,
@@ -100,7 +100,7 @@
 
   // ── ADDED-SESSION LAYER (frontend-only, shared by all portals) ──────────
   // Appointments created in the demo (User booking write-through) persist in
-  // localStorage so Clerk sees them after refresh/navigation in the same
+  // localStorage so Admin/User portals see them after refresh/navigation in the same
   // browser. Minimal by design: one key, no sync events, no caching.
   // TODO(BACKEND): Replace AppointmentStore persistence with appointment API
   // calls — POST /appointments on add(), GET /appointments on all(); this
