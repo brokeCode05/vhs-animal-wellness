@@ -21,7 +21,7 @@ Source: `shared/mock-users.js` USERS + Admin `submitCreateUser`/`submitEditUser`
 | birthdate | date | O | date of birth | valid date, past |
 | status | enum(`active`,`inactive`) | R | account gate | inactive = login disabled (doctor-account rule parity) |
 | role | enum(`User`,`Doctor`,`Admin`) | R | role | Users are `User`; backend decides whether Admin creates `User` accounts only |
-| password | — | never from frontend | credentials | **BACKEND DECISION REQUIRED**: provisioned by backend; reset/unlock via auth service; Admin must never see it |
+| password | — | never from frontend | credentials | provisioned server-side only (final decision): Admin-created accounts activate via setup/reset links or OTP-based activation; Admin never sees plaintext; hashing/reset tokens are server-side |
 
 ## 2. PET
 
@@ -76,7 +76,7 @@ Source: `shared/mock-users.js` §CANONICAL SERVICE CATALOG (26 seeded services) 
 | value | string(100) unique | R | stable snake_case key stored on appointments (`consultation`, `vaccination`, …) | **FK target for appointments.service_key** |
 | label | string(120) | R | display name | |
 | group | string(60) | R | category (`Preventive & Wellness`, `Diagnostics`, `Surgery & Procedures`, `Pet Care`, `Specialized Care`, custom) | Admin "Other" → custom text allowed |
-| price | string | R (display) | display price range | frontend format `₱300.00 – ₱2,000.00` or `Contact us for pricing`; **BACKEND DECISION REQUIRED** on structured numeric model (recommend price_min/price_max decimals + currency, price_display) |
+| price | string (display) | R (display) | display price for catalog UI | frontend demo shows display strings (`₱300.00 – ₱2,000.00`); backend stores the **single price model** (final decision): `price DECIMAL(10,2) NOT NULL` + `currency CHAR(3) DEFAULT 'PHP'` — no `price_min`/`price_max`; the API serves the numeric price and any range-style display is a frontend presentation concern |
 | active | bool | R | inactive removes from NEW bookings only | history keeps stored value/label |
 
 ## 5. APPOINTMENT (canonical — `shared/appointment-contract.js`)
@@ -87,10 +87,10 @@ Source: `shared/mock-users.js` §CANONICAL SERVICE CATALOG (26 seeded services) 
 | referenceNo | string(20) unique | R | public reference (`VHS-YYYYMMDD-NNNN`) | **unique**; shown to users + QR payload |
 | userId | int → users | R | owner | must exist |
 | petId | int → pets | R | pet | must exist AND belong to userId (frontend derives owner by petId; server enforces) |
-| assignedVetId | int → doctors, nullable | O | assigned vet | currently null in demo; assignment flow is **BACKEND DECISION REQUIRED** |
+| assignedVetId | int → doctors, nullable | O | assigned vet | starts NULL; assigned by system/Admin workflow only — the User never picks a doctor (final decision BACKEND_START_HERE.md §4.3) |
 | service / service_key | string → services.value | R | service at booking | must reference an active service at booking time |
 | serviceLabelAtBooking | string | R (snapshot) | label at booking | see §Service history |
-| priceAtBooking | string/decimal | R (snapshot) | price at booking | see §Service history |
+| priceAtBooking | decimal DECIMAL(10,2) | R (snapshot) | price at booking | snapshot of `services.price` (single price model) at create time; never recomputed from the live catalog |
 | appointmentDate | date | R | | today or future at booking |
 | appointmentTime | time HH:MM (24h) | R | canonical 24h | `timeToHHMM()` normalization already handled both formats |
 | visitContext | enum-ish string | O | visit reason option | free text accepted by frontend |
@@ -100,7 +100,7 @@ Source: `shared/mock-users.js` §CANONICAL SERVICE CATALOG (26 seeded services) 
 | checkedInAt | datetime null | O | check-in stamp | server-stamped |
 | consultationStartedAt | datetime null | O | start stamp | server-stamped |
 | consultationCompletedAt | datetime null | O | completion stamp | server-stamped |
-| rescheduledFrom | json null | O | `{date,time,at}` history | demo field; backend may normalize into an audit/history table — **BACKEND DECISION REQUIRED** |
+| rescheduledFrom | json null | O | `{date,time,at}` history | display convenience only; **authoritative history is the dedicated `appointment_events` table** (final decision BACKEND_START_HERE.md §4.6) |
 
 **Service history:** frontend note — `TODO(BACKEND): snapshot the price/service details onto each appointment at booking time (e.g. price_at_booking) so later catalog edits never change what a historical appointment actually cost.` The demo resolves display labels via `serviceLabel()` (value → label, falling back to stored label); backend should keep the same display resolution.
 
@@ -191,7 +191,7 @@ Source: `shared/clinic-settings.js` (single global record).
 | slotIntervalMinutes | int | R | 60 | |
 | cancellationCutoffMinutes | int | R | 120 | |
 | rescheduleCutoffMinutes | int | R | 120 | |
-| noShowGraceMinutes | int | R | 15 | enforcement later — **BACKEND DECISION REQUIRED** on trigger |
+| noShowGraceMinutes | int | R | 15 | after grace the backend may flag eligible candidates; Admin confirms/marks `no_show` — never auto-mark solely on elapsed time (final decision) |
 | clinicInfo.name / phone / email / website / address | string | R | VHS values | consumed by documents letterhead + public site |
 
 ---
@@ -220,11 +220,11 @@ Canonical statuses (frontend `STATUSES`): `pending, confirmed, checked_in, in_co
 
 **Rules:**
 - Only `checked_in` may start consultation; only `in_consultation` may complete; `completed` cannot move backward; `canceled` is terminal.
-- Successful reschedule keeps the same `appointmentId` and `referenceNo`; status returns to/remains `confirmed`; previous slot freed, new slot occupied; one audit event with old→new.
+- Successful reschedule keeps the same `appointmentId` and `referenceNo`; status returns to/remains `confirmed`; previous slot freed, new slot occupied; one audit event with old→new, plus an authoritative `appointment_events` history row (old/new date+time, actor).
 - Reschedule eligible only from `confirmed` (frontend also accepts `pending` in the Admin open-guard; store guard accepts `confirmed|pending`).
 - Cancellation allowed pre-consult (`confirmed`/`pending`); slot becomes available; record stays historically readable; one audit event with reason.
-- Cancellation/reschedule cutoffs are settings-driven (120 min); no-show grace 15 min — enforcement trigger is **BACKEND DECISION REQUIRED**.
-- `no_show` exists in the canonical status list but has no frontend transition path — backend owns its enforcement: **BACKEND DECISION REQUIRED**.
+- Cancellation/reschedule cutoffs are settings-driven (120 min); no-show grace 15 min — after the grace period the backend may determine eligibility, but an Admin confirms/marks `no_show` (never auto-mark solely because time elapsed; final decision).
+- `no_show` exists in the canonical status list but has no frontend transition path — backend owns its enforcement: eligibility after grace, Admin-confirmed marking (final decision).
 - Timestamps (`checkedInAt`, `consultationStartedAt`, `consultationCompletedAt`) are stamped by the server inside the transition.
 
 ## 13. Document visibility rules

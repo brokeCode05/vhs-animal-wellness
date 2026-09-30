@@ -94,17 +94,16 @@ CREATE TABLE doctor_profiles (
 
 -- ---------------------------------------------------------------------
 -- services — stable `value` key is the FK target stored on appointments.
--- price_display keeps the frozen display format; structured min/max
--- support filtering/summaries. Live price is NEVER the historical price.
+-- SINGLE price model (final decision): one price + currency; do NOT
+-- introduce price_min/price_max unless business requirements change.
+-- Live price is NEVER the historical price (appointments snapshot it).
 -- ---------------------------------------------------------------------
 CREATE TABLE services (
   id            BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   value         VARCHAR(100)  NOT NULL,                              -- snake_case stable key (e.g. 'consultation')
   label         VARCHAR(120)  NOT NULL,
   category      VARCHAR(60)   NOT NULL,                              -- group; custom categories allowed
-  price_min     DECIMAL(10,2) NULL,
-  price_max     DECIMAL(10,2) NULL,
-  price_display VARCHAR(60)   NOT NULL,                              -- e.g. '₱300.00 – ₱2,000.00'
+  price         DECIMAL(10,2) NOT NULL,                               -- SINGLE price (final decision: no min/max range)
   currency      CHAR(3)       NOT NULL DEFAULT 'PHP',
   active        BOOLEAN       NOT NULL DEFAULT TRUE,                 -- inactive = removed from NEW bookings only
   created_at    TIMESTAMP     NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -141,6 +140,12 @@ CREATE TABLE clinic_settings (
 -- appointments — canonical lifecycle spine.
 -- service_label_at_booking / price_at_booking are snapshots: later
 -- catalog edits must never change historical meaning (frozen rule).
+-- reference_no is generated once by the backend and NEVER changes
+-- during reschedule or any transition (final decision).
+-- NO-SHOW (final decision): grace default 15 min
+-- (clinic_settings.noshow_grace_minutes); after grace the backend may
+-- flag ELIGIBLE candidates only — an Admin confirms/marks no_show via
+-- the status endpoint. Never auto-mark on elapsed time alone.
 --
 -- SLOT CONCURRENCY STRATEGY (see docs/VHS_DATABASE_BLUEPRINT.md):
 --   A plain UNIQUE(appointment_date, appointment_time) is invalid —
@@ -160,10 +165,10 @@ CREATE TABLE appointments (
   reference_no              VARCHAR(20)  NOT NULL,                   -- 'VHS-YYYYMMDD-NNNN', unique, public + QR payload
   user_id                   BIGINT UNSIGNED NOT NULL,
   pet_id                    BIGINT UNSIGNED NOT NULL,
-  assigned_vet_id           BIGINT UNSIGNED NULL,                    -- BACKEND DECISION REQUIRED: assignment flow
+  assigned_vet_id           BIGINT UNSIGNED NULL,                    -- NULL until system/Admin assignment (User never picks a doctor)
   service_id                BIGINT UNSIGNED NOT NULL,
   service_label_at_booking  VARCHAR(120) NOT NULL,
-  price_at_booking          VARCHAR(60)  NOT NULL,
+  price_at_booking          DECIMAL(10,2) NOT NULL,                   -- snapshot from services.price at booking (final decision)
   appointment_date          DATE         NOT NULL,
   appointment_time          TIME         NOT NULL,                   -- 24h HH:MM (canonical; last start inclusive)
   visit_context             VARCHAR(120) NULL,
@@ -174,7 +179,7 @@ CREATE TABLE appointments (
   checked_in_at             TIMESTAMP NULL,
   consultation_started_at   TIMESTAMP NULL,
   consultation_completed_at TIMESTAMP NULL,
-  rescheduled_from          JSON NULL,                               -- {date, time, at}; history table alternative: BACKEND DECISION REQUIRED
+  rescheduled_from          JSON NULL,                               -- display convenience only; AUTHORITATIVE history = appointment_events
   canceled_reason           VARCHAR(120) NULL,
   created_via               ENUM('user','admin') NOT NULL DEFAULT 'user',
   created_at                TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -323,10 +328,35 @@ CREATE TABLE audit_logs (
 --   notifications        : reminders/status pushes
 --   appointment_slots    : per-doctor slot concurrency helper
 --                          UNIQUE(slot_date, slot_time, doctor_id)
---   appointment_history  : if rescheduled_from JSON is insufficient
+--   appointment_history  : superseded by appointment_events (created above)
 --   payments / receipts  : beyond the placeholder document type
 --   vetty_sessions / vetty_messages : AI triage persistence (Vetty phase)
 --   uploads              : unified file storage (pet photos, lab files)
 -- =====================================================================
+
+-- ---------------------------------------------------------------------
+-- appointment_events — AUTHORITATIVE appointment history (final
+-- decision): one row per lifecycle event (create/reschedule/cancel/
+-- no_show/...). Reschedule keeps the same appointment id + reference_no
+-- and records old→new here. The compact appointments.rescheduled_from
+-- JSON is a display convenience, not the authority.
+-- ---------------------------------------------------------------------
+CREATE TABLE appointment_events (
+  id             BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  appointment_id BIGINT UNSIGNED NOT NULL,
+  event_type     VARCHAR(40)   NOT NULL,                              -- 'created','rescheduled','canceled','no_show', ... (app-defined)
+  old_date       DATE          NULL,
+  old_time       TIME          NULL,
+  new_date       DATE          NULL,
+  new_time       TIME          NULL,
+  actor_type     ENUM('User','Doctor','Admin') NOT NULL,
+  actor_id       BIGINT UNSIGNED NULL,                               -- NULL for system actions
+  metadata       JSON          NULL,                                 -- reasons, channel, etc.
+  created_at     TIMESTAMP     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT fk_ape_appt FOREIGN KEY (appointment_id) REFERENCES appointments(id),
+  INDEX ix_ape_appt (appointment_id),
+  INDEX ix_ape_type (event_type),
+  INDEX ix_ape_created (created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 SET FOREIGN_KEY_CHECKS = 1;

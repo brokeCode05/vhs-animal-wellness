@@ -2,7 +2,7 @@
 
 > **Audience:** the Laravel + MySQL backend developer taking over from the frozen frontend.
 > **Status:** frontend is FROZEN as of Phase 5 (commit `99e8346`). Contracts in these documents are authoritative.
-> **Related docs:** [VHS_DATA_CONTRACT.md](VHS_DATA_CONTRACT.md) · [VHS_API_CONTRACT.md](VHS_API_CONTRACT.md) · [VHS_DATABASE_BLUEPRINT.md](VHS_DATABASE_BLUEPRINT.md) · [vhs_schema.sql](vhs_schema.sql) · [VHS_LARAVEL_MAP.md](VHS_LARAVEL_MAP.md) · [VHS_ROLE_PERMISSIONS.md](VHS_ROLE_PERMISSIONS.md)
+> **Related docs:** [BACKEND_START_HERE.md](BACKEND_START_HERE.md) — **read first** (project status + final backend decisions) · [VHS_FRONTEND_BACKEND_WIRING.md](VHS_FRONTEND_BACKEND_WIRING.md) (per-domain wiring map) · [VHS_DATA_CONTRACT.md](VHS_DATA_CONTRACT.md) · [VHS_API_CONTRACT.md](VHS_API_CONTRACT.md) · [VHS_DATABASE_BLUEPRINT.md](VHS_DATABASE_BLUEPRINT.md) · [vhs_schema.sql](vhs_schema.sql) · [VHS_LARAVEL_MAP.md](VHS_LARAVEL_MAP.md) · [VHS_ROLE_PERMISSIONS.md](VHS_ROLE_PERMISSIONS.md)
 
 ---
 
@@ -56,7 +56,7 @@ A veterinary clinic management system with three surfaces sharing one canonical 
   `TODO(BACKEND): resolved from the authenticated session instead.`
 - No passwords, OTPs, or tokens are displayed or stored anywhere on the frontend. Account credentials are backend-provisioned. Password reset / unlock actions on the frontend are honest placeholders:
   `TODO(BACKEND): POST /auth/password-reset { email }` and `POST /auth/users/:id/unlock`.
-- Booking OTP is a demo gate (any 6 digits accepted). Backend decides whether OTP verification is a real pre-booking step: **BACKEND DECISION REQUIRED**.
+- Booking OTP is a demo gate (any 6 digits accepted). **Final decision:** OTP is real — server-issued and server-validated for account verification and kept in the booking workflow; the delivery provider (email/SMS) is a backend concern. Never trust frontend OTP state (BACKEND_START_HERE.md §4.1).
 
 ## 4. Authorization boundaries (summary — full matrix in VHS_ROLE_PERMISSIONS.md)
 
@@ -68,16 +68,16 @@ A veterinary clinic management system with three surfaces sharing one canonical 
 ## 5. Appointment lifecycle (see VHS_DATA_CONTRACT.md §Lifecycle for the transition table)
 
 Normal flow: `confirmed → checked_in → in_consultation → completed`.
-Side states: `canceled`, `no_show` (enforcement later), `pending` (legacy intake state still accepted), `rescheduled` never permanent (a reschedule returns the record to `confirmed` and is recorded as history + audit event).
+Side states: `canceled`, `no_show` (final decision: eligibility after the 15-min grace, Admin-confirmed marking), `pending` (legacy intake state still accepted), `rescheduled` never permanent (a reschedule returns the record to `confirmed` and is recorded as history + audit event).
 Backed by the guarded transition table in `shared/mock-appointments.js` `setStatus()` — the backend endpoint must enforce the same table server-side.
 
 ## 6. Booking / reschedule / cancel behavior
 
-- **Booking** (User wizard or Admin walk-in): creates ONE canonical record; returns DB-assigned `appointmentId` + `referenceNo` (frontend format `VHS-YYYYMMDD-NNNN` must remain; backend may keep or formally re-issue the format — **BACKEND DECISION REQUIRED** on collision-proof generation across days).
+- **Booking** (User wizard or Admin walk-in): creates ONE canonical record; returns DB-assigned `appointmentId` + `referenceNo` (frontend format `VHS-YYYYMMDD-NNNN` is the baseline; the backend owns generation — unique, human-readable, collision-safe, and immutable once issued — final decision BACKEND_START_HERE.md §4.2).
 - Slot availability derives from effective non-terminal appointments for the date; the last start slot is inclusive (settings-driven hours + interval).
-- **Reschedule** (User or Admin): allowed only while `confirmed` (User also blocked inside the reschedule cutoff window); keeps same `appointmentId`/`referenceNo`; stores previous date/time as history (`rescheduledFrom`); status returns to/stays `confirmed`; old slot freed, new slot occupied; exactly one audit event with old→new.
+- **Reschedule** (User or Admin): allowed only while `confirmed` (User also blocked inside the reschedule cutoff window); keeps same `appointmentId`/`referenceNo`; records previous date/time as history in the authoritative `appointment_events` table (the `rescheduledFrom` JSON stays as a display convenience); status returns to/stays `confirmed`; old slot freed, new slot occupied; exactly one audit event with old→new.
 - **Cancel** (User within cancel cutoff, or Admin): allowed pre-consult (`confirmed`/`pending`); status `canceled`; slot freed; record remains historically readable; one audit event with reason in metadata.
-- Cutoffs and grace are settings-driven (cancel cutoff 120 min, reschedule cutoff 120 min, no-show grace 15 min — current values; see VHS_DATA_CONTRACT.md §Clinic Settings).
+- Cutoffs and grace are settings-driven (cancel cutoff 120 min, reschedule cutoff 120 min, no-show grace 15 min — current values; see VHS_DATA_CONTRACT.md §Clinic Settings). **No-show (final decision):** after the grace period the backend may determine eligibility only; an Admin confirms/marks `no_show` — never auto-marked solely because time elapsed (BACKEND_START_HERE.md §4.7).
 
 ## 7. Doctor consultation workflow
 
@@ -96,7 +96,7 @@ Frontend `AuditLog` (`shared/audit-store.js`) is a **prototype only** — one en
 
 ## 10. Services & settings ownership
 
-- Services catalog: Admin edits; every consumer (booking lists, User cards, public site) reads active-only for NEW bookings; historical appointments keep their stored service value/label and snapshot price. Price format today is a display string (e.g. `₱300.00 – ₱2,000.00`) — backend should store structured min/max decimals + currency: **BACKEND DECISION REQUIRED** on final numeric model.
+- Services catalog: Admin edits; every consumer (booking lists, User cards, public site) reads active-only for NEW bookings; historical appointments keep their stored service value/label and snapshot price. Price format today is a display string (e.g. `₱300.00 – ₱2,000.00`) — **final decision: single price model** `services.price DECIMAL(10,2)` + `currency CHAR(3) DEFAULT 'PHP'`, with `appointments.price_at_booking DECIMAL(10,2)` + `service_label_at_booking` snapshots; do NOT introduce price_min/price_max (BACKEND_START_HERE.md §4.4).
 - Clinic Settings: single global row owned by Admin; consumed by booking slot generation, cutoffs, and displayed clinic info. Public website hero/hours also read it.
 
 ## 11. Frontend demo architecture (what the backend replaces)
@@ -157,4 +157,4 @@ The `/clerk/` route folder is intentionally KEPT: its four HTML pages are the re
 
 ## 16. Verification
 
-These documents were cross-checked against the frozen codebase: canonical statuses and transition table (`shared/appointment-contract.js`, `shared/mock-appointments.js`), pet field reference (`shared/mock-users.js` §CANONICAL PET PROFILE CONTRACT), service catalog keys/groups (26 services), doctor identity/availability (`shared/mock-doctors.js`), settings fields (`shared/clinic-settings.js`), document types (`shared/document-store.js`), audit actions (portal hook sites). Anything not derivable from the frontend is marked **BACKEND DECISION REQUIRED**.
+These documents were cross-checked against the frozen codebase: canonical statuses and transition table (`shared/appointment-contract.js`, `shared/mock-appointments.js`), pet field reference (`shared/mock-users.js` §CANONICAL PET PROFILE CONTRACT), service catalog keys/groups (26 services), doctor identity/availability (`shared/mock-doctors.js`), settings fields (`shared/clinic-settings.js`), document types (`shared/document-store.js`), audit actions (portal hook sites). Anything not derivable from the frontend is marked **BACKEND DECISION REQUIRED**; the items finalized since Phase 6 (OTP, reference generation, doctor assignment, single price model, `appointment_events`, no-show policy, clinic-level slots, password provisioning) are encoded in BACKEND_START_HERE.md §4 and propagated into the affected docs.

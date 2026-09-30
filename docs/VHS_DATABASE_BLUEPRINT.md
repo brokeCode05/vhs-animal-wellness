@@ -2,11 +2,11 @@
 
 > Companion to [vhs_schema.sql](vhs_schema.sql). Every table lists: purpose, columns (SQL type recommendation), keys/constraints/indexes, relationships, and the **frontend consumer** that will read the API built on it.
 > Conventions: InnoDB, `utf8mb4`, `id BIGINT UNSIGNED AUTO_INCREMENT` PKs, `created_at`/`updated_at`, snake_case. Soft deletes only where history matters.
-> Status enums match the frozen frontend exactly (VHS_DATA_CONTRACT.md). Anything not derivable from the frontend is marked **BACKEND DECISION REQUIRED**.
+> Status enums match the frozen frontend exactly (VHS_DATA_CONTRACT.md). Items once marked **BACKEND DECISION REQUIRED** are now finalized in [BACKEND_START_HERE.md](BACKEND_START_HERE.md) §4 (single price model, `appointment_events` history, OTP, doctor assignment, no-show, clinic-level slots) — this blueprint has been updated to match.
 
 ## users
 - **Purpose:** accounts for all three roles + pet owners.
-- **Columns:** `id` PK; `role` ENUM('User','Doctor','Admin') R; `status` ENUM('active','inactive') R DEFAULT 'active'; `first_name`/`middle_name`/`last_name` VARCHAR(50); `name` VARCHAR(120) R (display); `email` VARCHAR(191) R **UNIQUE**; `phone` VARCHAR(20) NULL; `address` VARCHAR(255) NULL; `birthdate` DATE NULL; `password` VARCHAR(255) NULL (backend-managed; **BACKEND DECISION REQUIRED** on provisioning flow); `email_verified_at` TIMESTAMP NULL; remember/app tokens per Laravel defaults.
+- **Columns:** `id` PK; `role` ENUM('User','Doctor','Admin') R; `status` ENUM('active','inactive') R DEFAULT 'active'; `first_name`/`middle_name`/`last_name` VARCHAR(50); `name` VARCHAR(120) R (display); `email` VARCHAR(191) R **UNIQUE**; `phone` VARCHAR(20) NULL; `address` VARCHAR(255) NULL; `birthdate` DATE NULL; `password` VARCHAR(255) NULL (backend-managed; Admin NEVER sees plaintext — Admin-created accounts activate via server-issued setup/reset links or OTP-based activation; final decision in BACKEND_START_HERE.md §4.5); `email_verified_at` TIMESTAMP NULL; remember/app tokens per Laravel defaults.
 - **FKs:** none. **Indexes:** `email` (unique), `role`, `status`.
 - **Consumers:** all portals; Admin Clients/Accounts; auth.
 
@@ -25,7 +25,7 @@
 
 ## services
 - **Purpose:** canonical catalog; `value` is the stable FK target stored on appointments.
-- **Columns:** `id` PK; `value` VARCHAR(100) R **UNIQUE** (snake_case key, seeded 26); `label` VARCHAR(120) R; `category` VARCHAR(60) R (group incl. custom); `price_min` DECIMAL(10,2) NULL; `price_max` DECIMAL(10,2) NULL; `price_display` VARCHAR(60) R (frozen display format); `currency` CHAR(3) DEFAULT 'PHP'; `active` BOOLEAN R DEFAULT TRUE; soft deletes.
+- **Columns:** `id` PK; `value` VARCHAR(100) R **UNIQUE** (snake_case key, seeded 26); `label` VARCHAR(120) R; `category` VARCHAR(60) R (group incl. custom); `price` DECIMAL(10,2) NOT NULL; `currency` CHAR(3) NOT NULL DEFAULT 'PHP' — **single price model** (final decision; do NOT introduce `price_min`/`price_max` unless business requirements change later; the old min/max + price_display recommendation is retired); `active` BOOLEAN R DEFAULT TRUE; soft deletes.
 - **Indexes:** `value` (unique), `active`, `category`.
 - **Consumers:** booking wizards (active only), User services page, Admin Services, public website.
 
@@ -36,13 +36,20 @@
 
 ## appointments
 - **Purpose:** canonical booking record; lifecycle spine.
-- **Columns:** `id` PK; `reference_no` VARCHAR(20) R **UNIQUE**; `user_id` FK→users R; `pet_id` FK→pets R; `assigned_vet_id` FK→doctor_profiles NULL (assignment flow **BACKEND DECISION REQUIRED**); `service_id` FK→services R; `service_label_at_booking` VARCHAR(120) R; `price_at_booking` VARCHAR(60) R (snapshot — see note); `appointment_date` DATE R; `appointment_time` TIME R (24h HH:MM); `visit_context` VARCHAR(120) NULL; `custom_visit_context` VARCHAR(255) NULL; `notes` VARCHAR(255) NULL; `status` ENUM('pending','confirmed','checked_in','in_consultation','completed','canceled','no_show','rescheduled') R DEFAULT 'confirmed'; `checked_in_at` TIMESTAMP NULL; `consultation_started_at` TIMESTAMP NULL; `consultation_completed_at` TIMESTAMP NULL; `rescheduled_from` JSON NULL (`{date,time,at}`) — or a history table (**BACKEND DECISION REQUIRED**); `canceled_reason` VARCHAR(120) NULL (mirrors frontend notes appends; also in audit); `created_via` ENUM('user','admin') R DEFAULT 'user'.
+- **Columns:** `id` PK; `reference_no` VARCHAR(20) R **UNIQUE**; `user_id` FK→users R; `pet_id` FK→pets R; `assigned_vet_id` FK→doctor_profiles NULL (NULL until system/Admin assignment — User never picks a doctor; final decision BACKEND_START_HERE.md §4.3); `service_id` FK→services R; `service_label_at_booking` VARCHAR(120) R; `price_at_booking` DECIMAL(10,2) NOT NULL (snapshot from services.price at booking — see note); `appointment_date` DATE R; `appointment_time` TIME R (24h HH:MM); `visit_context` VARCHAR(120) NULL; `custom_visit_context` VARCHAR(255) NULL; `notes` VARCHAR(255) NULL; `status` ENUM('pending','confirmed','checked_in','in_consultation','completed','canceled','no_show','rescheduled') R DEFAULT 'confirmed'; `checked_in_at` TIMESTAMP NULL; `consultation_started_at` TIMESTAMP NULL; `consultation_completed_at` TIMESTAMP NULL; `rescheduled_from` JSON NULL (`{date,time,at}`) — display convenience only; **authoritative history is the `appointment_events` table below** (final decision); `canceled_reason` VARCHAR(120) NULL (mirrors frontend notes appends; also in audit); `created_via` ENUM('user','admin') R DEFAULT 'user'.
 - **Indexes:** `reference_no` (unique), `(appointment_date, appointment_time)`, `status`, `user_id`, `pet_id`, `assigned_vet_id`.
 - **Constraints/strategy — slot concurrency:** a plain `UNIQUE(appointment_date, appointment_time)` is **wrong** (multiple doctors later; terminal appointments free their slot). Strategy:
   1. **Booking-time serialization:** `SELECT ... FOR UPDATE` inside the create/reschedule transaction on the target date's appointment rows (or a settings advisory lock), then re-check `isSlotAvailable` semantics (status not in `canceled/completed/no_show`), then insert. Replicates the frozen store guard exactly.
-  2. Optional helper table `appointment_slots (id, slot_date, slot_time, doctor_id NULL, appointment_id FK UNIQUE)` with `UNIQUE(slot_date, slot_time, doctor_id)` — **BACKEND DECISION REQUIRED** whether the multi-doctor scheduling model is introduced now or later.
+  2. Optional helper table `appointment_slots (id, slot_date, slot_time, doctor_id NULL, appointment_id FK UNIQUE)` with `UNIQUE(slot_date, slot_time, doctor_id)` — the future per-doctor capacity path. **Initial implementation uses clinic-level slots** (final decision BACKEND_START_HERE.md §4.8): no global `UNIQUE(appointment_date, appointment_time)`, no per-doctor scheduling in the first iteration — the architecture just has to allow it later without breaking contracts.
   3. `service_label_at_booking`/`price_at_booking` snapshot at create; catalog edits never rewrite history (frozen frontend rule).
 - **Consumers:** every portal.
+
+## appointment_events
+- **Purpose:** AUTHORITATIVE appointment history (final decision — replaces the earlier "JSON vs history table" open question). One row per lifecycle event (`created`, `rescheduled`, `canceled`, `no_show`, …); a reschedule keeps the same appointment id + `reference_no` and records old→new here.
+- **Columns:** `id` PK; `appointment_id` FK→appointments R; `event_type` VARCHAR(40) R (app-defined keys); `old_date` DATE NULL; `old_time` TIME NULL; `new_date` DATE NULL; `new_time` TIME NULL; `actor_type` ENUM('User','Doctor','Admin') R; `actor_id` FK→users NULL (system actions); `metadata` JSON NULL (reasons, channel); `created_at` R.
+- **Indexes:** `appointment_id`, `event_type`, `created_at`.
+- **Rules:** written by the server inside the same transaction as the action, next to the audit row. `appointments.rescheduled_from` JSON stays as a display convenience only.
+- **Consumers:** appointment history/detail views, admin reporting, audit cross-reference.
 
 ## consultations
 - **Purpose:** internal clinical record; 1:1 with an appointment.
@@ -75,7 +82,7 @@
 ## FUTURE (do not build now)
 - `notifications` — appointment reminders/status pushes.
 - `vetty_sessions`, `vetty_messages` — AI triage chat persistence. **Vetty phase: do not add now.**
-- `appointment_history` — if `rescheduled_from` JSON proves insufficient.
+- `appointment_history` — superseded by `appointment_events` (see table above).
 - `payments`/receipts beyond the placeholder document type.
 - `uploads` — unified file storage for pet photos/lab attachments.
 

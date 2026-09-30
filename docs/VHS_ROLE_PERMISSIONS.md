@@ -52,8 +52,8 @@ Every row is written by the **server inside the same DB transaction as the actio
 
 | Domain | Actions |
 |---|---|
-| Security-sensitive | login success/failure, password reset issued, account unlock, account status changes (activate/deactivate), role/status changes — **BACKEND DECISION REQUIRED** on final security-event list |
-| Appointments | `appointment_created` · `appointment_rescheduled` (metadata: old/new date-time) · `appointment_canceled` (metadata: reason) · `appointment_approved` · `appointment_rejected` · `patient_checked_in` |
+| Security-sensitive | login success/failure, OTP issued/verified (server-side), password reset issued, setup-link activation, account unlock, account status changes (activate/deactivate), role/status changes — **BACKEND DECISION REQUIRED** on final security-event list |
+| Appointments | `appointment_created` · `appointment_rescheduled` (metadata: old/new date-time; also writes an authoritative `appointment_events` row) · `appointment_canceled` (metadata: reason) · `appointment_approved` · `appointment_rejected` · `patient_checked_in` · `no_show` marking (Admin-only action — eligibility is determined after the 15-min grace, never auto-marked on elapsed time alone) |
 | Consultations | `consultation_started` · `consultation_completed` |
 | Doctors | `doctor_availability_changed` (metadata: previous/new) · `doctor_activated` / `doctor_deactivated` · `doctor_created` · `doctor_updated` |
 | Users / pets | `user_created` · `user_activated` / `user_deactivated` · `user_updated` · `pet_registered` · `pet_updated` |

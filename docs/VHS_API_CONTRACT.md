@@ -16,7 +16,9 @@ Legend: 🔓 public · 🔑 any authenticated role · roles listed per endpoint.
 | `/api/auth/register` | POST | 🔓 | — | user self-registration (public site) |
 | `/api/auth/login` | POST | 🔓 | — | returns token/session + `{user, role}` |
 | `/api/auth/logout` | POST | 🔑 | all | |
-| `/api/auth/password-reset` | POST | 🔓 | — | issue reset (`{email}`) — replaces frontend placeholder |
+| `/api/auth/verify-otp` | POST | 🔓 | — | verify server-issued OTP (`{identifier, code, context}`) — account verification and booking verification (final decision BACKEND_START_HERE.md §4.1) |
+| `/api/auth/resend-otp` | POST | 🔓 | — | re-issue OTP (rate-limited) |
+| `/api/auth/password-reset` | POST | 🔓 | — | issue reset (`{email}`) — replaces frontend placeholder; also provisions Admin-created accounts via setup links/OTP activation |
 | `/api/auth/unlock` | POST | 🔑 | Admin | unlock a locked/inactive-for-auth-reasons account |
 | `/api/auth/me` | GET | 🔑 | all | current session identity (replaces `sessionStorage.vhs_user`, `SharedMockUsers.currentUser()`, `SharedMockDoctors.currentDoctor()`) |
 
@@ -29,7 +31,7 @@ Legend: 🔓 public · 🔑 any authenticated role · roles listed per endpoint.
 ```
 `role` drives portal routing (`User → /user/`, `Doctor → /doctor/`, `Admin → /admin/`). Inactive accounts: login refused.
 
-**BACKEND DECISION REQUIRED:** whether the booking OTP flow is a real server-issued verification step (frontend demo accepts any 6 digits) or is dropped server-side.
+**OTP (final decision):** OTP is REAL — server-issued and server-validated for account verification and kept in the booking workflow. The frontend demo accepts any 6 digits; the backend must validate against its own issued codes. Never trust frontend OTP state. Delivery provider (email/SMS) is a backend concern.
 
 ## 2. USERS
 
@@ -65,7 +67,7 @@ Legend: 🔓 public · 🔑 any authenticated role · roles listed per endpoint.
 | Endpoint | Method | Roles | Notes |
 |---|---|---|---|
 | `/api/services` | GET | 🔓 (public site) / 🔑 | full catalog; consumers filter `active=1` for NEW bookings |
-| `/api/services` | POST | Admin | label + group (custom allowed) + price + active |
+| `/api/services` | POST | Admin | label + group (custom allowed) + **price (single DECIMAL(10,2), no min/max)** + active |
 | `/api/services/:id` | PATCH | Admin | edits; never wipes category with blank |
 | `/api/services/:id/status` | PATCH | Admin | `{active: bool}` — history unaffected |
 
@@ -84,7 +86,7 @@ Legend: 🔓 public · 🔑 any authenticated role · roles listed per endpoint.
 | `/api/appointments?reference_no=` | GET | Admin, **User (own)** | check-in lookup + QR resolve |
 | `/api/appointments/:id` | GET | Admin, Doctor, **User (own)** | details modal payload |
 | `/api/appointments` | POST | **User (own)**, Admin (walk-in) | create; server assigns `appointment_id` + `reference_no`; validates service active, slot free, date/time valid; snapshot `service_label_at_booking` + `price_at_booking` |
-| `/api/appointments/:id` | PATCH | Admin, **User (own, reschedule only)** | date/time move — same id/referenceNo, status returns `confirmed`, `rescheduled_from` history |
+| `/api/appointments/:id` | PATCH | Admin, **User (own, reschedule only)** | date/time move — same id/referenceNo, status returns `confirmed`, authoritative `appointment_events` history row (+ `rescheduled_from` JSON convenience) |
 | `/api/appointments/:id/status` | PATCH | Admin, Doctor | guarded transitions (§Lifecycle in VHS_DATA_CONTRACT.md): `checked_in` (Admin), `in_consultation`/`completed` (Doctor), `canceled` (Admin or own-User pre-cutoff), `confirmed` (Admin approve) |
 
 **POST example:**
@@ -108,7 +110,7 @@ Legend: 🔓 public · 🔑 any authenticated role · roles listed per endpoint.
   "appointment_date": "2026-10-02",
   "appointment_time": "09:00",
   "service_label_at_booking": "Consultation",
-  "price_at_booking": "₱300.00 – ₱2,000.00"
+  "price_at_booking": 300.00
 }
 ```
 Errors: `409 slot_taken` · `422 service_inactive` · `422 cutoff_window` (user reschedule/cancel inside settings window).
@@ -117,7 +119,7 @@ Errors: `409 slot_taken` · `422 service_inactive` · `422 cutoff_window` (user 
 
 | Endpoint | Method | Roles | Notes |
 |---|---|---|---|
-| `/api/availability?date=YYYY-MM-DD` | GET | 🔑 (booking wizards) | slots per clinic settings minus taken (non-terminal appointments); last start inclusive; per-doctor variant: **BACKEND DECISION REQUIRED** |
+| `/api/availability?date=YYYY-MM-DD` | GET | 🔑 (booking wizards) | slots per clinic settings minus taken (non-terminal appointments); last start inclusive. **Clinic-level slots initially** (final decision BACKEND_START_HERE.md §4.8): no doctor param in the first iteration; a per-doctor variant may be added later without breaking contracts. Backend is authoritative for availability and concurrency. |
 
 ## 9. CONSULTATIONS
 

@@ -10,7 +10,8 @@
 | `Pet` | `pets` | `belongsTo(User, 'owner_id')`; SoftDeletes |
 | `DoctorProfile` | `doctor_profiles` | `belongsTo(User)`; `account_status`, `availability_status` separate |
 | `Service` | `services` | `value` unique; SoftDeletes; `active` scope `scopeActive()` |
-| `Appointment` | `appointments` | enums for status; `belongsTo` user/pet/vet/service; snapshot columns never mutated on service edits |
+| `Appointment` | `appointments` | enums for status; `belongsTo` user/pet/vet/service; snapshot columns (`service_label_at_booking`, `price_at_booking` DECIMAL) never mutated on service edits |
+| `AppointmentEvent` | `appointment_events` | `belongsTo(Appointment)`; authoritative lifecycle history (create/reschedule/cancel/no_show rows with old→new date/time, actor, metadata) |
 | `Consultation` | `consultations` | `hasOne` inverse of appointment; SOAP columns internal (`$hidden` from non-Doctor contexts) |
 | `Prescription` | `prescriptions` | `belongsTo(Consultation)` |
 | `LabRequest` | `lab_requests` | `belongsTo(Consultation)`; `status` enum |
@@ -27,12 +28,13 @@
 4. `create_services_table`
 5. `create_clinic_settings_table`
 6. `create_appointments_table`
-7. `create_consultations_table`
-8. `create_prescriptions_table`
-9. `create_lab_requests_table` (+ `create_lab_results_table` optional)
-10. `create_documents_table`
-11. `create_audit_logs_table`
-12. Seeders: `ServiceCatalogSeeder` (26 services), `ClinicSettingsSeeder` (defaults), `DoctorSeeder` (Dr. Santos identity)
+7. `create_appointment_events_table`
+8. `create_consultations_table`
+9. `create_prescriptions_table`
+10. `create_lab_requests_table` (+ `create_lab_results_table` optional)
+11. `create_documents_table`
+12. `create_audit_logs_table`
+13. Seeders: `ServiceCatalogSeeder` (26 services, single `price DECIMAL(10,2)` — no min/max), `ClinicSettingsSeeder` (defaults incl. noshow_grace 15), `DoctorSeeder` (Dr. Santos identity)
 
 ## 3. Suggested structure (controllers → services → models)
 
@@ -61,7 +63,7 @@ app/Http/Middleware/            -- role middleware (role:User, role:Doctor, role
 |---|---|---|---|
 | `SharedMockAppointments.add(canonical)` | `POST /api/appointments` | `AppointmentController@store` → `AppointmentService::create()` | validates active service + free slot (SELECT … FOR UPDATE + guard), snapshots label/price, writes `audit_logs`, returns id + reference_no |
 | `SharedMockAppointments.checkIn(id)` / `setStatus(id,'checked_in')` | `PATCH /api/appointments/:id/status` | `AppointmentController@setStatus` → `AppointmentService::transition()` | guarded transition table + `checked_in_at` stamp + audit |
-| `SharedMockAppointments.reschedule(id,date,time)` | `PATCH /api/appointments/:id` | `AppointmentController@update` → `AppointmentService::reschedule()` | cutoff check, slot re-check, same id/reference_no, `rescheduled_from` JSON, status back to `confirmed`, audit old→new |
+| `SharedMockAppointments.reschedule(id,date,time)` | `PATCH /api/appointments/:id` | `AppointmentController@update` → `AppointmentService::reschedule()` | cutoff check, slot re-check, same id/reference_no, `appointment_events` history row (old→new) + `rescheduled_from` JSON convenience, status back to `confirmed`, audit old→new |
 | `SharedMockUsers.addUser()/updateUser()/setUserStatus()` | `/api/users` group | `UserController` | duplicate_email 409; status change audits |
 | `SharedMockUsers.addPet()/updatePet()` | `/api/pets` group | `PetController` | `owner_not_found` 404; species=Other ⇒ speciesCustom |
 | `SharedMockUsers.addService()/updateService()/setServiceStatus()/deleteService()` | `/api/services` group | `ServiceController` | delete only unused Admin-created services |
@@ -84,7 +86,7 @@ app/Http/Middleware/            -- role middleware (role:User, role:Doctor, role
 | `sessionStorage["vhs_user"]` — `user/user-script.js` `_getSessionUser()` | ss `vhs_user` / `user` | Laravel session/token (`/api/auth/me`) | `TODO(BACKEND): the authenticated session is the real identity source.` |
 | Demo Admin actor — `shared/audit-store.js` `ADMIN_ACTOR` | — | authenticated Admin session | `TODO(BACKEND): Resolve actor from authenticated server session.` |
 | Doctor identity — `doctor/doctor.js` `VETERINARIAN` | — | authenticated Doctor session | `TODO(BACKEND): Veterinarian identity comes from the authenticated session.` |
-| Booking OTP — `user/user-script.js` `verifyOtp()` | — | real OTP flow or removal | **BACKEND DECISION REQUIRED** |
+| Booking OTP — `user/user-script.js` `verifyOtp()` | — | real OTP flow (server-issued + server-validated) | final decision: OTP stays, backend-owned (BACKEND_START_HERE.md §4.1) |
 
 **Swap order suggestion:** auth → users/pets/services/settings (read-heavy) → appointments (+status/reschedule) → consultations/documents → delete `AuditLog.add` call sites last (after every endpoint writes server audit rows).
 
