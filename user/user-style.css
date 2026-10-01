@@ -4115,3 +4115,120 @@ body {
     line-height: 1.5;
   }
 }
+
+/* ============================================================
+   CLINIC QR SELF CHECK-IN (Advisor Revision Sprint 1)
+   Overlay opened via the clinic check-in entry point.
+   ============================================================ */
+.ci-modal { max-width: 470px; }
+
+.ci-body { padding: 0.25rem 0.25rem 0; }
+
+.ci-state { text-align: center; padding: 0.5rem 0.25rem; }
+.ci-state h3 { font-size: 1.15rem; font-weight: 700; color: var(--text-main, #1f2937); margin: 0.75rem 0 0.4rem; }
+.ci-state p { font-size: 0.9rem; color: var(--text-dim, #6b7280); margin: 0 0 0.4rem; line-height: 1.55; }
+.ci-state-warn svg { color: #d97706; }
+
+.ci-hint { font-size: 0.78rem !important; color: var(--text-dim, #9ca3af) !important; margin-top: 0.6rem !important; }
+
+.ci-appt-summary {
+  border: 1.5px solid var(--accent-border, #ddd6fe);
+  background: #faf9ff;
+  border-radius: 0.9rem;
+  padding: 1rem 1.1rem;
+  margin-bottom: 1rem;
+}
+.ci-appt-pet { font-size: 1.02rem; font-weight: 700; color: var(--text-main, #1f2937); margin-bottom: 0.65rem; }
+.ci-appt-pet span { font-weight: 500; color: var(--text-dim, #6b7280); font-size: 0.85rem; }
+.ci-appt-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem 1rem; }
+.ci-appt-grid > div { display: flex; flex-direction: column; font-size: 0.86rem; }
+.ci-appt-grid span { color: var(--text-dim, #6b7280); font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.04em; }
+.ci-appt-grid b { color: var(--text-main, #1f2937); font-weight: 600; word-break: break-word; }
+
+.ci-actions { display: flex; justify-content: flex-end; gap: 0.7rem; margin-top: 1rem; }
+
+.ci-multi-note { font-size: 0.9rem; color: var(--text-main, #1f2937); margin: 0 0 0.75rem; }
+.ci-appt-list { display: flex; flex-direction: column; gap: 0.55rem; }
+.ci-appt-option {
+  display: flex; flex-direction: column; gap: 0.15rem; text-align: left;
+  border: 1.5px solid var(--accent-border, #e5e7eb);
+  background: #fff;
+  border-radius: 0.8rem;
+  padding: 0.7rem 0.9rem;
+  font-size: 0.9rem;
+  color: var(--text-main, #1f2937);
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+.ci-appt-option:hover, .ci-appt-option:focus-visible { border-color: #8b5cf6; background: #faf9ff; outline: none; }
+.ci-appt-opt-pet { font-weight: 700; }
+.ci-appt-opt-ref { font-size: 0.75rem; color: var(--text-dim, #6b7280); font-family: monospace; }
+
+.ci-scrim {
+  position: absolute; inset: 0;
+  background: transparent; border: none; cursor: default; padding: 0;
+}
+
+@media (max-width: 480px) {
+  .ci-modal { max-width: 100%; margin: 1rem; }
+  .ci-appt-grid { grid-template-columns: 1fr; }
+}
+
+/* ============================================================
+   PRINT — safe A4 output for the User document viewer
+   (Advisor Revision Sprint 1): @page A4, chrome hidden, and
+   long clinical text wraps inside the paper.
+   ============================================================ */
+@media print {
+  @page { size: A4; margin: 14mm 12mm; }
+
+  html, body { overflow: visible !important; height: auto !important; }
+
+  .sidebar, .mobile-topbar, .topbar, .modal-close,
+  .form-actions, .btn, .btn-primary, .btn-secondary, .btn-small, .btn-link { display: none !important; }
+
+  /* Document viewer modal: un-hide only the chain leading to the open modal
+     so the record prints without the portal around it. (:has() is supported
+     in all current Chrome/Edge/Safari; older browsers simply keep the
+     previous behavior for this surface.) */
+  body:has(.modal-overlay.show) > *:not(.print-area) { display: block !important; }
+  body:has(.modal-overlay.show) .page-section:not(:has(.modal-overlay.show)) { display: none !important; }
+  body:has(.modal-overlay.show) .page-section:has(.modal-overlay.show) > *:not(.modal-overlay.show) { display: none !important; }
+
+  .modal-overlay.show {
+    position: static !important;
+    display: block !important;
+    background: none !important;
+    padding: 0 !important;
+  }
+  .modal-overlay.show .modal-content {
+    box-shadow: none !important;
+    max-width: 100% !important;
+    max-height: none !important;
+    border-radius: 0 !important;
+    padding: 0 !important;
+    overflow: visible !important;
+  }
+
+  /* Long clinical text must never leave the paper. */
+  .user-doc-viewer, .user-doc-viewer *,
+  .modal-overlay.show, .modal-overlay.show * {
+    overflow-wrap: anywhere;
+    word-break: break-word;
+  }
+  .user-doc-viewer p, .modal-overlay.show p {
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+    max-width: 100%;
+    box-sizing: border-box;
+    overflow: visible;
+  }
+  .user-doc-viewer div, .modal-overlay.show div {
+    max-width: 100%;
+    box-sizing: border-box;
+    overflow: visible;
+  }
+  .user-doc-viewer table { width: 100%; table-layout: fixed; }
+  .user-doc-viewer td, .user-doc-viewer th { overflow-wrap: anywhere; word-break: break-word; }
+}

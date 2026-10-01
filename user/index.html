@@ -8,7 +8,7 @@
     <meta http-equiv="Pragma" content="no-cache" />
     <meta http-equiv="Expires" content="0" />
     <title>My Dashboard - VHS</title>
-    <link rel="stylesheet" href="user-style.css?v=3.4.2" />
+    <link rel="stylesheet" href="user-style.css?v=3.5.0" />
     <link rel="stylesheet" href="../shared/dashboard-theme.css?v=3.4.6" />
     <link rel="stylesheet" href="user-accent.css?v=2.5.0" />
     <link rel="stylesheet" href="../shared/vhs-ui.css?v=2.6.0" />
@@ -394,6 +394,7 @@
                     class="form-input"
                     id="profileEmail"
                     value=""
+                    maxlength="254"
                     disabled
                   />
                 </div>
@@ -418,6 +419,7 @@
                     class="form-input"
                     id="profileAddress"
                     value=""
+                    maxlength="250"
                     disabled
                   />
                 </div>
@@ -674,11 +676,11 @@
                 <option value="Follow-up visit">Follow-up visit</option>
                 <option value="Other">Other</option>
               </select>
-              <input type="text" class="form-input" id="visit_reason_custom" name="visit_reason_custom" placeholder="Please describe symptoms or notes..." style="display:none;margin-top:0.5rem;" />
+              <input type="text" class="form-input" id="visit_reason_custom" name="visit_reason_custom" maxlength="150" placeholder="Please describe symptoms or notes..." style="display:none;margin-top:0.5rem;" />
             </div>
             <div class="form-group" style="margin-bottom:1rem;">
               <label class="form-label">Additional Notes <span style="font-weight:400;color:var(--text-dim);">(Optional)</span></label>
-              <textarea class="form-textarea" id="bookNotes" name="notes" rows="2" placeholder="Any special instructions or concerns..."></textarea>
+              <textarea class="form-textarea" id="bookNotes" name="notes" rows="2" maxlength="500" placeholder="Any special instructions or concerns..."></textarea>
             </div>
 
             <!-- Booking Summary -->
@@ -734,8 +736,7 @@
         </div>
         <p class="success-ref-label">Reference ID</p>
         <p class="success-ref-value" id="successRefNo">—</p>
-        <div class="success-qr-wrap" id="successQrCode"></div>
-        <p class="success-qr-hint">Present this QR code to the receptionist upon arrival for rapid intake.</p>
+        <p class="success-qr-hint" style="margin-top:0.75rem;">Show this Reference Number at the front desk. On arrival, scan the clinic's check-in QR at reception to check in.</p>
         <div class="form-actions" style="justify-content:center;gap:0.75rem;flex-wrap:wrap;">
           <button type="button" class="btn-secondary" onclick="printSuccessRef()">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
@@ -775,7 +776,7 @@
           <div class="form-row">
             <div class="form-group">
               <label class="form-label">Pet Name <span class="required">*</span></label>
-              <input type="text" class="form-input" id="pet_name" name="pet_name" placeholder="e.g. Luna" required />
+              <input type="text" class="form-input" id="pet_name" name="pet_name" maxlength="50" placeholder="e.g. Luna" required />
             </div>
             <div class="form-group">
               <label class="form-label">Species <span class="required">*</span></label>
@@ -787,7 +788,7 @@
                 <option value="Rabbit">Rabbit</option>
                 <option value="Other">Other</option>
               </select>
-              <input type="text" class="form-input other-species-input" id="species_custom" name="species_custom" placeholder="Please specify species..." style="display:none;margin-top:0.5rem;" />
+              <input type="text" class="form-input other-species-input" id="species_custom" name="species_custom" maxlength="50" placeholder="Please specify species..." style="display:none;margin-top:0.5rem;" />
             </div>
           </div>
 
@@ -798,11 +799,11 @@
               <select class="form-select" id="breed" name="breed" onchange="onBreedChange()">
                 <option value="">Select breed</option>
               </select>
-              <input type="text" class="form-input other-breed-input" id="breed_custom" name="breed_custom" placeholder="Please specify breed..." style="display:none;margin-top:0.5rem;" />
+              <input type="text" class="form-input other-breed-input" id="breed_custom" name="breed_custom" maxlength="60" placeholder="Please specify breed..." style="display:none;margin-top:0.5rem;" />
             </div>
             <div class="form-group">
               <label class="form-label">Age (years)</label>
-              <input type="number" class="form-input" id="age" name="age" placeholder="e.g. 3" min="0" />
+              <input type="number" class="form-input" id="age" name="age" placeholder="e.g. 3" min="0" max="50" step="1" />
             </div>
           </div>
 
@@ -818,7 +819,7 @@
             </div>
             <div class="form-group">
               <label class="form-label">Weight (kg)</label>
-              <input type="number" class="form-input" id="weight_kg" name="weight_kg" step="0.1" placeholder="e.g. 4.5" min="0" />
+              <input type="number" class="form-input" id="weight_kg" name="weight_kg" step="0.1" placeholder="e.g. 4.5" min="0" max="200" />
             </div>
           </div>
 
@@ -826,7 +827,7 @@
           <div class="form-row">
             <div class="form-group">
               <label class="form-label">Color / Markings</label>
-              <input type="text" class="form-input" id="color" name="color" placeholder="e.g. White with grey patches" />
+              <input type="text" class="form-input" id="color" name="color" maxlength="60" placeholder="e.g. White with grey patches" />
             </div>
             <div class="form-group">
               <label class="form-label">Reproductive Status</label>
@@ -845,7 +846,7 @@
           <div class="form-row">
             <div class="form-group">
               <label class="form-label">Microchip ID <span style="font-weight:400;color:var(--text-dim);">(Optional)</span></label>
-              <input type="text" class="form-input" id="microchip_id" name="microchip_id" placeholder="e.g. PH-001-2023-LUNA" />
+              <input type="text" class="form-input" id="microchip_id" name="microchip_id" maxlength="30" placeholder="e.g. PH-001-2023-LUNA" />
             </div>
             <div class="form-group"></div>
           </div>
@@ -854,12 +855,12 @@
           <div class="form-row">
             <div class="form-group">
               <label class="form-label">Allergies</label>
-              <input type="text" class="form-input" id="allergies" name="allergies" placeholder="e.g. Chicken, certain flea treatments" />
+              <input type="text" class="form-input" id="allergies" name="allergies" maxlength="200" placeholder="e.g. Chicken, certain flea treatments" />
               <p class="form-hint" style="font-size:0.75rem;color:var(--text-dim);margin-top:0.3rem;">Leave blank or type "None known yet" if unsure.</p>
             </div>
             <div class="form-group">
               <label class="form-label">Chronic Conditions</label>
-              <input type="text" class="form-input" id="chronic_conditions" name="chronic_conditions" placeholder="e.g. Hip dysplasia, diabetes" />
+              <input type="text" class="form-input" id="chronic_conditions" name="chronic_conditions" maxlength="200" placeholder="e.g. Hip dysplasia, diabetes" />
               <p class="form-hint" style="font-size:0.75rem;color:var(--text-dim);margin-top:0.3rem;">Leave blank or type "None known yet" if unsure.</p>
             </div>
           </div>
@@ -867,7 +868,7 @@
           <!-- Additional Notes -->
           <div class="form-group">
             <label class="form-label">Additional Notes</label>
-            <textarea class="form-textarea" id="medical_notes" name="medical_notes" rows="2" placeholder="Any other notes about your pet..."></textarea>
+            <textarea class="form-textarea" id="medical_notes" name="medical_notes" rows="2" maxlength="500" placeholder="Any other notes about your pet..."></textarea>
           </div>
 
           <input type="hidden" id="user_id" name="user_id" value="" />
@@ -894,13 +895,6 @@
           <button class="modal-close" onclick="closeModal('viewApptModal')">
             &times;
           </button>
-        </div>
-
-        <!-- QR Intake Tile -->
-        <div class="appt-qr-section">
-          <div class="appt-qr-wrap" id="apptQrCode"></div>
-          <div class="appt-qr-ref" id="apptQrRef"></div>
-          <p class="appt-qr-hint">Present this QR code to the receptionist upon arrival for rapid intake.</p>
         </div>
 
         <!-- Appointment Summary -->
@@ -1164,15 +1158,32 @@
     </div>
     <!-- END VHS ASSISTANT CHATBOT -->
 
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <!-- Clinic QR Self Check-in (Advisor Revision Sprint 1) -->
+    <!-- Opened via the clinic check-in QR entry point (?v=1&clinic-checkin / #clinic-checkin). -->
+    <!-- TODO(BACKEND): the QR must encode a server-issued, short-lived/rotating token; the
+         server validates the session, token validity/expiration, anti-replay, appointment
+         ownership, date/time eligibility and the confirmed → checked_in transition. -->
+    <div class="modal-overlay" id="checkinOverlay">
+      <div class="modal-content ci-modal">
+        <div class="modal-header">
+          <h2 class="modal-title">Clinic Check-in</h2>
+          <button class="modal-close" id="checkinCloseTop" data-ci-close>&times;</button>
+        </div>
+        <div id="checkinBody" class="ci-body"></div>
+      </div>
+      <button type="button" id="checkinCloseScrim" class="ci-scrim" data-ci-close aria-label="Close check-in"></button>
+    </div>
+
+    <!-- Advisor revision: qrcodejs retired — the check-in QR belongs to the clinic (Admin), not the user. -->
     <script src="../shared/vhs-ui.js?v=2.6.0"></script>
-    <script src="../shared/clinic-settings.js?v=1.0.0"></script>
+    <script src="../shared/clinic-settings.js?v=1.1.0"></script>
     <script src="../shared/appointment-contract.js?v=2.8.0"></script>
     <script src="../shared/mock-users.js?v=2.10.0"></script>
     <script src="../shared/mock-appointments.js?v=2.8.1"></script>
     <script src="../shared/audit-store.js?v=1.0.0"></script>
     <script src="../shared/document-store.js?v=1.0.3"></script>
-    <script src="../shared/document-render.js?v=1.0.0"></script>
-    <script src="user-script.js?v=3.7.1"></script>
+    <script src="../shared/document-render.js?v=1.1.0"></script>
+    <script src="user-script.js?v=3.8.0"></script>
+    <script src="checkin-script.js?v=1.0.0"></script>
   </body>
 </html>

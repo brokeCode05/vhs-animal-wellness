@@ -9,6 +9,7 @@
   <link rel="stylesheet" href="portal.css?v=3.0.2">
   <link rel="stylesheet" href="../shared/vhs-ui.css?v=2.6.0">
   <link rel="stylesheet" href="../shared/dashboard-icons.css?v=2.5.0">
+  <link rel="stylesheet" href="kebab-menu.css?v=1.0.1">
 </head>
 <body>
   <nav class="top-navbar">
@@ -146,15 +147,15 @@
       <form id="editUserForm" onsubmit="submitEditUser(event)">
         <input type="hidden" id="editUserId" />
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.75rem;margin-bottom:0.75rem;">
-          <div class="form-group"><label class="form-label">First Name <span style="color:#ef4444">*</span></label><input class="form-input" id="editUserFirstName" required /></div>
-          <div class="form-group"><label class="form-label">Middle Name</label><input class="form-input" id="editUserMiddleName" /></div>
+          <div class="form-group"><label class="form-label">First Name <span style="color:#ef4444">*</span></label><input class="form-input" id="editUserFirstName" maxlength="50" required /></div>
+          <div class="form-group"><label class="form-label">Middle Name</label><input class="form-input" id="editUserMiddleName" maxlength="50" /></div>
         </div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.75rem;margin-bottom:0.75rem;">
-          <div class="form-group"><label class="form-label">Last Name <span style="color:#ef4444">*</span></label><input class="form-input" id="editUserLastName" required /></div>
-          <div class="form-group"><label class="form-label">Phone</label><input class="form-input" id="editUserPhone" /></div>
+          <div class="form-group"><label class="form-label">Last Name <span style="color:#ef4444">*</span></label><input class="form-input" id="editUserLastName" maxlength="50" required /></div>
+          <div class="form-group"><label class="form-label">Phone</label><input class="form-input" id="editUserPhone" type="tel" maxlength="15" /></div>
         </div>
-        <div class="form-group" style="margin-bottom:0.75rem;"><label class="form-label">Email <span style="color:#ef4444">*</span></label><input type="email" class="form-input" id="editUserEmail" required /></div>
-        <div class="form-group" style="margin-bottom:0.75rem;"><label class="form-label">Address</label><input class="form-input" id="editUserAddress" /></div>
+        <div class="form-group" style="margin-bottom:0.75rem;"><label class="form-label">Email <span style="color:#ef4444">*</span></label><input type="email" class="form-input" id="editUserEmail" maxlength="254" required /></div>
+        <div class="form-group" style="margin-bottom:0.75rem;"><label class="form-label">Address</label><input class="form-input" id="editUserAddress" maxlength="250" /></div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.75rem;margin-bottom:0.75rem;">
           <div class="form-group"><label class="form-label">Birthdate</label><input type="date" class="form-input" id="editUserBirthdate" /></div>
           <div class="form-group"><label class="form-label">Account Status</label>
@@ -210,7 +211,7 @@
       <form id="editPetForm" onsubmit="submitEditPet(event)">
         <input type="hidden" id="editPetId" />
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.75rem;margin-bottom:0.75rem;">
-          <div class="form-group"><label class="form-label">Pet Name <span style="color:#ef4444">*</span></label><input class="form-input" id="editPetName" required /></div>
+          <div class="form-group"><label class="form-label">Pet Name <span style="color:#ef4444">*</span></label><input class="form-input" id="editPetName" maxlength="50" required /></div>
           <div class="form-group"><label class="form-label">Owner</label><input class="form-input" id="editPetOwnerName" disabled /></div>
         </div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.75rem;margin-bottom:0.75rem;">
@@ -220,17 +221,17 @@
               <option>Dog</option><option>Cat</option><option>Bird</option><option>Rabbit</option><option>Other</option>
             </select>
           </div>
-          <div class="form-group"><label class="form-label">Custom species</label><input class="form-input" id="editPetSpeciesCustom" style="display:none;" /></div>
+          <div class="form-group"><label class="form-label">Custom species</label><input class="form-input" id="editPetSpeciesCustom" maxlength="50" style="display:none;" /></div>
         </div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.75rem;margin-bottom:0.75rem;">
-          <div class="form-group"><label class="form-label">Breed</label><input class="form-input" id="editPetBreed" /></div>
+          <div class="form-group"><label class="form-label">Breed</label><input class="form-input" id="editPetBreed" maxlength="60" /></div>
           <div class="form-group"><label class="form-label">Gender</label>
             <select class="form-select" id="editPetGender"><option value="">Select gender</option><option>Male</option><option>Female</option></select>
           </div>
         </div>
         <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:0.75rem;margin-bottom:0.75rem;">
-          <div class="form-group"><label class="form-label">Age (years)</label><input type="number" min="0" step="1" class="form-input" id="editPetAge" /></div>
-          <div class="form-group"><label class="form-label">Weight (kg)</label><input type="number" min="0" step="0.1" class="form-input" id="editPetWeightKg" /></div>
+          <div class="form-group"><label class="form-label">Age (years)</label><input type="number" min="0" step="1" class="form-input" id="editPetAge" max="50" /></div>
+          <div class="form-group"><label class="form-label">Weight (kg)</label><input type="number" min="0" step="0.1" class="form-input" id="editPetWeightKg" max="200" /></div>
           <div class="form-group"><label class="form-label">Reproductive Status</label>
             <select class="form-select" id="editPetRepro">
               <option value="">Select status</option>
@@ -238,11 +239,11 @@
             </select>
           </div>
         </div>
-        <div class="form-group" style="margin-bottom:0.75rem;"><label class="form-label">Color / Markings</label><input class="form-input" id="editPetColor" /></div>
-        <div class="form-group" style="margin-bottom:0.75rem;"><label class="form-label">Microchip ID</label><input class="form-input" id="editPetMicrochip" /></div>
-        <div class="form-group" style="margin-bottom:0.75rem;"><label class="form-label">Allergies</label><input class="form-input" id="editPetAllergies" /></div>
-        <div class="form-group" style="margin-bottom:0.75rem;"><label class="form-label">Chronic Conditions</label><input class="form-input" id="editPetChronic" /></div>
-        <div class="form-group" style="margin-bottom:0.75rem;"><label class="form-label">Notes</label><textarea class="form-textarea" rows="2" id="editPetNotes"></textarea></div>
+        <div class="form-group" style="margin-bottom:0.75rem;"><label class="form-label">Color / Markings</label><input class="form-input" id="editPetColor" maxlength="60" /></div>
+        <div class="form-group" style="margin-bottom:0.75rem;"><label class="form-label">Microchip ID</label><input class="form-input" id="editPetMicrochip" maxlength="30" /></div>
+        <div class="form-group" style="margin-bottom:0.75rem;"><label class="form-label">Allergies</label><input class="form-input" id="editPetAllergies" maxlength="200" /></div>
+        <div class="form-group" style="margin-bottom:0.75rem;"><label class="form-label">Chronic Conditions</label><input class="form-input" id="editPetChronic" maxlength="200" /></div>
+        <div class="form-group" style="margin-bottom:0.75rem;"><label class="form-label">Notes</label><textarea class="form-textarea" rows="2" id="editPetNotes" maxlength="500"></textarea></div>
         <div style="display:flex;gap:0.75rem;margin-top:0.5rem;">
           <button type="submit" class="btn-primary">Save</button>
           <button type="button" class="btn-secondary" onclick="closeEditPet()">Cancel</button>
@@ -264,7 +265,7 @@
           <select class="form-select" id="regPetOwner" required></select>
         </div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.75rem;margin-bottom:0.75rem;">
-          <div class="form-group"><label class="form-label">Pet Name <span style="color:#ef4444">*</span></label><input class="form-input" id="regPetName" required /></div>
+          <div class="form-group"><label class="form-label">Pet Name <span style="color:#ef4444">*</span></label><input class="form-input" id="regPetName" maxlength="50" required /></div>
           <div class="form-group"><label class="form-label">Species</label>
             <select class="form-select" id="regPetSpecies" onchange="document.getElementById('regPetSpeciesCustom').style.display = this.value === 'Other' ? '' : 'none'">
               <option value="">Select species</option>
@@ -273,18 +274,18 @@
           </div>
         </div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.75rem;margin-bottom:0.75rem;">
-          <div class="form-group"><label class="form-label">Custom species</label><input class="form-input" id="regPetSpeciesCustom" style="display:none;" /></div>
-          <div class="form-group"><label class="form-label">Breed</label><input class="form-input" id="regPetBreed" /></div>
+          <div class="form-group"><label class="form-label">Custom species</label><input class="form-input" id="regPetSpeciesCustom" maxlength="50" style="display:none;" /></div>
+          <div class="form-group"><label class="form-label">Breed</label><input class="form-input" id="regPetBreed" maxlength="60" /></div>
         </div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.75rem;margin-bottom:0.75rem;">
           <div class="form-group"><label class="form-label">Gender</label>
             <select class="form-select" id="regPetGender"><option value="">Select gender</option><option>Male</option><option>Female</option></select>
           </div>
-          <div class="form-group"><label class="form-label">Color / Markings</label><input class="form-input" id="regPetColor" /></div>
+          <div class="form-group"><label class="form-label">Color / Markings</label><input class="form-input" id="regPetColor" maxlength="60" /></div>
         </div>
         <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:0.75rem;margin-bottom:0.75rem;">
-          <div class="form-group"><label class="form-label">Age (years)</label><input type="number" min="0" step="1" class="form-input" id="regPetAge" /></div>
-          <div class="form-group"><label class="form-label">Weight (kg)</label><input type="number" min="0" step="0.1" class="form-input" id="regPetWeightKg" /></div>
+          <div class="form-group"><label class="form-label">Age (years)</label><input type="number" min="0" step="1" class="form-input" id="regPetAge" max="50" /></div>
+          <div class="form-group"><label class="form-label">Weight (kg)</label><input type="number" min="0" step="0.1" class="form-input" id="regPetWeightKg" max="200" /></div>
           <div class="form-group"><label class="form-label">Reproductive Status</label>
             <select class="form-select" id="regPetRepro">
               <option value="">Select status</option>
@@ -293,11 +294,11 @@
           </div>
         </div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.75rem;margin-bottom:0.75rem;">
-          <div class="form-group"><label class="form-label">Microchip ID</label><input class="form-input" id="regPetMicrochip" /></div>
-          <div class="form-group"><label class="form-label">Allergies</label><input class="form-input" id="regPetAllergies" /></div>
+          <div class="form-group"><label class="form-label">Microchip ID</label><input class="form-input" id="regPetMicrochip" maxlength="30" /></div>
+          <div class="form-group"><label class="form-label">Allergies</label><input class="form-input" id="regPetAllergies" maxlength="200" /></div>
         </div>
-        <div class="form-group" style="margin-bottom:0.75rem;"><label class="form-label">Chronic Conditions</label><input class="form-input" id="regPetChronic" /></div>
-        <div class="form-group" style="margin-bottom:0.75rem;"><label class="form-label">Notes</label><textarea class="form-textarea" rows="2" id="regPetNotes"></textarea></div>
+        <div class="form-group" style="margin-bottom:0.75rem;"><label class="form-label">Chronic Conditions</label><input class="form-input" id="regPetChronic" maxlength="200" /></div>
+        <div class="form-group" style="margin-bottom:0.75rem;"><label class="form-label">Notes</label><textarea class="form-textarea" rows="2" id="regPetNotes" maxlength="500"></textarea></div>
         <div style="display:flex;gap:0.75rem;margin-top:0.5rem;">
           <button type="submit" class="btn-primary">Register Pet</button>
           <button type="button" class="btn-secondary" onclick="closeRegisterPet()">Cancel</button>
@@ -386,12 +387,12 @@
   </div>
 
   <script src="../shared/vhs-ui.js?v=2.6.0"></script>
-  <script src="../shared/clinic-settings.js?v=1.0.0"></script>
+  <script src="../shared/clinic-settings.js?v=1.1.0"></script>
   <script src="../shared/appointment-contract.js?v=2.5.0"></script>
   <script src="../shared/mock-users.js?v=2.10.0"></script>
   <script src="../shared/mock-appointments.js?v=2.8.1"></script>
-  <script src="../shared/dashboard-shared.js?v=2.10.2"></script>
+  <script src="../shared/dashboard-shared.js?v=2.11.0"></script>
   <script src="../shared/audit-store.js?v=1.0.0"></script>
-  <script src="admin-portal.js?v=2.13.0"></script>
+  <script src="admin-portal.js?v=2.14.0"></script>
 </body>
 </html>

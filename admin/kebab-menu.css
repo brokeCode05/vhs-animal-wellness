@@ -1,0 +1,117 @@
+/* ============================================================
+   VHS ADMIN — kebab action menus (Advisor Revision Sprint 1)
+   Compact three-dot row actions for Appointments, Clients,
+   and Pets tables. Loaded on all admin pages (harmless where
+   no tables exist). Reuses the purple theme tokens.
+   ============================================================ */
+
+.kebab-wrap {
+  position: relative;
+  display: inline-flex;
+  vertical-align: middle;
+}
+
+.kebab-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  min-width: 30px;
+  padding: 0;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  background: #fff;
+  color: #4b5563;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.kebab-btn:hover,
+.kebab-btn:focus-visible {
+  background: #f5f3ff;
+  border-color: #c4b5fd;
+  color: #4c1d95;
+  outline: none;
+}
+
+.kebab-btn.active {
+  background: #ede9fe;
+  border-color: #a78bfa;
+  color: #4c1d95;
+}
+
+.kebab-menu {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 6px);
+  z-index: 60;
+  min-width: 170px;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  box-shadow: 0 12px 32px rgba(17, 24, 39, 0.14);
+  padding: 0.35rem;
+  display: none;
+}
+
+.kebab-menu.open,
+.kebab-wrap.kebab-open .kebab-menu {
+  display: block;
+}
+
+.kebab-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.45rem 0.6rem;
+  border: none;
+  border-radius: 7px;
+  background: none;
+  font-size: 0.85rem;
+  color: #374151;
+  text-align: left;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.12s ease, color 0.12s ease;
+}
+
+.kebab-item:hover,
+.kebab-item:focus-visible {
+  background: #f5f3ff;
+  color: #4c1d95;
+  outline: none;
+}
+
+.kebab-item.danger {
+  color: #b91c1c;
+}
+
+.kebab-item.danger:hover,
+.kebab-item.danger:focus-visible {
+  background: #fef2f2;
+  color: #991b1b;
+}
+
+.kebab-item.success {
+  color: #047857;
+}
+
+.kebab-item.success:hover,
+.kebab-item.success:focus-visible {
+  background: #ecfdf5;
+  color: #065f46;
+}
+
+/* Edge flip: JS adds .kebab-flip when the menu would overflow the viewport */
+.kebab-menu.kebab-flip {
+  top: auto;
+  bottom: calc(100% + 6px);
+}
+
+@media (max-width: 480px) {
+  .kebab-menu {
+    min-width: 150px;
+  }
+}

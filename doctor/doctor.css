@@ -240,13 +240,30 @@ input[type='checkbox'] { width: 17px; height: 17px; accent-color: var(--accent-d
 @media (max-width: 600px) {
   .document-body { padding: 12mm 10mm; }
 }
-@page { margin: 14mm 12mm; }
+@page { size: A4; margin: 14mm 12mm; }
 @media print {
+  html, body { overflow: visible !important; height: auto !important; }
   body.doctor-portal > *:not(.main-wrapper), .doctor-portal .top-navbar, .doctor-portal .sidebar, .doctor-portal .modal-header, .doctor-portal .document-actions, .doctor-portal .document-note { display: none !important; }
   .doctor-portal .modal-overlay { position: static; display: block; padding: 0; background: none; }
-  .doctor-portal .modal-content { box-shadow: none; max-width: none; max-height: none; padding: 0; border-radius: 0; animation: none; }
-  .document-body { border: none; box-shadow: none; max-width: none; margin: 0; padding: 0; }
+  .doctor-portal .modal-content { box-shadow: none; max-width: none; max-height: none; padding: 0; border-radius: 0; animation: none; overflow: visible; }
+  .document-body { border: none; box-shadow: none; max-width: none; margin: 0; padding: 0; overflow: visible; }
   .print-table tbody tr, .print-soap-block, .print-section { break-inside: avoid; page-break-inside: avoid; }
+  /* Long clinical text must wrap inside the paper, never clip or overflow. */
+  .doctor-portal .print-soap-text,
+  .doctor-portal .print-info-value,
+  .doctor-portal .print-clinic-detail,
+  .doctor-portal .print-table td {
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+    max-width: 100%;
+    box-sizing: border-box;
+    overflow: visible;
+  }
+  .print-table { table-layout: fixed; }
+  .print-info-grid { grid-template-columns: 1fr 1fr; }
+  .print-info-item { min-width: 0; }
+  .print-letterhead, .print-meta-row, .print-footer { overflow-wrap: anywhere; }
 }
 
 /* ===== FORM CONTROLS — shared system styling ===== */
@@ -395,4 +412,25 @@ body.doctor-portal::-webkit-scrollbar { width: 0; height: 0; display: none; }
   color: #0f7a5a;
   border: 1px solid #b5e5d0;
   cursor: not-allowed;
+}
+
+/* ===== FIELD VALIDATION (Advisor Revision Sprint 1) ===== */
+.doctor-portal .vhs-field-error {
+  display: none;
+  margin: 0.35rem 0 0;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #dc2626;
+}
+.doctor-portal .form-input[aria-invalid="true"] {
+  border-color: #dc2626;
+  box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.12);
+}
+.doctor-portal .vhs-char-counter {
+  display: block;
+  margin-top: 0.3rem;
+  font-size: 0.72rem;
+  color: #857a92;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
 }

@@ -9,6 +9,7 @@
   <link rel="stylesheet" href="portal.css?v=3.0.2">
   <link rel="stylesheet" href="../shared/vhs-ui.css?v=2.6.0">
   <link rel="stylesheet" href="../shared/dashboard-icons.css?v=2.5.0">
+  <link rel="stylesheet" href="kebab-menu.css?v=1.0.1">
 </head>
 <body>
   <nav class="top-navbar">
@@ -159,13 +160,13 @@
   </div>
 
   <script src="../shared/vhs-ui.js?v=2.6.0"></script>
-  <script src="../shared/clinic-settings.js?v=1.0.0"></script>
+  <script src="../shared/clinic-settings.js?v=1.1.0"></script>
   <script src="../shared/appointment-contract.js?v=2.5.0"></script>
   <script src="../shared/mock-users.js?v=2.10.0"></script>
   <script src="../shared/mock-appointments.js?v=2.8.1"></script>
-  <script src="../shared/dashboard-shared.js?v=2.10.2"></script>
+  <script src="../shared/dashboard-shared.js?v=2.11.0"></script>
   <script src="../shared/audit-store.js?v=1.0.0"></script>
-  <script src="admin-portal.js?v=2.13.0"></script>
+  <script src="admin-portal.js?v=2.14.0"></script>
 
   <!-- Walk-in Book Appointment Modal -->
   <div class="modal-overlay" id="adminBookModal" onclick="if (event.target === this) closeAdminBookModal()">
@@ -210,7 +211,7 @@
         </div>
         <div class="form-group" style="margin-bottom:1.25rem;">
           <label class="form-label">Notes (optional)</label>
-          <textarea class="form-textarea" id="adminBookNotes" rows="2" placeholder="Any special instructions..."></textarea>
+          <textarea class="form-textarea" id="adminBookNotes" rows="2" maxlength="500" placeholder="Any special instructions..."></textarea>
         </div>
         <div style="display:flex;gap:0.75rem;margin-top:0.5rem;">
           <button type="submit" class="btn-primary">Book Appointment</button>

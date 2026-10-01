@@ -35,9 +35,9 @@
   function grid(rows) {
     return '<div style="border:1px solid #e5e7eb;border-radius:0.75rem;overflow:hidden;margin-bottom:1rem;">' +
       rows.map(function (r) {
-        return '<div style="display:flex;justify-content:space-between;gap:1rem;padding:0.5rem 0.75rem;border-bottom:1px solid #f3f4f6;font-size:0.88rem;">' +
+        return '<div style="display:flex;justify-content:space-between;gap:1rem;padding:0.5rem 0.75rem;border-bottom:1px solid #f3f4f6;font-size:0.88rem;flex-wrap:wrap;">' +
           '<span style="color:#6b7280;flex-shrink:0;">' + esc(r[0]) + '</span>' +
-          '<span style="text-align:right;font-weight:500;color:#111827;">' + esc(r[1]) + '</span>' +
+          '<span style="text-align:right;font-weight:500;color:#111827;flex:1;min-width:0;white-space:pre-wrap;overflow-wrap:anywhere;word-break:break-word;">' + esc(r[1]) + '</span>' +
           '</div>';
       }).join('') +
       '</div>';
@@ -63,12 +63,13 @@
       '<div style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:0;background:#f9fafb;padding:0.4rem 0.75rem;font-weight:600;color:#374151;border-bottom:1px solid #e5e7eb;">' +
       '<span>Medicine</span><span>Dosage</span><span>Frequency</span><span>Duration</span></div>' +
       list.map(function (m, i) {
+        var wrap = 'min-width:0;white-space:pre-wrap;overflow-wrap:anywhere;word-break:break-word;';
         return '<div style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:0;padding:0.45rem 0.75rem;border-bottom:' + (i < list.length - 1 ? '1px solid #f3f4f6' : 'none') + ';">' +
-          '<span style="font-weight:600;">' + esc(m.medicine || '') + '</span>' +
-          '<span>' + esc(m.dosage || '—') + '</span>' +
-          '<span>' + esc(m.frequency || '—') + '</span>' +
-          '<span>' + esc(m.duration || '—') + '</span>' +
-          '</div>' + (m.instructions ? '<div style="padding:0 0.75rem 0.45rem;font-size:0.78rem;color:#6b7280;">' + esc(m.instructions) + '</div>' : '');
+          '<span style="font-weight:600;' + wrap + '">' + esc(m.medicine || '') + '</span>' +
+          '<span style="' + wrap + '">' + esc(m.dosage || '—') + '</span>' +
+          '<span style="' + wrap + '">' + esc(m.frequency || '—') + '</span>' +
+          '<span style="' + wrap + '">' + esc(m.duration || '—') + '</span>' +
+          '</div>' + (m.instructions ? '<div style="padding:0 0.75rem 0.45rem;font-size:0.78rem;color:#6b7280;white-space:pre-wrap;overflow-wrap:anywhere;word-break:break-word;">' + esc(m.instructions) + '</div>' : '');
       }).join('') +
       '</div>';
   }
@@ -113,7 +114,7 @@
           ['Heart Rate', d.heartRate ? d.heartRate + ' bpm' : '—'],
           ['Duration', d.durationMinutes ? d.durationMinutes + ' min' : '—']
         ]) +
-        section('Assessment', '<p style="margin:0;font-size:0.88rem;color:#111827;white-space:pre-wrap;">' + (esc(d.assessment) || '—') + '</p>') +
+        section('Assessment', '<p style="margin:0;font-size:0.88rem;color:#111827;white-space:pre-wrap;overflow-wrap:anywhere;word-break:break-word;max-width:100%;box-sizing:border-box;overflow:visible;">' + (esc(d.assessment) || '—') + '</p>') +
         section('Plan / Home Care', '<p style="margin:0;font-size:0.88rem;color:#111827;white-space:pre-wrap;">' + (esc(d.plan) || '—') + '</p>') +
         sig();
     } else if (doc.type === 'prescription') {
@@ -129,7 +130,7 @@
     } else if (doc.type === 'lab_result') {
       body = header('Lab Result', 'Reference ' + (doc.referenceNo || '')) +
         common +
-        section('Result Summary', '<p style="margin:0;font-size:0.88rem;color:#111827;">Result details are delivered by the laboratory once processed. ' +
+        section('Result Summary', '<p style="margin:0;font-size:0.88rem;color:#111827;white-space:pre-wrap;overflow-wrap:anywhere;word-break:break-word;max-width:100%;box-sizing:border-box;overflow:visible;">Result details are delivered by the laboratory once processed. ' +
           (doc.data && doc.data.note ? esc(doc.data.note) : '') + '</p>') +
         sig();
     } else if (doc.type === 'receipt') {

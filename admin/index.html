@@ -9,6 +9,7 @@
   <link rel="stylesheet" href="portal.css?v=3.0.2">
   <link rel="stylesheet" href="../shared/vhs-ui.css?v=2.6.0">
   <link rel="stylesheet" href="../shared/dashboard-icons.css?v=2.5.0">
+  <link rel="stylesheet" href="kebab-menu.css?v=1.0.1">
 </head>
 <body>
   <nav class="top-navbar">
@@ -94,6 +95,45 @@
         </div>
       </section>
 
+      <!-- Clinic Check-in QR (Advisor Revision Sprint 1) -->
+      <!-- Frontend prototype: the QR encodes the clinic check-in entry point.
+           TODO(BACKEND): replace the static entry URL with a server-issued,
+           short-lived/rotating check-in token; the server must validate the
+           authenticated user, token validity/expiration, anti-replay (one-time
+           scan), appointment ownership, date/time eligibility and the
+           confirmed -> checked_in transition. A static frontend QR is NOT
+           secure production check-in. -->
+      <section class="content-section" id="checkinQrSection">
+        <div class="section-header">
+          <h2 class="section-title">Clinic Check-in</h2>
+        </div>
+        <div style="display:flex;gap:1.5rem;align-items:flex-start;flex-wrap:wrap;background:#fff;border:1px solid #e5e7eb;border-radius:0.9rem;padding:1.25rem 1.5rem;">
+          <div style="text-align:center;">
+            <div id="clinicCheckinQr" style="width:260px;height:260px;display:flex;align-items:center;justify-content:center;background:#fff;"></div>
+            <p style="font-size:0.82rem;color:#6b7280;margin:0.6rem 0 0;max-width:260px;">Display this at reception. Clients scan it to check in for today's appointment.</p>
+          </div>
+          <div style="flex:1;min-width:230px;">
+            <h3 style="font-size:1.02rem;font-weight:700;color:#111827;margin:0 0 0.4rem;">Self check-in for arriving clients</h3>
+            <p style="font-size:0.88rem;color:#374151;margin:0 0 0.5rem;line-height:1.55;">When a client scans this code on their phone, they see their own confirmed appointment for today and can check in themselves. The appointment then appears as <b>Checked In</b> here and in the Doctor's queue.</p>
+            <ul style="font-size:0.82rem;color:#6b7280;margin:0 0 0.75rem;padding-left:1.1rem;line-height:1.6;">
+              <li>Only the client's own, confirmed, today's appointment can check in.</li>
+              <li>Already-checked-in or completed appointments cannot check in again.</li>
+              <li>Manual check-in below remains available as a fallback.</li>
+            </ul>
+            <button type="button" class="btn-secondary" onclick="showCheckinQrFullscreen()">Display Full Screen</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- Fullscreen reception display (for the reception monitor) -->
+      <div id="checkinQrFullscreen" style="display:none;position:fixed;inset:0;z-index:9999;background:#ffffff;flex-direction:column;align-items:center;justify-content:center;text-align:center;">
+        <div id="clinicCheckinQrLarge"></div>
+        <h2 style="color:#4c1d95;font-size:1.6rem;margin:1.25rem 0 0.35rem;">VHS Animal Wellness Center</h2>
+        <p style="color:#374151;font-size:1.05rem;margin:0;">Arrived for your appointment? Scan to check in.</p>
+        <p style="color:#6b7280;font-size:0.85rem;margin:0.4rem 0 1.25rem;">Open the camera app and point it at the code, or go to the check-in link shown.</p>
+        <button type="button" class="btn-secondary" onclick="hideCheckinQrFullscreen()">Close Full Screen</button>
+      </div>
+
       <!-- Today's Schedule -->
       <section class="content-section">
         <div class="section-header">
@@ -152,12 +192,50 @@
   </div>
 
   <script src="../shared/vhs-ui.js?v=2.6.0"></script>
-  <script src="../shared/clinic-settings.js?v=1.0.0"></script>
+  <script src="../shared/clinic-settings.js?v=1.1.0"></script>
   <script src="../shared/appointment-contract.js?v=2.5.0"></script>
   <script src="../shared/mock-users.js?v=2.10.0"></script>
   <script src="../shared/mock-appointments.js?v=2.8.1"></script>
-  <script src="../shared/dashboard-shared.js?v=2.10.2"></script>
+  <script src="../shared/dashboard-shared.js?v=2.11.0"></script>
   <script src="../shared/audit-store.js?v=1.0.0"></script>
-  <script src="admin-portal.js?v=2.13.0"></script>
+  <script src="admin-portal.js?v=2.14.0"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <script>
+    // Clinic Check-in QR (Advisor Revision Sprint 1) - frontend prototype.
+    // The QR encodes the clinic check-in entry point (query/hash route) that
+    // opens the user's self check-in screen. TODO(BACKEND): encode a
+    // server-issued short-lived/rotating token instead of a static URL; the
+    // server validates the session, token one-time use/anti-replay,
+    // ownership, and eligibility.
+    (function () {
+      var payload = location.origin + location.pathname.replace(/index\.html$/, '') +
+        '../user/index.html?clinic-checkin=1';
+      function renderQr(el, size) {
+        if (!el || typeof QRCode === 'undefined') {
+          if (el) el.innerHTML = '<p style="font-size:0.8rem;color:#9ca3af;">QR library unavailable offline</p>';
+          return;
+        }
+        el.innerHTML = '';
+        try {
+          new QRCode(el, { text: payload, width: size, height: size, colorDark: '#4c1d95', colorLight: '#ffffff', correctLevel: QRCode.CorrectLevel.M });
+        } catch (e) {
+          el.innerHTML = '<p style="font-size:0.8rem;color:#9ca3af;">QR unavailable</p>';
+        }
+      }
+      window.showCheckinQrFullscreen = function () {
+        var fs = document.getElementById('checkinQrFullscreen');
+        if (!fs) return;
+        fs.style.display = 'flex';
+        renderQr(document.getElementById('clinicCheckinQrLarge'), 380);
+      };
+      window.hideCheckinQrFullscreen = function () {
+        var fs = document.getElementById('checkinQrFullscreen');
+        if (fs) fs.style.display = 'none';
+      };
+      document.addEventListener('DOMContentLoaded', function () {
+        renderQr(document.getElementById('clinicCheckinQr'), 240);
+      });
+    })();
+  </script>
 </body>
 </html>

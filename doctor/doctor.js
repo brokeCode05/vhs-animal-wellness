@@ -258,7 +258,9 @@
     fields.forEach(name => { draft.fields[name] = form.elements.namedItem(name).value; });
     draft.medicines = Array.from(document.querySelectorAll('.medicine-row'), row => {
       const values = {};
-      row.querySelectorAll('input').forEach(input => { values[input.dataset.field] = input.value; });
+      // inputs + textareas: owner instructions render as a textarea (500-char
+      // limit) but must still be captured into the draft like any field.
+      row.querySelectorAll('input, textarea').forEach(input => { values[input.dataset.field] = input.value; });
       return values;
     });
     draft.labs = Array.from(form.querySelectorAll('[name="labs"]:checked'), input => input.value);
@@ -911,4 +913,142 @@
   }
   if (patients.length) selectPatient(patients[0], false); // empty day → no selection
   showView(window.location.hash.slice(1), false);
+})();
+
+// ─── FORM VALIDATION & LIMITS (Advisor Revision Sprint 1) ───────────────────
+// Frontend UX only — constraints are advisory and must be enforced again by
+// the consultation endpoint. TODO(BACKEND): mirror these limits server-side
+// (SOAP ≤1000/1000/800/1000; weight 0.1–200; temp 30–45; HR 20–300 integer;
+// medicine ≤100, dosage ≤50, frequency ≤50 free-text, duration 1–365 int,
+// instructions ≤500).
+(function () {
+  'use strict';
+
+  var TEXT_LIMITS = { subjective: 1000, exam: 1000, assessment: 800, plan: 1000 };
+  var NUMBER_RULES = {
+    weight:      { min: 0.1, max: 200, integer: false, label: 'Weight' },
+    temperature: { min: 30,  max: 45,  integer: false, label: 'Temperature' },
+    'heart-rate':{ min: 20,  max: 300, integer: true,  label: 'Heart rate' }
+  };
+
+  function ensureMessage(field) {
+    var errId = 'err-' + field.id;
+    var msg = document.getElementById(errId);
+    if (!msg) {
+      msg = document.createElement('p');
+      msg.id = errId;
+      msg.className = 'vhs-field-error';
+      msg.style.display = 'none';
+      field.insertAdjacentElement('afterend', msg);
+    }
+    return msg;
+  }
+  function showErr(field, msgEl, text) {
+    field.setAttribute('aria-invalid', 'true');
+    msgEl.textContent = text;
+    msgEl.style.display = 'block';
+  }
+  function clearErr(field, msgEl) {
+    field.removeAttribute('aria-invalid');
+    msgEl.style.display = 'none';
+  }
+  function validateNumber(field) {
+    var rule = NUMBER_RULES[field.id];
+    var msg = ensureMessage(field);
+    var raw = (field.value || '').trim();
+    if (!raw) { clearErr(field, msg); return true; } // optional fields stay optional
+    if (!/^\d*(\.\d+)?$/.test(raw)) {
+      showErr(field, msg, rule.label + ' must be a positive number.');
+      return false;
+    }
+    var num = Number(raw);
+    if (num < rule.min || num > rule.max) {
+      showErr(field, msg, rule.label + ' must be between ' + rule.min + ' and ' + rule.max + '.');
+      return false;
+    }
+    if (rule.integer && !/^\d+$/.test(raw)) {
+      showErr(field, msg, rule.label + ' must be a whole number.');
+      return false;
+    }
+    clearErr(field, msg);
+    return true;
+  }
+
+  var form = document.getElementById('consultation-form');
+  if (!form) return;
+
+  // Character counters + hard maxlength on the SOAP textareas.
+  Object.keys(TEXT_LIMITS).forEach(function (id) {
+    var field = document.getElementById(id);
+    if (!field) return;
+    field.maxLength = TEXT_LIMITS[id];
+    var counter = document.createElement('span');
+    counter.className = 'vhs-char-counter';
+    counter.setAttribute('aria-live', 'polite');
+    var update = function () { counter.textContent = field.value.length + '/' + TEXT_LIMITS[id]; };
+    field.insertAdjacentElement('afterend', counter);
+    field.addEventListener('input', update);
+    update();
+  });
+
+  // Vitals: strip letters/negatives at the field, validate range near the field.
+  Object.keys(NUMBER_RULES).forEach(function (id) {
+    var field = document.getElementById(id);
+    if (!field) return;
+    field.inputMode = NUMBER_RULES[id].integer ? 'numeric' : 'decimal';
+    field.addEventListener('input', function () {
+      var cleaned = field.value.replace(/[^0-9.]/g, '');
+      if (NUMBER_RULES[id].integer) cleaned = cleaned.replace(/\./g, '');
+      if (cleaned !== field.value) field.value = cleaned;
+      if (field.getAttribute('aria-invalid')) validateNumber(field);
+    });
+    field.addEventListener('blur', function () { validateNumber(field); });
+    // Range errors must also block completion, not just look pretty.
+    form.addEventListener('submit', function () {
+      if (!validateNumber(field)) {
+        field.focus();
+      }
+    }, true); // capture: runs before the portal's submit handler
+  });
+
+  // Prescription rows (created dynamically by the portal script): apply
+  // sensible limits to every row, including rows restored from a draft.
+  function applyMedicineLimits(row) {
+    if (!row || row.dataset.limitsApplied) return;
+    row.dataset.limitsApplied = '1';
+    var limits = { medicine: 100, dosage: 50, frequency: 50, instructions: 500 };
+    Object.keys(limits).forEach(function (key) {
+      var input = row.querySelector('input[data-field="' + key + '"]');
+      if (input) input.maxLength = limits[key];
+    });
+    // Duration is numeric days: integer 1–365.
+    var dur = row.querySelector('input[data-field="duration"]');
+    if (dur) {
+      dur.type = 'number';
+      dur.min = '1'; dur.max = '365'; dur.step = '1';
+      dur.inputMode = 'numeric';
+      dur.placeholder = 'e.g. 7 (days)';
+      dur.addEventListener('input', function () {
+        var v = dur.value.replace(/[^0-9]/g, '');
+        if (v !== dur.value) dur.value = v;
+      });
+    }
+    // Instructions get a textarea (room for up to 500 chars of guidance).
+    var ins = row.querySelector('input[data-field="instructions"]');
+    if (ins) {
+      var ta = document.createElement('textarea');
+      ta.className = ins.className;
+      ta.id = ins.id;
+      ta.setAttribute('data-field', 'instructions');
+      ta.maxLength = 500;
+      ta.rows = 2;
+      ta.placeholder = 'e.g. give with food';
+      ta.value = ins.value;
+      ins.replaceWith(ta);
+    }
+  }
+  document.querySelectorAll('.medicine-row').forEach(applyMedicineLimits);
+  new MutationObserver(function () {
+    document.querySelectorAll('.medicine-row').forEach(applyMedicineLimits);
+  }).observe(document.getElementById('medicine-list') || document.body, { childList: true, subtree: true });
 })();

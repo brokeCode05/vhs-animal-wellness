@@ -1017,22 +1017,9 @@ function _userAuditActor() {
 
 function _showBookingSuccess(refNo) {
   document.getElementById('successRefNo').textContent = refNo;
-  var qrWrap = document.getElementById('successQrCode');
-  if (qrWrap) {
-    qrWrap.innerHTML = '';
-    try {
-      new QRCode(qrWrap, {
-        text: refNo,
-        width: 150,
-        height: 150,
-        colorDark: '#4c1d95',
-        colorLight: '#ffffff',
-        correctLevel: QRCode.CorrectLevel.H
-      });
-    } catch (e) {
-      qrWrap.innerHTML = '<p style="color:var(--text-dim);font-size:0.85rem;">QR unavailable</p>';
-    }
-  }
+  // Advisor revision: the personal appointment QR is retired — the check-in QR
+  // belongs to the clinic (Admin Dashboard → Display Check-in QR). The
+  // Reference Number remains the identity for reception/manual check-in.
   openModal('bookingSuccessModal');
 }
 
@@ -1115,28 +1102,8 @@ function viewAppt(id) {
       + (appt.notes ? '<div class="appt-detail-row"><span class="appt-detail-label">Notes</span><span class="appt-detail-val">' + escapeHtml(appt.notes) + '</span></div>' : '');
   }
 
-  // Render real QR code via QRCode.js library
-  var qrWrap = document.getElementById('apptQrCode');
-  var qrRef = document.getElementById('apptQrRef');
-  if (qrWrap) {
-    qrWrap.innerHTML = '';
-    var refText = appt.reference_no || appt.id;
-    try {
-      new QRCode(qrWrap, {
-        text: refText,
-        width: 160,
-        height: 160,
-        colorDark: '#4c1d95',
-        colorLight: '#ffffff',
-        correctLevel: QRCode.CorrectLevel.H
-      });
-    } catch (e) {
-      qrWrap.innerHTML = '<p style="color:var(--text-dim);font-size:0.85rem;">QR unavailable</p>';
-    }
-    if (qrRef) {
-      qrRef.innerHTML = '<span class="appt-qr-ref-label">Reference No:</span> <span class="appt-qr-ref-value">' + escapeHtml(refText) + '</span>';
-    }
-  }
+  // Advisor revision: no personal appointment QR — the clinic owns check-in.
+  // Reference Number stays on the details summary.
 
   openModal('viewApptModal');
 }

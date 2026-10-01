@@ -48,26 +48,28 @@ function renderAllAppointmentsTable(all) {
   });
   var rows = sorted.map(function(raw) {
     var a = contract ? contract.toLegacyDisplay(contract.fromLegacy(raw)) : raw;
-    // Status-based front-desk actions. Admin NEVER completes a consultation —
-    // checked_in → in_consultation → completed belongs to the Doctor.
-    var actions = '';
+    // Status-based front-desk actions in one compact kebab menu (advisor
+    // revision: repetitive visible buttons compressed into ⋮). Admin NEVER
+    // completes a consultation — checked_in → in_consultation → completed
+    // belongs to the Doctor. Status-ineligible actions are omitted.
+    // TODO(BACKEND): completed rows gain "View Clinical Document" once the
+    // consultation document endpoint exists.
+    var items = [{ label: 'View Details', action: 'viewAppointment', arg: a.id }];
     if (a.status === 'pending') {
-      actions =
-        '<button class="btn-small btn-success" onclick="approveAppointment(\'' + a.id + '\')">Approve</button> ' +
-        '<button class="btn-small" onclick="viewAppointment(\'' + a.id + '\')">View</button> ' +
-        '<button class="btn-small btn-danger"  onclick="rejectAppointment(\'' + a.id + '\')">Reject</button>';
-    } else if (a.status === 'confirmed') {
-      actions =
-        '<button class="btn-small" onclick="viewAppointment(\'' + a.id + '\')">View</button> ' +
-        '<button class="btn-small btn-success" onclick="openCheckInModal(\'' + a.reference_no + '\')">Check In</button> ' +
-        '<button class="btn-small" onclick="openAdminReschedule(\'' + a.id + '\')">Reschedule</button> ' +
-        '<button class="btn-small btn-danger"  onclick="cancelAppointment(\'' + a.id + '\')">Cancel</button>';
-    } else {
-      // checked_in / in_consultation / completed / canceled: view only.
-      // TODO(BACKEND): completed rows gain "View Clinical Document" once the
-      // consultation document endpoint exists.
-      actions = '<button class="btn-small" onclick="viewAppointment(\'' + a.id + '\')">View</button>';
+      items.push({ label: 'Approve', action: 'approveAppointment', arg: a.id, cls: 'success' });
+      items.push({ label: 'Reject', action: 'rejectAppointment', arg: a.id, cls: 'danger' });
     }
+    if (a.status === 'confirmed') {
+      items.push({ label: 'Check In', action: 'openCheckInModal', arg: a.reference_no, cls: 'success' });
+      // Reschedule honors the SAME shared cut-off as the User portal.
+      var _toHHMM = window.AppointmentContract ? window.AppointmentContract.timeToHHMM : function (v) { return v; };
+      var _reschedBlocked = window.VHSClinicSettings && window.VHSClinicSettings.isRescheduleBlocked
+        ? window.VHSClinicSettings.isRescheduleBlocked(a.date, _toHHMM(a.time))
+        : false;
+      if (!_reschedBlocked) items.push({ label: 'Reschedule', action: 'openAdminReschedule', arg: a.id });
+      items.push({ label: 'Cancel', action: 'cancelAppointment', arg: a.id, cls: 'danger' });
+    }
+    var actions = kebabHtml('apt-' + a.id, items);
     return '<tr data-id="' + a.id + '" data-status="' + a.status + '">' +
       '<td>' + (a.reference_no || '—') + '</td>' +
       '<td>' + formatDateTime(a.date, a.time) + '</td>' +
@@ -302,6 +304,16 @@ function openAdminReschedule(idOrRef) {
     showToast('Only confirmed appointments can be rescheduled.', 'warning');
     return;
   }
+  // SAME shared reschedule cut-off as the User portal (Clinic Settings).
+  // UI hiding is not enough: a direct modal invocation must still be refused.
+  // TODO(BACKEND): enforce the cut-off server-side on PATCH /appointments/:id.
+  if (window.VHSClinicSettings && window.VHSClinicSettings.isRescheduleBlocked) {
+    var _toHHMM = window.AppointmentContract ? window.AppointmentContract.timeToHHMM : function (v) { return v; };
+    if (window.VHSClinicSettings.isRescheduleBlocked(rec.appointmentDate, _toHHMM(rec.appointmentTime))) {
+      showToast('Rescheduling is no longer available within ' + window.VHSClinicSettings.cutoffLabel('reschedule') + ' of the appointment.', 'warning');
+      return;
+    }
+  }
   document.getElementById('adminRescheduleApptId').value = rec.appointmentId;
   document.getElementById('adminRescheduleInfo').textContent =
     (rec.referenceNo || '') + ' · ' + (rec.owner ? rec.owner.name : '') + ' · ' + (rec.pet ? rec.pet.name : '') +
@@ -345,6 +357,17 @@ function submitAdminReschedule(e) {
   if (!newDate || !newTime) { showToast('Select a new date and time.', 'warning'); return; }
   var shared = window.SharedMockAppointments;
   var _before = shared ? shared.byId(id) : null;
+  if (!_before) { showToast('Appointment not found.', 'error'); return; }
+  // Submit-handler guard: even if the modal was opened before the cut-off or
+  // invoked directly, a reschedule inside the shared cut-off window is
+  // rejected — no store update, no duplicate, no audit event.
+  if (window.VHSClinicSettings && window.VHSClinicSettings.isRescheduleBlocked) {
+    var _toHHMM = window.AppointmentContract ? window.AppointmentContract.timeToHHMM : function (v) { return v; };
+    if (window.VHSClinicSettings.isRescheduleBlocked(_before.appointmentDate, _toHHMM(_before.appointmentTime))) {
+      showToast('Rescheduling is no longer available within ' + window.VHSClinicSettings.cutoffLabel('reschedule') + ' of the appointment.', 'warning');
+      return;
+    }
+  }
   var oldDate = _before ? _before.appointmentDate : '';
   var oldTime = _before ? _before.appointmentTime : '';
   var result = shared ? shared.reschedule(id, newDate, newTime) : { ok: false, error: 'not_found' };
@@ -440,15 +463,6 @@ function refreshAdminTimeSlots(prefilledTime) {
 function submitAdminBooking(e) {
   e.preventDefault();
   var userId  = document.getElementById('adminClientSelect').value;
-  var petId   = document.getElementById('adminPetSelect').value;
-  var service = document.getElementById('adminBookService').value;
-  var date    = document.getElementById('adminBookDate').value;
-  var time    = document.getElementById('adminBookTime').value;
-  var notes   = document.getElementById('adminBookNotes').value.trim();
-  // service now carries the canonical catalog VALUE (FK-ready).
-  var svc = window.SharedMockUsers ? window.SharedMockUsers.serviceByValue(service) : null;
-
-  if (!userId)  { showToast('Please select a client.', 'warning'); return; }
   var petId   = document.getElementById('adminPetSelect').value;
   var service = document.getElementById('adminBookService').value;
   var date    = document.getElementById('adminBookDate').value;
@@ -1088,11 +1102,14 @@ document.addEventListener("DOMContentLoaded", () => {
   // ── Table renders (compact semantic actions; wrap cleanly, no overflow) ──
   function ownerActions(u) {
     var inactive = u.status === 'inactive';
-    return (
-      '<button class="btn-small btn-view" onclick="viewOwnerProfile(' + u.userId + ')">View Profile</button> ' +
-      '<button class="btn-small btn-edit" onclick="openEditUser(' + u.userId + ')">Edit</button> ' +
-      '<button class="btn-small ' + (inactive ? 'btn-success' : 'btn-danger') + '" onclick="toggleUserStatus(' + u.userId + ')">' + (inactive ? 'Activate' : 'Deactivate') + '</button>'
-    );
+    // Compact kebab menu (advisor revision) — same actions, same handlers.
+    return kebabHtml('user-' + u.userId, [
+      { label: 'View Profile', action: 'viewOwnerProfile', arg: u.userId },
+      { label: 'Edit', action: 'openEditUser', arg: u.userId },
+      inactive
+        ? { label: 'Activate', action: 'toggleUserStatus', arg: u.userId, cls: 'success' }
+        : { label: 'Deactivate', action: 'toggleUserStatus', arg: u.userId, cls: 'danger' }
+    ]);
   }
 
   function renderClientsTable() {
@@ -1164,8 +1181,10 @@ document.addEventListener("DOMContentLoaded", () => {
         '<td>' + esc(owner ? owner.name : '\u2014') + '</td>' +
         '<td>' + esc(lastVisitLabel(p.petId)) + '</td>' +
         '<td class="action-cell">' +
-          '<button class="btn-small btn-view" onclick="viewPetProfile(' + p.petId + ')">View Profile</button> ' +
-          '<button class="btn-small btn-edit" onclick="openEditPet(' + p.petId + ')">Edit</button>' +
+          kebabHtml('pet-' + p.petId, [
+            { label: 'View Profile', action: 'viewPetProfile', arg: p.petId },
+            { label: 'Edit', action: 'openEditPet', arg: p.petId }
+          ]) +
         '</td>' +
         '</tr>';
     }).join('');
@@ -1757,4 +1776,85 @@ document.addEventListener("DOMContentLoaded", () => {
   } else {
     initClinicSettingsPage();
   }
+})();
+
+// ─── KEBAB ACTION MENUS (Advisor Revision Sprint 1) ─────────────────────────
+// Replaces repetitive visible row buttons with one compact ⋮ trigger.
+// Existing handlers (viewAppointment, openCheckInModal, openAdminReschedule,
+// cancelAppointment, viewOwnerProfile, openEditUser, toggleUserStatus,
+// viewPetProfile, openEditPet, addNewPet) are reused unchanged.
+// Status-ineligible actions are omitted, not just disabled.
+// TODO(BACKEND): permissions for each action are enforced by the API.
+function kebabHtml(id, items) {
+  var body = items.map(function (item) {
+    return '<button type="button" class="kebab-item ' + (item.cls || '') + '" data-kebab-arg="' + _escKebabAttr(String(item.arg)) + '" data-kebab-action="' + item.action + '" role="menuitem">' + item.label + '</button>';
+  }).join('');
+  return '<div class="kebab-wrap">' +
+    '<button type="button" class="kebab-btn" data-kebab-id="' + id + '" aria-haspopup="true" aria-expanded="false" aria-label="Row actions" title="Row actions">' +
+    '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="12" cy="5" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="12" cy="19" r="1.8"/></svg>' +
+    '</button>' +
+    '<div class="kebab-menu" role="menu" aria-label="Row actions">' + body + '</div>' +
+    '</div>';
+}
+
+function _escKebabAttr(s) {
+  return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+    return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+  });
+}
+
+(function () {
+  var OPEN_CLASS = 'open';
+
+  function closeMenu(wrap) {
+    wrap.classList.remove('kebab-open');
+    var menu = wrap.querySelector('.kebab-menu');
+    var btn = wrap.querySelector('.kebab-btn');
+    if (menu) menu.classList.remove(OPEN_CLASS);
+    if (btn) { btn.classList.remove('active'); btn.setAttribute('aria-expanded', 'false'); }
+  }
+
+  function closeAll(except) {
+    document.querySelectorAll('.kebab-wrap.kebab-open').forEach(function (w) {
+      if (w !== except) closeMenu(w);
+    });
+  }
+
+  function runItem(btn) {
+    var wrap = btn.closest('.kebab-wrap');
+    var action = btn.getAttribute('data-kebab-action');
+    var arg = btn.getAttribute('data-kebab-arg');
+    if (wrap) closeMenu(wrap);
+    var fn = window[action];
+    if (typeof fn === 'function') fn(arg);
+  }
+
+  document.addEventListener('click', function (e) {
+    var item = e.target.closest('.kebab-item');
+    if (item) { e.preventDefault(); runItem(item); return; }
+    var btn = e.target.closest('.kebab-btn');
+    if (btn) {
+      e.preventDefault();
+      var wrap = btn.closest('.kebab-wrap');
+      var isOpen = wrap.classList.contains('kebab-open');
+      closeAll(wrap);
+      if (!isOpen) {
+        wrap.classList.add('kebab-open');
+        btn.classList.add('active');
+        btn.setAttribute('aria-expanded', 'true');
+        var menu = wrap.querySelector('.kebab-menu');
+        if (menu) {
+          // Flip above the row when the menu would overflow the viewport bottom.
+          var rect = wrap.getBoundingClientRect();          menu.classList.toggle('kebab-flip', rect.bottom + 240 > window.innerHeight && rect.top > 260);
+
+        }
+      }
+      return;
+    }
+    closeAll(null);
+  });
+
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape') closeAll(null);
+  });
 })();

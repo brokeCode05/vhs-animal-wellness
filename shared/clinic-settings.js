@@ -162,6 +162,29 @@
       return (kind === 'cancel') ? s.cancellationCutoffMinutes : s.rescheduleCutoffMinutes;
     },
 
+    // Minutes until the appointment starts; NEGATIVE once it has started.
+    // Single shared clock for the User and Admin reschedule/cancel gating so
+    // both portals obey the exact same boundary rule.
+    // TODO(BACKEND): compute server-side so device clocks cannot skew the cut-off.
+    minutesUntilAppointment: function (dateStr, timeHHMM) {
+      var apptMin = _minutes(timeHHMM);
+      if (!dateStr || apptMin === null) return null;
+      var p = String(dateStr).split('-');
+      var apptDate = new Date(parseInt(p[0], 10), parseInt(p[1], 10) - 1, parseInt(p[2], 10),
+        Math.floor(apptMin / 60), apptMin % 60);
+      if (isNaN(apptDate.getTime())) return null;
+      return Math.round((apptDate.getTime() - Date.now()) / 60000);
+    },
+
+    // Policy seam for Admin + User rescheduling: blocked when the remaining
+    // time is <= the configured reschedule cut-off (exactly 120 min counts as
+    // blocked), and for anything already past. Unknown dates stay allowed.
+    isRescheduleBlocked: function (dateStr, timeHHMM) {
+      var remaining = this.minutesUntilAppointment(dateStr, timeHHMM);
+      if (remaining === null) return false;
+      return remaining <= this.cutoffMinutes('reschedule');
+    },
+
     // Friendly label: "2 hours" / "90 minutes" for UI copy.
     cutoffLabel: function (kind) {
       var m = this.cutoffMinutes(kind);

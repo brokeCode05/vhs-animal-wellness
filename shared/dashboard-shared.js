@@ -1795,12 +1795,18 @@ function _renderSharedServiceOptions(selectId) {
   var wrap = select.closest('.form-group');
   var trigger = wrap ? wrap.querySelector('.cd-trigger') : null;
   if (trigger) trigger.classList.remove('cd-active');
+  if (select._cdRefresh) select._cdRefresh();
 }
 
 function initCustomDropdown(selectId, opts) {
   opts = opts || {};
   var select = document.getElementById(selectId);
   if (!select) return;
+  // Guard against re-initialization: portal scripts and page boot code can
+  // both call this for the same select, and a second init used to build a
+  // duplicate trigger + panel with its own click handlers (duplicate option
+  // rows firing the same change twice). Re-init only refreshes the display.
+  if (select._cdRefresh) { select._cdRefresh(); return; }
   var placeholder = opts.placeholder || select.options[0]?.text || 'Select...';
   var searchPlaceholder = opts.searchPlaceholder || 'Search...';
   var emptyText = opts.emptyText || 'No options found';
@@ -1979,10 +1985,9 @@ function initAllCustomDropdowns() {
   initCustomDropdown('adminPetSelect', { placeholder: 'Select client first', searchPlaceholder: 'Search pets...', emptyText: 'No pets found' });
   initCustomDropdown('adminBookTime', { placeholder: 'Select time', searchPlaceholder: 'Search time...', emptyText: 'No slots available' });
 
-  initCustomDropdown('adminBookService', { searchPlaceholder: 'Search services...', emptyText: 'No services found' });
+  // NOTE: initCustomDropdown is idempotent — calling it again for the same
+  // select only refreshes the trigger display, so a duplicated boot sequence
+  // can no longer build a second trigger/panel/handler set (the historical
+  // cause of duplicate client/pet/service/time options in Admin booking).
   _renderSharedServiceOptions('adminBookService');
-  _renderSharedServiceOptions('adminBookService');
-  initCustomDropdown('adminClientSelect', { placeholder: 'Select client', searchPlaceholder: 'Search clients...', emptyText: 'No clients found' });
-  initCustomDropdown('adminPetSelect', { placeholder: 'Select client first', searchPlaceholder: 'Search pets...', emptyText: 'No pets found' });
-  initCustomDropdown('adminBookTime', { placeholder: 'Select time', searchPlaceholder: 'Search time...', emptyText: 'No slots available' });
 }
