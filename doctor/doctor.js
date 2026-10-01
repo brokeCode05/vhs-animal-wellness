@@ -108,7 +108,8 @@
         : a.appointmentTime,
       date: a.appointmentDate,
       dateDisplay: new Date(`${a.appointmentDate}T12:00:00`).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }),
-      service: a.service,
+      // Display label — the stored canonical VALUE never leaks into the UI.
+      service: svcLabel(a.service),
       // Effective visit context: canonical option + custom text when present.
       reason: (a.customVisitContext
         ? (a.visitContext ? a.visitContext + ': ' + a.customVisitContext : a.customVisitContext)
@@ -134,6 +135,16 @@
   let medicineSequence = 0;
   // TODO(BACKEND): Veterinarian identity comes from the authenticated session.
   const VETERINARIAN = { id: 'vet-001', name: 'Dr. Santos', role: 'Veterinarian' };
+  // Display-side service label resolution: records may store the canonical
+  // catalog VALUE (wound_repair); the queue/record UI always shows the
+  // shared catalog LABEL (Wound Repair). Idempotent for label-stored rows.
+  // Hoisted function on purpose: mapAppointment runs ABOVE this point at
+  // module init, so a const/arrow here would be a TDZ reference error.
+  function svcLabel(s) {
+    return (window.SharedMockUsers && window.SharedMockUsers.serviceLabel)
+      ? (window.SharedMockUsers.serviceLabel(s) || s)
+      : (s || '');
+  }
   const views = {
     patients: ['Today’s Patients', 'Select a patient to review their appointment and clinical history.'],
     notes: ['Consultation Notes', 'Document the active patient’s consultation using SOAP.'],
@@ -338,7 +349,7 @@
     }
     document.getElementById('ai-summary').textContent = patient.aiSummary;
     document.getElementById('context-name').textContent = patient.name;
-    document.getElementById('context-appointment').textContent = `${patient.species} · ${patient.breed} · ${patient.dateDisplay}, ${patient.time} · ${patient.service}`;
+    document.getElementById('context-appointment').textContent = `${patient.species} · ${patient.breed} · ${patient.dateDisplay}, ${patient.time} · ${svcLabel(patient.service)}`;
     const timerLine = document.getElementById('context-timer');
     if (draft.status === 'in_consultation' && draft.startedAt) {
       const startClock = new Date(draft.startedAt).toLocaleTimeString('en-GB', { hour: 'numeric', minute: '2-digit' });
@@ -364,7 +375,7 @@
       details.append(pair);
     }
     const refLine = patient.referenceNo ? ` · Ref ${patient.referenceNo}` : '';
-    record.replaceChildren(name, element('p', `${patient.dateDisplay} · ${patient.time} · ${patient.service}${refLine}`), details, element('p', patient.reason, 'visit-reason'), element('h3', 'Clinical history'));
+    record.replaceChildren(name, element('p', `${patient.dateDisplay} · ${patient.time} · ${svcLabel(patient.service)}${refLine}`), details, element('p', patient.reason, 'visit-reason'), element('h3', 'Clinical history'));
     if (patient.history.length) {
       const history = element('ol', '', 'history');
       history.tabIndex = 0;
@@ -692,7 +703,7 @@
       : c.startedAt
         ? `Ongoing · started ${timeFmt(c.startedAt)}`
         : 'Not started';
-    [['Date & time', `${c.appointment.dateDisplay}, ${c.appointment.time}`], ['Service', c.appointment.service], ['Reason for visit', c.appointment.reason], ['Consultation', consultationLine]].forEach(([label, value]) => {
+    [['Date & time', `${c.appointment.dateDisplay}, ${c.appointment.time}`], ['Service', svcLabel(c.appointment.service)], ['Reason for visit', c.appointment.reason], ['Consultation', consultationLine]].forEach(([label, value]) => {
       const item = element('div', '', 'print-info-item');
       item.append(element('span', label, 'print-info-label'), element('span', value || '—', 'print-info-value'));
       apptGrid.append(item);

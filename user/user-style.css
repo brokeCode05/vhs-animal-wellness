@@ -1169,6 +1169,31 @@ body {
   margin: 0;
 }
 
+/* Derived history items (completed consultations): status + reference row
+   and the View Record action — same visual language as the rest of the
+   timeline; service names wrap naturally (no fixed widths anywhere). */
+.med-timeline-status {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-top: 0.35rem;
+}
+
+.med-timeline-ref {
+  font-size: 0.75rem;
+  color: var(--text-dim);
+  word-break: break-word;
+}
+
+.med-timeline-actions {
+  margin-top: 0.5rem;
+}
+
+.med-timeline-actions .btn-small {
+  padding: 0.25rem 0.6rem;
+}
+
 /* Timeline responsive: single-column stacked on mobile */
 @media (max-width: 768px) {
   .med-timeline-item {

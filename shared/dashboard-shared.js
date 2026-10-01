@@ -156,6 +156,18 @@ function removeRow(id) {
 // Type cell until the backend serves a real visit type.
 // TODO(BACKEND): get_appointments.php must include reference_no so this shows
 // the same identifiers the User and Doctor portals display.
+// Canonical service label resolver — Admin displays NEVER show the raw
+// catalog value (e.g. wound_repair); bookings store the value, display uses
+// the shared catalog label. Idempotent for label-stored records.
+// TODO(BACKEND): the appointments API response should include the service
+// label (or Admin pages resolve it via the services endpoint) — this
+// client-side resolution disappears with the mock catalog.
+function VHSserviceLabel(s) {
+  return (window.SharedMockUsers && window.SharedMockUsers.serviceLabel && s)
+    ? (window.SharedMockUsers.serviceLabel(s) || s)
+    : (s || '');
+}
+
 function renderTodaysScheduleTable(all) {
 
   var tbody = document.getElementById('todayScheduleTable');
@@ -192,7 +204,7 @@ function renderTodaysScheduleTable(all) {
 
       '<td>' + (a.pet_name   || '—') + '</td>' +
 
-      '<td>' + (a.service    || '—') + '</td>' +
+      '<td>' + VHSserviceLabel(a.service) + '</td>' +
 
       '<td><span class="status-badge info">' + (a.reference_no || '#A' + String(a.id).slice(-3).padStart(3, '0')) + '</span></td>' +
 
@@ -604,7 +616,7 @@ function _findCanonicalAppointment(idOrRef) {
     ['Reference ID', a.reference_no || '—'],
     ['Owner', a.owner_name || '—'],
     ['Pet', (a.pet_name || '—') + (a.pet_type ? ' (' + a.pet_type + (a.pet_breed ? ' / ' + a.pet_breed : '') + ')' : '')],
-    ['Service', a.service || '—'],
+    ['Service', VHSserviceLabel(a.service) || '—'],
     ['Date', _fmtDetailsDate(a.date)],
     ['Time', _fmtDetailsTime(a.time)],
     ['Visit context', a.visit_reason || '—'],
@@ -1158,11 +1170,8 @@ function makeDayCell(day, isOther, month, year, isToday) {
 
       item.innerHTML =
 
-        '<span class="appointment-dot"></span>' +
-
-        '<span class="appointment-badge"><strong>' + apt.owner + '</strong> · ' + apt.pet +
-
-        '<em>' + apt.service + '</em></span>';
+        '<span class="appointment-dot"></span>' +        '<span class="appointment-badge"><strong>' + apt.owner + '</strong> · ' + apt.pet +
+        '<em>' + VHSserviceLabel(apt.service) + '</em></span>';
 
       item.onclick = function() {
 
@@ -1507,7 +1516,7 @@ function generateDayView(day) {
 
       item.className = 'day-apt status-' + (apt.status || 'pending');
 
-      item.innerHTML = '<strong>' + apt.owner + '</strong> · ' + apt.pet + ' — <em>' + apt.service + '</em>';
+      item.innerHTML = '<strong>' + apt.owner + '</strong> · ' + apt.pet + ' — <em>' + VHSserviceLabel(apt.service) + '</em>';
 
       item.onclick = function() { showToast(apt.owner + ' · ' + apt.pet + ' · ' + apt.service + ' [' + apt.status + ']', 'info'); };
 

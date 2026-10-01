@@ -1269,6 +1269,10 @@ function showMedicalHistory(petId) {
   // Resolve pet from loaded data (backend or mock)
   var pet = _currentPets.find(function (p) { return p.id === petId; });
   if (!pet) pet = mockPetsData.find(function (p) { return p.id === petId; });
+  // Derive the live medical timeline from shared records (completed
+  // appointments + finalized documents) before rendering. Ownership stays
+  // ID-scoped: ownerId + petId, never name matching.
+  pet = __medHistHydratePet(pet);
   _currentPrintPet = pet;
 
   var titleEl = document.getElementById('medHistModalTitle');
@@ -1659,6 +1663,103 @@ const mockPetsData = ((window.SharedMockUsers ? window.SharedMockUsers.petsOfOwn
 });
 
 
+// ─── PET MEDICAL HISTORY (derived projection over shared records) ───────────
+
+// Canonical service label resolver — display NEVER shows the raw catalog
+// value (e.g. wound_repair). Idempotent: label-stored records pass through.
+function __svcLabel(s) {
+  return (window.SharedMockUsers && window.SharedMockUsers.serviceLabel && s)
+    ? (window.SharedMockUsers.serviceLabel(s) || s)
+    : (s || '');
+}
+
+// The medical timeline is a PROJECTION of the canonical shared frontend
+// records — never a separate store:
+//   SharedMockAppointments (completed, owned by this pet)  +
+//   SharedDocuments (finalized consultation summaries)     →  per-pet history
+// One completed consultation = one history event. Prescriptions and lab
+// requests stay separate documents and are never merged into the summary.
+// TODO(BACKEND): replace this projection with a pet medical-records endpoint
+// assembled from authoritative consultation/document data
+// (GET /api/pets/:id/medical-records), keeping the same item shape.
+function __medHistHydratePet(pet) {
+  if (!pet || !window.SharedMockAppointments || !window.SharedDocuments) return pet;
+  var me = _getSessionUser();
+  var myId = me && (me.id || me.userId);
+  var appts = window.SharedMockAppointments.all().filter(function (a) {
+    return String(a.petId) === String(pet.id)
+      && (!myId || String(a.userId) === String(myId))
+      && window.AppointmentContract.normalizeStatus(a.status) === 'completed';
+  });
+  var summaries = window.SharedDocuments.forPet(pet.id).filter(function (d) {
+    return d.type === 'consultation_summary' && (!myId || String(d.userId) === String(myId));
+  });
+  var summaryByAppt = {};
+  summaries.forEach(function (d) { summaryByAppt[String(d.appointmentId)] = d; });
+
+  var events = [];
+  appts.forEach(function (a) {
+    var d = summaryByAppt[String(a.appointmentId)];
+    if (!d) return; // pre-Phase-5 completions carry no finalized document — no fabricated history
+    events.push({
+      date: a.appointmentDate,
+      service: __svcLabel(a.service),
+      vet: d.veterinarian && d.veterinarian.name ? d.veterinarian.name : '',
+      status: 'Completed',
+      ref: a.referenceNo || d.referenceNo,
+      docId: d.docId,
+      notes: d.data && d.data.plan ? d.data.plan : '',
+      derived: true
+    });
+  });
+  // Descending by date (newest first) so a fresh consultation appears on top.
+  events.sort(function (a, b) { return new Date(b.date) - new Date(a.date); });
+
+  // Vaccination passport: only completed Vaccination consultations that have
+  // a finalized summary. The prototype records carry no structured vaccine
+  // data (name/batch/next-due), so no vaccine lines can be fabricated.
+  // TODO(BACKEND): a vaccination record model (vaccine, batch, next-due) on
+  // the consultation is required before this passport can list real doses.
+  var derivedVaccines = appts
+    .filter(function (a) {
+      return (window.SharedMockUsers && window.SharedMockUsers.serviceLabel)
+        ? String(window.SharedMockUsers.serviceLabel(a.service) || a.service).toLowerCase() === 'vaccination'
+        : String(a.service).toLowerCase() === 'vaccination';
+    })
+    .map(function (a) {
+      var d = summaryByAppt[String(a.appointmentId)];
+      return {
+        name: __svcLabel(a.service),
+        date: a.appointmentDate,
+        nextDue: '',
+        batchNo: '',
+        vet: d && d.veterinarian && d.veterinarian.name ? d.veterinarian.name : '',
+        ref: a.referenceNo || (d && d.referenceNo) || '',
+        docId: d ? d.docId : null,
+        derived: true
+      }
+    })
+    .sort(function (a, b) { return new Date(b.date) - new Date(a.date); });
+
+  return Object.assign({}, pet, { visits: events, vaccines: derivedVaccines });
+}
+
+// View Record — opens the item's finalized Consultation Summary through the
+// SAME shared document renderer used by My Documents and Admin Documents.
+// No separate viewer, no duplicated clinical content. Ownership is re-checked
+// against the signed-in user at open time; only client-facing summary data is
+// rendered (the store never keeps subjective/objective narrative).
+function openMedHistoryRecord(docId) {
+  var me = _getSessionUser();
+  var myId = me && (me.id || me.userId);
+  var doc = window.SharedDocuments ? window.SharedDocuments.byId(docId) : null;
+  if (!doc || !window.SharedDocumentRender) return;
+  if (myId && String(doc.userId) !== String(myId)) return; // ownership re-check
+  document.getElementById('userDocViewerBody').innerHTML = window.SharedDocumentRender.render(doc);
+  document.getElementById('userDocPrint').onclick = function () { window.print(); };
+  openModal('userDocViewerModal');
+}
+
 // ─── PET MEDICAL HISTORY RENDERER ────────────────────────────────────────────
 
 // renderPetHistory(pet) — accepts a pet object: { name, visits[] }
@@ -1678,7 +1779,7 @@ function renderPetHistory(pet, containerId) {
   });
 
   if (!visits.length) {
-    container.innerHTML = '<p class="med-hist-empty">No visit history found for ' + escapeHtml(pet.name) + '.</p>';
+    container.innerHTML = '<p class="med-hist-empty">No medical history yet.</p>';
     return;
   }
 
@@ -1708,9 +1809,15 @@ function renderPetHistory(pet, containerId) {
       + '<div class="med-timeline-card-body">'
       + '<div class="med-timeline-vet">'
       + '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>'
-      + escapeHtml(visit.vet)
+      + escapeHtml(visit.vet || '\u2014')
       + '</div>'
-      + '<p class="med-timeline-notes">' + escapeHtml(visit.notes) + '</p>'
+      + '<div class="med-timeline-status">'
+      + '<span class="status-badge completed">' + escapeHtml(visit.status || 'Completed') + '</span>'
+      + (visit.ref ? '<span class="med-timeline-ref">Ref: ' + escapeHtml(visit.ref) + '</span>' : '')
+      + '</div>'
+      + (visit.docId
+        ? '<div class="med-timeline-actions"><button class="btn-small btn-link" onclick="openMedHistoryRecord(\'' + visit.docId + '\')">View Record</button></div>'
+        : '')
       + '</div>'
       + '</div>'
       + '</div>';
@@ -1737,6 +1844,8 @@ function showPetProfile(petId) {
   var pet = _currentPets.find(function (p) { return p.id === petId; });
   if (!pet) pet = mockPetsData.find(function (p) { return p.id === petId; });
   if (!pet) return;
+  // Same derived projection as the standalone history modal.
+  pet = __medHistHydratePet(pet);
   _currentProfilePet = pet;
   _currentPrintPet = pet;
   _activeProfileTab = 'profile-medical';
@@ -1816,9 +1925,14 @@ function renderVaccinePassport(pet) {
   if (!container) return;
   if (!pet) { container.innerHTML = '<p class="med-hist-empty">No pet selected.</p>'; return; }
 
-  var vaccines = pet.vaccines || [];
+  // Derived-only: the hydrated pet (see __medHistHydratePet) carries
+  // vaccination entries derived from completed Vaccination consultations
+  // with finalized documents. Static placeholder vaccine lists are retired —
+  // they presented authoritative-looking doses with no appointment/document
+  // backing. Un-hydrated pets show the clean empty state.
+  var vaccines = (pet.vaccines || []).filter(function (v) { return v && v.derived === true; });
   if (!vaccines.length) {
-    container.innerHTML = '<p class="med-hist-empty">No vaccination records found for ' + escapeHtml(pet.name) + '.</p>';
+    container.innerHTML = '<p class="med-hist-empty">No vaccination records yet.</p>';
     return;
   }
 
@@ -1853,8 +1967,9 @@ function printPetHistory() {
   var datePrinted = now.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
   var owner = pet.owner || {};
 
-  // Sort visits newest-first for the table
-  var visits = (pet.visits || []).slice().sort(function (a, b) {
+  // Sort visits newest-first for the table. Derived-only: static placeholder
+  // visits are retired from the printed record as well.
+  var visits = (pet.visits || []).filter(function (v) { return v && v.derived === true; }).slice().sort(function (a, b) {
     return new Date(b.date) - new Date(a.date);
   });
 
@@ -1962,7 +2077,7 @@ function printVaccineCertificate() {
   var now = new Date();
   var datePrinted = now.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
   var owner = pet.owner || {};
-  var vaccines = (pet.vaccines || []).slice().sort(function (a, b) {
+  var vaccines = (pet.vaccines || []).filter(function (v) { return v && v.derived === true; }).slice().sort(function (a, b) {
     return new Date(b.date) - new Date(a.date);
   });
 
@@ -2105,6 +2220,11 @@ var mockAppointmentsData = (function () {
     }
     row.visit_reason = a.visitContext || '';
     row.notes = a.visitContext || '';
+    // Init-path twin of the _syncFromStore normalization: display the
+    // canonical catalog LABEL, never the raw catalog VALUE (wound_repair).
+    if (window.SharedMockUsers && window.SharedMockUsers.serviceLabel && row.service) {
+      row.service = window.SharedMockUsers.serviceLabel(row.service) || row.service;
+    }
     return row;
   });
   return shared;
@@ -2302,7 +2422,7 @@ function _renderApptList(containerId, appts, mode) {
       + '<div><div class="appt-pet-name">' + escapeHtml(a.pet_name) + '</div>'
       + '<div class="appt-pet-breed">' + escapeHtml(a.pet_type) + (a.pet_breed ? ' / ' + escapeHtml(a.pet_breed) : '') + '</div></div>'
       + '</div>'
-      + '<div class="appt-card-service">' + escapeHtml(a.service) + '</div>'
+      + '<div class="appt-card-service">' + escapeHtml(__svcLabel(a.service)) + '</div>'
       + (a.notes ? '<div class="appt-card-notes">' + escapeHtml(a.notes) + '</div>' : '')
       + (a.reference_no ? '<div class="appt-card-ref">Ref: ' + escapeHtml(a.reference_no) + '</div>' : '')
       + (within2h || withinCancel ? '<div class="appt-card-cutoff-note">Within ' + (window.VHSClinicSettings ? window.VHSClinicSettings.cutoffLabel(within2h ? 'reschedule' : 'cancel') : '2 hours') + ' window — contact clinic for changes</div>' : '')
@@ -3977,7 +4097,7 @@ function _renderUserDocuments() {
       + '<div class="appt-card-body">'
       + '<div class="appt-card-pet"><div class="appt-pet-avatar">' + petEmoji('doc') + '</div>'
       + '<div><div class="appt-pet-name">' + (d.petName || '') + '</div>'
-      + '<div class="appt-pet-breed">Ref: ' + (d.referenceNo || '') + (d.service ? ' · ' + d.service : '') + '</div></div></div>'
+      + '<div class="appt-pet-breed">Ref: ' + (d.referenceNo || '') + (d.service ? ' · ' + __svcLabel(d.service) : '') + '</div></div></div>'
       + '</div>'
       + '<div class="appt-card-footer"><button class="btn-small btn-link" onclick="openUserDocument(\'' + d.docId + '\')">View Document</button></div>'
       + '</div>';

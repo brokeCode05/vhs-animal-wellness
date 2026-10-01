@@ -198,7 +198,13 @@
         petId: appointmentRecord.petId,
         petName: (appointmentRecord.pet && appointmentRecord.pet.name) || consultation.patient.name,
         ownerName: (appointmentRecord.owner && appointmentRecord.owner.name) || consultation.patient.owner,
-        service: (appointmentRecord.service) || consultation.appointment.service,
+        // Store the canonical catalog LABEL so every document list renders
+        // the human-readable service (Wound Repair), never the raw value.
+        // TODO(BACKEND): the completion endpoint resolves the label from the
+        // services table server-side.
+        service: (window.SharedMockUsers && window.SharedMockUsers.serviceLabel)
+          ? (window.SharedMockUsers.serviceLabel(appointmentRecord.service || consultation.appointment.service) || appointmentRecord.service || consultation.appointment.service)
+          : (appointmentRecord.service || consultation.appointment.service),
         veterinarian: consultation.veterinarian
       };
       // Consultation Summary — client-facing: vitals, assessment, plan.
