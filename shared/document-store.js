@@ -14,9 +14,9 @@
    Portal files never touch localStorage for documents.
 
    DEMO DATA: while the demo seed below ships, an EMPTY store is
-   seeded with ONE finalized Consultation Summary (existing seed
-   appointment apt305 — Mochi, Maria Santos, VHS-20260912-M7N8O9)
-   so My Documents / Admin Documents are demonstrable before any
+   seeded with ONE finalized Consultation Summary (dedicated demo
+   appointment apt900 — Buddy, Maria Santos, VHS-DEMO-APT900) so
+   My Documents / Admin Documents are demonstrable before any
    live completion. See _seedDemoData() for scope and removal notes.
 
    TODO(BACKEND): Replace document demo persistence with document
@@ -66,37 +66,42 @@
   // and therefore show no documents — that is expected, not a regression.
   //
   // For the advisor demo we inject ONE finalized Consultation Summary for
-  // the existing seed appointment apt305 (2026-09-12 Vaccination, Mochi /
-  // Maria Santos, ref VHS-20260912-M7N8O9) with real structured content
-  // (vitals, assessment, plan). No SOAP narrative (subjective/objective) is
-  // stored — those stay Doctor-only, exactly like live completions. No
-  // prescription/lab documents because the demo record has none ordered.
-  // IDs/references reuse apt305's own; nothing new is invented.
+  // the DEDICATED demo appointment apt900 (2026-09-19 Consultation, Buddy /
+  // Maria Santos, ref VHS-DEMO-APT900; seeded in mock-appointments.js).
+  // A dedicated appointment is used instead of a historical one so nothing
+  // invented is attached to data that never contained it: apt900 exists
+  // only for this demo, its identity is fully self-consistent (userId 1,
+  // petId 2 = Buddy per mock-users.js, same owner/pet/reference/service as
+  // the appointment record), and its clinical content below is minimal and
+  // clearly generic demo filler — never presented as recorded history.
+  // No SOAP narrative (subjective/objective) is stored — those stay
+  // Doctor-only, exactly like live completions. No prescription/lab
+  // documents because the demo record has none ordered.
   // TODO(BACKEND): delete with this file when the Documents API lands —
   // documents are then created server-side inside the completion
   // transaction and no retroactive seeding exists there either.
   var DEMO_SEED_DOC = {
     type: 'consultation_summary',
-    appointmentId: 'apt305',
-    referenceNo: 'VHS-20260912-M7N8O9',
-    userId: '1', // Maria Santos — matches the apt305 seed in mock-appointments.js
-    petId: '1', // apt305's pet reference (historical snapshot; pet seeds now list Mochi as petId 3)
-    petName: 'Mochi',
+    appointmentId: 'apt900',
+    referenceNo: 'VHS-DEMO-APT900',
+    userId: '1', // Maria Santos — matches the apt900 demo seed in mock-appointments.js
+    petId: '2', // Buddy — matches mock-users.js petId 2 (Maria's Golden Retriever)
+    petName: 'Buddy',
     ownerName: 'Maria Santos',
-    service: 'Vaccination',
+    service: 'Consultation',
     veterinarian: { name: 'Dr. Santos', role: 'Veterinarian' },
-    issuedAt: '2026-09-12T11:25:00',
+    issuedAt: '2026-09-19T10:27:00',
     data: {
-      date: '12 Sep 2026', // doctor.js dateDisplay format for 2026-09-12
-      time: '11:00',
-      startedAt: '2026-09-12T11:02:00',
-      completedAt: '2026-09-12T11:25:00',
-      durationMinutes: 23,
-      weight: '3.8',
-      temperature: '38.7',
-      heartRate: '168',
-      assessment: 'Alert and active Siamese cat. Vaccination site healthy, no adverse reaction observed. Body condition and vitals within normal range.',
-      plan: 'Annual rabies booster administered. Monitor the injection site for swelling for 3 days. Next vaccination due September 2027.'
+      date: '19 Sep 2026', // doctor.js dateDisplay format for 2026-09-19
+      time: '10:00',
+      startedAt: '2026-09-19T10:02:00',
+      completedAt: '2026-09-19T10:27:00',
+      durationMinutes: 25,
+      weight: '28',
+      temperature: '38.6',
+      heartRate: '96',
+      assessment: 'Healthy adult dog; no abnormalities noted during the visit.',
+      plan: 'Continue routine care, balanced diet, and regular exercise. Next check-up as scheduled.'
     }
   };
 

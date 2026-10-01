@@ -14,6 +14,14 @@
    valid owners/pets/statuses.
    The trace appointment is apt301 (Luna, checked_in) — it must
    appear with identical identifiers in all three portals.
+
+   DEMO DATA: apt900 is a dedicated, deterministic demo fixture
+   (not part of the clinic-day storyline). It exists only so the
+   Phase 5 documents demo (shared/document-store.js demo seed) is
+   reproducible: a COMPLETED consultation with a stable
+   appointment/reference/user/pet linkage. Marked here in comments
+   only — the UI must never label it. Removal: delete the apt900
+   record and the matching DEMO_SEED_DOC in document-store.js.
    ============================================================ */
 (function (global) {
   'use strict';
@@ -79,6 +87,28 @@
       consultationCompletedAt: '2026-09-12T11:25:00',
       owner: { name: 'Maria Santos', phone: '0917-123-4567' },
       pet: { name: 'Mochi', species: 'Cat', breed: 'Siamese' }
+    },
+    // ── DEMO DATA (frontend fixture; marked in comments only) ────────────
+    // Dedicated demo consultation for the documents demo. Identity is fully
+    // self-consistent by construction: Maria Santos (userId 1), her canonical
+    // pet Buddy (petId 2, Golden Retriever — matches mock-users.js), Dr.
+    // Santos as veterinarian (assignedVetId uses the same numeric-vet
+    // convention as the other seeds), reference VHS-DEMO-APT900 that cannot
+    // collide with real-looking references. Past date keeps it out of
+    // today's queue and out of slot availability (completed slots are never
+    // offered). Status/timestamps mirror what setStatus() would stamp.
+    {
+      appointmentId: 'apt900', referenceNo: 'VHS-DEMO-APT900',
+      userId: 1, petId: 2, assignedVetId: 2,
+      service: 'Consultation',
+      appointmentDate: '2026-09-19', appointmentTime: '10:00',
+      visitContext: 'Routine check-up',
+      customVisitContext: '',
+      notes: '', status: 'completed',
+      consultationStartedAt: '2026-09-19T10:02:00',
+      consultationCompletedAt: '2026-09-19T10:27:00',
+      owner: { name: 'Maria Santos', phone: '0917-123-4567' },
+      pet: { name: 'Buddy', species: 'Dog', breed: 'Golden Retriever' }
     },
     // Future record so Maria's upcoming list shows a confirmed future visit.
     {
