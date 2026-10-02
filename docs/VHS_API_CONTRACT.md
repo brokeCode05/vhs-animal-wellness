@@ -1,11 +1,59 @@
 # VHS API Contract — Recommended Laravel REST Endpoints
 
 > Basis: the frozen frontend contracts in [VHS_DATA_CONTRACT.md](VHS_DATA_CONTRACT.md). Wire format **snake_case**.
-> Auth: `Authorization: Bearer <token>` (Sanctum) or Laravel session cookie — **BACKEND DECISION REQUIRED** (SPA token vs cookie session).
-> Common success envelope: `200/201` with the resource JSON. Common errors:
-> `401 unauthenticated` · `403 forbidden` (role/ownership) · `404 not_found` · `422 validation_error` (field map) · `409 conflict` (duplicate/uniqueness/slot taken) · `422 business_rule` where a guard rejects (status transition, cutoff window) — exact error shape: **BACKEND DECISION REQUIRED**.
+> Auth: **session/cookie based (locked)** — see §0.1. For the current Laravel web application, prefer secure session cookies; token auth is **not** hardcoded and is revisited only if an explicit architecture requirement needs it. The endpoint tables below are **transport-agnostic**.
+> Response envelope: **one canonical JSON shape for every endpoint** (§0.2) — standardized before frontend API integration.
 
 Legend: 🔓 public · 🔑 any authenticated role · roles listed per endpoint.
+
+---
+
+## 0. ENVELOPE + AUTH TRANSPORT (locked)
+
+### 0.1 Auth transport
+
+**Locked decision: session/cookie-based authentication.** For the current Laravel web application, prefer secure session cookies. Do not hardcode token auth — revisit only if a later architecture requirement explicitly needs API tokens.
+
+The endpoint tables below stay **transport-agnostic**: they define *who may call what*, not how the session is carried. These security requirements apply regardless:
+
+- session cookie **`HttpOnly`** — not readable by JavaScript
+- **`Secure`** in production
+- **`SameSite`** set appropriately (`lax` is the sane default)
+- **CSRF protection** on state-changing requests
+- **session regeneration after login** (prevents session fixation)
+- **server-side role enforcement** — role resolved from the session, never from the request body
+
+### 0.2 Canonical response envelope
+
+Every endpoint — auth, users, pets, appointments, clinical, documents, audit — returns this shape.
+
+**Success**
+```json
+{
+  "success": true,
+  "message": "Human-readable message",
+  "data": {}
+}
+```
+
+**Validation / error**
+```json
+{
+  "success": false,
+  "message": "Human-readable error message",
+  "errors": {
+    "field": ["Validation message"]
+  }
+}
+```
+
+Rules:
+
+- `data` may be `null` or **omitted** when there is nothing useful to return.
+- `errors` may be `null` or **omitted** when the failure is not field-level validation.
+- **Never expose stack traces or internal exception details** — not in `message`, not anywhere else in the response. Log them server-side only.
+- Use correct HTTP status codes: `200`/`201` success · `401 unauthenticated` · `403 forbidden` (role/ownership) · `404 not_found` · `409 conflict` (duplicate email, slot taken) · `422 validation_error` (field map) · `422 business_rule` (status transition, cutoff window).
+- Keep the structure **consistent across all sections**, not just auth.
 
 ---
 
@@ -25,10 +73,16 @@ Legend: 🔓 public · 🔑 any authenticated role · roles listed per endpoint.
 **Login response (shape the portals rely on):**
 ```json
 {
-  "token": "...",
-  "user": { "user_id": 1, "role": "User", "name": "Maria Santos", "email": "...", "status": "active" }
+  "success": true,
+  "message": "Logged in.",
+  "data": {
+    "user": { "user_id": 1, "role": "User", "name": "Maria Santos", "email": "...", "status": "active" }
+  }
 }
 ```
+
+The session is established server-side (cookie); no bearer token is required. If a future architecture decision adds tokens, add a `data.token` field **without changing the envelope**.
+
 `role` drives portal routing (`User → /user/`, `Doctor → /doctor/`, `Admin → /admin/`). Inactive accounts: login refused.
 
 **OTP (final decision):** OTP is REAL — server-issued and server-validated for account verification and kept in the booking workflow. The frontend demo accepts any 6 digits; the backend must validate against its own issued codes. Never trust frontend OTP state. Delivery provider (email/SMS) is a backend concern.
@@ -51,7 +105,7 @@ Request fields and the limits the backend must enforce authoritatively (mirror `
 | `phone` | required for self-registration | frontend collects PH local `9XXXXXXXXX`; store the **canonical normalised** value (`+639XXXXXXXXX`) |
 | `birthdate` | required, valid real date, **not future**, **age ≥ 18** | cutoff computed from the current date server-side; **never hardcode a cutoff year** |
 | `address` | required, **max 250** | trim surrounding whitespace |
-| `terms_accepted` | required | server records consent in its own consent store; **not** an auth column |
+| `terms_accepted` | required, must be `true` | **not** an auth column, and **not** a boolean on `users`. On successful registration the server writes an **auditable consent record** — `user_id`, `consent_type`, `document_version`, `accepted_at` (the `user_consents` table) |
 | `verification_method` | `email` \| `sms` | drives which OTP channel is issued |
 | `otp_code` | exactly 6 digits when `sms` | validated against the server's own issued code |
 
@@ -78,7 +132,7 @@ Request fields and the limits the backend must enforce authoritatively (mirror `
 | `/api/users/me/pets` | GET | 🔑 User | **preferred** owner-scoped read — owner comes from the session, never from the path. Use this for first-pet detection (zero pets → onboarding) |
 | `/api/users/:id/pets` | GET | Admin, **User (own id only)** | scoped list (`ownerId` link, never name-matched). A User requesting another id → `403` |
 | `/api/pets/:id` | GET | Admin, **User (own pet)** | another owner's pet → `403` |
-| `/api/pets` | POST | Admin, **User (own pets)** | **owner is taken from the authenticated session/context and MUST be ignored from the request body.** species=Other requires speciesCustom; enforces `PET_LIMITS` (§3.1) |
+| `/api/pets` | POST | Admin, **User (own pets)** | **owner is taken from the authenticated session/context and MUST be ignored from the request body.** species=Other requires speciesCustom; enforces `PET_LIMITS` (§3.1). Optional `birthdate` is **canonical when known**; `age` is accepted only as an **approximate fallback** when `birthdate` is absent (§3.2) |
 | `/api/pets/:id` | PATCH | Admin, **User (own pet)** | ownership re-checked server-side |
 
 ### 3.1 Pet creation & the first-pet flow (frozen)
@@ -99,7 +153,17 @@ POST /api/pets               → pet linked to the AUTHENTICATED owner
 
 **A newly created pet starts EMPTY.** No appointment, consultation, veterinarian, vaccination, medical history, prescription, lab result or document is auto-created for it. The API must return honest empty collections/states rather than fabricated demo records, and production seed logic must not invent medical history for new pets.
 
-**Enforced pet field limits** (mirror `user/pet-onboarding.js` `PET_LIMITS` server-side; column widths in SQL are only storage ceilings): name 50 · species_custom 50 · breed 60 · breed_custom 60 · color 50 · microchip_id 30 · allergies 200 · chronic_conditions 200 · notes 500 (`medical_notes` on the wire) · age max 50 · weight_kg max 200.00. `weight_kg` must parse as a real number (reject `e`/`E`, `+`/`-`, empty, NaN). The age/weight maxima are **provisional UI/business guardrails, not veterinary truth** — see [VHS_DATA_CONTRACT.md](VHS_DATA_CONTRACT.md) §2.1.
+**Enforced pet field limits** (mirror `user/pet-onboarding.js` `PET_LIMITS` server-side; column widths in SQL are only storage ceilings): name 50 · species_custom 50 · breed 60 · breed_custom 60 · color 50 · microchip_id 30 · allergies 200 · chronic_conditions 200 · notes 500 (`medical_notes` on the wire) · age max 50 · weight_kg max 200.00. `weight_kg` must parse as a real number (reject `e`/`E`, `+`/`-`, empty, NaN). The age/weight maxima are **provisional UI/business guardrails, not veterinary truth** — they are **configurable** pending clinic-vet confirmation, and stricter medical ranges must **not** be invented without an explicit product decision. See [VHS_DATA_CONTRACT.md](VHS_DATA_CONTRACT.md) §2.1.
+
+**Pet photos are DEFERRED.** There is **no pet photo upload endpoint** in the current backend scope. `pets.photo_path` stays nullable and unused; storage mechanism to be decided later.
+
+### 3.2 `birthdate` vs `age` (locked)
+
+`birthdate` is **canonical when known** and preferred; age is then **derived server-side**, and a client-supplied `age` is ignored or rejected rather than stored as authoritative.
+
+When the DOB is unknown it stays `NULL`, and `age` may be stored as an **approximate** estimate — that is the only case where a stored `age` is meaningful.
+
+The two are **never equally authoritative**, and a manual age is never stored alongside a known birthdate. Deriving age at read time is sufficient. See [VHS_DATA_CONTRACT.md](VHS_DATA_CONTRACT.md) §2.2.
 
 ## 4. DOCTORS
 

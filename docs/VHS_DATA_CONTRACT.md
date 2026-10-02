@@ -9,7 +9,7 @@
 
 Sources: `shared/mock-users.js` USERS + Admin `submitCreateUser`/`submitEditUser` + User profile form **+ `shared/signup-wizard.js` v1.1.0 `LIMITS`/`RULES` (public self-registration, Advisor Revision Sprint 1 — approved)**.
 
-> **Signup contract (frozen):** self-registration creates the **OWNER ACCOUNT ONLY**. No pet, appointment, consultation, document or medical record is created at signup. `role` is forced to `User` server-side; a self-registering browser can never choose `Doctor` or `Admin`. `confirmPassword` and the terms-acceptance checkbox are **UI-only** — neither is persisted, and terms consent is recorded by the server's own consent record, not as an auth column.
+> **Signup contract (frozen):** self-registration creates the **OWNER ACCOUNT ONLY**. No pet, appointment, consultation, document or medical record is created at signup. `role` is forced to `User` server-side; a self-registering browser can never choose `Doctor` or `Admin`. `confirmPassword` and the terms-acceptance checkbox are **UI-only** — neither is persisted as an auth field. Terms/privacy consent **is** recorded, but as an **auditable consent record**, not a permanent boolean on `users` (see §1.3).
 
 | Field | Type | Req | Meaning | Backend validation notes |
 |---|---|---|---|---|
@@ -18,7 +18,7 @@ Sources: `shared/mock-users.js` USERS + Admin `submitCreateUser`/`submitEditUser
 | middleName | string(50) | O | middle name | `max:50`; **optional** — remains nullable |
 | name | string(120) | R | display name (`first + last` kept in sync by Admin edit) | server can derive; keep column for fast display |
 | email | string(254) | R | login identity + contact | **unique**; `max:254` (RFC 5321 path limit); duplicate check **case-insensitive** — normalise (trim + lowercase) before the uniqueness check AND before storing |
-| phone | string(15–20) | O (R for self-registration) | contact | **INPUT vs STORAGE are different.** Frontend collects a PH local mobile `9XXXXXXXXX` (10 digits) under a fixed `PH +63` display prefix. **Canonical storage is the normalised E.164 form `+639XXXXXXXXX` (13 chars).** Server re-derives the canonical value; never store the raw local string. Column width must hold `+` + country code + up to 15 national digits |
+| phone | string(20) | O (R for self-registration) | contact | **INPUT vs STORAGE are different.** Frontend collects a PH local mobile `9XXXXXXXXX` (10 digits) under a fixed `PH +63` display prefix. **Canonical storage is the normalised E.164 form `+639XXXXXXXXX` (13 chars).** Server re-derives the canonical value; never store the raw local string. **Column width is locked at `VARCHAR(20)`** (holds `+` + country code + up to 15 national digits) — do **not** reduce it to 15, which is narrower than the E.164 ceiling the same rule requires |
 | address | string(250) | O (R for self-registration) | home address | `max:250`; leading/trailing whitespace trimmed; normal punctuation preserved |
 | birthdate | date | O in schema, **R for self-registration** | date of birth | valid, real calendar date, **not in the future**, and **owner must be ≥ 18 years old** (see §1.1). Admin-provisioned Doctor/Admin accounts may omit it |
 | password | — | never returned | credentials | **hash only**, never plaintext. Frontend input range **8–72** (`min:8`, `max:72` — 72 is the bcrypt `PASSWORD_BCRYPT` truncation boundary). Stored hash `VARCHAR(255)`. No API may ever return it |
@@ -44,6 +44,23 @@ Frontend reference: `ruleDob()` / `latestDobForAge()` in `shared/signup-wizard.j
 - Expiry for OTP / reset / activation tokens; **rate-limit** OTP issue + resend per identifier and per IP.
 - `role` and `status` are assigned **server-side**; a browser-supplied role is ignored.
 
+### 1.3 Consent is auditable (locked)
+
+Terms/privacy acceptance must be provable **after the fact**. A single permanent boolean (e.g. `users.terms_accepted`) is therefore **not** used — it cannot show which version of a document was accepted, or when.
+
+The backend records, at minimum:
+
+| Field | Meaning |
+|---|---|
+| `user_id` | the consenting account (FK; cascade on delete) |
+| `consent_type` | `terms` \| `privacy` \| `data_processing` |
+| `documentVersion` | identifier of the **exact document version** accepted, so a later edit does not rewrite history |
+| `acceptedAt` | when the user accepted |
+
+`ip_address` and `user_agent` are **optional** and may be captured later if clinic policy requires them.
+
+This is deliberately a minimal **audit record**, not a consent-management subsystem. No withdrawal or re-consent workflow is designed in this phase.
+
 ## 2. PET
 
 Sources: `shared/mock-users.js` §CANONICAL PET PROFILE CONTRACT + Admin register/edit pet **+ `user/pet-onboarding.js` v1.0.0 `PET_LIMITS`/`PET_RULES` (first-pet onboarding, Advisor Revision Sprint 1 — approved)**.
@@ -62,7 +79,8 @@ Sources: `shared/mock-users.js` §CANONICAL PET PROFILE CONTRACT + Admin registe
 | breed | string(60) | R (may be empty string) | breed select value | when breed is `Other`, `breedCustom` carries the text |
 | breedCustom | string(60) | O | custom breed text | `max:60`; cleared when breed ≠ Other |
 | gender | enum(`Male`,`Female`) | R | sex | |
-| age | int (years) | O | age | `max:50`, whole years, **PROVISIONAL UI/BUSINESS CONSTRAINT — not a veterinary truth** (see §2.1) |
+| birthdate | date | O | exact date of birth | **Canonical when known** and preferred over `age`. **Nullable** — a veterinary user may not know an exact DOB. See §2.2 |
+| age | int (years) | O | **approximate** age | **Only meaningful when `birthdate` is NULL.** When `birthdate` is present, age is **derived** server-side and a client-supplied value is ignored or rejected (§2.2). `max:50`, whole years, **PROVISIONAL UI/BUSINESS CONSTRAINT — not a veterinary truth** (§2.1) |
 | weightKg | decimal(5,2) | O | weight in kg | max `200`, 2 decimals; **PROVISIONAL** (see §2.1). Must parse as a real number: reject `e`/`E`, `+`/`-` signs, and empty/NaN input |
 | color | string(50) | O | color / markings | `max:50` |
 | reproductiveStatus | enum(`Intact`,`Spayed`,`Neutered`,`Not Sure`) | O | reproductive status | |
@@ -70,15 +88,28 @@ Sources: `shared/mock-users.js` §CANONICAL PET PROFILE CONTRACT + Admin registe
 | allergies | string(200) | O | known allergies | `max:200` |
 | chronicConditions | string(200) | O | chronic conditions | `max:200` |
 | notes | string(500) | O | medical notes | `max:500`; **wire field is `medical_notes`**, stored as `pets.notes` — keep one representation, do not add a second column |
-| photo | file path | O | form-only upload asset | **not** profile contract data; **BACKEND DECISION REQUIRED** (storage + endpoint) |
+| photo | file path | O | form-only upload asset | **not** profile contract data. **DEFERRED (locked):** there is **no pet photo upload endpoint** in the current backend scope and the storage mechanism is TBD. `pets.photo_path` stays nullable and unused until that decision |
 
-### 2.1 Age / weight maxima are PROVISIONAL
+### 2.1 Age / weight maxima are PROVISIONAL and configurable (locked)
 
 `PET_LIMITS.age.max = 50` and `PET_LIMITS.weightKg.max = 200` are the values the existing form already advertised. They are a **UI/business guardrail, not medical truth**, and are flagged `TODO(BACKEND)` in `user/pet-onboarding.js`.
 
-**This docs-only pass deliberately does not invent veterinary ranges.** Before B2, the product/vet owner should confirm real maxima; until then mirror these values so behaviour matches the approved UI, and treat any change as a coordinated contract revision.
+**Locked decision:** the backend **may mirror these values initially** so behaviour matches the approved UI, but they are **configurable** and remain **subject to clinic-vet confirmation**. Do **not** invent stricter medical ranges without an explicit product decision; any change is a coordinated contract revision on both sides.
 
-> If the schema later switches from `age` to a birthdate, prefer **deriving** age over permanently storing both.
+### 2.2 Birthdate vs age (locked)
+
+`birthdate` is the **canonical** value **when known** and is preferred. Age is then **derived** from it.
+
+A veterinary user may not know an exact date of birth, so the contract supports both cases:
+
+| Case | What is stored | Precedence |
+|---|---|---|
+| `birthdate` known | `birthdate` | age is **derived** server-side; a client-supplied `age` is ignored or rejected and never persisted as authoritative |
+| `birthdate` unknown | `birthdate` NULL, `age` holds an **approximate** estimate | the only case in which a stored `age` is meaningful |
+
+The two are **never equally authoritative**, and a manually-entered age is **not** stored alongside a known birthdate. The wire field stays `age` (the frozen frontend sends it), but its server-side meaning is "approximate age, only when the DOB is unknown".
+
+Keep the implementation minimal: deriving age at read time or in the API response is sufficient. No dual-authority mechanism or age history is required.
 
 ## 3. DOCTOR
 

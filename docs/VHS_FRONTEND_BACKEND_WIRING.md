@@ -26,7 +26,7 @@ User / Doctor / Admin UI
   → users + account_verifications (temporary, expiring OTP records — never a plaintext column)
 ```
 
-**Future:** server session/token (Sanctum) is the single identity source. The authenticated session replaces all three demo identity mechanisms. OTP is **real**: server-issued and server-validated (email/SMS; provider is a backend concern), stored as a **hash** in a temporary expiring record (`account_verifications`), never as a durable plaintext column. Password setup/reset via server-issued links/tokens; plaintext never stored or displayed.
+**Future:** the **secure server session (cookie-based)** is the single identity source — auth transport is locked, see [VHS_API_CONTRACT.md](VHS_API_CONTRACT.md) §0.1; token auth is not hardcoded. The authenticated session replaces all three demo identity mechanisms. OTP is **real**: server-issued and server-validated (email/SMS; provider is a backend concern), stored as a **hash** in a temporary expiring record (`account_verifications`), never as a durable plaintext column. Password setup/reset via server-issued links/tokens; plaintext never stored or displayed.
 
 **Signup → pet separation (frozen, Advisor Revision Sprint 1):** the wizard collects **no pet field of any kind**. A pet is created only in the User portal after verification + login, via first-pet onboarding (`user/pet-onboarding.js` v1.0.0). The backend must not create a pet during registration.
 

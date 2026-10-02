@@ -92,6 +92,8 @@ app/Http/Middleware/            -- role middleware (role:User, role:Doctor, role
 
 ## 5. Route skeleton
 
+> **Auth transport is locked to session/cookie** ([VHS_API_CONTRACT.md](VHS_API_CONTRACT.md) §0.1). The `auth:sanctum` middleware below is illustrative of **SPA cookie-session** handling (HttpOnly + Secure + SameSite + CSRF), **not** a hardcoded bearer-token scheme. Role resolution is server-side in all cases.
+
 ```php
 Route::prefix('api')->group(function () {
     Route::post('auth/register',  [AuthController::class, 'register']);

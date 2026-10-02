@@ -12,6 +12,12 @@
 -- onboarding. Authoritative frontend sources for those rules are
 -- shared/signup-wizard.js (v1.1.0) and user/pet-onboarding.js (v1.0.0).
 --
+-- Remaining product/backend decisions are now LOCKED (see the note on each
+-- block): phone storage width, pet age/weight as configurable guardrails,
+-- pet photo upload deferred, session/cookie auth preferred over tokens, one
+-- canonical JSON envelope, auditable consent records, and pet birthdate
+-- taking precedence over a manually-entered age.
+--
 -- Conventions:
 --   * ids are BIGINT UNSIGNED AUTO_INCREMENT (frontend demo ids were
 --     small ints; backend ids replace them 1:1).
@@ -52,11 +58,14 @@ SET FOREIGN_KEY_CHECKS = 0;
 --   * phone: INPUT is the PH local mobile 9XXXXXXXXX; CANONICAL STORAGE is the
 --     normalised E.164 form (+639XXXXXXXXX = 13 chars). VARCHAR(20) holds
 --     '+' + country code + up to 15 national digits.
+--     LOCKED: the column stays VARCHAR(20). Do NOT reduce it to 15 — 15 is
+--     narrower than the E.164 ceiling the same rule requires.
 --   * password column stores a HASH ONLY — never plaintext, never returned by
 --     an API. Column name kept as-is (existing convention); do NOT add a
 --     second `password_hash` column.
---   * terms/consent acceptance is NOT stored here; consent is recorded by the
---     server's own consent record, not as an auth column.
+--   * terms/consent acceptance is NOT stored here. Consent is AUDITABLE and
+--     lives in the `user_consents` table below (created at signup). It is
+--     never a permanent boolean on `users` and never an auth column.
 -- ---------------------------------------------------------------------
 CREATE TABLE users (
   id            BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
@@ -67,7 +76,7 @@ CREATE TABLE users (
   last_name     VARCHAR(50)                   NOT NULL,
   name          VARCHAR(120)                  NOT NULL,           -- display name (first + last)
   email         VARCHAR(254)                  NOT NULL,           -- ENFORCED max 254; unique after trim+lowercase normalisation
-  phone         VARCHAR(20)                   NULL,               -- canonical E.164, e.g. +639XXXXXXXXX
+  phone         VARCHAR(20)                   NULL,               -- canonical E.164, e.g. +639XXXXXXXXX (LOCKED: stays 20, do NOT reduce to 15)
   address       VARCHAR(255)                  NULL,               -- ENFORCED max 250
   birthdate     DATE                          NULL,               -- REQUIRED on self-registration; server enforces age >= 18
   password      VARCHAR(255)                  NULL,               -- HASH ONLY; backend-managed; never exposed
@@ -116,6 +125,42 @@ CREATE TABLE account_verifications (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ---------------------------------------------------------------------
+-- user_consents - AUDITABLE consent records (locked decision).
+--
+-- WHY THIS EXISTS: terms/privacy acceptance must be provable AFTER the
+-- fact. A single permanent boolean (e.g. users.terms_accepted TINYINT)
+-- cannot show WHICH version of a document was accepted, or WHEN, so it is
+-- deliberately NOT used. Consent is recorded here instead.
+--
+--   * user_id          - the consenting account (FK, cascade on delete)
+--   * consent_type     - terms | privacy | data_processing (app-defined)
+--   * document_version - identifier of the EXACT document version accepted,
+--                        so a later edit does not rewrite history
+--   * accepted_at      - when the user accepted
+--   * ip_address /
+--     user_agent       - OPTIONAL, nullable; capture only if clinic policy
+--                        requires it. Not needed for the core contract.
+--
+-- Created at signup when terms_accepted is submitted, and again whenever a
+-- new document version is presented and accepted.
+--
+-- Deliberately minimal: this is an AUDIT RECORD, not a consent-management
+-- subsystem. No withdrawal / re-consent workflow is designed in this phase.
+-- ---------------------------------------------------------------------
+CREATE TABLE user_consents (
+  id                BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  user_id           BIGINT UNSIGNED NOT NULL,                        -- FK->users, ON DELETE CASCADE
+  consent_type      VARCHAR(40)    NOT NULL,                        -- terms | privacy | data_processing
+  document_version  VARCHAR(40)    NOT NULL,                        -- identifier of the exact document version accepted
+  accepted_at       TIMESTAMP      NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  ip_address        VARCHAR(45)    NULL,                            -- OPTIONAL: capture only if clinic policy requires it
+  user_agent        VARCHAR(255)   NULL,                            -- OPTIONAL: capture only if clinic policy requires it
+  CONSTRAINT fk_user_consents_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+  INDEX ix_user_consents_user (user_id),
+  INDEX ix_user_consents_type (consent_type, accepted_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ---------------------------------------------------------------------
 -- pets — ownership strictly by owner_id (never name-matched).
 --
 -- PETS ARE NOT CREATED AT SIGNUP (Advisor Revision Sprint 1 — frozen).
@@ -130,9 +175,23 @@ CREATE TABLE account_verifications (
 -- PET_LIMITS) and must be re-validated server-side:
 --   name 50 · species_custom 50 · breed 60 · breed_custom 60 · color 50
 --   microchip_id 30 · allergies 200 · chronic_conditions 200 · notes 500
---   age max 50 years, weight_kg max 200.00 — both PROVISIONAL UI/BUSINESS
---   guardrails, NOT veterinary truth; product must confirm before B2.
 --   weight_kg must parse as a real decimal: reject e/E, +/-, empty, NaN.
+--
+-- AGE / WEIGHT MAXIMA (locked): age max 50 years and weight_kg max 200.00
+-- remain PROVISIONAL UI/BUSINESS guardrails. They are NOT veterinary truth
+-- and NOT medical ranges, and they are CONFIGURABLE pending clinic-vet
+-- confirmation. Mirror them initially so the API matches the approved UI.
+-- Do not invent stricter medical ranges without an explicit product call.
+--
+-- BIRTHDATE vs AGE (locked): birthdate is the CANONICAL value when known
+-- and is preferred. Age is then DERIVED server-side from it, and a
+-- body-supplied age is never persisted as authoritative. A vet user may
+-- not know an exact DOB, so birthdate is NULLable and `age` may hold an
+-- APPROXIMATE estimate — but ONLY when birthdate IS NULL:
+--   birthdate present -> age is DERIVED; a client-supplied age is ignored
+--                        or rejected
+--   birthdate unknown -> age may be stored as an approximate estimate
+-- Never store a manually-entered age alongside a known birthdate.
 --
 -- A NEW PET STARTS EMPTY: no appointment, consultation, vaccination, medical
 -- history, prescription, lab result or document is created for it. APIs must
@@ -148,15 +207,16 @@ CREATE TABLE pets (
   breed               VARCHAR(80)   NULL,                          -- ENFORCED max 60
   breed_custom        VARCHAR(80)   NULL,                          -- ENFORCED max 60
   gender              ENUM('Male','Female') NOT NULL,
-  age                 TINYINT UNSIGNED NULL,                      -- years; ENFORCED max 50 (PROVISIONAL)
-  weight_kg           DECIMAL(5,2)  NULL,                          -- ENFORCED max 200.00 (PROVISIONAL); parse strictly
+  birthdate           DATE         NULL,                           -- CANONICAL when known; age is DERIVED from it, never from the body
+  age                 TINYINT UNSIGNED NULL,                       -- APPROXIMATE age ONLY when birthdate IS NULL; ENFORCED max 50 (PROVISIONAL)
+  weight_kg           DECIMAL(5,2)  NULL,                          -- ENFORCED max 200.00 (PROVISIONAL, configurable); parse strictly
   color               VARCHAR(120)  NULL,                          -- ENFORCED max 50
   reproductive_status ENUM('Intact','Spayed','Neutered','Not Sure') NULL,
   microchip_id        VARCHAR(60)   NULL,                          -- ENFORCED max 30, [A-Za-z0-9-]
   allergies           TEXT          NULL,                          -- ENFORCED max 200
   chronic_conditions  TEXT          NULL,                          -- ENFORCED max 200
   notes               TEXT          NULL,                          -- medical notes; wire field is medical_notes (frozen pet contract)
-  photo_path          VARCHAR(255)  NULL,                          -- BACKEND DECISION REQUIRED: upload storage
+  photo_path          VARCHAR(255)  NULL,                          -- DEFERRED: no upload endpoint in current backend scope; storage TBD
   created_at          TIMESTAMP     NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at          TIMESTAMP     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   deleted_at          TIMESTAMP     NULL,
@@ -426,6 +486,8 @@ CREATE TABLE audit_logs (
 --   payments / receipts  : beyond the placeholder document type
 --   vetty_sessions / vetty_messages : AI triage persistence (Vetty phase)
 --   uploads              : unified file storage (pet photos, lab files)
+--                          PET PHOTO UPLOAD IS DEFERRED — do not design
+--                          upload/storage/provider logic in this phase
 -- =====================================================================
 
 -- ---------------------------------------------------------------------

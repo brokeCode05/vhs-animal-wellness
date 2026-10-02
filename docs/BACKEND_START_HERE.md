@@ -151,6 +151,7 @@ register / login / logout · `auth/me` · OTP verification (issue/verify/resend 
 > 3. **Do not create a pet during registration.** Pets are created after verification + login, with the owner taken from the authenticated session.
 > 4. **Server validation is authoritative.** The wizard's `maxlength`, required states and DOB ceiling are UX only; mirror every rule server-side. In particular, enforce **age ≥ 18** dynamically, `email` unique after normalisation, password **hashed only** (8–72 input), and `role` forced to `User`.
 > 5. A new pet must come back with **honest empty** medical collections — never fabricate demo records in seed logic.
+> 6. **The remaining contract decisions are now LOCKED** — read [VHS_API_CONTRACT.md](VHS_API_CONTRACT.md) §0 (session/cookie auth + the canonical JSON envelope) and [VHS_DATABASE_BLUEPRINT.md](VHS_DATABASE_BLUEPRINT.md) (`user_consents`, pet `birthdate`). Short version: `phone` stays **`VARCHAR(20)`** in canonical E.164 · pet **age/weight maxima are configurable provisional guardrails, not medical ranges** · **pet photo upload is deferred** · pet **`birthdate` is canonical** and age is derived when it is known.
 
 **PHASE B3 — CORE DIRECTORY DATA**
 Users · Pets · Doctors (accounts + profiles + availability) · Services (single-price model) · Clinic Settings.
@@ -188,7 +189,7 @@ For each migration step: **keep the UI unchanged → replace the adapter/store i
 
 The backend **owns** all of the following. The frontend is only a presentation/workflow layer:
 
-- **Authentication** (login/session/token) and **authorization** (role middleware + ownership policies)
+- **Authentication** (secure session/cookie login — not hardcoded token auth) and **authorization** (role middleware + ownership policies)
 - **OTP** issuance and validation (booking + account verification)
 - **Password hashing / reset** (server-side tokens; plaintext never visible)
 - **Unique reference generation** (immutable for the appointment's life)

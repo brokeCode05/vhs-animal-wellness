@@ -22,14 +22,14 @@ A veterinary clinic management system with three surfaces sharing one canonical 
 
 ### Public site
 - **Sign-up wizard:** 4 steps (Account → Personal Information → Review → Verification) in `shared/signup-wizard.js` v1.1.0. Creates the **OWNER ACCOUNT ONLY — no pet**, with `role` forced to `User` server-side. Field limits, the **18+ owner minimum age** (cutoff computed from the current date), PH phone normalisation and the OTP step are the approved contract; see [VHS_API_CONTRACT.md](VHS_API_CONTRACT.md) §1.1.
-- **Login:** separate flow on the same modal.
+- **Login:** separate flow on the same modal. Auth transport is **session/cookie based (locked)**; token auth is not hardcoded. Terms/privacy acceptance is recorded as an **auditable consent record** (`user_consents`), not a boolean on `users`. All responses use the **canonical JSON envelope** — see [VHS_API_CONTRACT.md](VHS_API_CONTRACT.md) §0.
 
 ### User portal
 - **Dashboard:** stat counts, upcoming-appointments table, My Pets preview — all from the same scoped canonical data.
 - **My Appointments:** Upcoming vs Past History tabs; lifecycle-aware action buttons (Reschedule/Cancel only while `confirmed` and outside cutoff windows); status hints for checked-in / in-consultation states.
 - **Booking wizard:** 3 steps (Pet & Service → Date & Time → Review & Book) → demo OTP → reference number + QR code. Honors clinic hours, slot interval, cutoffs.
 - **First-pet onboarding:** shown when the authenticated owner has **zero pets** (`user/pet-onboarding.js` v1.0.0, driven by `GET /api/users/me/pets` → `[]`). Pet creation is **separate from signup** and happens only after verification + login; the owner comes from the authenticated session. A new pet starts with **no** appointment, consultation, vaccination, history, prescription, lab result or document — honest empty states, never fabricated records.
-- **My Pets:** scoped list (`ownerId` = session user), Add/Edit pet, Medical History timeline (portal-local demo fixtures), Vaccination Passport (fixtures).
+- **My Pets:** scoped list (`ownerId` = session user), Add/Edit pet, Medical History timeline (portal-local demo fixtures), Vaccination Passport (fixtures). **Pet photo upload is deferred** — no upload endpoint in the current backend scope. Pet `birthdate` is canonical when known; a manual `age` is only stored when the DOB is unknown (see [VHS_DATA_CONTRACT.md](VHS_DATA_CONTRACT.md) §2.2).
 - **My Profile:** own details; account access actions are backend-pending placeholders.
 - **My Documents:** own finalized client-facing documents only.
 
