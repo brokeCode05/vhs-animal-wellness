@@ -4164,11 +4164,6 @@ body {
 .ci-appt-opt-pet { font-weight: 700; }
 .ci-appt-opt-ref { font-size: 0.75rem; color: var(--text-dim, #6b7280); font-family: monospace; }
 
-.ci-scrim {
-  position: absolute; inset: 0;
-  background: transparent; border: none; cursor: default; padding: 0;
-}
-
 @media (max-width: 480px) {
   .ci-modal { max-width: 100%; margin: 1rem; }
   .ci-appt-grid { grid-template-columns: 1fr; }

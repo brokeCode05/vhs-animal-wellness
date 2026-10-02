@@ -110,6 +110,14 @@
   bottom: calc(100% + 6px);
 }
 
+/* Left-edge flip: JS adds .kebab-edge-left when right-alignment would push
+   the menu off-screen (responsive stacked tables place the action cell near
+   the viewport's left edge). Mirrors .kebab-flip. */
+.kebab-menu.kebab-edge-left {
+  right: auto;
+  left: 0;
+}
+
 @media (max-width: 480px) {
   .kebab-menu {
     min-width: 150px;

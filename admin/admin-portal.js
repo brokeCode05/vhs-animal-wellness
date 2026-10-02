@@ -1846,6 +1846,12 @@ function _escKebabAttr(s) {
         if (menu) {
           // Flip above the row when the menu would overflow the viewport bottom.
           var rect = wrap.getBoundingClientRect();          menu.classList.toggle('kebab-flip', rect.bottom + 240 > window.innerHeight && rect.top > 260);
+          // Align to the wrap's left edge when right-alignment would clip the
+          // menu off-screen (responsive card tables put the leftmost action
+          // cell near the viewport's left edge). Computed from the wrap rect
+          // and menu width — both class-independent — so the toggle can't
+          // feed back on its own result across re-opens.
+          menu.classList.toggle('kebab-edge-left', rect.right - menu.offsetWidth < 8);
 
         }
       }
