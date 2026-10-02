@@ -176,7 +176,7 @@ function renderTodaysScheduleTable(all) {
 
   if (!all.length) {
 
-    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#888;">No appointments today.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:#888;">No appointments today.</td></tr>';
 
     return;
 

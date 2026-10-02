@@ -123,3 +123,18 @@
     min-width: 150px;
   }
 }
+
+/* ── Overflow escape ──────────────────────────────────────────────────────
+   Row-action tables sit inside .table-wrapper / .content-section, which
+   clip their overflow to keep the rounded card edges clean. The menu is
+   position:absolute inside that clip, so when a row sits near the
+   wrapper's bottom edge the menu is cut off and the content following the
+   table paints on top of the remainder — the lower items render behind the
+   page and stop responding to clicks. A z-index cannot escape an overflow
+   clip, so the clip is released on the ancestor containers while a menu is
+   open. `.kebab-open` exists only while a menu is shown, so tables keep
+   their normal clipped styling when idle. */
+.table-wrapper:has(.kebab-open),
+.content-section:has(.kebab-open) {
+  overflow: visible;
+}

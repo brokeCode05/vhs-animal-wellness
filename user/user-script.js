@@ -1438,11 +1438,16 @@ function openEditPetModal(id) {
 
 
 
-// ─── MOCK PET MEDICAL HISTORY DATA ───────────────────────────────────────────
+// ─── MOCK PET PROFILE DATA ───────────────────────────────────────────────────
 
-// Legacy pet fixtures — now the portal-only EMR source (vaccines, visits,
-// vitals). Identity (id/name/species/breed/owner) comes from the shared
-// mock users module; ownership is by ID, never by name.
+// Identity and physical profile only. Vaccines and medical-history events are
+// NOT here: they are derived from real appointments + finalized documents by
+// __medHistHydratePet. The previous hard-coded vaccine/visit arrays carried
+// fabricated batch numbers, veterinarians and dates with no appointment or
+// document behind them, so they are retired — an empty passport now shows
+// "No vaccination records yet." instead of invented doses.
+// TODO(BACKEND): profile details from get_pets.php?user_id=…; vaccines and
+// history from the pet medical-records endpoint (not a local fixture).
 const _petEmrFixtures = [
   {
     id: 1,
@@ -1459,48 +1464,6 @@ const _petEmrFixtures = [
     chronicConditions: 'None known yet',
     notes: 'Indoor cat. Slight sensitivity to certain flea treatments.',
     owner: { name: 'Maria Santos', phone: '0917-123-4567' },
-    vaccines: [
-      { name: 'FVRCP', date: '2026-05-22', nextDue: '2027-05-22', batchNo: 'FVR-2026-044', vet: 'Dr. Santos' },
-      { name: 'Rabies', date: '2025-11-05', nextDue: '2026-11-05', batchNo: 'RAB-2025-118', vet: 'Dr. Santos' },
-      { name: 'FVRCP (1st Dose)', date: '2025-06-10', nextDue: '2026-06-10', batchNo: 'FVR-2025-089', vet: 'Dr. Reyes' },
-    ],
-    visits: [
-      {
-        id: 'v001',
-        date: '2026-08-10',
-        service: 'Annual Check-up',
-        vet: 'Dr. Reyes',
-        notes: 'Routine physical exam. Weight stable. No abnormalities detected. Teeth in good condition. Recommended continued dental chews.',
-      },
-      {
-        id: 'v002',
-        date: '2026-05-22',
-        service: 'Vaccination — FVRCP Booster',
-        vet: 'Dr. Santos',
-        notes: 'FVRCP booster administered. Mild lethargy for 24 hours post-vaccination is normal. No adverse reactions observed during 30-minute observation period.',
-      },
-      {
-        id: 'v003',
-        date: '2026-03-05',
-        service: 'Deworming',
-        vet: 'Dr. Reyes',
-        notes: 'Panacur administered orally. No parasites observed in recent stool samples. Next deworming due in 3 months.',
-      },
-      {
-        id: 'v004',
-        date: '2025-12-18',
-        service: 'Blood Test — CBC',
-        vet: 'Dr. Santos',
-        notes: 'Complete blood count within normal ranges. White blood cell count: 8.2 (ref 5.0–19.5). Hematocrit: 38% (ref 30–45%). Follow-up not needed.',
-      },
-      {
-        id: 'v005',
-        date: '2025-09-14',
-        service: 'Consultation — Skin Irritation',
-        vet: 'Dr. Reyes',
-        notes: 'Mild dermatitis on left ear. Prescribed topical clotrimazole cream for 7 days. Advised to keep ears dry and clean weekly.',
-      },
-    ],
   },
   {
     id: 2,
@@ -1517,41 +1480,6 @@ const _petEmrFixtures = [
     chronicConditions: 'Mild hip dysplasia',
     notes: 'Requires joint supplements. Avoid strenuous exercise.',
     owner: { name: 'Maria Santos', phone: '0917-123-4567' },
-    vaccines: [
-      { name: 'Rabies', date: '2025-11-05', nextDue: '2026-11-05', batchNo: 'RAB-2025-119', vet: 'Dr. Santos' },
-      { name: 'DHPPiL', date: '2025-08-15', nextDue: '2026-08-15', batchNo: 'DHP-2025-067', vet: 'Dr. Reyes' },
-      { name: 'Bordetella', date: '2025-08-15', nextDue: '2026-02-15', batchNo: 'BOR-2025-033', vet: 'Dr. Reyes' },
-    ],
-    visits: [
-      {
-        id: 'v006',
-        date: '2026-07-30',
-        service: 'Grooming + Nail Trim',
-        vet: 'Dr. Cruz',
-        notes: 'Full groom with deshedding treatment. Nails trimmed to appropriate length. Ears cleaned. Skin and coat in good condition.',
-      },
-      {
-        id: 'v007',
-        date: '2026-06-12',
-        service: 'Fecalysis',
-        vet: 'Dr. Santos',
-        notes: 'Stool sample examined. No parasites, bacteria, or abnormalities detected. Result: Negative for roundworms, hookworms, and giardia.',
-      },
-      {
-        id: 'v008',
-        date: '2026-02-20',
-        service: 'Dental Prophylaxis',
-        vet: 'Dr. Reyes',
-        notes: 'Dental cleaning under sedation. Grade 2 tartar removed from upper premolars. Two teeth showed mild wear — no extraction needed. Post-op recovery uneventful.',
-      },
-      {
-        id: 'v009',
-        date: '2025-11-05',
-        service: 'Vaccination — Rabies',
-        vet: 'Dr. Santos',
-        notes: 'Rabies vaccine administered. Valid for 1 year. Certificate issued. No adverse reactions during observation.',
-      },
-    ],
   },
   {
     id: 3,
@@ -1568,33 +1496,6 @@ const _petEmrFixtures = [
     chronicConditions: 'None known yet',
     notes: '',
     owner: { name: 'Maria Santos', phone: '0917-123-4567' },
-    vaccines: [
-      { name: 'FVRCP (1st Dose)', date: '2026-01-10', nextDue: '2026-02-10', batchNo: 'FVR-2026-012', vet: 'Dr. Santos' },
-      { name: 'Rabies', date: '2026-01-10', nextDue: '2027-01-10', batchNo: 'RAB-2026-005', vet: 'Dr. Santos' },
-    ],
-    visits: [
-      {
-        id: 'v010',
-        date: '2026-08-01',
-        service: 'Consultation — Limping',
-        vet: 'Dr. Cruz',
-        notes: 'Mild right forelimb lameness. X-ray showed no fracture. Likely soft tissue strain. Prescribed rest and Metacam for 5 days. Recheck in 1 week.',
-      },
-      {
-        id: 'v011',
-        date: '2026-04-15',
-        service: 'Castration',
-        vet: 'Dr. Reyes',
-        notes: 'Routine castration performed under general anesthesia. Surgery duration: 25 minutes. Recovery smooth. Suture removal not needed (absorbable sutures used).',
-      },
-      {
-        id: 'v012',
-        date: '2026-01-10',
-        service: 'Initial Registration + Vaccination',
-        vet: 'Dr. Santos',
-        notes: 'First visit. Registered as new patient. FVRCP vaccine (1st dose) and Deworming administered. Microchip implanted. Estimated DOB: Nov 2023.',
-      },
-    ],
   },
 ];
 
@@ -1719,9 +1620,12 @@ function __medHistHydratePet(pet) {
 function openMedHistoryRecord(docId) {
   var me = _getSessionUser();
   var myId = me && (me.id || me.userId);
-  var doc = window.SharedDocuments ? window.SharedDocuments.byId(docId) : null;
-  if (!doc || !window.SharedDocumentRender) return;
-  if (myId && String(doc.userId) !== String(myId)) return; // ownership re-check
+  if (!window.SharedDocuments) { showToast('Records are unavailable right now. Please try again.', 'error'); return; }
+  var doc = window.SharedDocuments.byId(docId);
+  // Never fail silently: a dead View Record button looks like lost data.
+  if (!doc) { showToast('That record could not be found. It may have been removed — refresh and try again.', 'error'); return; }
+  if (!window.SharedDocumentRender) { showToast('Record viewer is unavailable right now. Please try again.', 'error'); return; }
+  if (myId && String(doc.userId) !== String(myId)) { showToast('That record belongs to another account.', 'error'); return; } // ownership re-check
   document.getElementById('userDocViewerBody').innerHTML = window.SharedDocumentRender.render(doc);
   document.getElementById('userDocPrint').onclick = function () { window.print(); };
   openModal('userDocViewerModal');
@@ -1860,6 +1764,10 @@ function showPetProfile(petId) {
 
   // Render tabs
   switchProfileTab('profile-medical');
+  // The vaccination tab is hidden on open, and switchProfileTab only renders
+  // the ACTIVE tab — without this the passport kept the previous pet's rows
+  // and showed one pet's vaccines on another's profile.
+  renderVaccinePassport(_currentProfilePet);
   openModal('petProfileModal');
 }
 

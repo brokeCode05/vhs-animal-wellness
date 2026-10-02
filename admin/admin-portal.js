@@ -853,9 +853,13 @@ function _renderDoctorAccounts() {
           <td>${_escD(d.specialization || "—")}</td>
           <td>${_fmtDateD(d.createdAt)}</td>
           <td>${_acctBadge(d.accountStatus)}</td>
-          <td class="action-cell" style="white-space:nowrap;">
-            <button class="btn-small" onclick="openEditDoctor(${d.doctorId})">Edit</button>
-            <button class="btn-small ${inactive ? "btn-success" : "btn-danger"}" onclick="toggleDoctorAccount(${d.doctorId})">${inactive ? "Activate" : "Deactivate"}</button>
+          <td class="action-cell">
+            ${kebabHtml('doctor-' + d.doctorId, [
+              { label: 'Edit', action: 'openEditDoctor', arg: d.doctorId },
+              inactive
+                ? { label: 'Activate', action: 'toggleDoctorAccount', arg: d.doctorId, cls: 'success' }
+                : { label: 'Deactivate', action: 'toggleDoctorAccount', arg: d.doctorId, cls: 'danger' }
+            ])}
           </td>
         </tr>`;
         })
@@ -1552,13 +1556,14 @@ document.addEventListener("DOMContentLoaded", () => {
         '<td>' + escS(s.price || '\u2014') + '</td>' +
         '<td>' + _serviceBadge(s.active) + '</td>' +
         '<td class="action-cell">' +
-          '<button class="btn-small btn-edit" onclick="openEditService(' + s.serviceId + ')">Edit</button> ' +
-          (inactive
-            ? '<button class="btn-small btn-success" onclick="toggleServiceStatus(' + s.serviceId + ')">Activate</button>'
-            : '<button class="btn-small btn-danger" onclick="toggleServiceStatus(' + s.serviceId + ')">Deactivate</button>') +
-          (window.SharedMockUsers.canDeleteService && window.SharedMockUsers.canDeleteService(s.serviceId)
-            ? ' <button class="btn-small btn-danger" onclick="deleteUnusedService(' + s.serviceId + ')">Delete</button>'
-            : '') +
+          kebabHtml('service-' + s.serviceId, [
+            { label: 'Edit', action: 'openEditService', arg: s.serviceId },
+            inactive
+              ? { label: 'Activate', action: 'toggleServiceStatus', arg: s.serviceId, cls: 'success' }
+              : { label: 'Deactivate', action: 'toggleServiceStatus', arg: s.serviceId, cls: 'danger' }
+          ].concat(window.SharedMockUsers.canDeleteService && window.SharedMockUsers.canDeleteService(s.serviceId)
+            ? [{ label: 'Delete', action: 'deleteUnusedService', arg: s.serviceId, cls: 'danger' }]
+            : [])) +
         '</td>' +
         '</tr>';
     }).join('') : '<tr><td colspan="6" style="text-align:center;color:#888;">No services match the current filters.</td></tr>';

@@ -413,7 +413,22 @@
     } else if (status === 'in_consultation') {
       const cont = element('button', 'Continue Consultation', 'btn-primary');
       cont.type = 'button';
-      cont.addEventListener('click', () => navigate('notes'));
+      cont.addEventListener('click', () => {
+        // Drafts are session memory; the shared record outlives a reload. If
+        // the store already reads in_consultation but this draft has no
+        // status, adopt the lifecycle here — otherwise Continue opens the form
+        // and Complete is permanently blocked with "start first", with no
+        // Start button left to press.
+        const draft = draftFor(patient);
+        if (draft.status !== 'in_consultation' && draft.status !== 'completed') {
+          const store = window.SharedMockAppointments;
+          const rec = store && patient.appointmentId ? store.byId(patient.appointmentId) : null;
+          draft.status = 'in_consultation';
+          draft.startedAt = (rec && rec.consultationStartedAt) || draft.startedAt || new Date().toISOString();
+        }
+        renderRecordActions(patient);
+        navigate('notes');
+      });
       wrap.append(cont);
     } else if (status === 'completed') {
       const view = element('button', 'View Clinical Document', 'btn-secondary');
@@ -527,6 +542,11 @@
   });
   form.addEventListener('submit', event => {
     event.preventDefault();
+    // Invalid vitals/duration/limits block the save, not just the visual.
+    if (window.doctorValidateClinical && !window.doctorValidateClinical()) {
+      document.getElementById('save-status').textContent = 'Fix the highlighted clinical fields before saving.';
+      return;
+    }
     captureDraft();
     const status = document.getElementById('save-status');
     // Hidden fields still belong to this draft. Reveal their view before focusing
@@ -571,6 +591,11 @@
     // TODO(BACKEND): Validate the completion transition server-side.
     if (draft.status === 'completed') { status.textContent = 'This consultation is already completed.'; return; }
     if (draft.status !== 'in_consultation' || statusFor(selectedPatient) !== 'in_consultation') { status.textContent = 'Start the consultation before completing it.'; return; }
+    // Nothing invalid may reach a finalized record.
+    if (window.doctorValidateClinical && !window.doctorValidateClinical()) {
+      status.textContent = 'Fix the highlighted clinical fields before completing the consultation.';
+      return;
+    }
     captureDraft();
     const incomplete = draft.medicines.find(m => {
       const core = [m.medicine, m.dosage, m.frequency, m.duration];
@@ -772,6 +797,11 @@
   }
   function openPreview(patient = selectedPatient) {
     if (!patient) return;
+    // Preview must never render invalid clinical data.
+    if (window.doctorValidateClinical && !window.doctorValidateClinical()) {
+      document.getElementById('save-status').textContent = 'Fix the highlighted clinical fields before previewing the document.';
+      return;
+    }
     const consultation = buildConsultation(patient);
     renderConsultationDocument(consultation);
     document.getElementById('document-preview-overlay').classList.add('show');
@@ -870,6 +900,9 @@
   }));
   window.addEventListener('hashchange', () => showView(window.location.hash.slice(1)));
   window.addEventListener('popstate', () => showView(window.location.hash.slice(1)));
+  // The validation gate reveals the panel that owns an invalid field so focus
+  // never lands on a hidden input (no history entry: the gate replaceStates).
+  document.addEventListener('doctor:reveal-panel', event => showView(event.detail, false));
   document.querySelector('.skip-link').addEventListener('click', event => {
     event.preventDefault();
     document.getElementById('view-title').focus();
@@ -915,21 +948,45 @@
   showView(window.location.hash.slice(1), false);
 })();
 
-// ─── FORM VALIDATION & LIMITS (Advisor Revision Sprint 1) ───────────────────
-// Frontend UX only — constraints are advisory and must be enforced again by
-// the consultation endpoint. TODO(BACKEND): mirror these limits server-side
-// (SOAP ≤1000/1000/800/1000; weight 0.1–200; temp 30–45; HR 20–300 integer;
-// medicine ≤100, dosage ≤50, frequency ≤50 free-text, duration 1–365 int,
-// instructions ≤500).
+// ─── FORM VALIDATION & LIMITS ────────────────────────────────────────────────
+// Single source of truth for every input constraint on the consultation form.
+// Frontend UX only — the consultation endpoint re-validates everything.
+// TODO(BACKEND): mirror these limits server-side.
+//
+// THREE SEPARATE CONCERNS, never mixed:
+//   1. SYNTAX   — "is this well-formed?" (digits only, one decimal point,
+//                 heart rate integer). A format error is always a bug.
+//   2. SANITY   — provisional, non-clinical typo guardrails. These are NOT
+//                 veterinary reference ranges and are never shown as clinical
+//                 thresholds; they only catch keystroke/unit mistakes (5000 kg,
+//                 90 °C). A value inside them is not thereby "normal".
+//   3. LIMITS   — character/number caps on free text and prescription fields.
 (function () {
   'use strict';
 
+  // (3) Character limits. Applied as hard maxlength + live counter; the gate
+  // re-checks them because maxlength does not constrain programmatic values.
   var TEXT_LIMITS = { subjective: 1000, exam: 1000, assessment: 800, plan: 1000 };
-  var NUMBER_RULES = {
-    weight:      { min: 0.1, max: 200, integer: false, label: 'Weight' },
-    temperature: { min: 30,  max: 45,  integer: false, label: 'Temperature' },
-    'heart-rate':{ min: 20,  max: 300, integer: true,  label: 'Heart rate' }
+  var MEDICINE_LIMITS = { medicine: 100, dosage: 50, frequency: 50, instructions: 500 };
+
+  // (1) Syntax rules — shape only. No clinical values live here.
+  var VITAL_SYNTAX = {
+    weight:       { integer: false, label: 'Weight' },
+    temperature:  { integer: false, label: 'Temperature' },
+    'heart-rate': { integer: true,  label: 'Heart rate' }
   };
+
+  // (2) Provisional sanity ranges (typo guardrails, NOT clinical references).
+  // TODO(BACKEND): replace with authoritative species/breed reference ranges
+  // served by the consultation API; do not widen these in the frontend.
+  var VITAL_SANITY = {
+    weight:       { min: 0.1, max: 200 },
+    temperature:  { min: 30,   max: 45 },
+    'heart-rate': { min: 20,   max: 300 }
+  };
+
+  // Prescription duration: whole days, 1–365.
+  var DURATION_RANGE = { min: 1, max: 365 };
 
   function ensureMessage(field) {
     var errId = 'err-' + field.id;
@@ -952,27 +1009,116 @@
     field.removeAttribute('aria-invalid');
     msgEl.style.display = 'none';
   }
-  function validateNumber(field) {
-    var rule = NUMBER_RULES[field.id];
+  // (1) Syntax check only: well-formed positive decimal / integer.
+  function validateVitalSyntax(field) {
+    var rule = VITAL_SYNTAX[field.id];
     var msg = ensureMessage(field);
     var raw = (field.value || '').trim();
     if (!raw) { clearErr(field, msg); return true; } // optional fields stay optional
-    if (!/^\d*(\.\d+)?$/.test(raw)) {
-      showErr(field, msg, rule.label + ' must be a positive number.');
+    // Rejects letters (e/E), signs (+/-), multiple dots, trailing dots.
+    if (!/^\d*(\.\d+)?$/.test(raw) || raw === '.' || raw.endsWith('.')) {
+      showErr(field, msg, rule.label + (rule.integer
+        ? ' must be a whole number (digits only).'
+        : ' must be a number (digits with at most one decimal point).'));
       return false;
     }
-    var num = Number(raw);
-    if (num < rule.min || num > rule.max) {
-      showErr(field, msg, rule.label + ' must be between ' + rule.min + ' and ' + rule.max + '.');
-      return false;
-    }
-    if (rule.integer && !/^\d+$/.test(raw)) {
-      showErr(field, msg, rule.label + ' must be a whole number.');
+    if (rule.integer && raw.indexOf('.') !== -1) {
+      showErr(field, msg, rule.label + ' must be a whole number (digits only).');
       return false;
     }
     clearErr(field, msg);
     return true;
   }
+
+  // (2) Sanity check only — provisional typo guardrail, never a clinical claim.
+  function validateVitalSanity(field) {
+    var rule = VITAL_SANITY[field.id];
+    if (!rule) return true;
+    var msg = ensureMessage(field);
+    var raw = (field.value || '').trim();
+    if (!raw) return true;
+    var num = Number(raw);
+    if (!isFinite(num) || num < rule.min || num > rule.max) {
+      showErr(field, msg, VITAL_SYNTAX[field.id].label + ' looks out of range — enter ' +
+        rule.min + ' to ' + rule.max + '.');
+      return false;
+    }
+    clearErr(field, msg);
+    return true;
+  }
+
+  function validateNumber(field) {
+    return validateVitalSyntax(field) && validateVitalSanity(field);
+  }
+
+  // Prescription duration: whole days within range (min/max attributes alone
+  // never block because the form is novalidate).
+  function validateDuration(input) {
+    var msg = ensureMessage(input);
+    var raw = (input.value || '').trim();
+    if (!raw) { clearErr(input, msg); return true; } // completeness handled elsewhere
+    if (!/^\d+$/.test(raw)) {
+      showErr(input, msg, 'Duration must be a whole number of days (' + DURATION_RANGE.min + '–' + DURATION_RANGE.max + ').');
+      return false;
+    }
+    var num = Number(raw);
+    if (num < DURATION_RANGE.min || num > DURATION_RANGE.max) {
+      showErr(input, msg, 'Duration must be between ' + DURATION_RANGE.min + ' and ' + DURATION_RANGE.max + ' days.');
+      return false;
+    }
+    clearErr(input, msg);
+    return true;
+  }
+
+  // SOAP text limits — maxlength covers typing/paste; this covers values that
+  // were set programmatically (draft restore) and bypassed maxlength.
+  function validateTextLimit(field) {
+    var limit = TEXT_LIMITS[field.id];
+    if (!limit) return true;
+    var msg = ensureMessage(field);
+    if ((field.value || '').length > limit) {
+      showErr(field, msg, 'This field is limited to ' + limit + ' characters.');
+      return false;
+    }
+    clearErr(field, msg);
+    return true;
+  }
+
+  // Reveal the panel that owns the field so focus never lands on a hidden input.
+  function revealField(field) {
+    var panel = field.closest ? field.closest('[data-panel]') : null;
+    var name = panel ? panel.getAttribute('data-panel') : null;
+    if (name) {
+      history.replaceState(null, '', '#' + name);
+      document.dispatchEvent(new CustomEvent('doctor:reveal-panel', { detail: name }));
+    }
+  }
+
+  // THE GATE. Save draft, Preview and Complete all call this first: an invalid
+  // value blocks the action, reveals the field and moves focus to it.
+  window.doctorValidateClinical = function () {
+    var firstBad = null;
+    var fail = function (ok, field) {
+      if (!ok && !firstBad) firstBad = field;
+      return ok;
+    };
+    Object.keys(VITAL_SYNTAX).forEach(function (id) {
+      var field = document.getElementById(id);
+      if (field) fail(validateNumber(field), field);
+    });
+    Object.keys(TEXT_LIMITS).forEach(function (id) {
+      var field = document.getElementById(id);
+      if (field) fail(validateTextLimit(field), field);
+    });
+    Array.prototype.forEach.call(document.querySelectorAll('.medicine-row'), function (row) {
+      var dur = row.querySelector('input[data-field="duration"]');
+      if (dur) fail(validateDuration(dur), dur);
+    });
+    if (!firstBad) return true;
+    revealField(firstBad);
+    try { firstBad.focus(); } catch (e) {}
+    return false;
+  };
 
   var form = document.getElementById('consultation-form');
   if (!form) return;
@@ -991,24 +1137,23 @@
     update();
   });
 
-  // Vitals: strip letters/negatives at the field, validate range near the field.
-  Object.keys(NUMBER_RULES).forEach(function (id) {
+  // Vitals: strip letters/signs/extra dots as you type, validate near the
+  // field, and let the gate (doctorValidateClinical) block the three actions.
+  Object.keys(VITAL_SYNTAX).forEach(function (id) {
     var field = document.getElementById(id);
     if (!field) return;
-    field.inputMode = NUMBER_RULES[id].integer ? 'numeric' : 'decimal';
+    field.inputMode = VITAL_SYNTAX[id].integer ? 'numeric' : 'decimal';
     field.addEventListener('input', function () {
+      // Letters, signs and whitespace never enter the field. A single decimal
+      // point is allowed through so integer-only fields can REJECT "80.5"
+      // with a clear message instead of silently rewriting it to "805".
       var cleaned = field.value.replace(/[^0-9.]/g, '');
-      if (NUMBER_RULES[id].integer) cleaned = cleaned.replace(/\./g, '');
+      var firstDot = cleaned.indexOf('.');
+      if (firstDot !== -1) cleaned = cleaned.slice(0, firstDot + 1) + cleaned.slice(firstDot + 1).replace(/\./g, '');
       if (cleaned !== field.value) field.value = cleaned;
       if (field.getAttribute('aria-invalid')) validateNumber(field);
     });
     field.addEventListener('blur', function () { validateNumber(field); });
-    // Range errors must also block completion, not just look pretty.
-    form.addEventListener('submit', function () {
-      if (!validateNumber(field)) {
-        field.focus();
-      }
-    }, true); // capture: runs before the portal's submit handler
   });
 
   // Prescription rows (created dynamically by the portal script): apply
@@ -1016,22 +1161,30 @@
   function applyMedicineLimits(row) {
     if (!row || row.dataset.limitsApplied) return;
     row.dataset.limitsApplied = '1';
-    var limits = { medicine: 100, dosage: 50, frequency: 50, instructions: 500 };
+    var limits = MEDICINE_LIMITS;
     Object.keys(limits).forEach(function (key) {
       var input = row.querySelector('input[data-field="' + key + '"]');
       if (input) input.maxLength = limits[key];
     });
-    // Duration is numeric days: integer 1–365.
+    // Duration is whole days, 1–365 (DURATION_RANGE); the gate enforces it
+    // because the form is novalidate and min/max never block on their own.
     var dur = row.querySelector('input[data-field="duration"]');
     if (dur) {
       dur.type = 'number';
-      dur.min = '1'; dur.max = '365'; dur.step = '1';
+      dur.min = String(DURATION_RANGE.min);
+      dur.max = String(DURATION_RANGE.max);
+      dur.step = '1';
       dur.inputMode = 'numeric';
       dur.placeholder = 'e.g. 7 (days)';
       dur.addEventListener('input', function () {
-        var v = dur.value.replace(/[^0-9]/g, '');
+        // Keep digits and one decimal point; the gate rejects non-integers
+        // with a clear message rather than silently rounding the value.
+        var v = dur.value.replace(/[^0-9.]/g, '');
+        var dot = v.indexOf('.');
+        if (dot !== -1) v = v.slice(0, dot + 1) + v.slice(dot + 1).replace(/\./g, '');
         if (v !== dur.value) dur.value = v;
       });
+      dur.addEventListener('blur', function () { validateDuration(dur); });
     }
     // Instructions get a textarea (room for up to 500 chars of guidance).
     var ins = row.querySelector('input[data-field="instructions"]');
@@ -1040,7 +1193,7 @@
       ta.className = ins.className;
       ta.id = ins.id;
       ta.setAttribute('data-field', 'instructions');
-      ta.maxLength = 500;
+      ta.maxLength = MEDICINE_LIMITS.instructions;
       ta.rows = 2;
       ta.placeholder = 'e.g. give with food';
       ta.value = ins.value;

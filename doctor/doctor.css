@@ -237,17 +237,54 @@ input[type='checkbox'] { width: 17px; height: 17px; accent-color: var(--accent-d
 .print-notice { margin: 18pt 0 0; padding-top: 6pt; border-top: 1px solid #ccc; font-size: 7pt; color: #999; text-align: center; line-height: 1.4; }
 .document-note { font-size: 0.75rem; color: #857a92; margin: 0.75rem 0 0; }
 .document-actions { display: flex; justify-content: flex-end; gap: 0.75rem; margin-top: 1rem; }
+
+/* Long clinical text must wrap on SCREEN too. The on-screen preview is the
+   same DOM the paper renders; an unbroken string (run-on note, batch id, URL)
+   must never push the document sideways or under the modal edge. These mirror
+   the @media print wrapping rules below so preview and paper behave alike. */
+.print-soap-text,
+.print-info-value,
+.print-clinic-detail,
+.print-meta-row span,
+.print-table td,
+.print-lab-item,
+.print-empty {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  max-width: 100%;
+}
+.print-meta-row > span { min-width: 0; }
+.print-info-item { min-width: 0; }
+.print-letterhead-row > * { min-width: 0; }
+.print-footer > * { min-width: 0; }
+.print-table { table-layout: fixed; }
 @media (max-width: 600px) {
   .document-body { padding: 12mm 10mm; }
 }
 @page { size: A4; margin: 14mm 12mm; }
 @media print {
   html, body { overflow: visible !important; height: auto !important; }
+
+  /* PRINT THE CLINICAL DOCUMENT ALONE.
+     While the preview overlay is open, nothing else from the portal may reach
+     the paper: no top bar, no sidebar, no patient queue, no EMR, no SOAP form,
+     no Prescriptions & Labs workspace, no draft controls, and no modal
+     header/buttons. Only #document-preview-body survives. (:has() is supported
+     in current Chrome/Edge/Safari; where unsupported the older rules below
+     still remove the shell.) */
+  body.doctor-portal:has(#document-preview-overlay.show) > *:not(.main-wrapper),
+  body.doctor-portal:has(#document-preview-overlay.show) .main-wrapper > *:not(main),
+  body.doctor-portal:has(#document-preview-overlay.show) main > *:not(#document-preview-overlay) { display: none !important; }
+  body.doctor-portal:has(#document-preview-overlay.show) #document-preview-overlay .modal-header,
+  body.doctor-portal:has(#document-preview-overlay.show) #document-preview-overlay .document-actions,
+  body.doctor-portal:has(#document-preview-overlay.show) #document-preview-overlay .document-note { display: none !important; }
+
   body.doctor-portal > *:not(.main-wrapper), .doctor-portal .top-navbar, .doctor-portal .sidebar, .doctor-portal .modal-header, .doctor-portal .document-actions, .doctor-portal .document-note { display: none !important; }
   .doctor-portal .modal-overlay { position: static; display: block; padding: 0; background: none; }
   .doctor-portal .modal-content { box-shadow: none; max-width: none; max-height: none; padding: 0; border-radius: 0; animation: none; overflow: visible; }
   .document-body { border: none; box-shadow: none; max-width: none; margin: 0; padding: 0; overflow: visible; }
-  .print-table tbody tr, .print-soap-block, .print-section { break-inside: avoid; page-break-inside: avoid; }
+  .print-letterhead, .print-section, .print-table { break-inside: avoid; page-break-inside: avoid; }
+  .print-table tbody tr, .print-soap-block { break-inside: avoid; page-break-inside: avoid; }
   /* Long clinical text must wrap inside the paper, never clip or overflow. */
   .doctor-portal .print-soap-text,
   .doctor-portal .print-info-value,
