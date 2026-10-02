@@ -1,4 +1,36 @@
 /* Doctor Portal workflow. UI renders from mapAppointment() output only. */
+
+// ─── SHARED PRESCRIPTION CONSTANTS ─────────────────────────────────────────
+// These live in script scope, not inside either IIFE, because BOTH of them
+// need them: the workflow IIFE builds the structured dosage/frequency
+// controls, and the validation IIFE reads those controls back to decide what
+// is incomplete. Keeping one definition means the controls on screen and the
+// rules that judge them can never disagree about the allowed vocabulary.
+//
+// Dosage and Frequency used to be single free-text boxes, which made the two
+// most common prescribing slips easy to type: an amount with no unit, or a
+// frequency with no interval. Both are now structured. The lists below are a
+// CONVENIENCE, never a constraint — "Other / Custom" is always offered so any
+// legitimate veterinary instruction can still be entered verbatim.
+const DOSAGE_UNITS = ['tablet', 'capsule', 'mL', 'mg', 'mg/kg', 'drop', 'scoop'];
+const FREQUENCY_PATTERNS = [
+  ['every_hours', 'Every [__] hours'],
+  ['times_per_day', '[__] times per day'],
+  ['every_days', 'Every [__] days'],
+  ['once_daily', 'Once daily'],
+  ['as_needed', 'As needed'],
+  ['custom', 'Other / Custom'],
+];
+// Patterns that need a number beside them; the rest stand alone.
+const INTERVAL_PATTERNS = new Set(['every_hours', 'times_per_day', 'every_days']);
+// Sentinel values for the two selects' "nothing chosen yet" option.
+const CHOOSE_UNIT = 'unit';
+const CHOOSE_PATTERN = 'pattern';
+// Caps for the free-text parts of a prescription. maxlength covers typing and
+// paste; the gate re-checks them because maxlength never constrains a value
+// that was assigned programmatically.
+const MEDICINE_LIMITS = { medicine: 100, frequency: 50, instructions: 500 };
+
 (() => {
   'use strict';
 
@@ -237,7 +269,40 @@
     if (window.location.hash !== `#${view}`) history.pushState(null, '', `#${view}`);
     showView(view);
   }
-  const emptyMedicine = () => ({ medicine: '', dosage: '', frequency: '', duration: '', instructions: '' });
+  // ─── PRESCRIPTION COMPOSITION ─────────────────────────────────────────────
+  // The draft stores the individual PARTS, not the composed sentence, so a
+  // draft restored into the structured controls round-trips exactly instead of
+  // being re-parsed out of "1 tablet". Composition happens once, at
+  // finalization, and produces the same flat strings the document store and
+  // the printed prescription have always consumed.
+  const emptyMedicine = () => ({
+    medicine: '', dosageValue: '', dosageUnit: '', dosageCustom: '',
+    frequencyPattern: '', frequencyEvery: '', frequencyCustom: '',
+    duration: '', instructions: '',
+  });
+
+  function dosageText(m) {
+    const amount = String(m.dosageValue || '').trim();
+    const unit = String(m.dosageUnit || '').trim();
+    if (!amount && !unit) return '';
+    const unitLabel = unit === CHOOSE_UNIT ? '' : unit === 'custom' ? String(m.dosageCustom || '').trim() : unit;
+    return [amount, unitLabel].filter(Boolean).join(' ');
+  }
+
+  function frequencyText(m) {
+    const pattern = String(m.frequencyPattern || '').trim();
+    if (!pattern) return '';
+    if (pattern === 'custom') return String(m.frequencyCustom || '').trim();
+    const every = String(m.frequencyEvery || '').trim();
+    if (pattern === 'once_daily') return 'once daily';
+    if (pattern === 'as_needed') return 'as needed';
+    if (!every) return '';
+    if (pattern === 'every_hours') return `every ${every} hours`;
+    if (pattern === 'times_per_day') return `${every} times per day`;
+    if (pattern === 'every_days') return `every ${every} days`;
+    return '';
+  }
+
   function draftFor(patient) {
     if (!drafts.has(patient.id)) drafts.set(patient.id, { fields: {}, medicines: [emptyMedicine()], labs: [], reviewed: false, saved: false, status: '', startedAt: null, completedAt: null, durationMinutes: null, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() });
     return drafts.get(patient.id);
@@ -256,13 +321,7 @@
     if (!selectedPatient) return;
     const draft = draftFor(selectedPatient);
     fields.forEach(name => { draft.fields[name] = form.elements.namedItem(name).value; });
-    draft.medicines = Array.from(document.querySelectorAll('.medicine-row'), row => {
-      const values = {};
-      // inputs + textareas: owner instructions render as a textarea (500-char
-      // limit) but must still be captured into the draft like any field.
-      row.querySelectorAll('input, textarea').forEach(input => { values[input.dataset.field] = input.value; });
-      return values;
-    });
+    draft.medicines = Array.from(document.querySelectorAll('.medicine-row'), readMedicineRow);
     draft.labs = Array.from(form.querySelectorAll('[name="labs"]:checked'), input => input.value);
     draft.reviewed = document.getElementById('reviewed').checked;
     draft.updatedAt = new Date().toISOString();
@@ -276,41 +335,130 @@
     document.getElementById('draft-state').textContent = 'Unsaved draft';
     document.getElementById('save-status').textContent = '';
   }
+  // Reads a row's controls back into the flat PART record the draft stores.
+  // data-part is the single source of truth for every structured control, so
+  // adding a control never means touching the capture code again.
+  function readMedicineRow(row) {
+    const values = emptyMedicine();
+    row.querySelectorAll('[data-part]').forEach(control => { values[control.dataset.part] = control.value; });
+    row.querySelectorAll('[data-field]').forEach(control => { values[control.dataset.field] = control.value; });
+    return values;
+  }
+
   function addMedicine(values = emptyMedicine()) {
     const row = element('fieldset', '', 'medicine-row');
     const sequence = ++medicineSequence;
-    const fieldSpec = [
-      ['medicine', 'Medicine', 'e.g. Amoxicillin 250mg'],
-      ['dosage', 'Dosage', 'e.g. 1 tablet'],
-      ['frequency', 'Frequency', 'e.g. every 12 hours'],
-      ['duration', 'Duration', 'e.g. 7 days']
-    ];
-    for (const [key, label, placeholder] of fieldSpec) {
-      const group = element('div');
-      const caption = element('label', label, 'form-label');
-      const input = element('input', '', 'form-input');
+    const idFor = key => `medicine-${sequence}-${key}`;
+    const text = (className, id, placeholder, maxLength) => {
+      const input = element('input', '', `form-input ${className}`.trim());
       input.type = 'text';
-      input.id = `medicine-${sequence}-${key}`;
-      input.dataset.field = key;
-      input.value = values[key] || '';
-      input.maxLength = 200;
+      input.id = id;
+      input.maxLength = maxLength;
       input.placeholder = placeholder;
-      caption.htmlFor = input.id;
-      group.append(caption, input);
-      row.append(group);
-    }
+      input.autocomplete = 'off';
+      return input;
+    };
+    const option = (value, label) => new Option(label, value);
+
+    // ── Medicine ───────────────────────────────────────────────────────────
+    const medicineGroup = element('div');
+    const medicineLabel = element('label', 'Medicine', 'form-label');
+    const medicineInput = text('', idFor('medicine'), 'e.g. Amoxicillin 250mg', MEDICINE_LIMITS.medicine);
+    medicineInput.dataset.field = 'medicine';
+    medicineInput.value = values.medicine || '';
+    medicineLabel.htmlFor = medicineInput.id;
+    medicineGroup.append(medicineLabel, medicineInput);
+
+    // ── Dosage: amount + unit (custom unit as the escape hatch) ────────────
+    const dosageGroup = element('div', '', 'medicine-dosage');
+    const dosageLabel = element('label', 'Dosage', 'form-label');
+    const dosageControls = element('div', '', 'medicine-controls');
+    const dosageValue = text('medicine-amount', idFor('dosage'), '1', 10);
+    dosageValue.dataset.part = 'dosageValue';
+    dosageValue.value = values.dosageValue || '';
+    dosageValue.inputMode = 'decimal';
+    dosageValue.setAttribute('aria-label', 'Dosage amount');
+    const dosageUnit = element('select', '', 'form-input medicine-select');
+    dosageUnit.id = idFor('dosageUnit');
+    dosageUnit.dataset.part = 'dosageUnit';
+    dosageUnit.append(option(CHOOSE_UNIT, 'Unit…'));
+    DOSAGE_UNITS.forEach(unit => dosageUnit.append(option(unit, unit)));
+    dosageUnit.append(option('custom', 'Other / Custom'));
+    dosageUnit.value = values.dosageUnit || CHOOSE_UNIT;
+    const dosageCustom = text('medicine-custom', idFor('dosageCustom'), 'custom unit', 20);
+    dosageCustom.dataset.part = 'dosageCustom';
+    dosageCustom.value = values.dosageCustom || '';
+    dosageCustom.setAttribute('aria-label', 'Custom dosage unit');
+    dosageCustom.hidden = dosageUnit.value !== 'custom';
+    dosageControls.append(dosageValue, dosageUnit, dosageCustom);
+    dosageLabel.htmlFor = dosageValue.id;
+    dosageGroup.append(dosageLabel, dosageControls);
+
+    // ── Frequency: pattern + optional interval / custom text ───────────────
+    const frequencyGroup = element('div', '', 'medicine-frequency');
+    const frequencyLabel = element('label', 'Frequency', 'form-label');
+    const frequencyControls = element('div', '', 'medicine-controls');
+    const frequencyPattern = element('select', '', 'form-input medicine-select');
+    frequencyPattern.id = idFor('frequency');
+    frequencyPattern.dataset.part = 'frequencyPattern';
+    frequencyPattern.append(option(CHOOSE_PATTERN, 'Choose…'));
+    FREQUENCY_PATTERNS.forEach(([value, label]) => frequencyPattern.append(option(value, label)));
+    frequencyPattern.value = values.frequencyPattern || CHOOSE_PATTERN;
+    const frequencyEvery = text('medicine-amount', idFor('frequencyEvery'), '8', 3);
+    frequencyEvery.dataset.part = 'frequencyEvery';
+    frequencyEvery.value = values.frequencyEvery || '';
+    frequencyEvery.inputMode = 'numeric';
+    frequencyEvery.setAttribute('aria-label', 'Frequency interval');
+    frequencyEvery.hidden = !INTERVAL_PATTERNS.has(frequencyPattern.value);
+    const frequencyCustom = text('medicine-custom', idFor('frequencyCustom'), 'e.g. twice weekly, with food', MEDICINE_LIMITS.frequency);
+    frequencyCustom.dataset.part = 'frequencyCustom';
+    frequencyCustom.value = values.frequencyCustom || '';
+    frequencyCustom.setAttribute('aria-label', 'Custom frequency');
+    frequencyCustom.hidden = frequencyPattern.value !== 'custom';
+    frequencyControls.append(frequencyPattern, frequencyEvery, frequencyCustom);
+    frequencyLabel.htmlFor = frequencyPattern.id;
+    frequencyGroup.append(frequencyLabel, frequencyControls);
+
+    // ── Duration: whole days ────────────────────────────────────────────────
+    const durationGroup = element('div', '', 'medicine-duration');
+    const durationLabel = element('label', 'Duration', 'form-label');
+    const durationControls = element('div', '', 'medicine-controls');
+    const durationInput = text('medicine-amount', idFor('duration'), '7', 3);
+    durationInput.dataset.field = 'duration';
+    durationInput.value = values.duration || '';
+    durationInput.inputMode = 'numeric';
+    durationControls.append(durationInput, element('span', 'days', 'medicine-suffix'));
+    durationLabel.htmlFor = durationInput.id;
+    durationGroup.append(durationLabel, durationControls);
+
+    // ── Owner instructions: free text, unchanged in spirit ──────────────────
     const instructionGroup = element('div', '', 'medicine-instructions');
     const instructionLabel = element('label', 'Instructions for the owner', 'form-label');
-    const instructionInput = element('input', '', 'form-input');
-    instructionInput.type = 'text';
-    instructionInput.id = `medicine-${sequence}-instructions`;
+    const instructionInput = element('textarea', '', 'form-input');
+    instructionInput.id = idFor('instructions');
     instructionInput.dataset.field = 'instructions';
     instructionInput.value = values.instructions || '';
-    instructionInput.maxLength = 200;
+    instructionInput.maxLength = MEDICINE_LIMITS.instructions;
+    instructionInput.rows = 2;
     instructionInput.placeholder = 'e.g. give with food';
     instructionLabel.htmlFor = instructionInput.id;
     instructionGroup.append(instructionLabel, instructionInput);
-    row.append(instructionGroup);
+
+    // Dependent controls appear only once their option is chosen, so a custom
+    // unit or a custom schedule can never be typed without the option that
+    // gives it meaning.
+    const syncDependent = () => {
+      dosageCustom.hidden = dosageUnit.value !== 'custom';
+      if (dosageUnit.value !== 'custom') dosageCustom.value = '';
+      frequencyEvery.hidden = !INTERVAL_PATTERNS.has(frequencyPattern.value);
+      if (!INTERVAL_PATTERNS.has(frequencyPattern.value)) frequencyEvery.value = '';
+      frequencyCustom.hidden = frequencyPattern.value !== 'custom';
+      if (frequencyPattern.value !== 'custom') frequencyCustom.value = '';
+    };
+    dosageUnit.addEventListener('change', syncDependent);
+    frequencyPattern.addEventListener('change', syncDependent);
+
+    row.append(medicineGroup, dosageGroup, frequencyGroup, durationGroup, instructionGroup);
     const remove = element('button', 'Remove', 'btn-secondary btn-small');
     remove.type = 'button';
     remove.setAttribute('aria-label', 'Remove these medicine instructions');
@@ -544,7 +692,13 @@
     event.preventDefault();
     // Invalid vitals/duration/limits block the save, not just the visual.
     if (window.doctorValidateClinical && !window.doctorValidateClinical()) {
-      document.getElementById('save-status').textContent = 'Fix the highlighted clinical fields before saving.';
+      // A blocked save still has to say WHICH control is wrong. The gate has
+      // already marked it and moved focus there; this only chooses the wording,
+      // preferring the specific prescription message over the generic one.
+      const rx = window.doctorFirstPrescriptionIssue && window.doctorFirstPrescriptionIssue();
+      document.getElementById('save-status').textContent = rx
+        ? rx.message
+        : 'Fix the highlighted clinical fields before saving.';
       return;
     }
     captureDraft();
@@ -559,16 +713,12 @@
       invalid.reportValidity();
       return;
     }
-    const partial = Array.from(document.querySelectorAll('.medicine-row')).find(row => {
-      const inputs = Array.from(row.querySelectorAll('input'));
-      const core = inputs.filter(input => input.dataset.field !== 'instructions');
-      return core.some(input => input.value.trim()) && core.some(input => !input.value.trim());
-    });
+    const partial = window.doctorFirstPrescriptionIssue && window.doctorFirstPrescriptionIssue();
     if (partial) {
       history.replaceState(null, '', '#orders');
       showView('orders', false);
-      status.textContent = 'Complete the medicine, dosage, frequency, and duration, or remove the incomplete row.';
-      Array.from(partial.querySelectorAll('input')).find(input => !input.value.trim()).focus();
+      status.textContent = partial.message;
+      if (partial.field) partial.field.focus();
       return;
     }
     if (!document.getElementById('reviewed').checked) {
@@ -593,18 +743,17 @@
     if (draft.status !== 'in_consultation' || statusFor(selectedPatient) !== 'in_consultation') { status.textContent = 'Start the consultation before completing it.'; return; }
     // Nothing invalid may reach a finalized record.
     if (window.doctorValidateClinical && !window.doctorValidateClinical()) {
-      status.textContent = 'Fix the highlighted clinical fields before completing the consultation.';
+      const rx = window.doctorFirstPrescriptionIssue && window.doctorFirstPrescriptionIssue();
+      status.textContent = rx ? rx.message : 'Fix the highlighted clinical fields before completing the consultation.';
       return;
     }
     captureDraft();
-    const incomplete = draft.medicines.find(m => {
-      const core = [m.medicine, m.dosage, m.frequency, m.duration];
-      return core.some(v => v.trim()) && core.some(v => !v.trim());
-    });
+    const incomplete = window.doctorFirstPrescriptionIssue && window.doctorFirstPrescriptionIssue();
     if (incomplete) {
       history.replaceState(null, '', '#orders');
       showView('orders', false);
-      status.textContent = 'Complete the medicine, dosage, frequency, and duration, or remove the incomplete row.';
+      status.textContent = incomplete.message;
+      if (incomplete.field) incomplete.field.focus();
       return;
     }
     // Same canonical record: the shared store stamps
@@ -674,7 +823,17 @@
         assessment: soapEntries(draft.fields.assessment),
         plan: soapEntries(draft.fields.plan)
       },
-      prescriptions: draft.medicines.filter(m => m.medicine.trim()).map(m => ({ medicine: m.medicine.trim(), dosage: m.dosage.trim(), frequency: m.frequency.trim(), duration: m.duration.trim(), instructions: m.instructions.trim() })),
+      // The structured controls are flattened here, once, into the flat strings the
+      // document store and the printed prescription have always consumed —
+      // dosageText/frequencyText turn the parts back into "1 tablet" and
+      // "every 8 hours", so nothing downstream needed to change.
+      prescriptions: draft.medicines.filter(m => m.medicine.trim()).map(m => ({
+        medicine: m.medicine.trim(),
+        dosage: dosageText(m),
+        frequency: frequencyText(m),
+        duration: String(m.duration || '').trim(),
+        instructions: String(m.instructions || '').trim(),
+      })),
       labRequests: draft.labs.map(name => ({ test: name, notes: '' })),
       veterinarian: { name: VETERINARIAN.name, role: VETERINARIAN.role },
       createdAt: draft.createdAt,
@@ -799,7 +958,10 @@
     if (!patient) return;
     // Preview must never render invalid clinical data.
     if (window.doctorValidateClinical && !window.doctorValidateClinical()) {
-      document.getElementById('save-status').textContent = 'Fix the highlighted clinical fields before previewing the document.';
+      const rx = window.doctorFirstPrescriptionIssue && window.doctorFirstPrescriptionIssue();
+      document.getElementById('save-status').textContent = rx
+        ? rx.message
+        : 'Fix the highlighted clinical fields before previewing the document.';
       return;
     }
     const consultation = buildConsultation(patient);
@@ -967,9 +1129,25 @@
   // (3) Character limits. Applied as hard maxlength + live counter; the gate
   // re-checks them because maxlength does not constrain programmatic values.
   var TEXT_LIMITS = { subjective: 1000, exam: 1000, assessment: 800, plan: 1000 };
-  var MEDICINE_LIMITS = { medicine: 100, dosage: 50, frequency: 50, instructions: 500 };
 
-  // (1) Syntax rules — shape only. No clinical values live here.
+  // (1a) ENTRY GRAMMAR — which characters may reach the field at all.
+  //
+  // type="number" cannot be relied on: browsers accept "1e5", "-2", "+3" and
+  // trailing decimals, and they silently discard characters that the active
+  // locale's decimal separator cannot express. The vitals are therefore
+  // type="text" with an inputmode hint, and this grammar — not the browser —
+  // decides what may be typed, pasted or dropped.
+  //
+  // intDigits/fracDigits are ENTRY limits, not clinical ranges: they stop a
+  // pasted 40-digit number from filling the box. Whether the resulting value
+  // is plausible is VITAL_SANITY's job, below.
+  var VITAL_GRAMMAR = {
+    weight:       { intDigits: 5, fracDigits: 2 }, // e.g. 123.45 kg
+    temperature:  { intDigits: 2, fracDigits: 1 }, // e.g. 38.6 °C
+    'heart-rate': { intDigits: 3, fracDigits: 0 }  // e.g. 180 bpm — no decimal
+  };
+
+  // (1b) Syntax rules — shape only. No clinical values live here.
   var VITAL_SYNTAX = {
     weight:       { integer: false, label: 'Weight' },
     temperature:  { integer: false, label: 'Temperature' },
@@ -996,7 +1174,12 @@
       msg.id = errId;
       msg.className = 'vhs-field-error';
       msg.style.display = 'none';
-      field.insertAdjacentElement('afterend', msg);
+      // A structured row shares ONE flex line between several controls, so a
+      // message inserted straight after a single control would become another
+      // flex sibling and squeeze the inputs into a narrow column. Anchor it
+      // below the whole control line instead.
+      var host = field.closest ? (field.closest('.medicine-controls') || field) : field;
+      host.insertAdjacentElement('afterend', msg);
     }
     return msg;
   }
@@ -1010,24 +1193,84 @@
     msgEl.style.display = 'none';
   }
   // (1) Syntax check only: well-formed positive decimal / integer.
+  // Shares acceptsNumeric() with the entry filter so what can be typed and
+  // what counts as valid can never drift apart.
   function validateVitalSyntax(field) {
     var rule = VITAL_SYNTAX[field.id];
     var msg = ensureMessage(field);
-    var raw = (field.value || '').trim();
+    // Deliberately NOT trimmed: whitespace is not part of the grammar, and
+    // trimming here would let " 4.3" through as a valid entry.
+    var raw = field.value || '';
     if (!raw) { clearErr(field, msg); return true; } // optional fields stay optional
-    // Rejects letters (e/E), signs (+/-), multiple dots, trailing dots.
-    if (!/^\d*(\.\d+)?$/.test(raw) || raw === '.' || raw.endsWith('.')) {
+    // Trailing "." is rejected here even though the entry filter tolerates it
+    // mid-typing: "4." is a legitimate keystroke on the way to "4.3", but it
+    // is not a value the gate may let through.
+    if (!acceptsNumeric(raw, VITAL_GRAMMAR[field.id]) || raw.endsWith('.')) {
       showErr(field, msg, rule.label + (rule.integer
         ? ' must be a whole number (digits only).'
         : ' must be a number (digits with at most one decimal point).'));
       return false;
     }
-    if (rule.integer && raw.indexOf('.') !== -1) {
-      showErr(field, msg, rule.label + ' must be a whole number (digits only).');
-      return false;
-    }
     clearErr(field, msg);
     return true;
+  }
+
+  // Pure predicate: is `next` a value this field accepts? Used by the entry
+  // filter and by the syntax gate, so the two always agree.
+  function acceptsNumeric(next, rule) {
+    if (next === '') return true;
+    if (rule.fracDigits === 0) return new RegExp('^\\d{0,' + rule.intDigits + '}$').test(next);
+    var m = /^(\d*)(?:\.(\d*))?$/.exec(next);
+    if (!m) return false; // letters (e/E), signs (+/-), whitespace, second dot
+    if ((m[1] || '').length > rule.intDigits) return false;
+    if ((m[2] || '').length > rule.fracDigits) return false;
+    if (next.indexOf('.') !== -1 && !m[1]) return false; // a bare "." / ".5" is never a value
+    return true;
+  }
+
+  // Refuse the keystroke; never repair the value afterwards. Deleting the
+  // rejected characters from "1e5" would leave "15" — a DIFFERENT number from
+  // the one that was typed, recorded as if the vet had entered it. So nothing
+  // here writes to field.value: a character the grammar rejects simply never
+  // enters the box, and the caller decides how to report what is still wrong.
+  //
+  // onBad is invoked on every input so the caller can re-check values that
+  // arrived without beforeinput (programmatic assignment, draft restore).
+  function installStrictNumeric(field, rule, onBad) {
+    field.inputMode = rule.fracDigits ? 'decimal' : 'numeric';
+    field.addEventListener('beforeinput', function (e) {
+      if (e.isComposing) return;                       // IME composition: let it finish
+      if (String(e.inputType).indexOf('insert') !== 0) return; // deletions are always allowed
+      var incoming = e.data == null ? '' : e.data;
+      var next = field.value.slice(0, field.selectionStart) + incoming + field.value.slice(field.selectionEnd);
+      if (!acceptsNumeric(next, rule)) e.preventDefault();
+    });
+    field.addEventListener('input', function () { if (onBad) onBad(field); });
+    field.addEventListener('blur', function () { if (onBad) onBad(field); });
+  }
+
+  // The numeric parts of a prescription row obey the same entry rules as the
+  // vitals: an amount may carry one decimal point, an interval and a duration
+  // are whole numbers. "3 days" and "1e2 days" never reach the record.
+  var PRESCRIPTION_GRAMMAR = {
+    dosageValue:    { intDigits: 3, fracDigits: 2 }, // e.g. 1, 2.5
+    frequencyEvery: { intDigits: 3, fracDigits: 0 }, // e.g. 8
+    duration:       { intDigits: 3, fracDigits: 0 }  // whole days
+  };
+
+  // Rows are built dynamically and restored from drafts, so filters are
+  // attached to whichever rows exist now and to any added later. Marking the
+  // field keeps this idempotent when the observer re-scans.
+  function installRowNumerics(row) {
+    Object.keys(PRESCRIPTION_GRAMMAR).forEach(function (part) {
+      var field = row.querySelector('[data-part="' + part + '"]') || row.querySelector('[data-field="' + part + '"]');
+      if (field && !field.dataset.numericInstalled) {
+        field.dataset.numericInstalled = '1';
+        // No onBad callback: the row-level prescription check already owns
+        // this field's messaging, and duplicating it would fight with that.
+        installStrictNumeric(field, PRESCRIPTION_GRAMMAR[part], null);
+      }
+    });
   }
 
   // (2) Sanity check only — provisional typo guardrail, never a clinical claim.
@@ -1035,7 +1278,7 @@
     var rule = VITAL_SANITY[field.id];
     if (!rule) return true;
     var msg = ensureMessage(field);
-    var raw = (field.value || '').trim();
+    var raw = field.value || '';
     if (!raw) return true;
     var num = Number(raw);
     if (!isFinite(num) || num < rule.min || num > rule.max) {
@@ -1057,18 +1300,122 @@
     var msg = ensureMessage(input);
     var raw = (input.value || '').trim();
     if (!raw) { clearErr(input, msg); return true; } // completeness handled elsewhere
-    if (!/^\d+$/.test(raw)) {
-      showErr(input, msg, 'Duration must be a whole number of days (' + DURATION_RANGE.min + '–' + DURATION_RANGE.max + ').');
+    if (!/^\d{1,3}$/.test(raw)) {
+      showErr(input, msg, 'Enter a valid duration between ' + DURATION_RANGE.min + ' and ' + DURATION_RANGE.max + ' days.');
       return false;
     }
     var num = Number(raw);
     if (num < DURATION_RANGE.min || num > DURATION_RANGE.max) {
-      showErr(input, msg, 'Duration must be between ' + DURATION_RANGE.min + ' and ' + DURATION_RANGE.max + ' days.');
+      showErr(input, msg, 'Enter a valid duration between ' + DURATION_RANGE.min + ' and ' + DURATION_RANGE.max + ' days.');
       return false;
     }
     clearErr(input, msg);
     return true;
   }
+
+  // ── PRESCRIPTION ROW VALIDATION ──────────────────────────────────────────
+  // Completion used to emit one generic "complete the medicine, dosage,
+  // frequency, and duration" line and focus whichever box happened to be
+  // empty, which never told the vet what was actually wrong. Every part now
+  // carries its own message and the offending control is marked, so the first
+  // invalid field is also the one that receives focus.
+  //
+  // An entirely empty row is NOT an error — rows start blank and the vet may
+  // leave them unused. A row is only incomplete once any part is filled in.
+  var DURATION_MESSAGE = 'Enter a valid duration between ' + DURATION_RANGE.min + ' and ' + DURATION_RANGE.max + ' days.';
+
+  function partValue(row, part) {
+    var el = row.querySelector('[data-part="' + part + '"]');
+    return el ? String(el.value || '').trim() : '';
+  }
+  function fieldValue(row, field) {
+    var el = row.querySelector('[data-field="' + field + '"]');
+    return el ? String(el.value || '').trim() : '';
+  }
+  function medicineRowFilled(m) {
+    return !!(m.medicine || m.dosageValue || m.dosageUnit || m.dosageCustom ||
+      m.frequencyPattern || m.frequencyEvery || m.frequencyCustom || m.duration);
+  }
+
+  // Returns the first problem in document order as { message, field }, or null
+  // when the row is empty or entirely well-formed.
+  function prescriptionRowIssue(row) {
+    var m = {
+      medicine: fieldValue(row, 'medicine'),
+      dosageValue: partValue(row, 'dosageValue'),
+      dosageUnit: partValue(row, 'dosageUnit'),
+      dosageCustom: partValue(row, 'dosageCustom'),
+      frequencyPattern: partValue(row, 'frequencyPattern'),
+      frequencyEvery: partValue(row, 'frequencyEvery'),
+      frequencyCustom: partValue(row, 'frequencyCustom'),
+      duration: fieldValue(row, 'duration'),
+    };
+    if (!medicineRowFilled(m)) return null; // untouched row
+
+    var control = part => row.querySelector('[data-part="' + part + '"]');
+    var hasDosage = !!(m.dosageValue || m.dosageUnit || m.dosageCustom);
+    var hasFrequency = !!(m.frequencyPattern || m.frequencyEvery || m.frequencyCustom);
+
+    if (!m.medicine) return { message: 'Enter the medicine name.', field: row.querySelector('[data-field="medicine"]') };
+    if (!m.dosageValue) return { message: 'Enter a dosage amount.', field: control('dosageValue') };
+    if (!m.dosageUnit) return { message: 'Choose or enter a dosage unit.', field: control('dosageUnit') };
+    if (m.dosageUnit === 'custom' && !m.dosageCustom) {
+      return { message: 'Enter the custom dosage unit.', field: control('dosageCustom') };
+    }
+    if (!hasFrequency) return { message: 'Enter a frequency.', field: control('frequencyPattern') };
+    if (INTERVAL_PATTERNS.has(m.frequencyPattern) && !m.frequencyEvery) {
+      return { message: 'Enter how many.', field: control('frequencyEvery') };
+    }
+    if (m.frequencyPattern === 'custom' && !m.frequencyCustom) {
+      return { message: 'Enter the dosing frequency.', field: control('frequencyCustom') };
+    }
+    if (!m.duration) return { message: 'Enter how many days the medicine is for.', field: row.querySelector('[data-field="duration"]') };
+
+    // Everything is filled — now shape and range.
+    if (!/^\d{1,3}(\.\d{1,2})?$/.test(m.dosageValue)) {
+      return { message: 'Enter the dosage amount as a number, for example 1 or 2.5.', field: control('dosageValue') };
+    }
+    if (!/^\d{1,3}$/.test(m.duration) || Number(m.duration) < DURATION_RANGE.min || Number(m.duration) > DURATION_RANGE.max) {
+      return { message: DURATION_MESSAGE, field: row.querySelector('[data-field="duration"]') };
+    }
+    if (INTERVAL_PATTERNS.has(m.frequencyPattern)) {
+      if (!/^\d{1,3}$/.test(m.frequencyEvery) || Number(m.frequencyEvery) < 1) {
+        return { message: 'Enter a whole number greater than 0.', field: control('frequencyEvery') };
+      }
+    }
+    if (fieldValue(row, 'medicine').length > MEDICINE_LIMITS.medicine) {
+      return { message: 'Medicine is limited to ' + MEDICINE_LIMITS.medicine + ' characters.', field: row.querySelector('[data-field="medicine"]') };
+    }
+    if (fieldValue(row, 'instructions').length > MEDICINE_LIMITS.instructions) {
+      return { message: 'Owner instructions are limited to ' + MEDICINE_LIMITS.instructions + ' characters.', field: row.querySelector('[data-field="instructions"]') };
+    }
+    return null;
+  }
+
+  // Marks every offending part so the whole row shows what needs attention,
+  // while still returning the FIRST one so focus lands somewhere sensible.
+  function clearPrescriptionErrors(row) {
+    Array.prototype.forEach.call(row.querySelectorAll('[data-part],[data-field]'), function (el) {
+      clearErr(el, ensureMessage(el));
+    });
+  }
+  function markPrescriptionError(row, issue) {
+    if (issue && issue.field) showErr(issue.field, ensureMessage(issue.field), issue.message);
+  }
+
+  // Exposed because the Save / Preview / Complete handlers live in the portal
+  // IIFE and must reach the same verdict the gate uses.
+  window.doctorFirstPrescriptionIssue = function () {
+    var rows = Array.prototype.slice.call(document.querySelectorAll('.medicine-row'));
+    rows.forEach(clearPrescriptionErrors);
+    var first = null;
+    rows.forEach(function (row) {
+      var issue = prescriptionRowIssue(row);
+      if (issue && !first) first = issue;
+      markPrescriptionError(row, issue);
+    });
+    return first;
+  };
 
   // SOAP text limits — maxlength covers typing/paste; this covers values that
   // were set programmatically (draft restore) and bypassed maxlength.
@@ -1111,9 +1458,13 @@
       if (field) fail(validateTextLimit(field), field);
     });
     Array.prototype.forEach.call(document.querySelectorAll('.medicine-row'), function (row) {
-      var dur = row.querySelector('input[data-field="duration"]');
+      var dur = row.querySelector('[data-field="duration"]');
       if (dur) fail(validateDuration(dur), dur);
     });
+    // Prescription completeness/range, with field-level messages and focus on
+    // the first offending control.
+    var rx = window.doctorFirstPrescriptionIssue();
+    if (rx && !firstBad) firstBad = rx.field;
     if (!firstBad) return true;
     revealField(firstBad);
     try { firstBad.focus(); } catch (e) {}
@@ -1122,6 +1473,17 @@
 
   var form = document.getElementById('consultation-form');
   if (!form) return;
+
+  // Clear a prescription error as soon as the vet fixes the control, rather
+  // than making them press Save again to discover it. Rows that are not
+  // currently showing an error are skipped, so ordinary typing costs nothing.
+  ['input', 'change'].forEach(function (type) {
+    document.addEventListener(type, function (e) {
+      var row = e.target.closest ? e.target.closest('.medicine-row') : null;
+      if (!row || !row.querySelector('[aria-invalid="true"]')) return;
+      window.doctorFirstPrescriptionIssue();
+    });
+  });
 
   // Character counters + hard maxlength on the SOAP textareas.
   Object.keys(TEXT_LIMITS).forEach(function (id) {
@@ -1137,71 +1499,32 @@
     update();
   });
 
-  // Vitals: strip letters/signs/extra dots as you type, validate near the
-  // field, and let the gate (doctorValidateClinical) block the three actions.
+  // Vitals: refuse characters the grammar rejects, validate near the field, and
+  // let the gate (doctorValidateClinical) block the three actions.
   Object.keys(VITAL_SYNTAX).forEach(function (id) {
     var field = document.getElementById(id);
     if (!field) return;
-    field.inputMode = VITAL_SYNTAX[id].integer ? 'numeric' : 'decimal';
-    field.addEventListener('input', function () {
-      // Letters, signs and whitespace never enter the field. A single decimal
-      // point is allowed through so integer-only fields can REJECT "80.5"
-      // with a clear message instead of silently rewriting it to "805".
-      var cleaned = field.value.replace(/[^0-9.]/g, '');
-      var firstDot = cleaned.indexOf('.');
-      if (firstDot !== -1) cleaned = cleaned.slice(0, firstDot + 1) + cleaned.slice(firstDot + 1).replace(/\./g, '');
-      if (cleaned !== field.value) field.value = cleaned;
-      if (field.getAttribute('aria-invalid')) validateNumber(field);
+    var rule = VITAL_GRAMMAR[id];
+    installStrictNumeric(field, rule, function () {
+      // Re-check only when the field is already flagged or holds something the
+      // grammar rejects; otherwise ordinary typing does no validation work.
+      if (!acceptsNumeric(field.value, rule) || field.getAttribute('aria-invalid')) validateNumber(field);
     });
-    field.addEventListener('blur', function () { validateNumber(field); });
   });
 
-  // Prescription rows (created dynamically by the portal script): apply
-  // sensible limits to every row, including rows restored from a draft.
-  function applyMedicineLimits(row) {
-    if (!row || row.dataset.limitsApplied) return;
-    row.dataset.limitsApplied = '1';
-    var limits = MEDICINE_LIMITS;
-    Object.keys(limits).forEach(function (key) {
-      var input = row.querySelector('input[data-field="' + key + '"]');
-      if (input) input.maxLength = limits[key];
-    });
-    // Duration is whole days, 1–365 (DURATION_RANGE); the gate enforces it
-    // because the form is novalidate and min/max never block on their own.
-    var dur = row.querySelector('input[data-field="duration"]');
-    if (dur) {
-      dur.type = 'number';
-      dur.min = String(DURATION_RANGE.min);
-      dur.max = String(DURATION_RANGE.max);
-      dur.step = '1';
-      dur.inputMode = 'numeric';
-      dur.placeholder = 'e.g. 7 (days)';
-      dur.addEventListener('input', function () {
-        // Keep digits and one decimal point; the gate rejects non-integers
-        // with a clear message rather than silently rounding the value.
-        var v = dur.value.replace(/[^0-9.]/g, '');
-        var dot = v.indexOf('.');
-        if (dot !== -1) v = v.slice(0, dot + 1) + v.slice(dot + 1).replace(/\./g, '');
-        if (v !== dur.value) dur.value = v;
-      });
-      dur.addEventListener('blur', function () { validateDuration(dur); });
-    }
-    // Instructions get a textarea (room for up to 500 chars of guidance).
-    var ins = row.querySelector('input[data-field="instructions"]');
-    if (ins) {
-      var ta = document.createElement('textarea');
-      ta.className = ins.className;
-      ta.id = ins.id;
-      ta.setAttribute('data-field', 'instructions');
-      ta.maxLength = MEDICINE_LIMITS.instructions;
-      ta.rows = 2;
-      ta.placeholder = 'e.g. give with food';
-      ta.value = ins.value;
-      ins.replaceWith(ta);
-    }
+  // Prescription numeric parts, for rows present now and any added later.
+  Array.prototype.forEach.call(document.querySelectorAll('.medicine-row'), installRowNumerics);
+  var medicineList = document.getElementById('medicine-list');
+  if (medicineList) {
+    new MutationObserver(function () {
+      Array.prototype.forEach.call(document.querySelectorAll('.medicine-row'), installRowNumerics);
+    }).observe(medicineList, { childList: true });
   }
-  document.querySelectorAll('.medicine-row').forEach(applyMedicineLimits);
-  new MutationObserver(function () {
-    document.querySelectorAll('.medicine-row').forEach(applyMedicineLimits);
-  }).observe(document.getElementById('medicine-list') || document.body, { childList: true, subtree: true });
+
+  // Prescription rows are built by the portal script (addMedicine), which sets
+  // their maxlength and the strict numeric entry filters at construction time
+  // — so no MutationObserver pass is needed to keep late-created or
+  // draft-restored rows compliant. What remains here is the validation that
+  // runs when the gate fires: duration shape/range plus the row-level
+  // completeness rules in doctorFirstPrescriptionIssue().
 })();

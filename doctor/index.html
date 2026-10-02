@@ -8,7 +8,7 @@
   <link rel="stylesheet" href="../admin/admin-style.css?v=3.4.4">
   <link rel="stylesheet" href="../shared/dashboard-theme.css?v=3.4.6">
   <link rel="stylesheet" href="../shared/dashboard-icons.css">
-  <link rel="stylesheet" href="doctor.css?v=3.4.7">
+  <link rel="stylesheet" href="doctor.css?v=3.4.8">
   <script src="../shared/appointment-contract.js?v=2.8.0"></script>
   <script src="../shared/mock-users.js?v=2.5.0"></script>
   <script src="../shared/mock-doctors.js?v=2.7.0"></script>
@@ -16,7 +16,7 @@
   <script src="../shared/audit-store.js?v=1.0.0"></script>
   <script src="../shared/document-store.js?v=1.0.3"></script>
   <script src="../shared/document-render.js?v=1.0.0"></script>
-  <script src="doctor.js?v=2.13.2" defer></script>
+  <script src="doctor.js?v=2.14.0" defer></script>
 </head>
 <body class="doctor-portal">
   <a class="skip-link" href="#workspace">Skip to current view</a>
@@ -78,7 +78,7 @@
           </div>
           <div class="soap-grid">
             <div class="soap-block"><h3><span class="soap-letter">S</span><span class="soap-name">Subjective</span><span class="soap-hint">owner history &amp; symptoms</span></h3><label class="form-label" for="subjective">What the owner reports</label><textarea class="form-textarea" id="subjective" name="subjective" rows="3" maxlength="1000" placeholder="Record the owner's concerns and history."></textarea></div>
-            <div class="soap-block"><h3><span class="soap-letter">O</span><span class="soap-name">Objective</span><span class="soap-hint">measured findings</span></h3><div class="vitals-grid"><div><label class="form-label" for="weight">Weight (kg)</label><input class="form-input" id="weight" name="weight" type="number" min="0.1" max="200" step="0.01"></div><div><label class="form-label" for="temperature">Temp. (°C)</label><input class="form-input" id="temperature" name="temperature" type="number" min="30" max="45" step="0.1"></div><div><label class="form-label" for="heart-rate">Heart rate (bpm)</label><input class="form-input" id="heart-rate" name="heartRate" type="number" min="20" max="300" step="1"></div></div><label class="form-label" for="exam">Examination findings</label><textarea class="form-textarea" id="exam" name="exam" rows="3" maxlength="1000" placeholder="Enter observed clinical findings."></textarea></div>
+            <div class="soap-block"><h3><span class="soap-letter">O</span><span class="soap-name">Objective</span><span class="soap-hint">measured findings</span></h3><div class="vitals-grid"><div><label class="form-label" for="weight">Weight (kg)</label><input class="form-input" id="weight" name="weight" type="text" inputmode="decimal" autocomplete="off" spellcheck="false" placeholder="0.0"></div><div><label class="form-label" for="temperature">Temp. (°C)</label><input class="form-input" id="temperature" name="temperature" type="text" inputmode="decimal" autocomplete="off" spellcheck="false" placeholder="00.0"></div><div><label class="form-label" for="heart-rate">Heart rate (bpm)</label><input class="form-input" id="heart-rate" name="heartRate" type="text" inputmode="numeric" autocomplete="off" spellcheck="false" placeholder="000"></div></div><label class="form-label" for="exam">Examination findings</label><textarea class="form-textarea" id="exam" name="exam" rows="3" maxlength="1000" placeholder="Enter observed clinical findings."></textarea></div>
             <div class="soap-block"><h3><span class="soap-letter">A</span><span class="soap-name">Assessment</span><span class="soap-hint">diagnosis</span></h3><label class="form-label" for="assessment">Veterinarian’s assessment</label><textarea class="form-textarea" id="assessment" name="assessment" rows="3" maxlength="800" placeholder="Enter your assessment after reviewing the patient."></textarea></div>
             <div class="soap-block"><h3><span class="soap-letter">P</span><span class="soap-name">Plan</span><span class="soap-hint">treatment &amp; follow-up</span></h3><label class="form-label" for="plan">Next steps</label><textarea class="form-textarea" id="plan" name="plan" rows="3" maxlength="1000" placeholder="Document treatment, owner instructions, and follow-up."></textarea></div>
           </div>

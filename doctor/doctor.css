@@ -163,11 +163,28 @@ dd { margin: 0.2rem 0 0; font-weight: 700; font-size: 0.95rem; overflow-wrap: an
 
 /* ===== PRESCRIPTIONS & LAB REQUESTS ===== */
 .medicine-row {
-  display: grid; grid-template-columns: 1.4fr 0.8fr 1fr 0.9fr auto;  gap: 0.6rem; align-items: end; padding: 0.85rem 0.9rem;
+  /* align-items: start, not end: a field-level error grows its own group
+   downward, and bottom-alignment would then lift that group and knock its
+   input out of line with the others. Top alignment keeps every label and
+   input on a shared baseline and lets the message hang below. */
+  display: grid; grid-template-columns: 1.4fr 0.9fr 1.2fr 0.85fr auto;  gap: 0.6rem; align-items: start; padding: 0.85rem 0.9rem;
 
   margin-bottom: 0.6rem; border: 1px solid var(--doctor-border); border-radius: 0.5rem; min-width: 0;
 }
 .medicine-instructions { grid-column: 1 / 5; }
+
+/* Structured dosage / frequency: the amount sits beside its unit select, and
+   the "Other / Custom" text box only occupies space once that option is
+   chosen (addMedicine toggles `hidden`). Inputs shrink rather than overflow so
+   the row never widens the fieldset. */
+.medicine-controls { display: flex; align-items: center; gap: 0.35rem; min-width: 0; }
+.medicine-amount { flex: 0 0 4.5rem; min-width: 0; }
+.medicine-select { flex: 1 1 auto; min-width: 0; }
+.medicine-custom { flex: 1 1 auto; min-width: 0; }
+.medicine-suffix { color: var(--doctor-muted); font-size: 0.875rem; white-space: nowrap; }
+.medicine-row select.form-input { padding-right: 0.35rem; }
+.medicine-row .vhs-field-error { margin-top: 0.25rem; }
+.medicine-row [aria-invalid='true'] { border-color: #b91c1c; box-shadow: 0 0 0 1px #b91c1c inset; }
 .medicine-row .btn-small { align-self: end; }
 .medicine-row legend { font-size: 0.8rem; font-weight: 700; padding: 0 0.3rem; }
 .lab-options { border: 0; border-top: 1px solid var(--doctor-border); margin-top: 1.25rem; padding: 1rem 0 0; display: block; }
@@ -375,6 +392,11 @@ input[type='checkbox'] { width: 17px; height: 17px; accent-color: var(--accent-d
   .availability { flex-basis: auto; width: 100%; }
   .vitals-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .medicine-row { grid-template-columns: 1fr 1fr; }
+  /* The desktop span (1 / 5) is written against the five-column template.
+     Below 1000px the row has only two columns, so the fixed end line would
+     force three implicit columns and push the Duration row out of the fieldset.
+     Spanning the last line instead adapts to whatever the row currently has. */
+  .medicine-instructions { grid-column: 1 / -1; }
   .doctor-portal .compact-table td.q-owner,
   .doctor-portal .compact-table thead th:nth-child(3) { display: none; }
 }
