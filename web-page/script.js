@@ -274,12 +274,6 @@ function openModal() {
   // Default: show signup form
   if (loginForm) loginForm.classList.add("hidden");
   if (signupForm) signupForm.classList.remove("hidden");
-
-  // Set minimum date to today for all date inputs
-
-  const today = new Date().toISOString().split("T")[0];
-  const signupDob = document.getElementById("signupDob");
-  if (signupDob) signupDob.max = today;
 }
 
 function closeModal() {
@@ -653,25 +647,26 @@ function _completeLogin(data) {
 // SIGNUP HANDLER (AJAX version)
 let otpTimerInterval = null;
 
+// Normalised PH mobile number for the signup payload (phone2).
+// The field itself is owned by shared/signup-wizard.js; this stays the
+// single call site used by the OTP flow below.
 function syncSignupPhone() {
-  const localPhoneInput = document.getElementById("signupPhoneLocal");
-  const phoneInput = document.getElementById("signupPhone");
-  if (!localPhoneInput || !phoneInput) return "";
-  const localNumber = localPhoneInput.value.replace(/[^0-9]/g, "").slice(0, 10);
-  localPhoneInput.value = localNumber;
-  phoneInput.value = localNumber ? `+63${localNumber}` : "";
-  return phoneInput.value;
+  if (window.VHSSignup && window.VHSSignup.phoneValue) {
+    return window.VHSSignup.phoneValue();
+  }
+  return "";
 }
 
 async function triggerOtpSend() {
-  const phone = syncSignupPhone();
+  syncSignupPhone();
 
-  if (!/^\+639[0-9]{9}$/.test(phone)) {
-    showAlert(
-      "Please enter a valid Philippine phone number (e.g., +63 9XXXXXXXXX) first.",
-      "warning",
-      "Phone Number Required",
-    );
+  // Phone rule comes from the wizard (single source of the PH format).
+  const phoneIssue = window.VHSSignup
+    ? window.VHSSignup.phoneIssue()
+    : "Please enter a valid Philippine phone number (e.g., +63 9XXXXXXXXX) first.";
+
+  if (phoneIssue) {
+    showAlert(phoneIssue, "warning", "Phone Number Required");
     // Revert choice to email
     const emailRadio = document.querySelector(
       'input[name="verificationMethod"][value="email"]',
@@ -709,7 +704,7 @@ async function triggerOtpSend() {
   }, 1000);
 
   const formData = new FormData();
-  formData.append("phone2", phone);
+  formData.append("phone2", syncSignupPhone());
 
   try {
     const otpUrl = "../php_files/sms_otp.php";
@@ -801,12 +796,14 @@ if (signupForm) {
         if (otpContainer) otpContainer.classList.remove("hidden");
         if (submitBtn) submitBtn.textContent = "Verify & Create Account";
         // Trigger automatic send if phone number is entered and valid
-        const phoneVal = syncSignupPhone();
-        if (/^\+639[0-9]{9}$/.test(phoneVal)) {
+        const phoneIssue = window.VHSSignup
+          ? window.VHSSignup.phoneIssue()
+          : "Please enter a valid Philippine phone number in +63 9XXXXXXXXX format.";
+        if (!phoneIssue) {
           triggerOtpSend();
         } else {
           showAlert(
-            "Please enter a valid Philippine phone number in +63 9XXXXXXXXX format, then select SMS OTP or click Send OTP.",
+            phoneIssue + " Then select SMS OTP or click Send OTP.",
             "warning",
             "Phone Number Required",
           );
@@ -821,58 +818,10 @@ if (signupForm) {
   signupForm.addEventListener("submit", async (e) => {
     e.preventDefault();
 
-    // Password strength validation
-    const password = document.getElementById("signupPassword")?.value;
-    const confirmPassword = document.getElementById(
-      "signupConfirmPassword",
-    )?.value;
-
-    if (!password || password.length < 8) {
-      showAlert(
-        "Password must be at least 8 characters long.",
-        "error",
-        "Weak Password",
-      );
-      return;
-    }
-    if (!/\d/.test(password) || !/[!@#$%^&*(),.?":{}|<>]/.test(password)) {
-      showAlert(
-        "Password must include at least 1 number and 1 special character.",
-        "error",
-        "Weak Password",
-      );
-      return;
-    }
-    if (password !== confirmPassword) {
-      showAlert("Passwords do not match.", "error", "Password Mismatch");
-      return;
-    }
-
-    // OTP validation if SMS is chosen
-    const verificationMethod = signupForm.querySelector(
-      'input[name="verificationMethod"]:checked',
-    )?.value;
-    if (verificationMethod === "sms") {
-      const otpCode = document.getElementById("signupOtp")?.value.trim();
-      if (!/^[0-9]{6}$/.test(otpCode || "")) {
-        showAlert(
-          "Please enter the 6-digit SMS verification code.",
-          "warning",
-          "OTP Required",
-        );
-        return;
-      }
-    }
-
-    const signupPhone = syncSignupPhone();
-    if (!/^\+639[0-9]{9}$/.test(signupPhone)) {
-      showAlert(
-        "Please enter a valid Philippine phone number in +63 9XXXXXXXXX format.",
-        "warning",
-        "Phone Number Required",
-      );
-      return;
-    }
+    // Single validation gate. shared/signup-wizard.js owns every signup
+    // rule (required fields, limits, password policy, phone format, OTP);
+    // re-checking them here would let the two copies drift apart.
+    if (window.VHSSignup && !window.VHSSignup.validateAll()) return;
 
     const submitBtn = signupForm.querySelector('[type="submit"]');
 
@@ -959,60 +908,9 @@ if (signupForm) {
   });
 }
 
-// ===== SIGNUP FIELD RESTRICTIONS =====
-(function () {
-  // Block digits from name fields — fires before the character appears
-  ["signupLastName", "signupFirstName", "signupMiddleName"].forEach(
-    function (id) {
-      var el = document.getElementById(id);
-      if (!el) return;
-      el.addEventListener("keydown", function (e) {
-        if (e.key >= "0" && e.key <= "9") e.preventDefault();
-      });
-      // Also strip any digits that sneak in via paste / autofill
-      el.addEventListener("input", function () {
-        var pos = el.selectionStart;
-        var cleaned = el.value.replace(/[0-9]/g, "");
-        if (cleaned !== el.value) {
-          el.value = cleaned;
-          el.setSelectionRange(pos - 1, pos - 1);
-        }
-      });
-    },
-  );
-
-  var otpEl = document.getElementById("signupOtp");
-  if (otpEl) {
-    otpEl.addEventListener("input", function () {
-      var cleaned = otpEl.value.replace(/[^0-9]/g, "").slice(0, 6);
-      if (cleaned !== otpEl.value) otpEl.value = cleaned;
-    });
-  }
-
-  // Format Philippine phone field
-  var phoneEl = document.getElementById("signupPhoneLocal");
-  if (phoneEl) {
-    phoneEl.addEventListener("keydown", function (e) {
-      var allowed = [
-        "Backspace",
-        "Delete",
-        "ArrowLeft",
-        "ArrowRight",
-        "Tab",
-        "Home",
-        "End",
-      ];
-      if (allowed.includes(e.key)) return;
-      if (e.ctrlKey || e.metaKey) return;
-      if (e.key < "0" || e.key > "9") e.preventDefault();
-    });
-    phoneEl.addEventListener("input", function () {
-      var cleaned = phoneEl.value.replace(/[^0-9]/g, "").slice(0, 10);
-      if (cleaned !== phoneEl.value) phoneEl.value = cleaned;
-      syncSignupPhone();
-    });
-  }
-})();
+// Signup input restrictions (name / phone / OTP character rules) live in
+// shared/signup-wizard.js, which rejects malformed input at `beforeinput`
+// instead of silently rewriting field.value after the fact.
 
 const termsPopup = document.getElementById("termsPopup");
 

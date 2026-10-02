@@ -23,6 +23,10 @@
    Admin booking lists, User service cards, public website);
    updateService never wipes a category with a stale/blank value;
    backend snapshot note (price_at_booking) added at the boundary.
+
+   v2.11.0 — petsForCurrentUser() (single "does this owner have a pet?"
+   read used by the User portal's first-pet onboarding) + demo owner #4
+   with zero pets, so the post-signup first-login state is reviewable.
    ============================================================ */
 (function (global) {
   'use strict';
@@ -53,6 +57,19 @@
       lastName: 'Cruz',
       phone: '0919-555-6677',
       email: 'jamie.cruz@example.com',
+      role: 'Pet Owner'
+    },
+    // Demo owner with ZERO pets — the state every account starts in after
+    // signup (signup creates the owner account only; pets are added after
+    // first login). Open user/index.html?as=4 to review first-pet
+    // onboarding. Never referenced as CURRENT_USER_ID.
+    {
+      userId: 4,
+      name: 'Ana Rivera',
+      firstName: 'Ana',
+      lastName: 'Rivera',
+      phone: '0920-111-2233',
+      email: 'ana.rivera@example.com',
       role: 'Pet Owner'
     }
   ];
@@ -221,6 +238,13 @@
     petById: function (id) { return byId(_allPets(), 'petId', id); },
     petsOfOwner: function (userId) {
       return _allPets().filter(function (p) { return String(p.ownerId) === String(userId); });
+    },
+    // The single "does the logged-in owner have any pet?" read. The User
+    // portal's first-pet onboarding and every pet-dependent gate call this
+    // instead of each re-deriving the owner scope.
+    // TODO(BACKEND): GET /pets for the authenticated owner.
+    petsForCurrentUser: function () {
+      return this.petsOfOwner(CURRENT_USER_ID);
     },
 
     // ── WRITE-THROUGH (Admin-assisted / demo edits) ──────────────────────

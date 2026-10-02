@@ -8,6 +8,7 @@
     <link rel="stylesheet" href="style.css" />
     <link rel="stylesheet" href="warm-theme.css" />
     <link rel="stylesheet" href="../shared/vhs-ui.css" />
+    <link rel="stylesheet" href="../shared/signup-wizard.css?v=1.0.1" />
   </head>
   <body>
     <!-- PAGE LOADER -->
@@ -756,284 +757,13 @@
         </form>
 
         <!-- Sign Up Form -->
-        <form id="signupForm" class="booking-form hidden">
+<form id="signupForm" class="booking-form hidden">
           <h2>Create Account</h2>
-          <p class="modal-subtitle">
-            Sign up to easily manage your pet's appointments
-          </p>
-
-          <!-- Personal Information -->
-          <div class="form-section">
-            <h3 class="section-title">Personal Information</h3>
-
-            <div class="form-row">
-              <div class="form-group">
-                <label for="signupLastName"
-                  >Last Name <span class="required">*</span></label
-                >
-                <input
-                  type="text"
-                  id="signupLastName"
-                  name="lastName2"
-                  placeholder="Dela Cruz"
-                  maxlength="50"
-                  required
-                />
-              </div>
-              <div class="form-group">
-                <label for="signupFirstName"
-                  >First Name <span class="required">*</span></label
-                >
-                <input
-                  type="text"
-                  id="signupFirstName"
-                  name="firstName2"
-                  placeholder="Juan"
-                  maxlength="50"
-                  required
-                />
-              </div>
-              <div class="form-group">
-                <label for="signupMiddleName">Middle Name</label>
-                <input
-                  type="text"
-                  id="signupMiddleName"
-                  name="middleName2"
-                  placeholder="Santos"
-                  maxlength="50"
-                />
-              </div>
-            </div>
-
-            <div class="form-row">
-              <div class="form-group">
-                <label for="signupEmail"
-                  >Email Address <span class="required">*</span></label
-                >
-                <input
-                  type="email"
-                  id="signupEmail"
-                  name="email3"
-                  placeholder="example@gmail.com"
-                  required
-                />
-              </div>
-              <div class="form-group">
-                <label for="signupPhone"
-                  >Phone Number <span class="required">*</span></label
-                >
-                <div class="phone-input-wrapper">
-                  <span class="phone-country-code">PH +63</span>
-                  <input
-                    type="tel"
-                    id="signupPhoneLocal"
-                    placeholder="9123456789"
-                    pattern="9[0-9]{9}"
-                    maxlength="10"
-                    inputmode="numeric"
-                    required
-                  />
-                </div>
-                <input type="hidden" id="signupPhone" name="phone2" />
-                <span class="form-hint">Format: +63 9XXXXXXXXX</span>
-              </div>
-            </div>
-
-            <!-- Verification Method Choice (Premium UI) -->
-            <div class="form-group verification-method-group">
-              <label>Verification Method <span class="required">*</span></label>
-              <div class="verification-choices">
-                <label class="choice-container">
-                  <input
-                    type="radio"
-                    name="verificationMethod"
-                    value="email"
-                    checked
-                    required
-                  />
-                  <span class="choice-label">
-                    <svg
-                      width="16"
-                      height="16"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      stroke-width="2"
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      style="
-                        display: inline-block;
-                        vertical-align: middle;
-                        margin-right: 0.4rem;
-                      "
-                      aria-hidden="true"
-                    >
-                      <path
-                        d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"
-                      />
-                      <polyline points="22,6 12,13 2,6" />
-                    </svg>
-                    Verify via Email Link
-                  </span>
-                </label>
-                <label class="choice-container">
-                  <input
-                    type="radio"
-                    name="verificationMethod"
-                    value="sms"
-                    required
-                  />
-                  <span class="choice-label">
-                    <svg
-                      width="16"
-                      height="16"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      stroke-width="2"
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      style="
-                        display: inline-block;
-                        vertical-align: middle;
-                        margin-right: 0.4rem;
-                      "
-                      aria-hidden="true"
-                    >
-                      <path
-                        d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"
-                      />
-                    </svg>
-                    Verify via SMS OTP
-                  </span>
-                </label>
-              </div>
-            </div>
-
-            <!-- OTP Input Container (Hidden by default) -->
-            <div id="otpVerificationContainer" class="form-group hidden">
-              <label for="signupOtp"
-                >SMS OTP Code <span class="required">*</span></label
-              >
-              <div class="otp-input-wrapper">
-                <input
-                  type="text"
-                  id="signupOtp"
-                  name="otpCode"
-                  placeholder="Enter 6-digit OTP"
-                  maxlength="6"
-                  inputmode="numeric"
-                  pattern="[0-9]{6}"
-                />
-                <button
-                  type="button"
-                  id="resendOtpBtn"
-                  class="resend-btn"
-                  disabled
-                >
-                  Resend in <span id="otpTimer">30</span>s
-                </button>
-              </div>
-              <span class="form-hint"
-                >We have sent a 6-digit verification code to your phone
-                number.</span
-              >
-            </div>
-
-            <div class="form-group">
-              <label for="signupAddress"
-                >Address <span class="required">*</span></label
-              >
-              <textarea
-                id="signupAddress"
-                name="address"
-                rows="2"
-                style="resize: none"
-                placeholder="Street, Barangay, City, Province"
-                required
-              ></textarea>
-            </div>
-
-            <div class="form-group">
-              <label for="signupDob"
-                >Date of Birth <span class="required">*</span></label
-              >
-              <input type="date" id="signupDob" name="dob" required />
-            </div>
-          </div>
-
-          <!-- Account Security -->
-          <div class="form-section">
-            <h3 class="section-title">Account Security</h3>
-
-            <div class="form-row">
-              <div class="form-group">
-                <label for="signupPassword"
-                  >Password <span class="required">*</span></label
-                >
-                <input
-                  type="password"
-                  id="signupPassword"
-                  name="password2"
-                  placeholder="Enter password"
-                  minlength="8"
-                  required
-                />
-                <span class="form-hint"
-                  >Minimum 8 characters, at least 1 number and 1 special
-                  character</span
-                >
-              </div>
-              <div class="form-group">
-                <label for="signupConfirmPassword"
-                  >Confirm Password <span class="required">*</span></label
-                >
-                <input
-                  type="password"
-                  id="signupConfirmPassword"
-                  name="confirmPassword"
-                  placeholder="Re-enter password"
-                  required
-                />
-              </div>
-            </div>
-          </div>
-
-          <!-- Terms -->
-          <div class="terms-section">
-            <div class="terms-checkbox">
-              <input
-                type="checkbox"
-                id="signupAgreeTerms"
-                name="agreeTerms"
-                required
-              />
-              <label for="signupAgreeTerms"
-                >I agree to the
-                <a href="#" class="terms-link">Terms and Conditions</a> and
-                <a href="#" class="terms-link">Privacy Policy</a>
-                <span class="required">*</span></label
-              >
-            </div>
-          </div>
-
-          <div class="form-actions">
-            <button
-              type="submit"
-              class="btn btn-primary btn-submit"
-              name="submitButt"
-            >
-              Create Account
-            </button>
-          </div>
-
+          <p class="modal-subtitle">Create your owner account, then add your pet after you sign in.</p>
+          <!-- Wizard markup comes from shared/signup-wizard.js so all four public pages stay identical. -->
+          <div id="signupWizard"></div>
           <div class="form-footer">
-            <p>
-              Already have an account?
-              <a href="#" class="switch-form" data-target="loginBtn"
-                >Log in here</a
-              >
-            </p>
+            <p>Already have an account? <a href="#" class="switch-form" data-target="loginBtn">Log in here</a></p>
           </div>
         </form>
       </div>
@@ -1234,8 +964,9 @@
     </div>
 
     <script src="../shared/vhs-ui.js"></script>
-    <script src="../shared/mock-users.js?v=2.10.0"></script>
+    <script src="../shared/mock-users.js?v=2.11.0"></script>
     <script src="website-services.js"></script>
+    <script src="../shared/signup-wizard.js?v=1.0.1"></script>
     <script src="script.js"></script>
     <script>
       // Homepage service teasers sync name/price from the SAME shared catalog

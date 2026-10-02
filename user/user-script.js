@@ -18,6 +18,17 @@
 
 function showSection(name) {
 
+  // Soft pet gate: an owner with no pets is guided, never locked out.
+  // Dashboard, My Profile, Clinic Info, Services and My Pets stay reachable
+  // (My Pets is where a pet is added); pet-specific records are guided.
+  if (name === 'documents' && window.VHSPetOnboarding && window.VHSPetOnboarding.requirePet()) {
+
+    showSection('dashboard');
+
+    return;
+
+  }
+
   document
 
     .querySelectorAll(".page-section")
@@ -131,7 +142,32 @@ window.addEventListener("resize", () => {
 // ─── SESSION USER HELPER ─────────────────────────────────────────────────────
 
 // Single source of truth — replaces the repeated JSON.parse pattern everywhere.
+// Frontend-demo identity override: user/index.html?as=<userId> simulates a
+// logged-in owner so account states that depend on the account itself (e.g. a
+// brand-new account with no pets) can be reviewed without a backend.
+// TODO(BACKEND): remove — the authenticated session is the only identity source.
+function _demoIdentityOverride() {
+  try {
+    var m = /[?&]as=(\d+)/.exec(window.location.search || '');
+    return m ? m[1] : null;
+  } catch (e) {
+    return null;
+  }
+}
+
+// The signed-in account. Session first, then the frontend-demo identity.
 function _getSessionUser() {
+  var demoId = _demoIdentityOverride();
+  if (demoId && window.SharedMockUsers) {
+    var demoUser = window.SharedMockUsers.byId(demoId);
+    if (demoUser) {
+      return {
+        id: demoUser.userId, userId: demoUser.userId, name: demoUser.name,
+        firstName: demoUser.firstName, lastName: demoUser.lastName,
+        phone: demoUser.phone, email: demoUser.email, role: demoUser.role
+      };
+    }
+  }
   // TODO(BACKEND): the authenticated session is the real identity source;
   // the shared mock user is the frontend-demo fallback so the portal always
   // has one explicit current owner (never "Guest").
@@ -148,6 +184,14 @@ function _getSessionUser() {
     return { id: shared.userId, userId: shared.userId, name: shared.name, firstName: shared.firstName, lastName: shared.lastName, phone: shared.phone, email: shared.email, role: shared.role };
   }
   return {};
+}
+
+// The owner every pet / appointment read is scoped to. Pet onboarding,
+// My Pets and the appointment lists all resolve it through here.
+function _currentOwnerId() {
+  var user = _getSessionUser();
+  return user.id || user.userId ||
+    (window.SharedMockUsers ? window.SharedMockUsers.currentUserId : null);
 }
 
 
@@ -594,6 +638,9 @@ function _renderServiceCardsFromCatalog() {
 }
 
 function openBookModal(serviceName) {
+  // Booking needs a petId — guide instead of failing mid-wizard.
+  if (window.VHSPetOnboarding && window.VHSPetOnboarding.requirePet()) return;
+
   _wizardStep = 1;
   _renderWizard();
   openModal('bookModal');
@@ -1233,6 +1280,7 @@ var _currentPets = [];
 var _currentPrintPet = null;
 
 function showMedicalHistory(petId) {
+  if (window.VHSPetOnboarding && window.VHSPetOnboarding.requirePet()) return;
   // Resolve pet from loaded data (backend or mock)
   var pet = _currentPets.find(function (p) { return p.id === petId; });
   if (!pet) pet = mockPetsData.find(function (p) { return p.id === petId; });
@@ -1500,9 +1548,14 @@ const _petEmrFixtures = [
 ];
 
 // Pet profiles for the logged-in owner: shared identity + local EMR detail.
+// Derived from the SHARED pet store every time the owner scope changes, so
+// My Pets always matches the signed-in account (and a newly added pet shows
+// up immediately). A pet with no EMR fixture simply has no history — nothing
+// is invented for it.
 // TODO(BACKEND): profiles from get_pets.php?user_id=...; EMR from the
 // pet medical-records endpoint keyed by petId.
-const mockPetsData = ((window.SharedMockUsers ? window.SharedMockUsers.petsOfOwner(window.SharedMockUsers.currentUserId) : [])).map(function (p) {
+function _derivePetsFromStore() {
+  return (window.SharedMockUsers ? window.SharedMockUsers.petsOfOwner(_currentOwnerId()) : []).map(function (p) {
   var emr = _petEmrFixtures.find(function (f) { return String(f.id) === String(p.petId); }) || {};
   var ownerUser = window.SharedMockUsers ? window.SharedMockUsers.byId(p.ownerId) : null;
   return Object.assign({}, emr, {
@@ -1528,7 +1581,19 @@ const mockPetsData = ((window.SharedMockUsers ? window.SharedMockUsers.petsOfOwn
     ownerId: p.ownerId,
     owner: { name: ownerUser ? ownerUser.name : '', phone: ownerUser ? ownerUser.phone : '' }
   });
-});
+  });
+}
+
+const mockPetsData = _derivePetsFromStore();
+
+// Re-read the shared store into the live array (same identity, so anything
+// holding mockPetsData keeps working) — used after a pet is added.
+function _reloadPetsFromStore() {
+  var fresh = _derivePetsFromStore();
+  mockPetsData.length = 0;
+  Array.prototype.push.apply(mockPetsData, fresh);
+  _currentPets = mockPetsData.slice();
+}
 
 
 // ─── PET MEDICAL HISTORY (derived projection over shared records) ───────────
@@ -1618,6 +1683,7 @@ function __medHistHydratePet(pet) {
 // against the signed-in user at open time; only client-facing summary data is
 // rendered (the store never keeps subjective/objective narrative).
 function openMedHistoryRecord(docId) {
+  if (window.VHSPetOnboarding && window.VHSPetOnboarding.requirePet()) return;
   var me = _getSessionUser();
   var myId = me && (me.id || me.userId);
   if (!window.SharedDocuments) { showToast('Records are unavailable right now. Please try again.', 'error'); return; }
@@ -1712,6 +1778,7 @@ var _currentProfilePet = null;
 var _activeProfileTab = 'profile-medical';
 
 function showPetProfile(petId) {
+  if (window.VHSPetOnboarding && window.VHSPetOnboarding.requirePet()) return;
   var pet = _currentPets.find(function (p) { return p.id === petId; });
   if (!pet) pet = mockPetsData.find(function (p) { return p.id === petId; });
   if (!pet) return;
@@ -2075,13 +2142,12 @@ function petEmoji(type) {
 
 // ─── MOCK APPOINTMENTS DATA ─────────────────────────────────────────────────
 // Shared cross-portal records (shared/mock-appointments.js) are projected
-// into the local display shape, then SCOPED to the logged-in mock user
-// (SharedMockUsers.currentUserId) so other clinic clients' appointments
-// never appear inside this account.
+// into the local display shape, then SCOPED to the logged-in owner so other
+// clinic clients' appointments never appear inside this account.
 // TODO(BACKEND): get_appointments.php?user_id=<session user> replaces this
 // whole block — the client-side filter and merge disappear.
 var mockAppointmentsData = (function () {
-  var me = (window.SharedMockUsers ? window.SharedMockUsers.currentUserId : null);
+  var me = _currentOwnerId();
   var shared = (window.SharedMockAppointments ? window.SharedMockAppointments.all() : [])
     .filter(function (a) { return !me || String(a.userId) === String(me); })
     .map(function (a) {
@@ -2110,7 +2176,7 @@ var mockAppointmentsData = (function () {
 // without a page reload. One source of truth; this is a display projection.
 // TODO(BACKEND): replaced by a simple re-fetch of get_appointments.php.
 function _syncFromStore() {
-  var me = (window.SharedMockUsers ? window.SharedMockUsers.currentUserId : null);
+  var me = _currentOwnerId();
   mockAppointmentsData = (window.SharedMockAppointments ? window.SharedMockAppointments.all() : [])
     .filter(function (a) { return !me || String(a.userId) === String(me); })
     .map(function (a) {
@@ -2755,8 +2821,10 @@ function submitPet(e) {
     notes: formData.get('medical_notes') || ''
   };
 
-  if (!petData.name) { showToast('Please enter a pet name.', 'warning'); return; }
-  if (!petData.species) { showToast('Please select a species.', 'warning'); return; }
+  // Single validation gate (pet-onboarding.js owns the limits, formats and
+  // the inline messages). The old toast-only name/species checks lived here
+  // and short-circuited it, so they are deliberately gone.
+  if (window.VHSPetOnboarding && !window.VHSPetOnboarding.validatePetForm()) return;
 
   var editId = form.dataset.editId;
 
@@ -2765,28 +2833,32 @@ function submitPet(e) {
   var userId = user.id || user.userId;
 
   if (userId) {
-    // Online mode: send to PHP backend
+    // Online mode: send to PHP backend, fall back to the shared mock store
+    // when that endpoint is not there (frontend-only demo / static hosting).
     if (editId) formData.append('pet_id', editId);
     fetch('../api/pets/save_pet.php', { method: 'POST', body: formData })
-      .then(function(r) { return r.text(); })
-      .then(function(data) {
-        try {
-          var json = JSON.parse(data);
-          if (json.success) {
-            closeModal('petModal');
-            showToast(editId ? 'Pet updated successfully!' : 'Pet added successfully!', 'success');
-            loadPets();
-          } else {
-            showToast('Error: ' + (json.message || data), 'error');
-          }
-        } catch (err) {
-          if (data.trim() === 'Success') {
-            closeModal('petModal');
-            showToast(editId ? 'Pet updated successfully!' : 'Pet added successfully!', 'success');
-            loadPets();
-          } else {
-            showToast('Error: ' + data, 'error');
-          }
+      .then(function (r) { return r.text(); })
+      .then(function (data) {
+        var json = null;
+        try { json = JSON.parse(data); } catch (err) { json = null; }
+
+        if (json && json.success) {
+          // Real backend persisted it — read the pet list back from it.
+          closeModal('petModal');
+          showToast(editId ? 'Pet updated successfully!' : 'Pet added successfully!', 'success');
+          loadPets();
+        } else if (json && json.success === false) {
+          // A real rejection: the server answered and said no.
+          showToast('Error: ' + (json.message || data), 'error');
+        } else if (data.trim() === 'Success') {
+          closeModal('petModal');
+          showToast(editId ? 'Pet updated successfully!' : 'Pet added successfully!', 'success');
+          loadPets();
+        } else {
+          // Not an API response at all (404/501/HTML). The backend is not
+          // deployed, so write through the shared store like every other
+          // frontend-demo write.
+          _submitPetLocal(petData, editId);
         }
       })
       .catch(function() {
@@ -2797,28 +2869,50 @@ function submitPet(e) {
   }
 }
 
-// Local state fallback: add or update pet in mockPetsData and re-render
+// Local state fallback: write through the SHARED pet store, then re-render.
+// The store owns ownership (ownerId) and stable IDs, which is what every
+// other portal and the backend seam read.
+// TODO(BACKEND): this whole function disappears once POST /pets exists.
 function _submitPetLocal(petData, editId) {
   if (editId) {
-    // Update existing pet
     var numId = parseInt(editId, 10);
-    var idx = mockPetsData.findIndex(function(p) { return p.id === numId || p.id === editId; });
-    if (idx !== -1) {
-      Object.assign(mockPetsData[idx], petData);
-    } else {
-      // Also check _currentPets
-      var idx2 = _currentPets.findIndex(function(p) { return p.id === numId || p.id === editId; });
-      if (idx2 !== -1) Object.assign(_currentPets[idx2], petData);
+    var stored = window.SharedMockUsers
+      ? window.SharedMockUsers.updatePet(numId, _toCanonicalPet(petData))
+      : { ok: false };
+
+    if (!stored.ok) {
+      // Pet came from the PHP backend rather than the shared store — keep the
+      // previous in-memory update path so nothing is silently dropped.
+      var idx = mockPetsData.findIndex(function(p) { return p.id === numId || p.id === editId; });
+      if (idx !== -1) {
+        Object.assign(mockPetsData[idx], petData);
+      } else {
+        var idx2 = _currentPets.findIndex(function(p) { return p.id === numId || p.id === editId; });
+        if (idx2 !== -1) Object.assign(_currentPets[idx2], petData);
+      }
     }
     showToast('Pet updated successfully!', 'success');
   } else {
-    // Add new pet — generate an ID
-    var newId = mockPetsData.length ? Math.max.apply(null, mockPetsData.map(function(p) { return typeof p.id === 'number' ? p.id : 0; })) + 1 : 1;
-    petData.id = newId;
-    petData.vaccines = [];
-    petData.visits = [];
-    petData.owner = '';
-    mockPetsData.push(petData);
+    // New pet — the store assigns the stable petId and links ownerId.
+    // A brand-new pet starts with NO vaccines, visits, documents or history.
+    var created = window.SharedMockUsers
+      ? window.SharedMockUsers.addPet(Object.assign(_toCanonicalPet(petData), {
+          ownerId: _currentOwnerId()
+        }))
+      : { ok: false };
+
+    if (created.ok) {
+      _reloadPetsFromStore();
+    } else {
+      var newId = mockPetsData.length
+        ? Math.max.apply(null, mockPetsData.map(function(p) { return typeof p.id === 'number' ? p.id : 0; })) + 1
+        : 1;
+      petData.id = newId;
+      petData.vaccines = [];
+      petData.visits = [];
+      petData.owner = '';
+      mockPetsData.push(petData);
+    }
     showToast('Pet added successfully!', 'success');
   }
   closeModal('petModal');
@@ -2828,6 +2922,30 @@ function _submitPetLocal(petData, editId) {
   var petCount = document.getElementById('statPetCount');
   _renderPetCards(mockPetsData, grid, dashGrid, petCount);
   _currentPets = mockPetsData.slice();
+
+  // First-pet onboarding lifts itself once the owner actually has a pet, and
+  // every pet-dependent action unlocks — no page reload.
+  if (window.VHSPetOnboarding) window.VHSPetOnboarding.refresh();
+}
+
+// Portal display aliases (weight / microchip) → canonical store field names.
+function _toCanonicalPet(petData) {
+  return {
+    name: petData.name,
+    species: petData.species,
+    speciesCustom: petData.speciesCustom || '',
+    breed: petData.breed,
+    breedCustom: petData.breedCustom || '',
+    gender: petData.gender || '',
+    age: petData.age || 0,
+    weightKg: petData.weight || 0,
+    color: petData.color || '',
+    reproductiveStatus: petData.reproductiveStatus || '',
+    microchipId: petData.microchip || '',
+    allergies: petData.allergies || '',
+    chronicConditions: petData.chronicConditions || '',
+    notes: petData.notes || ''
+  };
 }
 
 function confirmDeletePet() {
@@ -3302,19 +3420,17 @@ function autoLabelTables() {
 
 // ─── USER DATA ────────────────────────────────────────────────────────────────
 
-
-
 function loadUserData() {
 
-  const raw = sessionStorage.getItem("user");
+  // Fall back to the resolved identity so the portal never greets someone by
+  // a name that does not match the account it is rendering.
 
-  if (!raw) return;
+  const user = _getSessionUser();
+
+  if (!user || (!user.firstName && !user.lastName)) return;
 
 
-
-  const user = JSON.parse(raw);
-
-  const fullName = `${user.firstName} ${user.lastName}`.trim();
+  const fullName = `${user.firstName || ""} ${user.lastName || ""}`.trim();
 
 
 
@@ -3685,6 +3801,21 @@ if (chatbotClose) chatbotClose.addEventListener("click", toggleChatbot);
 function getAssistantReply(text) {
 
   const q = text.toLowerCase();
+
+  // Vetty-ready empty-pet state: an owner with no pet yet is guided to add
+  // one before any pet-specific help is given. No LLM/API call here — the
+  // future Vetty implementation reads the same two helpers.
+  if (window.VHSPetOnboarding && window.VHSPetOnboarding.needsPet()) {
+
+    const addPetFirst = window.VHSPetOnboarding.recommendAddPet();
+
+    if (/(book|appointment|schedule|reserve|vaccin|record|history|medical|pet\b)/.test(q)) {
+
+      return addPetFirst;
+
+    }
+
+  }
 
   if (/(hours|open|time|schedule|closing)/.test(q)) {
 

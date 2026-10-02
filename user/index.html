@@ -12,6 +12,7 @@
     <link rel="stylesheet" href="../shared/dashboard-theme.css?v=3.4.6" />
     <link rel="stylesheet" href="user-accent.css?v=2.5.0" />
     <link rel="stylesheet" href="../shared/vhs-ui.css?v=2.6.0" />
+    <link rel="stylesheet" href="pet-onboarding.css?v=1.0.1" />
   </head>
   <body>
     <!-- TOP NAVBAR -->
@@ -144,6 +145,12 @@
               Here's a quick overview of your account.
             </p>
           </div>
+
+          <!-- First-pet onboarding: shown only when the signed-in owner has
+               zero pets (i.e. right after signup). Markup is rendered by
+               pet-onboarding.js so the card never appears for owners who
+               already have pets. -->
+          <div id="firstPetGate" hidden></div>
 
           <!-- Announcements — auto-rotating single row -->
           <div class="content-section dashboard-announcements">
@@ -1177,12 +1184,13 @@
     <script src="../shared/vhs-ui.js?v=2.6.0"></script>
     <script src="../shared/clinic-settings.js?v=1.1.0"></script>
     <script src="../shared/appointment-contract.js?v=2.8.0"></script>
-    <script src="../shared/mock-users.js?v=2.10.0"></script>
+    <script src="../shared/mock-users.js?v=2.11.0"></script>
     <script src="../shared/mock-appointments.js?v=2.8.1"></script>
     <script src="../shared/audit-store.js?v=1.0.0"></script>
     <script src="../shared/document-store.js?v=1.0.3"></script>
     <script src="../shared/document-render.js?v=1.1.0"></script>
-    <script src="user-script.js?v=3.9.1"></script>
+    <script src="user-script.js?v=3.10.1"></script>
+    <script src="pet-onboarding.js?v=1.0.1"></script>
     <script src="checkin-script.js?v=1.0.0"></script>
   </body>
 </html>
