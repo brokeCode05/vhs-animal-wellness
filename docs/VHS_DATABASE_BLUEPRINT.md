@@ -6,15 +6,31 @@
 
 ## users
 - **Purpose:** accounts for all three roles + pet owners.
-- **Columns:** `id` PK; `role` ENUM('User','Doctor','Admin') R; `status` ENUM('active','inactive') R DEFAULT 'active'; `first_name`/`middle_name`/`last_name` VARCHAR(50); `name` VARCHAR(120) R (display); `email` VARCHAR(191) R **UNIQUE**; `phone` VARCHAR(20) NULL; `address` VARCHAR(255) NULL; `birthdate` DATE NULL; `password` VARCHAR(255) NULL (backend-managed; Admin NEVER sees plaintext — Admin-created accounts activate via server-issued setup/reset links or OTP-based activation; final decision in BACKEND_START_HERE.md §4.5); `email_verified_at` TIMESTAMP NULL; remember/app tokens per Laravel defaults.
-- **FKs:** none. **Indexes:** `email` (unique), `role`, `status`.
+- **Self-registration (public signup — frozen, Advisor Revision Sprint 1):** creates the **OWNER ACCOUNT ONLY** (no pet, no medical record). `role` is forced to `'User'` server-side; a browser-supplied role is ignored, so a self-registering client can never become `Doctor` or `Admin`. Admin may create `User` and `Doctor`; Admin can never create `Admin`.
+- **Columns:** `id` PK; `role` ENUM('User','Doctor','Admin') R; `status` ENUM('active','inactive') R DEFAULT 'active'; `first_name`/`middle_name`/`last_name` VARCHAR(50) (`middle_name` NULL); `name` VARCHAR(120) R (display); `email` VARCHAR(254) R **UNIQUE** (was 191 — widened to match the approved signup contract, RFC 5321 path limit; uniqueness compared after trim+lowercase normalisation); `phone` VARCHAR(20) NULL (canonical E.164, e.g. `+639XXXXXXXXX`); `address` VARCHAR(255) NULL; `birthdate` DATE NULL (**REQUIRED for self-registration**, with server-enforced **age ≥ 18** computed from the current date — never a hardcoded cutoff year; kept NULLable for Admin-provisioned staff); `password` VARCHAR(255) NULL (**HASH ONLY**; frontend input range 8–72, the bcrypt truncation boundary; backend-managed, Admin NEVER sees plaintext — Admin-created accounts activate via server-issued setup/reset links or OTP-based activation; final decision in BACKEND_START_HERE.md §4.5); `email_verified_at` TIMESTAMP NULL; remember/app tokens per Laravel defaults.
+- **ENFORCED limits (mirror `shared/signup-wizard.js` `LIMITS`, server-side authoritative):** names 50 · email 254 · address 250 · password input 8–72. Column widths are storage ceilings only — a wider column does not make a longer value acceptable.
+- **Phone:** the frontend collects the PH local mobile `9XXXXXXXXX` under a fixed `PH +63` display prefix; the **canonical stored value is the normalised `+639XXXXXXXXX`** (13 chars). The server derives the canonical form; never store the raw local string. Do not narrow the column to 10.
+- **Not stored here:** `confirmPassword` (UI-only) and terms acceptance. Consent is recorded by the server's own consent record, not as an auth column.
+- **FKs:** none. **Indexes:** `email` (unique), `role`, `status`, `birthdate`.
 - **Consumers:** all portals; Admin Clients/Accounts; auth.
+
+## account_verifications
+- **Purpose:** TEMPORARY, EXPIRING OTP / activation / password-reset records for the signup and auth flows. A verification code is a short-lived credential, **not durable user data** — deliberately NOT a plaintext column on `users`.
+- **Columns:** `id` PK; `user_id` FK→users NULL (NULL pre-registration, while verifying an email/phone that has no row yet); `identifier` VARCHAR(254) R (normalised email or canonical phone); `channel` ENUM('email','sms') R; `context` VARCHAR(40) R DEFAULT `'registration'` (`registration` | `login` | `password_reset` | `activation`); `code_hash` VARCHAR(255) R (**HASH of the 6-digit OTP / token — never plaintext**); `attempts` TINYINT R DEFAULT 0; `expires_at` TIMESTAMP R (**authoritative**); `consumed_at` TIMESTAMP NULL (marks single use, prevents replay); `created_at`.
+- **Rules:** issue + resend **rate-limited** per identifier and per IP; verification fails after `expires_at` whether or not the row has been purged; purge consumed/expired rows on a schedule (not audit history — `audit_logs` is the audit source). Mirrors Laravel's password reset tokens table.
+- **FKs:** `user_id` → users ON DELETE CASCADE. **Indexes:** `(identifier, context)`, `expires_at`, `user_id`.
+- **Delivery provider** (email/SMS) is a backend concern and is deliberately not modelled here.
+- **Consumers:** `POST /api/auth/register`, `/verify-otp`, `/resend-otp`, `/password-reset`.
 
 ## pets
 - **Purpose:** pet profiles; strict `owner_id` ownership.
+- **Not created at signup (frozen):** the product flow is register owner → verify → login → GET own pets → **if zero pets, frontend shows first-pet onboarding** → POST pet (owner from the **authenticated session**, never the request body) → pet-dependent actions unlock.
 - **Columns:** `id` PK; `owner_id` FK→users R; `name` VARCHAR(80) R; `species` ENUM('Dog','Cat','Bird','Rabbit','Other') R; `species_custom` VARCHAR(50) NULL; `breed` VARCHAR(80) NULL; `breed_custom` VARCHAR(80) NULL; `gender` ENUM('Male','Female') R; `age` TINYINT NULL (years); `weight_kg` DECIMAL(5,2) NULL; `color` VARCHAR(120) NULL; `reproductive_status` ENUM('Intact','Spayed','Neutered','Not Sure') NULL; `microchip_id` VARCHAR(60) NULL; `allergies` TEXT NULL; `chronic_conditions` TEXT NULL; `notes` TEXT NULL; `photo_path` VARCHAR(255) NULL (**BACKEND DECISION REQUIRED** — upload storage); soft deletes.
+- **ENFORCED limits (mirror `user/pet-onboarding.js` `PET_LIMITS`, server-side authoritative):** name 50 · species_custom 50 · breed 60 · breed_custom 60 · color 50 · microchip_id 30 · allergies 200 · chronic_conditions 200 · notes 500 · age max 50 years · weight_kg max 200.00. The stored columns are deliberately wider than these ceilings; that is fine, but validation must reject anything longer. `weight_kg` must parse as a real decimal (reject `e`/`E`, `+`/`-`, empty, NaN).
+- **Age/weight maxima are PROVISIONAL** UI/business guardrails, not veterinary truth (flagged `TODO(BACKEND)` in the frontend). This docs pass does not invent clinical ranges — product must confirm real maxima before B2.
+- **New pets start EMPTY:** no appointment, consultation, vaccination, medical history, prescription, lab result or document. APIs return honest empty collections; production seeders must not fabricate demo medical records.
 - **Constraints:** `(species='Other') → species_custom NOT NULL` via app-level validation (MySQL check optional). **Indexes:** `owner_id`.
-- **Consumers:** User My Pets (own), Admin Clients & Pets, booking wizard, appointments.
+- **Consumers:** User My Pets (own), first-pet onboarding, Admin Clients & Pets, booking wizard, appointments.
 
 ## doctor_profiles
 - **Purpose:** doctor-specific record linked 1:1 to a `users` row with `role='Doctor'` (frontend's `doctorId ↔ userId` link).

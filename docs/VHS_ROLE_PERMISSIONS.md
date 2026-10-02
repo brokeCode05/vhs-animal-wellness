@@ -2,6 +2,7 @@
 
 > Roles are exactly **User · Doctor · Admin** (no Clerk, no Clinic Owner, no generic Staff; exactly one Admin account — never creatable from the UI). Admin must never see user passwords (reset is server-issued).
 > Server-side enforcement is mandatory: the frontend is not trusted for ownership, transitions, or audit.
+> **Signup (frozen, Advisor Revision Sprint 1):** public self-registration creates the **OWNER ACCOUNT ONLY** — no pet, and no medical record. `role` is forced to `User` server-side and any browser-supplied role is ignored.
 
 ## 1. Permission matrix
 
@@ -10,7 +11,8 @@ Legend: ✅ allowed · ⛔ denied · 🔒 own-records-only (server-scoped by aut
 | Capability | User | Doctor | Admin |
 |---|---|---|---|
 | **Auth / account** | | | |
-| Register / login | ✅ | ✅ (provisioned by Admin) | ✅ (single seeded account) |
+| Register / login | ✅ (self-registration → **role forced to `User`**, owner account only) | ✅ (provisioned by Admin) | ✅ (single seeded account) |
+| Self-register as Doctor / Admin | ⛔ | ⛔ | ⛔ (Admin can never create Admin) |
 | Reset own password | ✅ (server-issued) | ✅ | ✅ |
 | Unlock / manage account access | ⛔ | ⛔ | ✅ (server-issued; never sees passwords) |
 | **Profile & pets** | | | |
@@ -19,7 +21,7 @@ Legend: ✅ allowed · ⛔ denied · 🔒 own-records-only (server-scoped by aut
 | Activate/Deactivate user accounts | ⛔ | ⛔ | ✅ |
 | List all users | ⛔ | ⛔ | ✅ |
 | View own pets | 🔒 | ⛔ (via records) | ✅ |
-| Register / edit own pets | 🔒 | ⛔ | ✅ (assisted registration for any owner) |
+| Register / edit own pets | 🔒 (after login; owner from session, never a submitted `ownerId`) | ⛔ | ✅ (assisted registration for any owner) |
 | **Appointments** | | | |
 | Book appointment (self) | 🔒 | ⛔ | ✅ (walk-in/assisted for any client) |
 | View appointments | 🔒 (own) | ✅ (assigned/today) | ✅ (all) |

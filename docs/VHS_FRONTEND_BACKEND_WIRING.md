@@ -13,17 +13,26 @@
 **Current state (demo):** `sessionStorage["vhs_user"]` via `user/user-script.js` `_getSessionUser()` (line ~134) is the User identity; Admin actions use the centralized demo actor `shared/audit-store.js` `ADMIN_ACTOR` (`admin-001 "Administrator"`); Doctor identity is `shared/mock-doctors.js` `currentDoctor()` (`vet-001 / Dr. Santos`).
 
 ```
+Public signup wizard (4 steps: Account → Personal → Review → Verify)
+  → shared/signup-wizard.js v1.1.0  LIMITS + RULES + validateAll()
+  → POST /api/auth/register   (OWNER ACCOUNT ONLY — no pet)
+  → POST /api/auth/verify-otp / /resend-otp
+
 User / Doctor / Admin UI
   → sessionStorage vhs_user (_getSessionUser) · ADMIN_ACTOR (audit-store) · SharedMockDoctors.currentDoctor()
   → GET /api/auth/me        (+ POST /api/auth/login|register|logout, /api/auth/verify-otp, /api/auth/resend-otp, /api/auth/password-reset)
   → AuthController
   → AuthService
-  → users (+ OTP/reset token storage — server-side concern)
+  → users + account_verifications (temporary, expiring OTP records — never a plaintext column)
 ```
 
-**Future:** server session/token (Sanctum) is the single identity source. The authenticated session replaces all three demo identity mechanisms. OTP is **real**: server-issued and server-validated (email/SMS; provider is a backend concern). Password setup/reset via server-issued links/tokens; plaintext never stored or displayed.
+**Future:** server session/token (Sanctum) is the single identity source. The authenticated session replaces all three demo identity mechanisms. OTP is **real**: server-issued and server-validated (email/SMS; provider is a backend concern), stored as a **hash** in a temporary expiring record (`account_verifications`), never as a durable plaintext column. Password setup/reset via server-issued links/tokens; plaintext never stored or displayed.
 
-**Source files (frozen, do not edit):** `user/user-script.js` (`_getSessionUser`), `shared/audit-store.js` (`ADMIN_ACTOR`, `adminActor()`), `shared/mock-doctors.js` (`currentDoctor()`), plus login/registration UI in `user/user-script.js`.
+**Signup → pet separation (frozen, Advisor Revision Sprint 1):** the wizard collects **no pet field of any kind**. A pet is created only in the User portal after verification + login, via first-pet onboarding (`user/pet-onboarding.js` v1.0.0). The backend must not create a pet during registration.
+
+**Source files (frozen, do not edit):** `shared/signup-wizard.js` v1.1.0 (`LIMITS`, `RULES`, `minOwnerAge`, `latestDobForAge`, `PH`, `validateAll()`), `user/pet-onboarding.js` v1.0.0 (`PET_LIMITS`, `PET_RULES`, `petsForCurrentUser()`), `user/user-script.js` (`_getSessionUser`, `_currentOwnerId`), `shared/audit-store.js` (`ADMIN_ACTOR`, `adminActor()`), `shared/mock-doctors.js` (`currentDoctor()`), plus login/registration UI.
+
+**Backend notes:** `auth/me` must return `{user_id, role, name, email, status}`. Inactive accounts refused at login. Role middleware: `role:User` / `role:Doctor` / `role:Admin`. Registration must re-validate every frontend rule server-side — the wizard's `maxlength` attributes and DOB ceiling are **UX only**, never authority (see [VHS_API_CONTRACT.md](VHS_API_CONTRACT.md) §1.1).
 
 **Backend notes:** `auth/me` must return `{user_id, role, name, email, status}`. Inactive accounts refused at login. Role middleware: `role:User` / `role:Doctor` / `role:Admin`.
 
@@ -47,15 +56,17 @@ Admin Clients & Pets (users table) · User My Profile
 ```
 User My Pets · Admin Clients & Pets (pets table) · booking pet selector
   → SharedMockUsers.pets()/petById()/addPet()/updatePet()
-  → /api/users/:id/pets · /api/pets · /api/pets/:id
+  → /api/users/me/pets · /api/pets · /api/pets/:id
   → PetController
   → PetService
   → pets (owner_id FK, strict ownership)
 ```
 
-**Future:** ownership strictly by `owner_id` (never name-matched); species `Other` requires `speciesCustom`; pet must belong to the booking user (server-enforced at booking).
+**Future:** ownership strictly by `owner_id` (never name-matched); the owner comes from the **authenticated session**, never from the request body; species `Other` requires `speciesCustom`; pet must belong to the booking user (server-enforced at booking).
 
-**Source files:** `shared/mock-users.js` (PETS + §CANONICAL PET PROFILE CONTRACT), `user/user-script.js` (My Pets, booking selector), `admin/admin-portal.js` (Register/Edit Pet).
+**Source files:** `user/pet-onboarding.js` v1.0.0 (`PET_LIMITS`, `PET_RULES`, `petsForCurrentUser()`, zero-pet gate), `shared/mock-users.js` (PETS + §CANONICAL PET PROFILE CONTRACT), `user/user-script.js` (My Pets, booking selector), `admin/admin-portal.js` (Register/Edit Pet).
+
+**First-pet onboarding (frozen):** after login, `GET /api/users/me/pets` returning `[]` is what drives the frontend's first-pet card. Pet creation is a **separate, post-login** step — never part of signup. A new pet carries no appointment, consultation, vaccination, history, prescription, lab result or document; the API returns honest empty collections.
 
 ## 3. DOCTORS
 

@@ -7,12 +7,23 @@
 -- frontend mapper (shared/appointment-contract.js) already accepts
 -- snake_case API payloads.
 --
+-- Aligned to Advisor Revision Sprint 1 (manually approved): signup contract,
+-- owner field limits, the 18+ owner rule, phone normalisation, and first-pet
+-- onboarding. Authoritative frontend sources for those rules are
+-- shared/signup-wizard.js (v1.1.0) and user/pet-onboarding.js (v1.0.0).
+--
 -- Conventions:
 --   * ids are BIGINT UNSIGNED AUTO_INCREMENT (frontend demo ids were
 --     small ints; backend ids replace them 1:1).
 --   * status ENUMs mirror the frontend exactly — do not extend without
 --     coordinating with the frozen frontend contract.
 --   * audit_logs is INSERT-only by convention (see table comment).
+--   * Column widths are STORAGE ceilings, not validation. Where a comment
+--     says "ENFORCED max N", the server must reject anything longer — the
+--     column being wider does not make a longer value acceptable.
+--   * This file contains NO seed INSERTs. Demo users/pets from
+--     shared/mock-users.js are demo fixtures, not production seed data, and a
+--     new pet must never be created with fabricated medical records.
 -- =====================================================================
 
 SET NAMES utf8mb4;
@@ -20,6 +31,32 @@ SET FOREIGN_KEY_CHECKS = 0;
 
 -- ---------------------------------------------------------------------
 -- users — all three roles (User | Doctor | Admin). No Clerk role.
+--
+-- SELF-REGISTRATION (public signup, Advisor Revision Sprint 1 — frozen):
+--   * Creates the OWNER ACCOUNT ONLY. No pet and no medical record.
+--   * role is forced to 'User' server-side. A browser-supplied role is
+--     ignored; a User can never self-register as Doctor or Admin.
+--   * Column widths below are the STORAGE ceilings. The ENFORCED limits are
+--     the approved frontend contract (docs/VHS_DATA_CONTRACT.md §1) and must
+--     be re-validated server-side — a wider column is not permission to
+--     accept a longer value:
+--       first_name/middle_name/last_name  max 50   (hyphen/apostrophe/period OK)
+--       email                             max 254  (RFC 5321)
+--       address                           max 250
+--       password (hash)                   bcrypt input 8..72; store hash only
+--   * birthdate: REQUIRED for self-registration (owner must be >= 18, see
+--     docs/VHS_DATA_CONTRACT.md §1.1). Kept NULLable because Admin-provisioned
+--     Doctor/Admin accounts may omit it. The 18+ rule is an APPLICATION-layer
+--     check computed from the current date — never a hardcoded cutoff year,
+--     and never enforced by the column.
+--   * phone: INPUT is the PH local mobile 9XXXXXXXXX; CANONICAL STORAGE is the
+--     normalised E.164 form (+639XXXXXXXXX = 13 chars). VARCHAR(20) holds
+--     '+' + country code + up to 15 national digits.
+--   * password column stores a HASH ONLY — never plaintext, never returned by
+--     an API. Column name kept as-is (existing convention); do NOT add a
+--     second `password_hash` column.
+--   * terms/consent acceptance is NOT stored here; consent is recorded by the
+--     server's own consent record, not as an auth column.
 -- ---------------------------------------------------------------------
 CREATE TABLE users (
   id            BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
@@ -29,39 +66,96 @@ CREATE TABLE users (
   middle_name   VARCHAR(50)                   NULL,
   last_name     VARCHAR(50)                   NOT NULL,
   name          VARCHAR(120)                  NOT NULL,           -- display name (first + last)
-  email         VARCHAR(191)                  NOT NULL,
-  phone         VARCHAR(20)                   NULL,
-  address       VARCHAR(255)                  NULL,
-  birthdate     DATE                          NULL,
-  password      VARCHAR(255)                  NULL,               -- backend-managed; never exposed to Admin
+  email         VARCHAR(254)                  NOT NULL,           -- ENFORCED max 254; unique after trim+lowercase normalisation
+  phone         VARCHAR(20)                   NULL,               -- canonical E.164, e.g. +639XXXXXXXXX
+  address       VARCHAR(255)                  NULL,               -- ENFORCED max 250
+  birthdate     DATE                          NULL,               -- REQUIRED on self-registration; server enforces age >= 18
+  password      VARCHAR(255)                  NULL,               -- HASH ONLY; backend-managed; never exposed
   email_verified_at TIMESTAMP                   NULL,
   created_at    TIMESTAMP                     NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at    TIMESTAMP                     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   CONSTRAINT uq_users_email UNIQUE (email),
   INDEX ix_users_role (role),
-  INDEX ix_users_status (status)
+  INDEX ix_users_status (status),
+  INDEX ix_users_birthdate (birthdate)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ---------------------------------------------------------------------
+-- account_verifications — TEMPORARY, EXPIRING OTP / activation records.
+--
+-- WHY THIS EXISTS: signup is a 4-step flow ending in an OTP / verification
+-- link. That code is a short-lived credential, NOT durable user data, so it
+-- must never live as a plaintext column on `users`.
+--
+--   * code_hash stores a HASH of the OTP (or the emailed verification token),
+--     never the plaintext. Mirrors Laravel's password reset tokens table.
+--   * expires_at is authoritative — verification fails after it, whether or
+--     not the row has been swept.
+--   * consumed_at marks a successful use so a code cannot be replayed.
+--   * issue + resend are RATE-LIMITED per identifier and per IP.
+--   * Purge consumed/expired rows on a schedule; they are not audit history
+--     (audit_logs is the audit source).
+--   * Delivery provider (email/SMS) is a backend concern and is deliberately
+--     NOT modelled here.
+-- ---------------------------------------------------------------------
+CREATE TABLE account_verifications (
+  id            BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  user_id       BIGINT UNSIGNED NULL,                             -- NULL until the row exists (pre-registration verify)
+  identifier    VARCHAR(254)  NOT NULL,                           -- normalised email or canonical phone
+  channel       ENUM('email','sms') NOT NULL,
+  context       VARCHAR(40)   NOT NULL DEFAULT 'registration',   -- registration | login | password_reset | activation
+  code_hash     VARCHAR(255)  NOT NULL,                           -- HASH of the 6-digit OTP / token — never plaintext
+  attempts      TINYINT UNSIGNED NOT NULL DEFAULT 0,
+  expires_at    TIMESTAMP     NOT NULL,
+  consumed_at   TIMESTAMP     NULL,
+  created_at    TIMESTAMP     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT fk_account_verifications_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+  INDEX ix_av_identifier (identifier, context),
+  INDEX ix_av_expires (expires_at),
+  INDEX ix_av_user (user_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ---------------------------------------------------------------------
 -- pets — ownership strictly by owner_id (never name-matched).
+--
+-- PETS ARE NOT CREATED AT SIGNUP (Advisor Revision Sprint 1 — frozen).
+-- Signup creates the owner account only. The product flow is:
+--   register owner -> verify -> login -> GET own pets
+--   -> if zero pets, frontend shows first-pet onboarding
+--   -> POST pet (owner taken from the AUTHENTICATED session, never the
+--      request body) -> pet-dependent actions become available.
+--
+-- Column widths are STORAGE ceilings. ENFORCED limits are the approved
+-- frontend contract (docs/VHS_DATA_CONTRACT.md §2 / user/pet-onboarding.js
+-- PET_LIMITS) and must be re-validated server-side:
+--   name 50 · species_custom 50 · breed 60 · breed_custom 60 · color 50
+--   microchip_id 30 · allergies 200 · chronic_conditions 200 · notes 500
+--   age max 50 years, weight_kg max 200.00 — both PROVISIONAL UI/BUSINESS
+--   guardrails, NOT veterinary truth; product must confirm before B2.
+--   weight_kg must parse as a real decimal: reject e/E, +/-, empty, NaN.
+--
+-- A NEW PET STARTS EMPTY: no appointment, consultation, vaccination, medical
+-- history, prescription, lab result or document is created for it. APIs must
+-- return honest empty collections, and production seeders must NOT fabricate
+-- demo medical records.
 -- ---------------------------------------------------------------------
 CREATE TABLE pets (
   id                  BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-  owner_id            BIGINT UNSIGNED NOT NULL,
-  name                VARCHAR(80)   NOT NULL,
+  owner_id            BIGINT UNSIGNED NOT NULL,                    -- from authenticated session, never request-supplied
+  name                VARCHAR(80)   NOT NULL,                      -- ENFORCED max 50
   species             ENUM('Dog','Cat','Bird','Rabbit','Other') NOT NULL,
-  species_custom      VARCHAR(50)   NULL,
-  breed               VARCHAR(80)   NULL,
-  breed_custom        VARCHAR(80)   NULL,
+  species_custom      VARCHAR(50)   NULL,                          -- ENFORCED max 50
+  breed               VARCHAR(80)   NULL,                          -- ENFORCED max 60
+  breed_custom        VARCHAR(80)   NULL,                          -- ENFORCED max 60
   gender              ENUM('Male','Female') NOT NULL,
-  age                 TINYINT UNSIGNED NULL,                      -- years
-  weight_kg           DECIMAL(5,2)  NULL,
-  color               VARCHAR(120)  NULL,
+  age                 TINYINT UNSIGNED NULL,                      -- years; ENFORCED max 50 (PROVISIONAL)
+  weight_kg           DECIMAL(5,2)  NULL,                          -- ENFORCED max 200.00 (PROVISIONAL); parse strictly
+  color               VARCHAR(120)  NULL,                          -- ENFORCED max 50
   reproductive_status ENUM('Intact','Spayed','Neutered','Not Sure') NULL,
-  microchip_id        VARCHAR(60)   NULL,
-  allergies           TEXT          NULL,
-  chronic_conditions  TEXT          NULL,
-  notes               TEXT          NULL,                          -- medical notes (frozen pet contract)
+  microchip_id        VARCHAR(60)   NULL,                          -- ENFORCED max 30, [A-Za-z0-9-]
+  allergies           TEXT          NULL,                          -- ENFORCED max 200
+  chronic_conditions  TEXT          NULL,                          -- ENFORCED max 200
+  notes               TEXT          NULL,                          -- medical notes; wire field is medical_notes (frozen pet contract)
   photo_path          VARCHAR(255)  NULL,                          -- BACKEND DECISION REQUIRED: upload storage
   created_at          TIMESTAMP     NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at          TIMESTAMP     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,

@@ -20,10 +20,15 @@ A veterinary clinic management system with three surfaces sharing one canonical 
 
 ## 2. Portal responsibilities (frozen behavior)
 
+### Public site
+- **Sign-up wizard:** 4 steps (Account → Personal Information → Review → Verification) in `shared/signup-wizard.js` v1.1.0. Creates the **OWNER ACCOUNT ONLY — no pet**, with `role` forced to `User` server-side. Field limits, the **18+ owner minimum age** (cutoff computed from the current date), PH phone normalisation and the OTP step are the approved contract; see [VHS_API_CONTRACT.md](VHS_API_CONTRACT.md) §1.1.
+- **Login:** separate flow on the same modal.
+
 ### User portal
 - **Dashboard:** stat counts, upcoming-appointments table, My Pets preview — all from the same scoped canonical data.
 - **My Appointments:** Upcoming vs Past History tabs; lifecycle-aware action buttons (Reschedule/Cancel only while `confirmed` and outside cutoff windows); status hints for checked-in / in-consultation states.
 - **Booking wizard:** 3 steps (Pet & Service → Date & Time → Review & Book) → demo OTP → reference number + QR code. Honors clinic hours, slot interval, cutoffs.
+- **First-pet onboarding:** shown when the authenticated owner has **zero pets** (`user/pet-onboarding.js` v1.0.0, driven by `GET /api/users/me/pets` → `[]`). Pet creation is **separate from signup** and happens only after verification + login; the owner comes from the authenticated session. A new pet starts with **no** appointment, consultation, vaccination, history, prescription, lab result or document — honest empty states, never fabricated records.
 - **My Pets:** scoped list (`ownerId` = session user), Add/Edit pet, Medical History timeline (portal-local demo fixtures), Vaccination Passport (fixtures).
 - **My Profile:** own details; account access actions are backend-pending placeholders.
 - **My Documents:** own finalized client-facing documents only.
@@ -31,7 +36,7 @@ A veterinary clinic management system with three surfaces sharing one canonical 
 ### Admin portal
 - **Dashboard:** canonical counts (Confirmed Appointments, Total Clients, Total Pets) + Today's Schedule from the real local date.
 - **Appointments:** calendar + all-appointments table + details modal (Check In / Reschedule / Cancel actions), walk-in Book Appointment modal (client→pet cascade, service catalog, slot availability).
-- **Clients & Pets:** users table (View Profile / Edit / Activate / Deactivate / Create User), pets table (Register Pet / Edit Pet). Ownership strictly by `ownerId`.
+- **Clients & Pets:** users table (View Profile / Edit / Activate / Deactivate / Create User), pets table (Register Pet / Edit Pet). Ownership strictly by `ownerId`, resolved server-side from the authenticated identity — never name-matched and never taken from a browser-supplied `ownerId`.
 - **Accounts:** Doctor account administration ONLY (create/edit/activate/deactivate). No role selector exists; only one Admin account exists and is never creatable from the UI.
 - **Doctors:** operational directory; availability select (On Duty / On Break / On Leave) writes the shared record the Doctor portal reads.
 - **Services:** catalog CRUD (label, category/group with "Other" custom, price, active/inactive), delete only for unused Admin-created services.

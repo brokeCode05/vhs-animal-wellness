@@ -139,6 +139,19 @@ Laravel project under `/backend` (same repo) · environment + MySQL connection �
 **PHASE B2 — AUTH**
 register / login / logout · `auth/me` · OTP verification (issue/verify/resend — server-issued, server-validated) · password setup/reset (server-issued links/tokens, hashed storage) · role authorization middleware + policies.
 
+> ### ⚠️ Before starting B1/B2 — sync from main, and follow the approved signup contract
+>
+> The public signup wizard was rebuilt and **manually QA-approved in Advisor Revision Sprint 1**. The old frontend mock assumptions in older notes are **no longer authoritative**.
+>
+> 1. **Sync the backend branch from the latest `main`** first — `main` now carries the approved wizard (`shared/signup-wizard.js` v1.1.0) and first-pet onboarding (`user/pet-onboarding.js` v1.0.0).
+> 2. Read the canonical contracts rather than duplicating them here:
+>    · [VHS_DATA_CONTRACT.md](VHS_DATA_CONTRACT.md) §1–§2 — signup creates the **OWNER ACCOUNT ONLY**, field limits, the **18+ owner rule**, phone normalisation, pet limits.
+>    · [VHS_API_CONTRACT.md](VHS_API_CONTRACT.md) §1.1 / §3.1 — registration semantics and the first-pet flow.
+>    · [vhs_schema.sql](vhs_schema.sql) / [VHS_DATABASE_BLUEPRINT.md](VHS_DATABASE_BLUEPRINT.md) — columns, enforced limits, and `account_verifications` for expiring OTP records.
+> 3. **Do not create a pet during registration.** Pets are created after verification + login, with the owner taken from the authenticated session.
+> 4. **Server validation is authoritative.** The wizard's `maxlength`, required states and DOB ceiling are UX only; mirror every rule server-side. In particular, enforce **age ≥ 18** dynamically, `email` unique after normalisation, password **hashed only** (8–72 input), and `role` forced to `User`.
+> 5. A new pet must come back with **honest empty** medical collections — never fabricate demo records in seed logic.
+
 **PHASE B3 — CORE DIRECTORY DATA**
 Users · Pets · Doctors (accounts + profiles + availability) · Services (single-price model) · Clinic Settings.
 

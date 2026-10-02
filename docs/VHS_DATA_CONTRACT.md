@@ -7,45 +7,78 @@
 
 ## 1. USER
 
-Source: `shared/mock-users.js` USERS + Admin `submitCreateUser`/`submitEditUser` + User profile form.
+Sources: `shared/mock-users.js` USERS + Admin `submitCreateUser`/`submitEditUser` + User profile form **+ `shared/signup-wizard.js` v1.1.0 `LIMITS`/`RULES` (public self-registration, Advisor Revision Sprint 1 — approved)**.
+
+> **Signup contract (frozen):** self-registration creates the **OWNER ACCOUNT ONLY**. No pet, appointment, consultation, document or medical record is created at signup. `role` is forced to `User` server-side; a self-registering browser can never choose `Doctor` or `Admin`. `confirmPassword` and the terms-acceptance checkbox are **UI-only** — neither is persisted, and terms consent is recorded by the server's own consent record, not as an auth column.
 
 | Field | Type | Req | Meaning | Backend validation notes |
 |---|---|---|---|---|
 | userId | int (AI) | R | PK | server-generated; frontend renders `#C###` from row order — do NOT use row order for identity |
-| firstName / lastName | string(50) | R | name parts | both required at creation (Admin create form requires first+last+email) |
-| middleName | string(50) | O | middle name | Admin edit collects it |
+| firstName / lastName | string(50) | R | name parts | `max:50`; letters (any script), combining marks, space, hyphen, apostrophe and period are legitimate (PH names use `Jr.`/hyphenated surnames); whitespace-only rejected |
+| middleName | string(50) | O | middle name | `max:50`; **optional** — remains nullable |
 | name | string(120) | R | display name (`first + last` kept in sync by Admin edit) | server can derive; keep column for fast display |
-| email | string(191) | R | login identity + contact | **unique**; duplicate check case-insensitive (frontend does this) |
-| phone | string(20) | O | contact | PH mobile format; frontend format `0917-123-4567` |
-| address | string(255) | O | home address | Admin edit + profile collect it |
-| birthdate | date | O | date of birth | valid date, past |
+| email | string(254) | R | login identity + contact | **unique**; `max:254` (RFC 5321 path limit); duplicate check **case-insensitive** — normalise (trim + lowercase) before the uniqueness check AND before storing |
+| phone | string(15–20) | O (R for self-registration) | contact | **INPUT vs STORAGE are different.** Frontend collects a PH local mobile `9XXXXXXXXX` (10 digits) under a fixed `PH +63` display prefix. **Canonical storage is the normalised E.164 form `+639XXXXXXXXX` (13 chars).** Server re-derives the canonical value; never store the raw local string. Column width must hold `+` + country code + up to 15 national digits |
+| address | string(250) | O (R for self-registration) | home address | `max:250`; leading/trailing whitespace trimmed; normal punctuation preserved |
+| birthdate | date | O in schema, **R for self-registration** | date of birth | valid, real calendar date, **not in the future**, and **owner must be ≥ 18 years old** (see §1.1). Admin-provisioned Doctor/Admin accounts may omit it |
+| password | — | never returned | credentials | **hash only**, never plaintext. Frontend input range **8–72** (`min:8`, `max:72` — 72 is the bcrypt `PASSWORD_BCRYPT` truncation boundary). Stored hash `VARCHAR(255)`. No API may ever return it |
 | status | enum(`active`,`inactive`) | R | account gate | inactive = login disabled (doctor-account rule parity) |
-| role | enum(`User`,`Doctor`,`Admin`) | R | role | Users are `User`; backend decides whether Admin creates `User` accounts only |
-| password | — | never from frontend | credentials | provisioned server-side only (final decision): Admin-created accounts activate via setup/reset links or OTP-based activation; Admin never sees plaintext; hashing/reset tokens are server-side |
+| role | enum(`User`,`Doctor`,`Admin`) | R | role | self-registration forces `User`; Admin may create `User` and `Doctor`; Admin can never create `Admin` |
+
+### 1.1 Owner minimum age (frozen business rule)
+
+**An owner creating an account must be at least 18 years old.**
+
+- Mirror `LIMITS.minOwnerAge = 18` in `shared/signup-wizard.js`.
+- The cutoff is **computed dynamically** from the current date on the server (`now()->subYears(18)`); **never hardcode a cutoff year**.
+- **Future DOB invalid; malformed/impossible DOB invalid** (e.g. `2001-02-30`).
+- The HTML `max` attribute on the date input is **UX only** — the backend must re-validate on registration, authoritatively. A crafted POST bypassing the browser must be rejected.
+
+Frontend reference: `ruleDob()` / `latestDobForAge()` in `shared/signup-wizard.js`.
+
+### 1.2 Email / account security (authoritative, server-side)
+
+- **Unique email**, compared after normalisation (trim + lowercase).
+- **Password hashing only** — never plaintext at rest, never in logs, never in an API response.
+- **OTP is server-issued, server-validated, and time-limited.** Never trust frontend OTP state; the frontend demo accepts any 6 digits and the backend must not.
+- Expiry for OTP / reset / activation tokens; **rate-limit** OTP issue + resend per identifier and per IP.
+- `role` and `status` are assigned **server-side**; a browser-supplied role is ignored.
 
 ## 2. PET
 
-Source: `shared/mock-users.js` §CANONICAL PET PROFILE CONTRACT (mirrors `#petForm` exactly) + Admin register/edit pet.
+Sources: `shared/mock-users.js` §CANONICAL PET PROFILE CONTRACT + Admin register/edit pet **+ `user/pet-onboarding.js` v1.0.0 `PET_LIMITS`/`PET_RULES` (first-pet onboarding, Advisor Revision Sprint 1 — approved)**.
+
+> **Pet registration is SEPARATE from signup (frozen).** A pet is created **only after** the owner has registered, verified and logged in. `ownerId` is taken from the **authenticated session/context** — a client-submitted `ownerId` must never be trusted, and a User must never be able to create a pet for another owner.
+
+> **Empty medical data (frozen).** A newly created pet starts with **no** appointment, consultation, vaccination, medical history, prescription, lab result or document. APIs return honest empty collections. Production seed logic must **not** fabricate demo medical records for new pets.
 
 | Field | Type | Req | Meaning | Validation |
 |---|---|---|---|---|
-| petId | int (AI) | R | PK | server-generated |
-| ownerId | int → users.userId | R | owner link | **FK, never name-matched** (explicit frontend rule); owner must exist (`owner_not_found` guard) |
-| name | string(80) | R | pet name | required (frontend guard) |
+| petId | int (AI) | R | PK | server-generated (maps to `pets.id`) |
+| ownerId | int → users.id | R | owner link | **FK, never name-matched**; **resolved from the authenticated session, not from the request body**; owner must exist (`owner_not_found` guard) |
+| name | string(50) | R | pet name | `max:50`; whitespace-only rejected; control characters rejected |
 | species | enum(`Dog`,`Cat`,`Bird`,`Rabbit`,`Other`) | R | species | when `Other`, `speciesCustom` required non-empty |
-| speciesCustom | string(50) | O | custom species text | cleared when species ≠ Other |
-| breed | string(80) | R (may be empty string) | breed select value | when breed is `Other`, `breedCustom` carries the text |
-| breedCustom | string(80) | O | custom breed text | |
+| speciesCustom | string(50) | O | custom species text | `max:50`; cleared when species ≠ Other |
+| breed | string(60) | R (may be empty string) | breed select value | when breed is `Other`, `breedCustom` carries the text |
+| breedCustom | string(60) | O | custom breed text | `max:60`; cleared when breed ≠ Other |
 | gender | enum(`Male`,`Female`) | R | sex | |
-| age | int (years) | O | age | ≥ 0 |
-| weightKg | decimal(5,2) | O | weight | 0.1 step |
-| color | string(120) | O | color / markings | |
+| age | int (years) | O | age | `max:50`, whole years, **PROVISIONAL UI/BUSINESS CONSTRAINT — not a veterinary truth** (see §2.1) |
+| weightKg | decimal(5,2) | O | weight in kg | max `200`, 2 decimals; **PROVISIONAL** (see §2.1). Must parse as a real number: reject `e`/`E`, `+`/`-` signs, and empty/NaN input |
+| color | string(50) | O | color / markings | `max:50` |
 | reproductiveStatus | enum(`Intact`,`Spayed`,`Neutered`,`Not Sure`) | O | reproductive status | |
-| microchipId | string(60) | O | microchip | |
-| allergies | text | O | known allergies | |
-| chronicConditions | text | O | chronic conditions | |
-| notes | text | O | medical notes | |
+| microchipId | string(30) | O | microchip | `max:30`; `[A-Za-z0-9-]` only |
+| allergies | string(200) | O | known allergies | `max:200` |
+| chronicConditions | string(200) | O | chronic conditions | `max:200` |
+| notes | string(500) | O | medical notes | `max:500`; **wire field is `medical_notes`**, stored as `pets.notes` — keep one representation, do not add a second column |
 | photo | file path | O | form-only upload asset | **not** profile contract data; **BACKEND DECISION REQUIRED** (storage + endpoint) |
+
+### 2.1 Age / weight maxima are PROVISIONAL
+
+`PET_LIMITS.age.max = 50` and `PET_LIMITS.weightKg.max = 200` are the values the existing form already advertised. They are a **UI/business guardrail, not medical truth**, and are flagged `TODO(BACKEND)` in `user/pet-onboarding.js`.
+
+**This docs-only pass deliberately does not invent veterinary ranges.** Before B2, the product/vet owner should confirm real maxima; until then mirror these values so behaviour matches the approved UI, and treat any change as a coordinated contract revision.
+
+> If the schema later switches from `age` to a birthdate, prefer **deriving** age over permanently storing both.
 
 ## 3. DOCTOR
 
@@ -58,7 +91,7 @@ Source: `shared/mock-doctors.js` DOCTORS seed + Admin accounts create/edit + ava
 | firstName / lastName | string(50) | R | identity | create requires first+last+email |
 | middleName | string(50) | O | | |
 | name | string(120) | R | display ("Dr. Santos" style) | keep in sync server-side |
-| email | string(191) | R | contact + login identity | **unique** (duplicate_email guard) |
+| email | string(254) | R | contact + login identity | same `users.email` column as §1 — **unique** (duplicate_email guard), compared after normalisation |
 | phone | string(20) | O | contact | |
 | specialization | string(100) | O | e.g. General Practice | |
 | role | enum constant `Doctor` | R | fixed | no role selector exists in Admin create form |
