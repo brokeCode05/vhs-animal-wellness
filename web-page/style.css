@@ -375,20 +375,39 @@ header {
   transition: transform 0.3s ease-in-out;
 }
 
-/* Shimmer line */
+/* Shimmer line
+
+   The line used to be a 60%-wide bar whose `left` was animated from -60% to
+   160%. Because `header` is position:sticky with overflow-x:visible, that bar
+   was never clipped, so at the end of every sweep it stuck out past the
+   document's right edge (60% of 360px wide, pushed to left:160% => right edge
+   ~792px on a 360px viewport). Chromium grew documentElement.scrollWidth from
+   360 to ~790 every 4s and snapped it back, which is what made a narrow phone
+   page look like it was widening into a desktop layout and then resetting.
+
+   The sweep now moves the GRADIENT inside a bar that is exactly as wide as the
+   header (`inset: auto 0 0 0`), so the element itself can never extend past the
+   viewport at any point in the animation, on any breakpoint, and the moving
+   line keeps its look. No overflow clipping is needed, which matters because
+   header carries backdrop-filter and therefore already forms a containing
+   block for the fixed-position mobile dropdown menu. */
 header::after {
   content: '';
   position: absolute;
-  bottom: 0; left: -100%;
-  width: 60%; height: 2px;
-  background: linear-gradient(90deg, transparent, rgba(255,170,0,0.8), rgba(255,255,255,0.6), transparent);
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent 0%, rgba(255,170,0,0.8) 45%, rgba(255,255,255,0.6) 55%, transparent 100%);
+  background-size: 200% 100%;
+  background-repeat: no-repeat;
   animation: navShimmer 4s ease-in-out infinite;
   pointer-events: none;
 }
 
 @keyframes navShimmer {
-  0%   { left: -60%; }
-  100% { left: 160%; }
+  0%   { background-position: -100% 0; }
+  100% { background-position: 200% 0; }
 }
 
 header.nav-hidden {

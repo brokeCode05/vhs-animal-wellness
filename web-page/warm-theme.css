@@ -49,8 +49,12 @@ header {
   box-shadow: 0 4px 24px rgba(109, 74, 177, 0.16);
 }
 
+/* Recolour the nav shimmer for the light theme.
+   `background-image`, NOT the `background` shorthand: the shorthand would reset
+   background-size / -repeat back to their initial values and silently cancel the
+   sweep that style.css drives with @keyframes navShimmer. */
 header::after {
-  background: linear-gradient(90deg, transparent, rgba(139, 92, 246, 0.7), rgba(109, 74, 177, 0.6), transparent);
+  background-image: linear-gradient(90deg, transparent 0%, rgba(139, 92, 246, 0.7) 45%, rgba(109, 74, 177, 0.6) 55%, transparent 100%);
 }
 
 .logo-img {
