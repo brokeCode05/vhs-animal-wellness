@@ -13,6 +13,29 @@ window.addEventListener("load", () => {
 const _PAW_SVG = '<svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg"><ellipse cx="22" cy="18" rx="8" ry="10"/><ellipse cx="42" cy="18" rx="8" ry="10"/><ellipse cx="10" cy="34" rx="7" ry="9"/><ellipse cx="54" cy="34" rx="7" ry="9"/><path d="M32 36c-10 0-18 7-18 14s4 10 10 10c4 0 6-2 8-6 2 4 4 6 8 6 6 0 10-5 10-10s-8-14-18-14z"/></svg>';
 const _PAW_TRAIL = '<div class="loader-paws"><div class="loader-paw">' + _PAW_SVG + '</div><div class="loader-paw">' + _PAW_SVG + '</div><div class="loader-paw">' + _PAW_SVG + '</div><div class="loader-paw">' + _PAW_SVG + '</div></div>';
 
+// ===== PAGE SCROLL LOCK =====
+// Single owner for body scroll. The mobile menu and the auth modal both need it,
+// so a plain `body.style.overflow = ""` in either one used to unlock the page
+// behind the other. Reference-counted, and the scroll offset is restored once on
+// the final release (iOS resets the page when the overflow is cleared).
+let _scrollLocks = 0;
+let _lockedScrollY = 0;
+
+function acquireScrollLock() {
+  if (_scrollLocks++ === 0) {
+    _lockedScrollY = window.scrollY || document.documentElement.scrollTop || 0;
+    document.body.style.overflow = "hidden";
+  }
+}
+
+function releaseScrollLock() {
+  if (_scrollLocks === 0) return;
+  _scrollLocks -= 1;
+  if (_scrollLocks > 0) return;
+  document.body.style.overflow = "";
+  window.scrollTo(0, _lockedScrollY);
+}
+
 // ===== HAMBURGER MENU =====
 const hamburger = document.getElementById("hamburger");
 const navMenu = document.querySelector(".nav-menu");
@@ -23,16 +46,22 @@ function toggleMenu() {
   hamburger.classList.toggle("active");
   navMenu.classList.toggle("active");
   mobileOverlay.classList.toggle("active");
-  document.body.style.overflow =
-    hamburger.classList.contains("active") ? "hidden" : "";
+  if (hamburger.classList.contains("active")) {
+    acquireScrollLock();
+  } else {
+    releaseScrollLock();
+  }
 }
 
 function closeMenu() {
   if (!hamburger || !navMenu || !mobileOverlay) return;
+  const wasOpen = hamburger.classList.contains("active");
   hamburger.classList.remove("active");
   navMenu.classList.remove("active");
   mobileOverlay.classList.remove("active");
-  document.body.style.overflow = "";
+  // Guarded so a stray close (overlay click, a modal closing) cannot release a
+  // lock this menu never took.
+  if (wasOpen) releaseScrollLock();
 }
 
 if (hamburger) hamburger.addEventListener("click", toggleMenu);
@@ -163,15 +192,11 @@ if (heroPets.length > 0) setInterval(nextHeroPet, 5000);
   window.addEventListener('scroll', checkInView, { once: true });
 })();
 
-// Hero Sign Up Button
-document.getElementById("heroSignupBtn")?.addEventListener("click", () => {
-  openBookModal();
-});
-
-document.getElementById("heroLoginBtn")?.addEventListener("click", () => {
-  openModal();
-  showForm(document.getElementById("loginForm"));
-});
+// NOTE: the hero Sign Up / Login buttons are wired in the single auth-trigger
+// table below. An older copy of these handlers lived here and called
+// openBookModal(), which only exists in the USER portal (user/user-script.js) —
+// so clicking the hero CTA threw "openBookModal is not defined" on every public
+// page. The handlers are intentionally not duplicated.
 
 // ===== ABOUT BACKGROUND SLIDESHOW =====
 let bgIndex = 0;
@@ -268,8 +293,11 @@ const signupForm = document.getElementById("signupForm");
 
 function openModal() {
   if (!modal) return;
+  // The mobile menu also holds a scroll lock; drop it first so the modal is
+  // left holding exactly one lock.
+  closeMenu();
   modal.classList.add("active");
-  document.body.style.overflow = "hidden";
+  acquireScrollLock();
 
   // Default: show signup form
   if (loginForm) loginForm.classList.add("hidden");
@@ -279,7 +307,7 @@ function openModal() {
 function closeModal() {
   if (!modal) return;
   modal.classList.remove("active");
-  document.body.style.overflow = "";
+  releaseScrollLock();
 }
 
 function showForm(formElement) {
@@ -293,10 +321,12 @@ function showForm(formElement) {
   ["ctaSignupBtn", signupForm],
   ["servicesSignupBtn", signupForm],
   ["heroSignupBtn", signupForm],
+  ["navMenuSignupBtn", signupForm],
   ["navLoginBtn", loginForm],
   ["ctaLoginBtn", loginForm],
   ["servicesLoginBtn", loginForm],
   ["heroLoginBtn", loginForm],
+  ["navMenuLoginBtn", loginForm],
 ].forEach(([id, form]) => {
   document.getElementById(id)?.addEventListener("click", () => {
     openModal();
@@ -368,13 +398,13 @@ function openServiceModal(card) {
     serviceModalCategory.textContent = clone.textContent.trim();
   }
   serviceModal.classList.add("active");
-  document.body.style.overflow = "hidden";
+  acquireScrollLock();
 }
 
 function closeServiceModal() {
   if (!serviceModal) return;
   serviceModal.classList.remove("active");
-  document.body.style.overflow = "";
+  releaseScrollLock();
 }
 
 document.querySelectorAll(".btn-service").forEach((btn) => {

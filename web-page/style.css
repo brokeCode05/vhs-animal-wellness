@@ -2144,6 +2144,12 @@ footer a:hover {
   }
 }
 
+/* Login / Sign Up in the hamburger are a MOBILE-only entry point; at desktop
+   widths `.navbar-btns` already carries both, so the row stays hidden there. */
+.nav-menu .nav-menu-auth {
+  display: none;
+}
+
 @media (max-width: 768px) {
   /* Navigation */
   .nav-menu {
@@ -2182,6 +2188,36 @@ footer a:hover {
     border-bottom: none;
   }
 
+  /* Login / Sign Up inside the hamburger.
+     `.navbar-btns` is display:none at this width, so without these the two
+     auth entry points are unreachable on mobile. Desktop is untouched: the
+     row is hidden again outside the media query below. */
+  .nav-menu .nav-menu-auth {
+    display: flex;
+    gap: 0.6rem;
+    padding: 0.9rem 0;
+    border-bottom: none;
+  }
+
+  .nav-menu .nav-auth-btn {
+    flex: 1 1 0;
+    padding: 0.7rem 1rem;
+    border-radius: 0.5rem;
+    border: 2px solid rgba(255, 255, 255, 0.35);
+    background: transparent;
+    color: #ffffff;
+    font-size: 0.95rem;
+    font-weight: 600;
+    font-family: inherit;
+    cursor: pointer;
+  }
+
+  .nav-menu .nav-auth-btn-primary {
+    background: var(--primary, #6d4ab1);
+    border-color: var(--primary, #6d4ab1);
+    color: #ffffff;
+  }
+
   .hamburger {
     display: flex;
   }
@@ -2194,18 +2230,55 @@ footer a:hover {
     display: none;
   }
 
-  /* Modal Responsive - Mobile Friendly */
+  /* Modal Responsive - Mobile Friendly
+
+     STABILITY CONTRACT: once the auth modal is open its position comes from
+     LAYOUT ONLY and never from an animation. The previous rule bottom-anchored
+     the sheet (`align-items: flex-end`) and let `@keyframes slideUp`
+     (`translateY(100%)`) own its position, so the resting place of the sheet
+     existed only inside the animation: interrupted or re-resolved, it sat a
+     full sheet-height BELOW the viewport, and because the anchor was the
+     bottom edge, every content-height change (a validation message, a form
+     swap, the OTP panel) and every visual-viewport change (mobile keyboard /
+     URL bar) moved the whole sheet. That produced the reported drift → stretch
+     → off-screen → restart cycle.
+
+     Now: top-anchored inside a viewport-bound shell sized with dvh, one scroll
+     container, and an entrance that fades in without translating the shell. */
   .modal {
-    padding: 0;
-    align-items: flex-end;
+    padding: 0.75rem 0;
+    align-items: flex-start;
+    justify-content: center;
+    /* dvh tracks the VISIBLE viewport, so the shell never grows taller than
+       the screen when the keyboard or URL bar is showing. vh is the fallback
+       for engines without dvh. */
+    height: 100vh;
+    height: 100dvh;
+    max-height: 100vh;
+    max-height: 100dvh;
+    /* The sheet below is the only scroll container. Two competing scrollers
+       (overlay + sheet) is what let content escape the viewport. */
+    overflow: hidden;
+    overscroll-behavior: contain;
   }
 
   .modal-content {
     padding: 1.5rem 1.25rem 2rem;
     max-height: 92vh;
+    max-height: 92dvh;
     border-radius: 1.25rem 1.25rem 0 0;
     width: 100%;
-    animation: slideUp 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+    /* Settles on `transform: none`, i.e. the layout position, and the 8px
+       offset is small enough that an interrupted entrance can never push the
+       sheet out of the viewport. */
+    animation: modalSheetIn 0.22s ease-out;
+  }
+
+  /* Separate name from `slideUp`: that keyframe is still used by the hero
+     title inside this same media query and must not be redefined here. */
+  @keyframes modalSheetIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: none; }
   }
 
   @keyframes slideUp {
