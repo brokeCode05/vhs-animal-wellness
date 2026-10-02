@@ -29,7 +29,8 @@
    `new FormData(signupForm)` still posts the identical payload to
    web-page/index.php.
 
-   v1.0.0
+   v1.1.0 — live character counters on the limited free-text fields,
+   and the 18+ owner minimum-age DOB cutoff (computed from today).
    ============================================================ */
 (function (global) {
   'use strict';
@@ -44,8 +45,14 @@
     passwordMax: 72,          // bcrypt (PASSWORD_BCRYPT) truncates past 72 bytes
     address: 250,
     phoneLocalDigits: 10,
-    otpDigits: 6
+    otpDigits: 6,
+    minOwnerAge: 18           // an owner account holder must be a legal adult
   };
+
+  // Fraction of a field's limit at which its counter warns. Which fields get
+  // a counter is driven by FIELDS.counter, never by a list here, so adding one
+  // is a single flag on the field.
+  var COUNTER_NEAR = 0.9;
 
   // Philippine mobile convention already used by the public site:
   // the field shows a local 9XXXXXXXXX under a fixed "PH +63" prefix
@@ -106,17 +113,17 @@
     lastName: {
       id: 'signupLastName', name: 'lastName2', label: 'Last Name', required: true,
       type: 'text', max: LIMITS.lastName, placeholder: 'Dela Cruz',
-      autocomplete: 'family-name', step: 1
+      autocomplete: 'family-name', step: 1, counter: true
     },
     firstName: {
       id: 'signupFirstName', name: 'firstName2', label: 'First Name', required: true,
       type: 'text', max: LIMITS.firstName, placeholder: 'Juan',
-      autocomplete: 'given-name', step: 1
+      autocomplete: 'given-name', step: 1, counter: true
     },
     middleName: {
       id: 'signupMiddleName', name: 'middleName2', label: 'Middle Name', required: false,
       type: 'text', max: LIMITS.middleName, placeholder: 'Santos (optional)',
-      autocomplete: 'additional-name', step: 1
+      autocomplete: 'additional-name', step: 1, counter: true
     },
     phone: {
       id: 'signupPhoneLocal', name: '', label: 'Phone Number', required: true,
@@ -127,7 +134,7 @@
     address: {
       id: 'signupAddress', name: 'address', label: 'Address', required: true,
       type: 'textarea', max: LIMITS.address, placeholder: 'Street, Barangay, City, Province',
-      rows: 2, autocomplete: 'street-address', step: 1
+      rows: 2, autocomplete: 'street-address', step: 1, counter: true
     },
     dob: {
       id: 'signupDob', name: 'dob', label: 'Date of Birth', required: true,
@@ -177,6 +184,17 @@
     return d.getFullYear() + '-' +
       ('0' + (d.getMonth() + 1)).slice(-2) + '-' +
       ('0' + d.getDate()).slice(-2);
+  }
+
+  // Latest DOB that still satisfies a minimum age, computed from the CURRENT
+  // date on every call — never a hardcoded year. Someone whose birthday is
+  // today turns the right age today, so the cutoff moves with the calendar.
+  function latestDobForAge(minAge) {
+    var now = new Date();
+    var cutoff = new Date(now.getFullYear() - minAge, now.getMonth(), now.getDate());
+    return cutoff.getFullYear() + '-' +
+      ('0' + (cutoff.getMonth() + 1)).slice(-2) + '-' +
+      ('0' + cutoff.getDate()).slice(-2);
   }
 
   function escapeHtml(value) {
@@ -255,6 +273,11 @@
     }
     if (v > todayIso()) return 'Date of birth cannot be in the future.';
     if (parts[0] < 1900) return 'Enter a valid date of birth.';
+    // Owner accounts are adults only. The cutoff is recomputed from today,
+    // so this stays correct without a hardcoded year.
+    if (v > latestDobForAge(LIMITS.minOwnerAge)) {
+      return 'You must be at least ' + LIMITS.minOwnerAge + ' years old to create an account.';
+    }
     return '';
   }
 
@@ -346,6 +369,31 @@
     });
   }
 
+  // ── Character counters ──────────────────────────────────────────────────
+  // One counter per limited free-text field so the user can see the ceiling
+  // before they hit it. The hard stop is still the input's maxlength.
+  function counterFields() {
+    return Object.keys(FIELDS).filter(function (key) { return FIELDS[key].counter; });
+  }
+
+  function updateCounter(key) {
+    var f = field(key);
+    if (!f || !f.counter) return;
+    var node = el('swCount-' + key);
+    if (!node) return;
+    // maxlength stops typed input, but autofill can drop in a longer value.
+    // Never render "80 / 50" — the field rule reports the real overflow and
+    // the counter stays truthful about the ceiling.
+    var used = Math.min(rawValue(key).length, f.max);
+    node.textContent = used + ' / ' + f.max;
+    node.classList.toggle('is-near', used >= Math.ceil(f.max * COUNTER_NEAR) && used < f.max);
+    node.classList.toggle('is-full', used >= f.max);
+  }
+
+  function updateCounters() {
+    counterFields().forEach(updateCounter);
+  }
+
   function installGuards() {
     ['lastName', 'firstName', 'middleName'].forEach(function (key) {
       installGuard(input(key), function (v) { return NAME_PATTERN.test(v); }, function () {
@@ -430,6 +478,12 @@
     return '<p class="sw-field-error" id="swErr-' + key + '" role="alert" hidden></p>';
   }
 
+  function counterMarkup(key) {
+    var f = field(key);
+    if (!f || !f.counter) return '';
+    return '<span class="sw-counter" id="swCount-' + key + '" aria-hidden="true">0 / ' + f.max + '</span>';
+  }
+
   function attrs(map) {
     return Object.keys(map).filter(function (k) {
       return map[k] !== undefined && map[k] !== null && map[k] !== false;
@@ -473,7 +527,7 @@
 
     return '<div class="form-group ' + (extraClass || '') + '" data-field="' + key + '">' +
       '<label for="' + f.id + '">' + f.label + requiredMark + '</label>' +
-      control + hint + errorMarkup(key) +
+      control + hint + counterMarkup(key) + errorMarkup(key) +
       '</div>';
   }
 
@@ -505,12 +559,18 @@
   }
 
   function renderPersonalStep() {
+    // Three name fields share one row (they are short), then phone + DOB,
+    // then the address on its own full-width row. Keeps the tallest step
+    // inside the modal without shrinking any text.
     return '<div class="sw-panel" data-panel="1" role="group" aria-labelledby="swStepTitle-1">' +
       renderStepHead(1) +
+      '<div class="sw-grid sw-grid-names">' +
+      renderField('lastName') + renderField('firstName') + renderField('middleName') +
+      '</div>' +
       '<div class="sw-grid">' +
-      renderField('lastName') + renderField('firstName') +
-      renderField('middleName', 'sw-span-2') +
       renderField('phone') + renderField('dob') +
+      '</div>' +
+      '<div class="sw-grid">' +
       renderField('address', 'sw-span-2') +
       '</div>' +
       '</div>';
@@ -562,7 +622,7 @@
       'maxlength="' + LIMITS.otpDigits + '" inputmode="numeric" aria-describedby="swErr-otp" />' +
       '<button type="button" id="resendOtpBtn" class="resend-btn" disabled>Resend in <span id="otpTimer">30</span>s</button>' +
       '</div>' +
-      '<span class="form-hint">We have sent a 6-digit verification code to your phone number.</span>' +
+      '<span class="form-hint">Enter the ' + LIMITS.otpDigits + '-digit code sent to your phone number.</span>' +
       errorMarkup('otp') +
       '</div>' +
       '</div>';
@@ -736,11 +796,14 @@
 
     render();
 
+    // The date picker itself must not offer a date that would fail the rule
+    // below, so the ceiling is derived from today, not hardcoded.
     var dob = el('signupDob');
-    if (dob) dob.max = todayIso();
+    if (dob) dob.max = latestDobForAge(LIMITS.minOwnerAge);
 
     installGuards();
     phoneValue();
+    updateCounters();
 
     // Live re-validation clears an error as soon as it is fixed.
     Object.keys(FIELDS).forEach(function (key) {
@@ -748,6 +811,7 @@
       if (!control) return;
       control.addEventListener('input', function () {
         if (key === 'phone') phoneValue();
+        updateCounter(key);
         var err = errorNode(key);
         if (err && !err.hidden) validateField(key);
       });
@@ -794,6 +858,10 @@
       validateTerms();
       phoneValue();
       gotoStep(0, false);
+      // `reset` fires BEFORE the browser restores the default values, so the
+      // counters have to be re-read on the next tick or they keep the numbers
+      // of the values that were just cleared.
+      setTimeout(updateCounters, 0);
     });
 
     gotoStep(0, false);

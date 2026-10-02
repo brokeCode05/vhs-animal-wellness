@@ -657,8 +657,36 @@ function syncSignupPhone() {
   return "";
 }
 
+// ── VERIFICATION ENDPOINT AVAILABILITY ─────────────────────────────────────
+// The verification + registration endpoints are PHP. When the site is served
+// by a plain static server (python -m http.server) they cannot execute and come
+// back as a 501 / HTML error page. That is NOT a rejected verification, so say
+// so plainly: no code was sent and no verification happened.
+//
+// Never falls back to "verified" or to any demo persistence — the real backend
+// path below is untouched.
+// TODO(BACKEND): remove once index.php / sms_otp.php are served for real.
+const _ENDPOINT_ABSENT = [404, 405, 500, 501, 502, 503];
+
+function resetOtpResend() {
+  const resendBtn = document.getElementById("resendOtpBtn");
+  if (resendBtn) {
+    resendBtn.disabled = false;
+    resendBtn.textContent = "Send OTP";
+  }
+}
+
+function showVerificationUnavailable(title) {
+  showAlert(
+    "The verification service could not be reached, so nothing was sent and no verification was performed. " +
+      "If you are previewing on a static server (python -m http.server), serve the site through XAMPP/Apache to test email or SMS verification.",
+    "info",
+    title || "Verification Unavailable",
+  );
+}
+
 async function triggerOtpSend() {
-  syncSignupPhone();
+  const phone = syncSignupPhone();
 
   // Phone rule comes from the wizard (single source of the PH format).
   const phoneIssue = window.VHSSignup
@@ -714,12 +742,29 @@ async function triggerOtpSend() {
       body: formData,
     });
 
+    // Endpoint absent / not executing (the static-preview case).
+    if (_ENDPOINT_ABSENT.includes(response.status)) {
+      clearInterval(otpTimerInterval);
+      resetOtpResend();
+      showVerificationUnavailable();
+      return;
+    }
+
     // Catch explicit server routing errors (like 404 Not Found or 500 Server Error)
     if (!response.ok) {
       throw new Error(`Server returned HTTP Status Code ${response.status}`);
     }
 
-    const data = await response.json();
+    let data;
+    try {
+      data = await response.json();
+    } catch (err) {
+      // Answered, but not with our JSON contract.
+      clearInterval(otpTimerInterval);
+      resetOtpResend();
+      showVerificationUnavailable();
+      return;
+    }
 
     if (data && data.status === "success") {
       if (data.dev_otp) {
@@ -761,10 +806,13 @@ async function triggerOtpSend() {
       );
     }
   } catch (err) {
-    // Log the exact internal parsing error to your browser console to pinpoint the line number
+    // Genuine network failure (offline, DNS, blocked) — distinct from the
+    // endpoint-absent case above.
     console.error("OTP Server Routing Diagnostic:", err);
+    clearInterval(otpTimerInterval);
+    resetOtpResend();
     showAlert(
-      "Error reaching the OTP server. Please verify your connection or XAMPP folder structure.",
+      "Could not reach the verification service. Check your connection and try again.",
       "error",
       "Connection Error",
     );
@@ -841,8 +889,19 @@ if (signupForm) {
         body: formData,
       });
 
-      // CHANGED HERE: Parse the response payload as a JSON object
-      const data = await response.json();
+      // Endpoint absent / not executing (the static-preview case).
+      if (_ENDPOINT_ABSENT.includes(response.status)) {
+        showVerificationUnavailable("Registration Unavailable");
+        return;
+      }
+
+      let data;
+      try {
+        data = await response.json();
+      } catch (err) {
+        showVerificationUnavailable("Registration Unavailable");
+        return;
+      }
 
       // CHANGED HERE: Access the payload status via data.status
       if (

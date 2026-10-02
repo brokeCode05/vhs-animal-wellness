@@ -1,13 +1,37 @@
 /* ============================================================
    VHSSIGNUP — wizard styling for the public signup modal
    ============================================================
-   Matches web-page/style.css (dark purple modal, amber accent).
-   Restrained on purpose: no gradients of its own, no glass, no
-   decorative motion — just the progress rail, the step panels
-   and the inline field errors from shared/signup-wizard.js.
+   The public site renders in the LIGHT purple theme
+   (web-page/warm-theme.css: violet #8b5cf6 on cream/lavender).
+   This stylesheet therefore declares its own scoped tokens
+   instead of relying on --secondary / --text-dim / --error,
+   which are either violet or undefined in that theme — that is
+   what previously produced muddy purple-grey fills and
+   unreadable labels.
 
-   v1.0.0
+   Restrained on purpose: no glass, no decorative motion, no
+   gradients of its own — the progress rail, the four panels,
+   the character counters and the inline field errors.
+
+   v1.1.0
    ============================================================ */
+
+#signupWizard {
+  /* VHS purple system (matches warm-theme.css) */
+  --sw-purple: #6d4ab1;
+  --sw-violet: #8b5cf6;
+  --sw-lavender: #b79cf9;
+  --sw-ink: #3b2d4a;
+  --sw-muted: #7a6a8f;
+  --sw-faint: #a89ab8;
+  --sw-line: rgba(109, 74, 177, 0.16);
+  --sw-line-strong: rgba(109, 74, 177, 0.3);
+  --sw-surface: #fffdfe;
+  --sw-tint: #f5eefc;
+  --sw-danger: #b91c1c;
+  --sw-danger-line: rgba(220, 38, 38, 0.5);
+  --sw-ok: #15803d;
+}
 
 /* ── Progress rail ─────────────────────────────────────────────────── */
 .sw-progress {
@@ -15,7 +39,7 @@
   align-items: flex-start;
   gap: 0.5rem;
   list-style: none;
-  margin: 0 0 1.75rem;
+  margin: 0 0 0.85rem;
   padding: 0;
 }
 
@@ -25,7 +49,7 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0.4rem;
+  gap: 0.35rem;
   position: relative;
   text-align: center;
 }
@@ -34,11 +58,11 @@
 .sw-progress-step::before {
   content: '';
   position: absolute;
-  top: 0.95rem;
+  top: 0.85rem;
   right: 50%;
   left: -50%;
   height: 2px;
-  background: rgba(255, 255, 255, 0.15);
+  background: var(--sw-line);
 }
 
 .sw-progress-step:first-child::before {
@@ -48,39 +72,39 @@
 .sw-progress-dot {
   position: relative;
   z-index: 1;
-  width: 1.9rem;
-  height: 1.9rem;
+  width: 1.7rem;
+  height: 1.7rem;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 0.8rem;
+  font-size: 0.78rem;
   font-weight: 700;
-  color: var(--text-dim, #d8d0ea);
-  background: rgba(30, 10, 80, 0.9);
-  border: 2px solid rgba(255, 255, 255, 0.2);
-  transition: border-color var(--transition, 0.3s ease), color var(--transition, 0.3s ease);
+  color: var(--sw-muted);
+  background: var(--sw-surface);
+  border: 2px solid var(--sw-line-strong);
+  transition: border-color 0.2s ease, color 0.2s ease, background 0.2s ease;
 }
 
 .sw-progress-step.is-active .sw-progress-dot {
-  border-color: var(--secondary, #ffaa00);
-  color: var(--secondary, #ffaa00);
+  border-color: var(--sw-purple);
+  background: var(--sw-purple);
+  color: #fff;
 }
 
 .sw-progress-step.is-done .sw-progress-dot {
-  border-color: var(--success, #22c55e);
-  color: var(--success, #22c55e);
+  border-color: var(--sw-ok);
+  color: var(--sw-ok);
 }
 
 .sw-progress-step.is-done::before {
-  background: var(--success, #22c55e);
+  background: var(--sw-ok);
 }
 
 .sw-progress-label {
-  font-size: 0.72rem;
+  font-size: 0.74rem;
   font-weight: 600;
-  letter-spacing: 0.02em;
-  color: rgba(255, 255, 255, 0.55);
+  color: var(--sw-muted);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -88,12 +112,22 @@
 }
 
 .sw-progress-step.is-active .sw-progress-label {
-  color: var(--text, #fdfefd);
+  color: var(--sw-purple);
+  font-weight: 700;
 }
 
 /* ── Step panels ───────────────────────────────────────────────────── */
+/* The site modal is sized for forms that scroll. The wizard's own steps can
+   fit a 768–900px desktop, so trim this modal's padding only (scoped through
+   :has so no other modal changes) rather than shrinking any text. */
+.modal-content:has(#signupWizard) {
+  padding: 26px 32px;
+}
+
+/* Just enough to stop the modal jumping between steps, without leaving a
+   visible gap under the shorter panels (Review / Verify). */
 .sw-body {
-  min-height: 19rem;
+  min-height: 11rem;
 }
 
 .sw-panel[hidden] {
@@ -101,23 +135,25 @@
 }
 
 .sw-step-head {
-  margin-bottom: 1.5rem;
+  margin-bottom: 0.6rem;
 }
 
 .sw-step-title {
-  font-size: 1.35rem;
+  font-size: 1.2rem;
   font-weight: 700;
-  color: var(--secondary, #ffaa00);
-  margin: 0 0 0.25rem;
+  color: var(--sw-purple);
+  margin: 0 0 0.15rem;
   outline: none;
 }
 
 .sw-step-note {
-  font-size: 0.9rem;
-  color: var(--text-dim, #d8d0ea);
+  font-size: 0.85rem;
+  color: var(--sw-muted);
   margin: 0;
 }
 
+/* Row spacing comes from .form-group's own bottom margin, so the grid must
+   not add a second one. */
 .sw-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -128,53 +164,101 @@
   grid-column: 1 / -1;
 }
 
+/* Tighten the inherited form rhythm so the wizard fits without scrolling.
+   Only spacing changes — no text is shrunk. */
+#signupWizard .form-group {
+  margin-bottom: 0.8rem;
+}
+
+#signupWizard .form-group label {
+  color: var(--sw-ink);
+  font-weight: 600;
+  margin-bottom: 0.3rem;
+}
+
+#signupWizard .form-group input,
+#signupWizard .form-group textarea {
+  padding: 0.7rem 0.85rem;
+}
+
+#signupWizard .form-hint {
+  color: var(--sw-faint);
+  font-style: normal;
+  margin-top: 0.25rem;
+}
+
+/* Names are short enough to sit three across on desktop. */
+.sw-grid-names {
+  grid-template-columns: repeat(3, 1fr);
+}
+
+/* ── Character counters ────────────────────────────────────────────── */
+.sw-counter {
+  display: block;
+  text-align: right;
+  margin-top: 0.2rem;
+  font-size: 0.7rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--sw-faint);
+  transition: color 0.2s ease;
+}
+
+.sw-counter.is-near {
+  color: #b45309;
+}
+
+.sw-counter.is-full {
+  color: var(--sw-danger);
+}
+
 /* ── Inline field errors ───────────────────────────────────────────── */
 .sw-field-error {
   display: block;
-  margin: 0.4rem 0 0;
-  font-size: 0.8rem;
+  margin: 0.3rem 0 0;
+  font-size: 0.79rem;
   font-weight: 600;
-  color: var(--error, #f87171);
+  color: var(--sw-danger);
 }
 
 .sw-field-error[hidden] {
   display: none !important;
 }
 
-.form-group input[aria-invalid='true'],
-.form-group textarea[aria-invalid='true'],
-.form-group select[aria-invalid='true'] {
-  border-color: var(--error, #f87171);
-  box-shadow: 0 0 0 3px rgba(248, 113, 113, 0.15);
+#signupWizard .form-group input[aria-invalid='true'],
+#signupWizard .form-group textarea[aria-invalid='true'],
+#signupWizard .form-group select[aria-invalid='true'] {
+  border-color: var(--sw-danger-line);
+  box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.1);
 }
 
-.terms-checkbox input[type='checkbox'][aria-invalid='true'] {
-  outline: 2px solid var(--error, #f87171);
+#signupWizard .terms-checkbox input[type='checkbox'][aria-invalid='true'] {
+  outline: 2px solid var(--sw-danger);
   outline-offset: 2px;
 }
 
 /* ── Review ────────────────────────────────────────────────────────── */
 .sw-review-intro {
-  font-size: 0.9rem;
-  color: var(--text-dim, #d8d0ea);
-  margin: 0 0 1.25rem;
+  font-size: 0.85rem;
+  color: var(--sw-muted);
+  margin: 0 0 0.55rem;
 }
 
 .sw-review {
-  margin: 0 0 1.5rem;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 0.5rem;
+  margin: 0 0 0.7rem;
+  background: var(--sw-surface);
+  border: 1px solid var(--sw-line);
+  border-radius: 0.6rem;
   overflow: hidden;
 }
 
 .sw-review-row {
   display: grid;
-  grid-template-columns: 9rem 1fr auto;
+  grid-template-columns: 8.5rem 1fr auto;
   gap: 0.75rem;
   align-items: center;
-  padding: 0.85rem 1.1rem;
-  background: rgba(30, 10, 80, 0.5);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 0.35rem 0.85rem;
+  border-bottom: 1px solid var(--sw-line);
 }
 
 .sw-review-row:last-child {
@@ -182,58 +266,200 @@
 }
 
 .sw-review-row dt {
-  font-size: 0.8rem;
+  font-size: 0.74rem;
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: var(--text-dim, #d8d0ea);
+  letter-spacing: 0.05em;
+  color: var(--sw-purple);
 }
 
 .sw-review-row dd {
   margin: 0;
-  font-size: 0.95rem;
-  color: var(--text, #fdfefd);
+  font-size: 0.92rem;
+  font-weight: 600;
+  color: var(--sw-ink);
   overflow-wrap: anywhere;
 }
 
 .sw-review-edit {
-  background: none;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  color: var(--secondary, #ffaa00);
+  background: var(--sw-tint);
+  border: 1px solid var(--sw-line);
+  color: var(--sw-purple);
   border-radius: 0.35rem;
-  padding: 0.3rem 0.7rem;
-  font-size: 0.78rem;
-  font-weight: 600;
+  padding: 0.25rem 0.7rem;
+  font-size: 0.76rem;
+  font-weight: 700;
   font-family: inherit;
   cursor: pointer;
-  transition: background var(--transition, 0.3s ease), border-color var(--transition, 0.3s ease);
+  transition: background 0.2s ease, border-color 0.2s ease;
 }
 
-.sw-review-edit:hover {
-  background: rgba(255, 170, 0, 0.12);
-  border-color: var(--secondary, #ffaa00);
+.sw-review-edit:hover,
+.sw-review-edit:focus-visible {
+  background: #ece1fb;
+  border-color: var(--sw-line-strong);
 }
 
-.sw-terms {
+/* Terms stay inside the wizard's visual language and stay visible. */
+#signupWizard .sw-terms {
   margin: 0;
+  padding: 0.6rem 0.85rem;
+  background: var(--sw-tint);
+  border: 1px solid var(--sw-line);
+  border-radius: 0.6rem;
+}
+
+#signupWizard .sw-terms .terms-checkbox label {
+  color: var(--sw-ink);
+  font-size: 0.85rem;
+  line-height: 1.5;
+}
+
+#signupWizard .sw-terms .required {
+  color: var(--sw-danger);
 }
 
 .sw-no-pet {
-  font-size: 0.82rem;
-  color: rgba(255, 255, 255, 0.6);
-  margin: 1rem 0 0;
-  font-style: italic;
+  font-size: 0.78rem;
+  color: var(--sw-muted);
+  margin: 0.35rem 0 0;
+}
+
+/* ── Verify step ───────────────────────────────────────────────────── */
+#signupWizard .verification-method-group {
+  margin-bottom: 1rem;
+}
+
+#signupWizard .verification-choices {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.65rem;
+}
+
+#signupWizard .choice-container {
+  display: block;
+  cursor: pointer;
+}
+
+#signupWizard .choice-label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  height: 100%;
+  padding: 0.7rem 0.85rem;
+  border: 2px solid var(--sw-line-strong);
+  border-radius: 0.6rem;
+  background: var(--sw-surface);
+  color: var(--sw-ink);
+  font-size: 0.88rem;
+  font-weight: 600;
+  text-align: left;
+  transition: border-color 0.2s ease, background 0.2s ease, color 0.2s ease;
+}
+
+/* Selected state is solid VHS purple — never the old pale amber. */
+#signupWizard .choice-container input:checked + .choice-label {
+  border-color: var(--sw-purple);
+  background: var(--sw-purple);
+  color: #fff;
+}
+
+#signupWizard .choice-container:hover .choice-label {
+  border-color: var(--sw-purple);
+}
+
+#signupWizard .choice-container input:focus-visible + .choice-label {
+  box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.3);
+}
+
+#signupWizard .choice-container input {
+  position: absolute;
+  opacity: 0;
+  width: 1px;
+  height: 1px;
+}
+
+/* OTP panel reads as part of the same wizard. */
+#signupWizard #otpVerificationContainer {
+  margin: 0;
+  padding: 0.85rem 0.95rem;
+  background: var(--sw-tint);
+  border: 1px solid var(--sw-line);
+  border-radius: 0.6rem;
+}
+
+#signupWizard #otpVerificationContainer label {
+  color: var(--sw-ink);
+}
+
+#signupWizard .otp-input-wrapper {
+  display: flex;
+  gap: 0.5rem;
+  align-items: stretch;
+}
+
+/* web-page/style.css forces its dark `.otp-input-wrapper input` colours with
+   !important, which outranks any normal declaration here — so these must be
+   !important too or the OTP box stays dark inside the light purple wizard.
+   Scoped to #signupWizard, so the login OTP is untouched. */
+#signupWizard .otp-input-wrapper input {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 0.7rem 0.85rem;
+  border: 2px solid var(--sw-line-strong) !important;
+  border-radius: 0.5rem;
+  background: var(--sw-surface) !important;
+  color: var(--sw-ink) !important;
+  font-size: 1rem;
+  letter-spacing: 0.25em;
+}
+
+#signupWizard .otp-input-wrapper input:focus {
+  outline: none;
+  border-color: var(--sw-purple) !important;
+  box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.15) !important;
+}
+
+#signupWizard .resend-btn {
+  flex: 0 0 auto;
+  padding: 0 0.9rem;
+  border: 1px solid var(--sw-line-strong);
+  border-radius: 0.5rem;
+  background: var(--sw-surface);
+  color: var(--sw-purple);
+  font-size: 0.8rem;
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+#signupWizard .resend-btn:hover:not(:disabled) {
+  border-color: var(--sw-purple);
+  background: #ece1fb;
+}
+
+#signupWizard .resend-btn:disabled {
+  color: var(--sw-faint);
+  cursor: default;
+  opacity: 0.75;
 }
 
 /* ── Navigation ────────────────────────────────────────────────────── */
 .sw-nav {
-  margin-top: 1.75rem;
+  margin-top: 0.8rem;
   margin-bottom: 0;
-  gap: 0.75rem;
+  gap: 0.6rem;
 }
 
 .sw-nav .btn[hidden] {
   display: none !important;
+}
+
+#signupWizard .sw-nav .btn-secondary {
+  color: var(--sw-purple);
+  border: 2px solid var(--sw-line-strong);
+  background: var(--sw-surface);
 }
 
 /* ── Mobile ────────────────────────────────────────────────────────── */
@@ -244,9 +470,11 @@
 
   .sw-progress {
     gap: 0.35rem;
+    margin-bottom: 0.75rem;
   }
 
-  .sw-grid {
+  .sw-grid,
+  .sw-grid-names {
     grid-template-columns: 1fr;
   }
 
@@ -256,11 +484,20 @@
 
   .sw-review-row {
     grid-template-columns: 1fr auto;
-    gap: 0.35rem 0.75rem;
+    gap: 0.15rem 0.75rem;
+    padding: 0.45rem 0.75rem;
   }
 
   .sw-review-row dt {
     grid-column: 1 / -1;
+  }
+
+  #signupWizard .verification-choices {
+    grid-template-columns: 1fr;
+  }
+
+  #signupWizard .otp-input-wrapper {
+    flex-direction: column;
   }
 
   .sw-nav .btn {
