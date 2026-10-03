@@ -13,7 +13,7 @@
     <link rel="stylesheet" href="user-accent.css?v=2.5.0" />
     <link rel="stylesheet" href="../shared/vhs-ui.css?v=2.6.0" />
     <link rel="stylesheet" href="pet-onboarding.css?v=1.0.1" />
-    <link rel="stylesheet" href="vetti.css?v=4.5.0" />
+    <link rel="stylesheet" href="vetti.css?v=4.6.0" />
   </head>
   <body>
     <!-- TOP NAVBAR -->
@@ -213,9 +213,9 @@
                  above it, so appearing or disappearing never changes the
                  canvas height. -->
             <div class="vetti-composer-area">
-              <button type="button" class="vetti-scroll-down" id="vettiScrollDown" hidden>
+              <button type="button" class="vetti-scroll-down" id="vettiScrollDown" aria-label="Jump to latest" hidden>
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
-                Jump to latest
+                <span class="vetti-scroll-down-label">Jump to latest</span>
               </button>
               <div class="vetti-input-zone">
                 <div class="vetti-carousel" id="vettiCarousel" hidden></div>
@@ -1388,8 +1388,8 @@
     <script src="pet-onboarding.js?v=1.0.1"></script>
     <script src="checkin-script.js?v=1.0.0"></script>
     <!-- Vetti: state model -> onboarding -> UI, in dependency order. -->
-    <script src="vetti-state.js?v=4.5.0"></script>
-    <script src="vetti-onboarding.js?v=4.5.0"></script>
-    <script src="vetti-ui.js?v=4.5.0"></script>
+    <script src="vetti-state.js?v=4.6.0"></script>
+    <script src="vetti-onboarding.js?v=4.6.0"></script>
+    <script src="vetti-ui.js?v=4.6.0"></script>
   </body>
 </html>
