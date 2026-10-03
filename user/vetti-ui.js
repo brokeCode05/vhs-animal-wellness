@@ -1,36 +1,35 @@
 /* ============================================================
    VETTIUI — the Ask Vetti workspace (frontend only)
 
-   WORKSPACE STRUCTURE (top to bottom):
+   VETTI HAS EXACTLY TWO VISUAL ROLAS — never mixed:
 
-     A. WORKSPACE HEADER  — time-aware greeting, one warm supporting
-                            line, active-pet selector, Replay intro.
-     B. VETTI STAGE       — ONE persistent home for Vetti. This is the
-                            ONLY place the mascot, its expression, its
-                            state caption and its micro-animation live.
-     C. CONVERSATION      — user messages, Vetti replies, inline cards
-                            and compact forms. NO mascots here.
-     D. SUGGESTED RAIL    — horizontal, conversational sentences.
-     E. COMPOSER          — pinned at the bottom.
+     1. CANONICAL CHAT AVATAR
+        One single image (vetti-greeting.png) beside EVERY Vetti
+        message, at one fixed size. It is identity, not expression, so
+        it never switches with state.
 
-   THE CORE RULE: state changes, layout stays stable. Changing Vetti's
-   state swaps the stage artwork and caption. It never adds, resizes or
-   removes anything in the conversation, so the thread never jumps.
+     2. MAIN VETTI PRESENCE
+        One compact mascot near the top of the conversation, in one
+        location, whose EXPRESSION changes with state. This is where
+        idle / thinking / success / concerned and the rest are used.
 
-   THINKING IS TRANSIENT (VettiState.restingState). The stage enters
-   "thinking" while a message is being resolved, a short placeholder
-   appears in the thread, and BOTH are cleared before the real reply is
-   rendered. No intent may leave the stage sitting in "thinking".
+   WORKSPACE STRUCTURE
+     A. .vetti-greeting       compact header
+     B. .vetti-presence       compact Vetti presence + transient status
+     C. .vetti-canvas         conversation thread (the only scroller)
+     D + E. .vetti-input-zone   prompt rail + composer, one unit
 
-   No inference, no network. Every reply comes from VettiState's
-   deterministic intent table. Booking, availability, document
-   retrieval and any inference are marked TODO(BACKEND)/TODO(AI).
+   CORE RULES
+     - State changes, layout stays stable. Nothing reflows.
+     - Thinking is TRANSIENT and never visible alongside the answer.
+     - No permanent per-state caption. Status text appears only while a
+       real process is running, and is removed when it finishes.
 
-   IMAGE LOADING: the approved mascot PNGs are large. The stage loads
-   its current frame directly and crossfades between frames, so the
-   stage is never momentarily blank. No asset is edited or resized.
+   IMAGE LOADING: the approved PNGs are large. The presence loads its
+   current frame directly and crossfades between frames, so it is never
+   momentarily blank. No asset is edited or resized.
 
-   v2.0.0
+   v3.0.0
    ============================================================ */
 (function (global) {
   'use strict';
@@ -39,6 +38,19 @@
   var Onboarding = global.VettiOnboarding;
   var esc = Onboarding.escapeText;
 
+  // §C: the ONE canonical chat avatar. Same image on every Vetti
+  // message, so assistant identity never flickers between expressions.
+  var CHAT_AVATAR_STATE = 'greeting';
+
+  // §L: expressions that are worth a beat, then settle back to idle.
+  // Without this the presence can sit in "Success" or "Concerned" long
+  // after the moment has passed.
+  var TRANSIENT_STATES = {
+    success: 1, excited: 1, reminder: 1, concerned: 1,
+    apology: 1, error: 1, booking: 1, pet_profile: 1
+  };
+  var TRANSIENT_MS = 2800;
+
   // ── Local UI state (not conversation content) ─────────────────────────
   var ui = {
     activePetId: null,
@@ -46,14 +58,17 @@
     thinkFlip: false,        // thinking-a <-> thinking-b
     listening: false,        // composer focused
     thinking: false,         // a message is being resolved
+    saving: false,           // a pet is being saved
     petFormOpen: false,
     busy: false,
     booted: false,
-    stageState: 'idle',
+    presenceState: 'idle',
+    presenceMotion: '',
+    presenceReturn: 0,
     lastSuggestions: []
   };
 
-  // Conversational sentences, not dashboard labels. §22.
+  // Conversational sentences, not dashboard labels.
   var DEFAULT_SUGGESTIONS_WITH_PET = [
     'Show me my pets',
     'I want to book an appointment',
@@ -76,10 +91,10 @@
     dom.warmLine = el('vettiWarmLine');
     dom.petSelectorHost = el('vettiPetSelector');
     dom.replay = el('vettiReplayIntro');
-    dom.stage = el('vettiStage');
-    dom.stageFrame = el('vettiStageFrame');
-    dom.stageImg = el('vettiStageMascot');
-    dom.stageCaption = el('vettiStageCaption');
+    dom.presence = el('vettiPresence');
+    dom.presenceFrame = el('vettiPresenceFrame');
+    dom.presenceImg = el('vettiPresenceMascot');
+    dom.status = el('vettiStatus');
     dom.canvas = el('vettiCanvas');
     dom.carousel = el('vettiCarousel');
     dom.composer = el('vettiComposer');
@@ -126,28 +141,26 @@
     return list[0];
   }
 
-  // ── B. VETTI STAGE ───────────────────────────────────────────────────
-  // The single persistent home for Vetti. Everything stateful about Vetti
-  // is expressed here and only here.
-
-  // Swapping src on a rendered <img> blanks the box until a ~750 KB PNG
-  // decodes. The stage crossfades instead, so it is never empty.
+  // ── B. MAIN VETTI PRESENCE ───────────────────────────────────────────
+  // One compact location. Only the EXPRESSION changes here.
   //
-  // Re-entrancy matters: the stage can be asked to change state faster
-  // than a PNG decodes. Each fade carries a token; a superseded fade
-  // removes itself and leaves the previously settled face visible, and
-  // settling removes every other face so exactly one image is ever left
-  // in the frame.
-  var stageFadeToken = 0;
+  // Crossfade rather than swap src: replacing the src on a rendered
+  // <img> blanks the box until a ~750 KB PNG decodes, which is very
+  // visible on the one mascot the user is looking at. Each fade carries
+  // a token so a faster state change supersedes a slower one instead of
+  // orphaning faces.
+  var presenceToken = 0;
 
-  function crossfadeStage(src, alt) {
-    if (!dom.stageFrame) return;
-    var current = dom.stageFrame.querySelector('img[data-vetti-face]:last-of-type');
+  function crossfadePresence(src, alt) {
+    if (!dom.presenceFrame) return;
+    var current = dom.presenceFrame.querySelector('img[data-vetti-face]:last-of-type');
     if (current && current.getAttribute('src') === src) return;
 
-    var token = ++stageFadeToken;
+    var token = ++presenceToken;
     var next = document.createElement('img');
-    next.className = 'vetti-stage-mascot';
+    next.className = 'vetti-presence-mascot';
+    // Keep the id so the element stays referenceable after a swap.
+    next.id = 'vettiPresenceMascot';
     next.setAttribute('data-vetti-face', '1');
     next.setAttribute('alt', alt);
     next.width = 1254;
@@ -155,7 +168,7 @@
     next.decoding = 'async';
     next.draggable = false;
     next.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;'
-      + 'object-fit:cover;opacity:0;';
+      + 'object-fit:contain;opacity:0;';
 
     function drop() {
       if (next.parentNode) next.parentNode.removeChild(next);
@@ -163,18 +176,17 @@
     next.addEventListener('error', drop);
 
     function settle() {
-      // A newer fade started while this one was decoding.
-      if (token !== stageFadeToken) { drop(); return; }
-      var faces = dom.stageFrame.querySelectorAll('img[data-vetti-face]');
+      if (token !== presenceToken) { drop(); return; }
+      var faces = dom.presenceFrame.querySelectorAll('img[data-vetti-face]');
       Array.prototype.forEach.call(faces, function (face) {
         if (face !== next && face.parentNode) face.parentNode.removeChild(face);
       });
-      dom.stageImg = next;
-      next.style.transition = 'opacity .45s ease';
+      dom.presenceImg = next;
+      next.style.transition = 'opacity .4s ease';
       next.style.opacity = '1';
     }
 
-    dom.stageFrame.appendChild(next);
+    dom.presenceFrame.appendChild(next);
     if (next.complete && next.naturalWidth) {
       window.requestAnimationFrame(settle);
     } else {
@@ -183,34 +195,51 @@
     next.src = src;
   }
 
-  function setStage(state) {
-    // NOTE: this does NOT normalise thinking. Entering the transient
-    // thinking state is a deliberate call from showThinking(); the
-    // §11 guard belongs on the reply path (see send), where a resting
-    // state is derived from an answer.
+  // §I: status text exists only while a real process is running.
+  function setStatus(text) {
+    if (!dom.status) return;
+    if (text) {
+      dom.status.textContent = text;
+      dom.status.hidden = false;
+    } else {
+      dom.status.textContent = '';
+      dom.status.hidden = true;
+    }
+  }
+
+  function setPresence(state) {
     var next = state;
-    ui.stageState = next;
+    ui.presenceState = next;
 
     var motion = State.motionFor(next);
-    if (dom.stageFrame) {
-      if (ui.stageMotion && dom.stageFrame.classList.contains(ui.stageMotion)) {
-        dom.stageFrame.classList.remove(ui.stageMotion);
+    if (dom.presenceFrame) {
+      if (ui.presenceMotion && dom.presenceFrame.classList.contains(ui.presenceMotion)) {
+        dom.presenceFrame.classList.remove(ui.presenceMotion);
       }
-      if (motion) dom.stageFrame.classList.add(motion);
-      ui.stageMotion = motion;
+      if (motion) dom.presenceFrame.classList.add(motion);
+      ui.presenceMotion = motion;
+    }
+    // §F: the soft blob is decorative and only for a few moments.
+    if (dom.presence) {
+      dom.presence.setAttribute('data-state', next);
+      dom.presence.setAttribute('data-blob', State.usesBlob(next) ? '1' : '0');
     }
 
-    // Idle and thinking each have two approved frames; pick the current one.
     var src = State.mascotFor(next);
     if (next === 'idle' && ui.idleAlt) src = State.mascotFor('idle_alt');
     if (next === 'thinking' && ui.thinkFlip) src = State.mascotFor('thinking_alt');
-    crossfadeStage(src, State.altFor(next));
+    crossfadePresence(src, State.altFor(next));
 
-    if (dom.stageCaption) dom.stageCaption.textContent = State.labelFor(next);
-    if (dom.stage) dom.stage.setAttribute('data-state', next);
+    // §L: settle back to idle once a one-off expression has landed.
+    window.clearTimeout(ui.presenceReturn);
+    if (TRANSIENT_STATES[next] && !ui.busy && !ui.thinking && !ui.saving) {
+      ui.presenceReturn = window.setTimeout(function () {
+        if (!ui.busy && !ui.thinking && !ui.saving && !ui.listening) setPresence('idle');
+      }, TRANSIENT_MS);
+    }
   }
 
-  // ── C. CONVERSATION ───────────────────────────────────────────────────
+  // ── C. CONVERSATION THREAD ───────────────────────────────────────────
   function scrollToBottom(smooth) {
     if (!dom.canvas) return;
     dom.canvas.scrollTo
@@ -219,8 +248,8 @@
     if (dom.scrollBtn) dom.scrollBtn.hidden = true;
   }
 
-  // Turn grouping: an assistant reply and any card/form that belongs to it
-  // sit inside ONE group, so a turn reads as a single response.
+  // Turn grouping: a reply and any card/form belonging to it sit in ONE
+  // group, so a turn reads as a single response.
   var openTurn = null;
 
   function turnNode() {
@@ -234,24 +263,34 @@
 
   function closeTurn() { openTurn = null; }
 
-  // A Vetti reply. Deliberately has NO avatar: the stage already says who
-  // is speaking, and a mascot per message is what made the thread read as
-  // a normal chat log with stickers on it.
+  // §C + §N: every Vetti message carries the ONE canonical avatar, at a
+  // fixed size. It is decorative repetition of identity — the presence
+  // above already carries the meaningful, expression-specific alt text —
+  // so it is hidden from screen readers to avoid hearing "Vetti" on
+  // every single line.
+  function chatAvatar() {
+    return '<span class="vetti-chat-avatar" aria-hidden="true">'
+      + '<img src="' + esc(State.mascotFor(CHAT_AVATAR_STATE)) + '" alt=""'
+      + ' width="1254" height="1254" decoding="async" draggable="false">'
+      + '</span>';
+  }
+
   function renderVetti(text) {
     var node = document.createElement('div');
     node.className = 'vetti-row vetti-row-vetti';
-    node.innerHTML = '<div class="vetti-bubble vetti-bubble-vetti">'
+    node.innerHTML = chatAvatar()
+      + '<div class="vetti-bubble vetti-bubble-vetti">'
       + '<p class="vetti-text">' + esc(text).replace(/\n/g, '<br>') + '</p>'
       + '</div>';
     turnNode().appendChild(node);
     return node;
   }
 
-  // Structured content: intro actions, the compact pet form, result cards.
   function renderBlock(html, extraClass) {
     var node = document.createElement('div');
     node.className = 'vetti-row vetti-row-block';
-    node.innerHTML = '<div class="vetti-block ' + (extraClass || '') + '">' + html + '</div>';
+    node.innerHTML = chatAvatar()
+      + '<div class="vetti-block ' + (extraClass || '') + '">' + html + '</div>';
     turnNode().appendChild(node);
     return node;
   }
@@ -267,33 +306,35 @@
     return node;
   }
 
-  // ── THINKING (transient) ─────────────────────────────────────────────
+  // ── THINKING (strictly transient) ───────────────────────────────────
+  // §J: presence -> thinking, temporary status appears, the answer is NOT
+  // rendered yet. clearThinking() runs BEFORE the reply is rendered, so
+  // "thinking" and a complete answer are never on screen together.
   function showThinking() {
     ui.thinking = true;
-    setStage('thinking');
+    setStatus('Let me check that\u2026');
+    setPresence('thinking');
     var node = document.createElement('div');
     node.className = 'vetti-row vetti-row-vetti vetti-thinking-row';
     node.id = 'vettiThinkingRow';
-    node.setAttribute('aria-hidden', 'false');
-    node.innerHTML = '<div class="vetti-bubble vetti-bubble-vetti vetti-bubble-thinking">'
+    node.innerHTML = chatAvatar()
+      + '<div class="vetti-bubble vetti-bubble-vetti vetti-bubble-thinking">'
       + '<span class="vetti-dots" aria-hidden="true"><i></i><i></i><i></i></span>'
       + '<span>Let me check that for you\u2026</span>'
-      + '<span class="vetti-sr-only">Vetti is thinking</span>'
       + '</div>';
     turnNode().appendChild(node);
     scrollToBottom(true);
     return node;
   }
 
-  // Called BEFORE the real reply is rendered, so the placeholder is never
-  // visible at the same time as the answer.
   function clearThinking() {
     ui.thinking = false;
+    setStatus('');
     var node = el('vettiThinkingRow');
     if (node && node.parentNode) node.parentNode.removeChild(node);
   }
 
-  // ── Structured card (§14: VHS card styling, not an AI widget) ─────────
+  // ── Structured card ──────────────────────────────────────────────────
   function petCardMarkup(pet) {
     if (!pet) return '';
     var bits = [];
@@ -313,7 +354,7 @@
       + '</div>';
   }
 
-  // ── Active-pet selector (§21) ────────────────────────────────────────
+  // ── Active-pet selector ──────────────────────────────────────────────
   function renderPetSelector() {
     if (!dom.petSelectorHost) return;
     var list = pets();
@@ -335,18 +376,13 @@
       + '</select>';
   }
 
-  // ── D. SUGGESTED PROMPT RAIL (§23) ────────────────────────────────────
-  // Horizontal only, directly above the composer. Arrows live INSIDE the
-  // rail (which clips) and only appear when the track can scroll.
+  // ── D + E. SUGGESTED PROMPT RAIL ──────────────────────────────────────
   function renderCarousel(items) {
     if (!dom.carousel) return;
     var list = (items && items.length) ? items : suggestionsForContext();
     ui.lastSuggestions = list.slice();
 
-    if (!list.length) {
-      hideCarousel();
-      return;
-    }
+    if (!list.length) { hideCarousel(); return; }
     dom.carousel.hidden = false;
     dom.carousel.innerHTML = ''
       + '<div class="vetti-carousel-rail">'
@@ -400,7 +436,6 @@
     return pets().length ? DEFAULT_SUGGESTIONS_WITH_PET : DEFAULT_SUGGESTIONS_NO_PET;
   }
 
-  // §19: after a pet is created the rail speaks about THAT pet.
   function successSuggestions(pet) {
     if (!pet) return DEFAULT_SUGGESTIONS_WITH_PET;
     return [
@@ -416,7 +451,6 @@
     var first = firstName();
     var firstTime = State.isFirstTime();
     var word = State.greetingWord();
-    // First time: Vetti introduces herself. Every later login: short.
     dom.greeting.textContent = firstTime
       ? word + ', ' + first + '! I\u2019m Vetti.'
       : word + ', ' + first + '.';
@@ -426,12 +460,10 @@
     if (dom.replay) dom.replay.hidden = firstTime;
   }
 
-  // ── FIRST-TIME INTRO (§15) ────────────────────────────────────────────
-  // Two to three short messages, then the actions. Never auto-replayed
-  // on later logins.
+  // ── FIRST-TIME INTRO ─────────────────────────────────────────────────
   function showIntro() {
     var name = firstName();
-    setStage('greeting');
+    setPresence('greeting');
     renderVetti('Hi ' + name + ', I\u2019m Vetti, your friendly pet-care assistant.');
     renderVetti('I can help you with appointments, clinic services, and your pet information.');
     renderVetti('You can talk to me naturally \u2014 just tell me what you need.');
@@ -460,23 +492,20 @@
     var alreadyThisSession = State.introShownThisSession();
 
     if (firstTime) {
-      setStage('greeting');
+      setPresence('greeting');
       showIntro();
       if (!alreadyThisSession) {
-        // The long introduction is a once-ever moment.
         State.markSeenForever();
-        // §17: a first-time owner with no pets still needs the brief
-        // explanation of WHY basic details are needed.
         if (!pets().length) zeroPetNotice();
         else renderCarousel(suggestionsForContext());
       }
       return;
     }
 
-    // §20: returning user. Short, never a repeated introduction.
+    // Returning user: compact, short, no repeated introduction.
     if (dom.replay) dom.replay.hidden = false;
     if (pets().length) {
-      setStage('idle');
+      setPresence('idle');
       renderVetti('Good to see you, ' + firstName() + '.');
       renderVetti('Happy to help whenever you need it \u2014 ask me about '
         + activePet().name + ' or anything else.');
@@ -486,18 +515,15 @@
     zeroPetNotice();
   }
 
-  // §17: zero-pet. Explain briefly WHY basic info is needed, and offer the
-  // compact form. Nothing is blocked and nothing is fabricated.
   function zeroPetNotice() {
-    setStage('add_pet');
+    setPresence('add_pet');
     renderVetti('Before I can help with pet-specific tasks, let\u2019s add your first pet.');
     renderVetti('I only need the basics for now.');
-    renderVetti('You can add the rest later from My Pets, or ask me to help you '
-      + 'complete it later.');
+    renderVetti('You can complete the rest later from My Pets, or ask me to help you '
+      + 'update it later.');
     renderCarousel(DEFAULT_SUGGESTIONS_NO_PET);
   }
 
-  // §16: replay the guide. Touches no account data.
   function replayIntro() {
     var node = dom.canvas.querySelector('[data-vetti-intro]');
     if (node) {
@@ -509,18 +535,17 @@
     if (typeof showToast === 'function') showToast('Intro replayed.', 'info');
   }
 
-  // ── COMPACT PET FORM (§18) ────────────────────────────────────────────
-  // ONE form for both zero-pet onboarding and "add another pet". It never
-  // redirects to My Pets; My Pets stays available as a secondary link.
-  function openPetForm(opts) {
+  // ── COMPACT PET FORM ─────────────────────────────────────────────────
+  function openPetForm() {
     if (ui.petFormOpen) return;
     ui.petFormOpen = true;
     var hasPets = pets().length > 0;
-    setStage('add_pet');
+    setPresence('add_pet');
     renderBlock(Onboarding.petFormMarkup({ hasPets: hasPets }), 'vetti-form-block');
     var form = el('vettiPetForm');
     if (form) {
       Onboarding.installGuards(form);
+      Onboarding.wireCustomFields(form);
       var name = el('vettiPetName');
       if (name) window.setTimeout(function () { name.focus(); }, 60);
     }
@@ -541,10 +566,9 @@
     event.preventDefault();
     var result = Onboarding.submitPetForm();
     if (!result.ok) {
-      // Validation already shows inline field errors and moves focus, so it
-      // needs no extra bubble here.
+      // Validation already shows inline field errors and moves focus.
       if (result.error === 'validation') return;
-      setStage('error');
+      setPresence('error');
       renderVetti(
         result.error === 'no_session'
           ? 'I could not tell who you are, so I stopped rather than save the pet to the wrong account.'
@@ -557,13 +581,15 @@
     closePetForm();
     ui.activePetId = pet.petId;
 
-    // §11: the stage goes to thinking, then to success once saved.
-    ui.thinking = true;
-    setStage('thinking');
+    // §AC: temporary saving status, then a success expression.
+    ui.saving = true;
+    setStatus('Saving ' + pet.name + '\u2026');
+    setPresence('thinking');
 
     window.setTimeout(function () {
-      ui.thinking = false;
-      setStage('success');
+      ui.saving = false;
+      setStatus('');                 // temporary text removed on completion
+      setPresence('success');
       renderVetti(pet.name + ' is now part of your account.');
       renderVetti('You can add more details anytime from My Pets, or ask me to help '
         + 'you complete them later.');
@@ -574,10 +600,9 @@
       renderCarousel(successSuggestions(pet));
       scrollToBottom(true);
 
-      // Keep the rest of the portal in step with the new pet.
       if (window.VHSPetOnboarding) window.VHSPetOnboarding.refresh();
       if (typeof loadPets === 'function') loadPets();
-    }, 420);
+    }, 460);
   }
 
   // ── Sending a message ─────────────────────────────────────────────────
@@ -626,9 +651,7 @@
       var ctx = buildContext();
       var answer = State.resolve(message, ctx);
 
-      // §11: the stage settles on the answer's RESTING state, so it can
-      // never be left sitting in "thinking".
-      setStage(State.restingState(answer.state));
+      setPresence(State.restingState(answer.state));
 
       renderVetti(answer.text);
       if (answer.petCard) renderBlock(petCardMarkup(answer.petCard), 'vetti-card-block');
@@ -640,29 +663,27 @@
     }, 420);
   }
 
-  // ── Stage micro-animation (§12) ──────────────────────────────────────
-  // Two approved frames per state, low frequency, transform-only.
-  function startStageMotion() {
+  // ── Presence micro-animation ─────────────────────────────────────────
+  function startPresenceMotion() {
     window.setInterval(function () {
       if (document.hidden || ui.thinking) return;
       ui.idleAlt = !ui.idleAlt;
-      if (ui.stageState === 'idle') setStage('idle');
+      if (ui.presenceState === 'idle') setPresence('idle');
     }, 6000);
 
     window.setInterval(function () {
       if (document.hidden || !ui.thinking) return;
       ui.thinkFlip = !ui.thinkFlip;
-      setStage('thinking');
+      setPresence('thinking');
     }, 900);
   }
 
-  // §10: composer focused = Vetti is listening.
   function setListening(on) {
     if (ui.listening === on) return;
     ui.listening = on;
-    if (dom.stage) dom.stage.classList.toggle('is-listening', on);
-    if (on && !ui.busy && !ui.thinking) setStage('listening');
-    else if (!on && !ui.busy && !ui.thinking) setStage('idle');
+    if (dom.presence) dom.presence.classList.toggle('is-listening', on);
+    if (on && !ui.busy && !ui.thinking && !ui.saving) setPresence('listening');
+    else if (!on && !ui.busy && !ui.thinking && !ui.saving) setPresence('idle');
   }
 
   // ── Wiring ────────────────────────────────────────────────────────────
@@ -695,16 +716,13 @@
       if (!target || !target.closest) return;
 
       var prompt = target.closest('[data-vetti-prompt]');
-      if (prompt) {
-        send(prompt.getAttribute('data-vetti-prompt'));
-        return;
-      }
+      if (prompt) { send(prompt.getAttribute('data-vetti-prompt')); return; }
+
       var action = target.closest('[data-vetti-action]');
       if (action) {
         var name = action.getAttribute('data-vetti-action');
         if (name === 'start-intro') {
           dismissIntro('Great \u2014 tell me what you need.');
-          if (typeof showSection === 'function') { /* stay put */ }
           if (dom.input) dom.input.focus();
         } else if (name === 'skip-intro') {
           dismissIntro('No problem. Ask me anything whenever you\u2019re ready.');
@@ -713,7 +731,7 @@
           replayIntro();
         } else if (name === 'cancel-pet-form') {
           closePetForm();
-          setStage(pets().length ? 'idle' : 'add_pet');
+          setPresence(pets().length ? 'idle' : 'add_pet');
         } else if (name === 'open-my-pets') {
           closePetForm();
           if (typeof showSection === 'function') showSection('pets');
@@ -738,10 +756,9 @@
       selector.addEventListener('change', function () {
         ui.activePetId = selector.value;
         renderGreeting();
-        // §21: switching is calm — no dramatic state change.
         if (pets().length) {
           renderVetti('Now talking about ' + activePet().name + '.');
-          setStage('idle');
+          setPresence('idle');
           scrollToBottom(true);
         }
       });
@@ -774,40 +791,71 @@
     }
   }
 
-  // ── DEV/QA ONLY: repeat the true first-login experience ───────────────
-  // ?vettiIntro=reset forgets ONLY Vetti's own intro flags and reloads, so
-  // the genuine first-login moment can be re-tested on demand instead of
-  // clearing site data by hand.
-  //
-  // It touches nothing else: pets, appointments, documents and profile are
-  // left exactly as they are.
-  //
-  // DEV/QA ONLY — not a production User control. The always-available way
-  // back to the intro is the "Replay intro" control.
-  // TODO(BACKEND): gate this behind a QA role, or remove it, once there is
-  // a real backend and real authentication.
+  // ── DEV/QA ONLY ──────────────────────────────────────────────────────
+  // TODO(BACKEND): gate both of these behind a QA role, or remove them,
+  // once there is a real backend and real authentication.
+
+  // ?vettiIntro=reset — forgets ONLY Vetti's intro flags, so the true
+  // first-login flow can be re-tested. Pets are NOT touched.
   function applyQaIntroReset() {
-    var search = window.location.search || '';
-    if (!/[?&]vettiIntro=reset(&|$)/.test(search)) return false;
+    if (!/[?&]vettiIntro=reset(&|$)/.test(window.location.search || '')) return false;
     State.resetIntro();
-    try {
-      // Drop only this parameter (keeping ?as=4 etc.), then reload so the
-      // intro is re-evaluated on a fresh mount.
-      var url = new URL(window.location.href);
-      url.searchParams.delete('vettiIntro');
-      window.history.replaceState({}, '', url.pathname + url.search + url.hash);
-    } catch (e) { /* flags are already cleared */ }
+    stripParam('vettiIntro');
     window.location.reload();
     return true;
+  }
+
+  // ?as=4&vettiPetDemo=reset — restores the zero-pet demo owner to her
+  // seeded condition so the zero-pet QA path can be repeated.
+  //
+  // Owner-scoped on purpose: it rewrites only the shared pet store and
+  // only for the CURRENT demo owner, removing their added pets and their
+  // pet overrides. It never clears all of localStorage, never touches
+  // another owner's pets, appointments, documents or profile.
+  function applyQaPetDemoReset() {
+    if (!/[?&]vettiPetDemo=reset(&|$)/.test(window.location.search || '')) return false;
+    var target = String(ownerId() || '');
+    try {
+      var KEY = 'vhs_mock_users_pets_v1';
+      var raw = JSON.parse(localStorage.getItem(KEY) || '{}') || {};
+      raw.petAdded = raw.petAdded || [];
+      raw.petOverrides = raw.petOverrides || {};
+
+      // Remember which pets belonged to this owner BEFORE pruning, so
+      // their overrides can be dropped too.
+      var mine = [];
+      if (window.SharedMockUsers && target) {
+        mine = (window.SharedMockUsers.petsOfOwner(target) || [])
+          .map(function (p) { return String(p.petId); });
+      }
+      raw.petAdded = raw.petAdded.filter(function (p) {
+        return String(p.ownerId) !== target;
+      });
+      mine.forEach(function (id) { delete raw.petOverrides[id]; });
+
+      localStorage.setItem(KEY, JSON.stringify(raw));
+    } catch (e) { /* storage unavailable; nothing to reset */ }
+    stripParam('vettiPetDemo');
+    window.location.reload();
+    return true;
+  }
+
+  function stripParam(name) {
+    try {
+      var url = new URL(window.location.href);
+      url.searchParams.delete(name);
+      window.history.replaceState({}, '', url.pathname + url.search + url.hash);
+    } catch (e) { /* leaving the URL as-is is harmless */ }
   }
 
   // ── Mount ─────────────────────────────────────────────────────────────
   function mount() {
     cacheDom();
     if (!dom.canvas) return;
-    if (applyQaIntroReset()) return;   // reloading; nothing else to do
+    if (applyQaIntroReset()) return;      // reloading
+    if (applyQaPetDemoReset()) return;    // reloading
 
-    // Preload the two alternates so the first stage crossfade is instant.
+    // Preload the alternates so the first presence crossfade is instant.
     [State.mascotFor('idle'), State.mascotFor('idle_alt'),
      State.mascotFor('thinking'), State.mascotFor('thinking_alt')]
       .forEach(function (src) { var pre = new Image(); pre.src = src; });
@@ -817,7 +865,7 @@
     bindComposer();
     bindClicks();
     bindFormSubmit();
-    startStageMotion();
+    startPresenceMotion();
     syncLegacyChatbot();
 
     ui.booted = true;
@@ -858,7 +906,8 @@
     mount: mount,
     refresh: refresh,
     send: send,
-    setStage: setStage,
+    setPresence: setPresence,
+    setStatus: setStatus,
     showOpening: showOpening,
     replayIntro: replayIntro,
     openPetForm: openPetForm,
@@ -866,7 +915,7 @@
     renderPetSelector: renderPetSelector,
     pets: pets,
     activePet: activePet,
-    stageState: function () { return ui.stageState; },
+    presenceState: function () { return ui.presenceState; },
     resetIntro: function () { State.resetIntro(); }
   };
 })(window);

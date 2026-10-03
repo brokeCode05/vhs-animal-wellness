@@ -17,7 +17,7 @@
    HONESTY RULE: the pet is written to the shared frontend store only.
    Nothing is sent to a server, and the UI says so.
 
-   v2.0.0
+   v3.0.0
    ============================================================ */
 (function (global) {
   'use strict';
@@ -31,12 +31,41 @@
       || { name: 50, breedCustom: 60, age: { digits: 2, max: 50 }, weightKg: { digits: 3, decimals: 2, max: 200 } };
   }
 
+  // ── ONE PET MODEL, SHARED WITH My Pets ─────────────────────────────────
+  // The species list, breed list, gender values and field limits all come
+  // from the SAME sources the full Add Pet form uses, so a pet created in
+  // Vetti and one created on My Pets are the same shape. Vetti does NOT
+  // define a parallel pet model.
   var SPECIES = ['Dog', 'Cat', 'Bird', 'Rabbit', 'Other'];
-  // Sex matches the full Add Pet form and the seeded pets exactly, so a pet
-  // created here and one created there are the same shape.
-  // TODO(BACKEND): this enum is mirrored in Laravel; extend it there first.
   var GENDERS = ['Male', 'Female'];
-  var MICROCHIP_PATTERN = /^[A-Za-z0-9-]*$/;
+
+  // Only reached if _breedMap is somehow missing. Still guarantees an
+  // "Unknown" option, because the owner must never be forced to guess.
+  var FALLBACK_BREEDS = ['Unknown', 'Other'];
+
+  // _breedMap is the canonical species->breed map owned by the portal
+  // (user-script.js). Reading it — rather than copying it — is what keeps
+  // the two forms from drifting apart.
+  function breedsFor(species) {
+    var map = global._breedMap;
+    var list = (map && map[species] && map[species].length)
+      ? map[species].slice()
+      : FALLBACK_BREEDS.slice();
+    // §W: an "Unknown" option must ALWAYS be offered for every species.
+    var hasUnknown = list.some(function (b) { return /^unknown/i.test(String(b)); });
+    if (!hasUnknown) list.unshift('Unknown');
+    return list;
+  }
+
+  function breedOptionsMarkup(species) {
+    return breedsFor(species).map(function (b) {
+      return '<option value="' + escapeText(b) + '">' + escapeText(b) + '</option>';
+    }).join('');
+  }
+  // NOTE: the full Add Pet form applies MICROCHIP_PATTERN to free-text
+  // microchip ids only. Breed and species here are controlled selects, so
+  // they are never pattern-checked — their free-text "Other" counterparts
+  // get a length check instead, matching PET_RULES.
 
   function escapeText(value) {
     return String(value === null || value === undefined ? '' : value)
@@ -66,32 +95,28 @@
   }
 
   // ── THE COMPACT PET FORM ──────────────────────────────────────────────
-  // §18. Six fields, nothing more:
-  //   Required — name, species, breed, sex, approximate age
+  // §18. Six fields, nothing more://   Required — name, species, breed, sex, approximate age
   //   Optional — weight
   //
   // Deliberately NOT collected here (completed later on My Pets):
   // color, microchip, allergies, chronic conditions, medical notes, photo,
   // vaccination history.
   //
+  // Species and breed are the SAME controlled lists the full Add Pet form
+  // uses (see breedsFor / _breedMap), including the "Other" -> free-text
+  // path. Breed is required, so an "Unknown" option is always present.
+  //
   // TODO(BACKEND): the spec allows "Birthdate OR Approximate Age", but the
   // pet record has no birthdate field at all (pets store `age` in whole
   // years). Until the backend model gains one, approximate age is the only
-  // honest option here. Add `birthdate` to addPet and a matching entry in
-  // PET_LIMITS, then surface both.
+  // honest option. Add `birthdate` to addPet and a matching PET_LIMITS
+  // entry, then surface both.
   //
-  // One form serves BOTH zero-pet onboarding and "add another pet". Field
-  // ids are identical in both cases, so the ONE validator below applies to
-  // both and can never drift between them.
+  // One form serves BOTH zero-pet onboarding and "add another pet".
   function petFormMarkup(opts) {
     var L = limits();
     var hasPets = !!(opts && opts.hasPets);
     var heading = hasPets ? 'Add another pet' : 'Add your first pet';
-    var lead = hasPets
-      ? 'Sure. I only need the basics for now.'
-      : 'I only need the basics for now.';
-    // The manual route stays available, but only as a secondary link for an
-    // owner who already has pets — Vetti is the assisted route.
     var fallbackLink = hasPets
       ? ' Prefer the full form? <button type="button" class="vetti-inline-link"'
         + ' data-vetti-action="open-my-pets">Open My Pets</button>.'
@@ -101,7 +126,7 @@
     return ''
       + '<form class="vetti-petform" id="vettiPetForm" data-vetti-form="1" novalidate>'
       + '  <h3 class="vetti-petform-heading">' + escapeText(heading) + '</h3>'
-      + '  <p class="vetti-petform-lead">' + escapeText(lead) + '</p>'
+      + '  <p class="vetti-petform-lead">I only need the basics for now.</p>'
       + '  <div class="vetti-field">'
       + '    <label for="vettiPetName">Pet name' + required + '</label>'
       + '    <input id="vettiPetName" name="vetti_pet_name" type="text" maxlength="' + L.name + '"'
@@ -113,16 +138,34 @@
       + '      <label for="vettiPetSpecies">Species' + required + '</label>'
       + '      <select id="vettiPetSpecies" name="vetti_pet_species" aria-describedby="vettiErr-vettiPetSpecies">'
       + '        <option value="">Choose\u2026</option>'
-      + SPECIES.map(function (s) { return '<option value="' + s + '">' + s + '</option>'; }).join('')
+      +        SPECIES.map(function (s) { return '<option value="' + s + '">' + s + '</option>'; }).join('')
       + '      </select>'
       + '      <p class="vetti-field-error" id="vettiErr-vettiPetSpecies" role="alert" hidden></p>'
       + '    </div>'
       + '    <div class="vetti-field">'
       + '      <label for="vettiPetBreed">Breed' + required + '</label>'
-      + '      <input id="vettiPetBreed" name="vetti_pet_breed" type="text" maxlength="' + L.breedCustom + '"'
-      + '             autocomplete="off" placeholder="e.g. Aspin" aria-describedby="vettiErr-vettiPetBreed">'
+      + '      <select id="vettiPetBreed" name="vetti_pet_breed" aria-describedby="vettiErr-vettiPetBreed">'
+      + '        <option value="">Choose\u2026</option>'
+      +      breedOptionsMarkup('') + ''
+      + '      </select>'
       + '      <p class="vetti-field-error" id="vettiErr-vettiPetBreed" role="alert" hidden></p>'
       + '    </div>'
+      + '  </div>'
+      + '  <div class="vetti-field vetti-field-custom" id="vettiWrapSpeciesCustom" hidden>'
+      + '    <label for="vettiPetSpeciesCustom">Species details'
+      + '      <span class="vetti-required">Required</span></label>'
+      + '    <input id="vettiPetSpeciesCustom" name="vetti_pet_species_custom" type="text"'
+      + '           maxlength="' + L.speciesCustom + '" autocomplete="off"'
+      + '           placeholder="e.g. Reptile" aria-describedby="vettiErr-vettiPetSpeciesCustom">'
+      + '    <p class="vetti-field-error" id="vettiErr-vettiPetSpeciesCustom" role="alert" hidden></p>'
+      + '  </div>'
+      + '  <div class="vetti-field vetti-field-custom" id="vettiWrapBreedCustom" hidden>'
+      + '    <label for="vettiPetBreedCustom">Breed details'
+      + '      <span class="vetti-required">Required</span></label>'
+      + '    <input id="vettiPetBreedCustom" name="vetti_pet_breed_custom" type="text"'
+      + '           maxlength="' + L.breedCustom + '" autocomplete="off"'
+      + '           placeholder="e.g. Mixed" aria-describedby="vettiErr-vettiPetBreedCustom">'
+      + '    <p class="vetti-field-error" id="vettiErr-vettiPetBreedCustom" role="alert" hidden></p>'
       + '  </div>'
       + '  <div class="vetti-field-row">'
       + '    <div class="vetti-field">'
@@ -156,6 +199,80 @@
       + '    Saved on this device only in this demo.' + fallbackLink
       + '  </p>'
       + '</form>';
+  }
+
+  // ── CASCADING SPECIES -> BREED, same behaviour as My Pets ───────────
+  // Mirrors onSpeciesChange()/onBreedChange() on the full form: "Other"
+  // species reveals a free-text species field and turns breed into free
+  // text; "Other" breed reveals a free-text breed field.
+  function wireCustomFields(form) {
+    if (!form) return;
+    var species = document.getElementById('vettiPetSpecies');
+    var breed = document.getElementById('vettiPetBreed');
+    var speciesCustom = document.getElementById('vettiPetSpeciesCustom');
+    var breedCustom = document.getElementById('vettiPetBreedCustom');
+    var wrapSpecies = document.getElementById('vettiWrapSpeciesCustom');
+    var wrapBreed = document.getElementById('vettiWrapBreedCustom');
+
+    function populateBreeds(value) {
+      if (!breed) return;
+      breed.innerHTML = '<option value="">Choose\u2026</option>'
+        + breedOptionsMarkup(value);
+    }
+
+    function sync() {
+      var speciesValue = species ? species.value : '';
+      var breedValue = breed ? breed.value : '';
+      var otherSpecies = speciesValue === 'Other';
+      var otherBreed = breedValue === 'Other';
+
+      if (wrapSpecies) wrapSpecies.hidden = !otherSpecies;
+      if (speciesCustom) {
+        speciesCustom.required = otherSpecies;
+        if (!otherSpecies) speciesCustom.value = '';
+      }
+
+      if (breed) breed.hidden = otherSpecies;
+      // With an "Other" species there is no breed list, so breed becomes
+      // a required free-text field instead.
+      var needsBreedCustom = otherSpecies || otherBreed;
+      if (wrapBreed) wrapBreed.hidden = !needsBreedCustom;
+      if (breedCustom) {
+        breedCustom.required = needsBreedCustom;
+        if (!needsBreedCustom) breedCustom.value = '';
+      }
+    }
+
+    if (species) {
+      species.addEventListener('change', function () {
+        populateBreeds(species.value);
+        sync();
+      });
+    }
+    if (breed) breed.addEventListener('change', sync);
+    populateBreeds(species ? species.value : '');
+    sync();
+  }
+
+  // The breed actually stored: the selected option, or the free text when
+  // the owner picked "Other" (or an "Other" species).
+  function resolvedBreed() {
+    var speciesValue = trimmed('vettiPetSpecies');
+    var breedValue = trimmed('vettiPetBreed');
+    if (speciesValue === 'Other') return trimmed('vettiPetBreedCustom');
+    if (breedValue === 'Other') return trimmed('vettiPetBreedCustom');
+    return breedValue;
+  }
+
+  function resolvedSpeciesCustom() {
+    return trimmed('vettiPetSpecies') === 'Other' ? trimmed('vettiPetSpeciesCustom') : '';
+  }
+
+  function resolvedBreedCustom() {
+    var speciesValue = trimmed('vettiPetSpecies');
+    var breedValue = trimmed('vettiPetBreed');
+    if (speciesValue === 'Other') return trimmed('vettiPetBreedCustom');
+    return breedValue === 'Other' ? trimmed('vettiPetBreedCustom') : '';
   }
 
   // ── VALIDATION (same rules, compact field set) ────────────────────────
@@ -196,17 +313,34 @@
     return '';
   }
 
+  function ruleSpeciesCustom() {
+    if (trimmed('vettiPetSpecies') !== 'Other') return '';
+    var v = trimmed('vettiPetSpeciesCustom');
+    if (!v) return 'Enter the species.';
+    if (v.length > limits().speciesCustom) {
+      return 'Species must be ' + limits().speciesCustom + ' characters or fewer.';
+    }
+    return '';
+  }
+
   function ruleBreed() {
-    var v = trimmed('vettiPetBreed');
-    // §18 lists breed as required.
-    if (!v) return 'Enter your pet\u2019s breed.';
+    // A controlled select option needs no pattern check — only the
+    // "Other" free-text counterpart does, matching PET_RULES.
+    var v = resolvedBreed();
+    if (!v) {
+      return trimmed('vettiPetSpecies') === 'Other'
+        ? 'Enter the breed.'
+        : 'Choose a breed.';
+    }
     if (v.length > limits().breedCustom) {
       return 'Breed must be ' + limits().breedCustom + ' characters or fewer.';
     }
-    if (!MICROCHIP_PATTERN.test(v.replace(/\s+/g, '-'))) {
-      return 'Use letters, numbers and hyphens only.';
-    }
     return '';
+  }
+
+  function ruleBreedCustom() {
+    if (trimmed('vettiPetSpecies') !== 'Other' && trimmed('vettiPetBreed') !== 'Other') return '';
+    return ruleBreed();
   }
 
   function ruleSex() {
@@ -242,7 +376,9 @@
   var RULES = [
     ['vettiPetName', ruleName],
     ['vettiPetSpecies', ruleSpecies],
+    ['vettiPetSpeciesCustom', ruleSpeciesCustom],
     ['vettiPetBreed', ruleBreed],
+    ['vettiPetBreedCustom', ruleBreedCustom],
     ['vettiPetSex', ruleSex],
     ['vettiPetAge', ruleAge],
     ['vettiPetWeight', ruleWeight]
@@ -327,12 +463,13 @@
     }
 
     var species = trimmed('vettiPetSpecies');
-    var breed = trimmed('vettiPetBreed');
     var result = window.SharedMockUsers.addPet({
       ownerId: currentOwner,
       name: trimmed('vettiPetName'),
       species: species,
-      breed: breed,
+      speciesCustom: resolvedSpeciesCustom(),
+      breed: resolvedBreed(),
+      breedCustom: resolvedBreedCustom(),
       gender: trimmed('vettiPetSex'),
       age: parseInt(trimmed('vettiPetAge'), 10) || 0,
       weightKg: parseFloat(trimmed('vettiPetWeight')) || 0
@@ -361,6 +498,9 @@
     installGuards: installGuards,
     submitPetForm: submitPetForm,
     escapeText: escapeText,
+    wireCustomFields: wireCustomFields,
+    breedsFor: breedsFor,
+    resolvedBreed: resolvedBreed,
     SPECIES: SPECIES,
     GENDERS: GENDERS
   };

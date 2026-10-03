@@ -20,7 +20,7 @@
    it did not. Replies that would need a backend or an LLM say so
    plainly instead of pretending.
 
-   v2.0.0
+   v3.0.0
    ============================================================ */
 (function (global) {
   'use strict';
@@ -85,44 +85,51 @@
   }
 
   // ── 2. STATE MODEL ────────────────────────────────────────────────────
-  // Vetti is ONE assistant with ONE visual home (the Vetti Stage). These
-  // states therefore describe the STAGE, not individual chat messages.
+  // These states describe the MAIN VETTI PRESENCE only — the compact
+  // mascot near the top of the conversation. They never affect a message
+  // avatar: every Vetti message uses the one canonical chat avatar.
   //
-  //   motion — one reusable motion class (see vetti.css), applied to the
-  //            stage mascot. All disabled under prefers-reduced-motion.
-  //   label  — the short caption shown under the stage mascot.
+  //   motion — one reusable motion class (see vetti.css). All disabled
+  //            under prefers-reduced-motion.
   //
-  // §9 CORE RULE: state changes, layout stays stable. There is no longer
-  // a per-message "featured" mascot tier or a per-message bubble tint —
-  // the conversation layout must NOT jump every time Vetti changes state.
-  // Only the stage expression, caption and micro-animation change.
+  // There is deliberately NO permanent label per state. A caption like
+  // "All set" or "Pet profile" is only meaningful while something is
+  // actually happening; a static one is noise. Transient status text
+  // (thinking / saving) is owned by the UI, not here.
+  //
+  // CORE RULE: state changes, layout stays stable. Changing state swaps
+  // the presence artwork and its micro-animation; nothing in the
+  // conversation reflows.
   var STATES = {
-    idle:       { motion: 'vetti-motion-breathe', label: 'Ready when you are' },
-    greeting:   { motion: 'vetti-motion-enter',   label: 'Hello' },
-    listening:  { motion: 'vetti-motion-listen',  label: 'Listening' },
-    thinking:   { motion: 'vetti-motion-think',   label: 'Let me check…' },
-    success:    { motion: 'vetti-motion-enter',   label: 'All set' },
-    excited:    { motion: 'vetti-motion-enter',   label: 'Happy to help' },
-    reminder:   { motion: 'vetti-motion-breathe', label: 'Worth a look' },
-    concerned:  { motion: 'vetti-motion-breathe', label: 'Let’s be careful here' },
-    apology:    { motion: 'vetti-motion-breathe', label: 'I didn’t quite catch that' },
-    error:      { motion: 'vetti-motion-enter',   label: 'Something went wrong' },
-    add_pet:    { motion: 'vetti-motion-enter',   label: 'Let’s add a pet' },
-    booking:    { motion: 'vetti-motion-enter',   label: 'Appointments' },
-    pet_profile:{ motion: 'vetti-motion-breathe', label: 'Pet profile' }
+    idle:       { motion: 'vetti-motion-breathe' },
+    greeting:   { motion: 'vetti-motion-enter' },
+    listening:  { motion: 'vetti-motion-listen' },
+    thinking:   { motion: 'vetti-motion-think' },
+    success:    { motion: 'vetti-motion-enter' },
+    excited:    { motion: 'vetti-motion-enter' },
+    reminder:   { motion: 'vetti-motion-breathe' },
+    concerned:  { motion: 'vetti-motion-breathe' },
+    apology:    { motion: 'vetti-motion-breathe' },
+    error:      { motion: 'vetti-motion-enter' },
+    add_pet:    { motion: 'vetti-motion-enter' },
+    booking:    { motion: 'vetti-motion-enter' },
+    pet_profile:{ motion: 'vetti-motion-breathe' }
   };
 
   function isState(name) {
     return Object.prototype.hasOwnProperty.call(STATES, name);
   }
 
-  function labelFor(state) {
-    return (STATES[state] && STATES[state].label) || '';
-  }
-
   // Reusable motion class for this state (see vetti.css, MOTION).
   function motionFor(state) {
     return (STATES[state] && STATES[state].motion) || '';
+  }
+
+  // §D: states that may show the soft decorative blob behind the compact
+  // presence. Deliberately few — a blob on every state would be clutter.
+  var BLOB_STATES = { greeting: 1, add_pet: 1, success: 1, excited: 1 };
+  function usesBlob(state) {
+    return !!BLOB_STATES[state];
   }
 
   // §11: thinking is TRANSIENT. It may never be an intent's resting state,
@@ -216,16 +223,16 @@
         // not where this conversation sends the user first.
         if (ctx.hasPets) {
           return {
-            text: 'Sure. I only need the basics for now \u2014 name and species. '
-                + 'You can fill in the rest on My Pets whenever you like.',
+            text: 'Sure. I only need the basics for now \u2014 name, species, breed, '
+                + 'sex and age. You can add the rest on My Pets whenever you like.',
             state: 'add_pet',
             action: 'openPetForm',
             suggestions: []
           };
         }
         return {
-          text: 'Let\u2019s add your first pet. Just a name and a species to begin \u2014 '
-              + 'you can fill in the rest later.',
+          text: 'Let\u2019s add your first pet. I just need the basics to begin \u2014 '
+              + 'name, species, breed, sex and age. You can fill in the rest later.',
           state: 'add_pet',
           action: 'openPetForm',
           suggestions: []
@@ -482,8 +489,8 @@
     altFor: altFor,
     STATES: STATES,
     isState: isState,
-    labelFor: labelFor,
     motionFor: motionFor,
+    usesBlob: usesBlob,
     restingState: restingState,
     resolve: resolve,
     greetingWord: greetingWord,

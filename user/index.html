@@ -13,7 +13,7 @@
     <link rel="stylesheet" href="user-accent.css?v=2.5.0" />
     <link rel="stylesheet" href="../shared/vhs-ui.css?v=2.6.0" />
     <link rel="stylesheet" href="pet-onboarding.css?v=1.0.1" />
-    <link rel="stylesheet" href="vetti.css?v=2.0.2" />
+    <link rel="stylesheet" href="vetti.css?v=3.0.3" />
   </head>
   <body>
     <!-- TOP NAVBAR -->
@@ -173,20 +173,17 @@
               >Replay intro</button>
             </header>
 
-            <!-- B. VETTI STAGE — Vetti's ONE persistent visual home.
-                 This is the only place the mascot, its expression, its
-                 state caption and its micro-animation appear. State changes
-                 here; the conversation layout below never moves. -->
-            <section
-              class="vetti-stage"
-              id="vettiStage"
-              data-state="idle"
-              aria-label="Vetti"
-            >
-              <div class="vetti-stage-frame" id="vettiStageFrame">
+            <!-- B. MAIN VETTI PRESENCE — one compact mascot whose EXPRESSION
+                 changes with state. This is the ONLY place state-specific
+                 artwork appears; every Vetti message below uses the one
+                 canonical chat avatar. No square frame, no permanent
+                 caption: status text appears only while something is
+                 genuinely processing. -->
+            <div class="vetti-presence" id="vettiPresence" data-state="idle" data-blob="0">
+              <div class="vetti-presence-frame" id="vettiPresenceFrame">
                 <img
-                  id="vettiStageMascot"
-                  class="vetti-stage-mascot"
+                  id="vettiPresenceMascot"
+                  class="vetti-presence-mascot"
                   data-vetti-face="1"
                   src="../shared/assets/vetti/vetti-idle-a.png"
                   alt="Vetti the pet-care assistant"
@@ -196,13 +193,10 @@
                   draggable="false"
                 />
               </div>
-              <p class="vetti-stage-caption" id="vettiStageCaption">
-                Ready when you are
-              </p>
-            </section>
+              <p class="vetti-status" id="vettiStatus" role="status" hidden></p>
+            </div>
 
-            <!-- C. CONVERSATION THREAD — the only scrolling region.
-                 No mascots here: the stage already shows who is speaking. -->
+            <!-- C. CONVERSATION THREAD — the only scrolling region. -->
             <div
               class="vetti-canvas"
               id="vettiCanvas"
@@ -1303,8 +1297,8 @@
     <script src="pet-onboarding.js?v=1.0.1"></script>
     <script src="checkin-script.js?v=1.0.0"></script>
     <!-- Vetti: state model -> onboarding -> UI, in dependency order. -->
-    <script src="vetti-state.js?v=2.0.0"></script>
-    <script src="vetti-onboarding.js?v=2.0.0"></script>
-    <script src="vetti-ui.js?v=2.0.0"></script>
+    <script src="vetti-state.js?v=3.0.2"></script>
+    <script src="vetti-onboarding.js?v=3.0.1"></script>
+    <script src="vetti-ui.js?v=3.0.1"></script>
   </body>
 </html>
