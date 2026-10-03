@@ -41,6 +41,12 @@
 
   var State = global.VettiState;
   var Onboarding = global.VettiOnboarding;
+  // Vetti reads clinic data ONLY through VettiData and asks the portal to
+  // act ONLY through VettiTools. This module deliberately names no mock
+  // store and no portal action of its own, so swapping the local adapter
+  // for an API one never reaches this file.
+  var Data = global.VettiData;
+  var Tools = global.VettiTools;
   var esc = Onboarding.escapeText;
 
   // §4: the ONE canonical chat avatar. It is vetti-chat-head.png — Vetti's
@@ -141,41 +147,26 @@
   }
 
   // ── Identity + pets ───────────────────────────────────────────────────
-  function sessionUser() {
-    if (typeof _getSessionUser === 'function') return _getSessionUser() || {};
-    return {};
-  }
-
   function ownerId() {
-    if (typeof _currentOwnerId === 'function') {
-      var id = _currentOwnerId();
-      if (id) return id;
-    }
-    return window.SharedMockUsers ? window.SharedMockUsers.currentUserId : null;
+    return Data.getOwnerId();
   }
 
   function firstName() {
-    var u = sessionUser();
-    return u.firstName || (u.name ? String(u.name).split(' ')[0] : '') || 'there';
+    return Data.getFirstName() || 'there';
   }
 
   function pets() {
-    if (window.VHSPetOnboarding) return window.VHSPetOnboarding.petsForCurrentUser();
-    if (window.SharedMockUsers && ownerId()) {
-      return window.SharedMockUsers.petsOfOwner(ownerId());
-    }
-    return [];
+    return Data.getPets();
   }
 
+  // ui.activePetId stays the ONE authoritative active-pet state; the
+  // adapter only resolves that id against the store's current pets.
   function activePet() {
-    var list = pets();
-    if (!list.length) return null;
-    var hit = list.filter(function (p) {
-      return String(p.petId) === String(ui.activePetId);
-    })[0];
-    if (hit) return hit;
-    ui.activePetId = list[0].petId;
-    return list[0];
+    var hit = Data.getActivePet(ui.activePetId);
+    // Resolve-to-first is recorded, not just assumed, so the setter, the
+    // dropdown and this read can never disagree about the active pet.
+    if (hit) ui.activePetId = hit.petId;
+    return hit;
   }
 
   // ── HEADER VETTI MASCOT ──────────────────────────────────────────────
@@ -1183,7 +1174,7 @@
     ui.welcomeReplayed = true;
     State.clearIntroShown();
     openWelcome();
-    if (typeof showToast === 'function') showToast('Welcome replayed.', 'info');
+    Tools.notify('Welcome replayed.', 'info');
   }
 
   // ── OPENING ─────────────────────────────────────────────────────
@@ -1316,50 +1307,36 @@
       renderCarousel(successSuggestions(pet));
       scrollToBottom(true);
 
-      if (window.VHSPetOnboarding) window.VHSPetOnboarding.refresh();
-      if (typeof loadPets === 'function') loadPets();
+      Tools.refreshPetViews();
     }, 460);
   }
 
   // ── Actions that hand off to the portal's own UI ───────────────────────
-  // KAN-50 replaces these with deterministic Vetti tools. Until then Vetti
-  // identifies and explains, and the mutation happens in the screens the
-  // user already trusts. Every one degrades safely when the target UI is
-  // absent, rather than silently doing nothing.
+  // Vetti states an INTENT here and VettiTools decides where it lands. No
+  // portal action is named in this file. Every tool degrades safely when
+  // the target screen is absent: Vetti never claims a change it did not
+  // make, because the mutation happens in the screen the owner already
+  // trusts, not here.
   //
   // TODO(BACKEND): reschedule/cancel become POST endpoints once the
-  // appointment API owns the lifecycle; Vetti stops calling into globals.
+  // appointment API owns the lifecycle.
   function runAction(answer) {
     switch (answer.action) {
       case 'openPetForm':
+        // Vetti's own in-conversation form, not a portal handoff.
         openPetForm();
         return;
       case 'openBooking':
-        // The portal's own booking wizard. It re-checks for a pet itself,
-        // so a zero-pet owner is guided rather than dropped into an empty
-        // form.
-        if (typeof openBookModal === 'function') openBookModal();
-        else if (typeof showSection === 'function') showSection('appointments');
+        Tools.startBooking({ pet: activePet() });
         return;
       case 'openReschedule':
-        openAppointmentScreen(answer.appointment, 'openRescheduleModal');
+        Tools.prepareReschedule(answer.appointment);
         return;
       case 'openCancel':
-        openAppointmentScreen(answer.appointment, 'cancelAppt');
+        Tools.prepareCancellation(answer.appointment);
         return;
       default:
     }
-  }
-
-  function openAppointmentScreen(appointment, fnName) {
-    var target = global[fnName];
-    if (typeof target === 'function' && appointment && appointment.appointmentId) {
-      target(appointment.appointmentId);
-      return;
-    }
-    // No shared handler available: send the owner to the page that has the
-    // controls, which is the manual fallback this phase promises.
-    if (typeof showSection === 'function') showSection('appointments');
   }
 
   // ── Sending a message ─────────────────────────────────────────────────
@@ -1393,66 +1370,16 @@
   }
 
   // The owner's own visits, split the same way My Appointments splits
-  // them, read from the SAME shared store that page renders.
-  // TODO(BACKEND): both buckets come from GET /appointments?scope=mine.
+  // them. The split, the status normalisation and the display formatting
+  // all live in VettiData, so every Vetti screen reads one shape from one
+  // place instead of each re-deriving it.
   function appointmentsFor() {
-    var buckets = { upcoming: [], past: [] };
-    if (!window.SharedMockAppointments) return buckets;
-    var me = ownerId();
-    var all = window.SharedMockAppointments.all() || [];
-    var normalize = window.AppointmentContract
-      ? window.AppointmentContract.normalizeStatus
-      : function (s) { return s; };
-    var ACTIVE = { pending: 1, confirmed: 1, checked_in: 1, in_consultation: 1, rescheduled: 1 };
-    var today = new Date();
-    var todayStr = today.getFullYear() + '-'
-      + String(today.getMonth() + 1).padStart(2, '0') + '-'
-      + String(today.getDate()).padStart(2, '0');
-
-    all.forEach(function (a) {
-      if (me && String(a.userId) !== String(me)) return;
-      var status = normalize(a.status);
-      var date = String(a.appointmentDate || '');
-      // Exactly the rule renderAppointmentCards() uses on My Appointments:
-      // upcoming = an active status AND today or later. Matching it is
-      // what keeps the count in Vetti equal to the sidebar badge.
-      var isUpcoming = !!ACTIVE[status] && (!date || date >= todayStr);
-      var label = window.SharedMockUsers && window.SharedMockUsers.serviceLabel;
-      // Sorting happens on the raw record, before the display strings are
-      // built, so nothing invisible has to ride along in the card.
-      var raw = {
-        sort: date + ' ' + String(a.appointmentTime || ''),
-        display: {
-          pet: (a.pet && a.pet.name) || '\u2014',
-          service: label ? (label(a.service) || a.service || '\u2014') : (a.service || '\u2014'),
-          date: fmtDate(date),
-          time: fmtTime(a.appointmentTime),
-          status: status,
-          // Already in the shared store; carried through so the manual
-          // reschedule / cancel screens can be opened on the right visit.
-          referenceNo: a.referenceNo || '',
-          appointmentId: a.appointmentId
-        }
-      };
-      if (isUpcoming) buckets.upcoming.push(raw);
-      else buckets.past.push(raw);
-    });
-    buckets.upcoming.sort(function (a, b) { return a.sort.localeCompare(b.sort); });
-    buckets.past.sort(function (a, b) { return b.sort.localeCompare(a.sort); });
-    return {
-      upcoming: buckets.upcoming.map(function (r) { return r.display; }),
-      past: buckets.past.map(function (r) { return r.display; })
-    };
+    return Data.getAppointmentsByBucket();
   }
-
-  // The active service catalog, read through the shared adapter. One read,
-// reused by the category grouping below, so the two can never disagree.
-  // TODO(BACKEND): GET /services replaces this read.
+  // The active service catalog, read through the adapter. One read,
+  // reused by the category grouping below, so the two can never disagree.
   function serviceCatalog() {
-    if (!window.SharedMockUsers) return [];
-    return window.SharedMockUsers.activeServices
-      ? window.SharedMockUsers.activeServices()
-      : (window.SharedMockUsers.services ? window.SharedMockUsers.services() : []);
+    return Data.getServices();
   }
 
   // Service categories, read from the SAME shared catalog the Services
@@ -1669,9 +1596,9 @@
           setPresence(pets().length ? 'idle' : 'add_pet');
         } else if (name === 'open-my-pets') {
           closePetForm();
-          if (typeof showSection === 'function') showSection('pets');
+          Tools.openMyPets();
         } else if (name === 'open-services') {
-          if (typeof showSection === 'function') showSection('services');
+          Tools.openServices();
         }
         return;
       }
@@ -1801,33 +1728,16 @@
   // ?as=4&vettiPetDemo=reset — restores the zero-pet demo owner to her
   // seeded condition so the zero-pet QA path can be repeated.
   //
-  // Owner-scoped on purpose: it rewrites only the shared pet store and
+  // Owner-scoped on purpose: it repairs only the shared pet store and
   // only for the CURRENT demo owner, removing their added pets and their
   // pet overrides. It never clears all of localStorage, never touches
   // another owner's pets, appointments, documents or profile.
+  //
+  // The store surgery itself lives in VettiData.qaPruneOwnerPets(), beside
+  // the store it repairs, so this UI file never holds a mock store key.
   function applyQaPetDemoReset() {
     if (!/[?&]vettiPetDemo=reset(&|$)/.test(window.location.search || '')) return false;
-    var target = String(ownerId() || '');
-    try {
-      var KEY = 'vhs_mock_users_pets_v1';
-      var raw = JSON.parse(localStorage.getItem(KEY) || '{}') || {};
-      raw.petAdded = raw.petAdded || [];
-      raw.petOverrides = raw.petOverrides || {};
-
-      // Remember which pets belonged to this owner BEFORE pruning, so
-      // their overrides can be dropped too.
-      var mine = [];
-      if (window.SharedMockUsers && target) {
-        mine = (window.SharedMockUsers.petsOfOwner(target) || [])
-          .map(function (p) { return String(p.petId); });
-      }
-      raw.petAdded = raw.petAdded.filter(function (p) {
-        return String(p.ownerId) !== target;
-      });
-      mine.forEach(function (id) { delete raw.petOverrides[id]; });
-
-      localStorage.setItem(KEY, JSON.stringify(raw));
-    } catch (e) { /* storage unavailable; nothing to reset */ }
+    Data.qaPruneOwnerPets();
     stripParam('vettiPetDemo');
     window.location.reload();
     return true;
@@ -1891,7 +1801,7 @@
           return out;
         };
       })(window.showSection);
-      window.setTimeout(function () { showSection('vetti'); }, 0);
+      window.setTimeout(function () { Tools.openWorkspace(); }, 0);
     }
   });
 

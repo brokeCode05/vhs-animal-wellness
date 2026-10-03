@@ -13,7 +13,7 @@
     <link rel="stylesheet" href="user-accent.css?v=2.5.0" />
     <link rel="stylesheet" href="../shared/vhs-ui.css?v=2.6.0" />
     <link rel="stylesheet" href="pet-onboarding.css?v=1.0.1" />
-    <link rel="stylesheet" href="vetti.css?v=4.7.3" />
+    <link rel="stylesheet" href="vetti.css?v=5.0.0" />
   </head>
   <body>
     <!-- TOP NAVBAR -->
@@ -1396,9 +1396,14 @@
     <script src="user-script.js?v=3.10.1"></script>
     <script src="pet-onboarding.js?v=1.0.1"></script>
     <script src="checkin-script.js?v=1.0.0"></script>
-    <!-- Vetti: state model -> onboarding -> UI, in dependency order. -->
-    <script src="vetti-state.js?v=4.7.3"></script>
-    <script src="vetti-onboarding.js?v=4.7.3"></script>
-    <script src="vetti-ui.js?v=4.7.3"></script>
+    <!-- Vetti, in dependency order:
+         data + tool adapters (over the shared stores above)
+         -> state model -> onboarding copy -> UI.
+         Nothing below this block names a shared store or a portal action. -->
+    <script src="vetti-data.js?v=5.0.0"></script>
+    <script src="vetti-tools.js?v=5.0.0"></script>
+    <script src="vetti-state.js?v=5.0.0"></script>
+    <script src="vetti-onboarding.js?v=5.0.0"></script>
+    <script src="vetti-ui.js?v=5.0.0"></script>
   </body>
 </html>

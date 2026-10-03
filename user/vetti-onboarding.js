@@ -9,7 +9,7 @@
       conversation route to their first pet. Never a lockout.
    3. COMPACT FIRST-PET FORM — a short inline form rendered INSIDE the
       conversation, not a separate page. Field limits are reused from
-      VHSPetOnboarding.PET_LIMITS so both pet forms agree.
+      the one shared limits table (via VettiData) so both pet forms agree.
 
    PRODUCT RULE: signup creates the OWNER ACCOUNT ONLY. Adding a pet
    here creates exactly one pet record. No appointment, document,
@@ -23,13 +23,16 @@
 (function (global) {
   'use strict';
 
+  // Pet data is read and written ONLY through VettiData, so this module
+  // never names the store it talks to.
+  var Data = global.VettiData;
+
   // ── REUSE: the one pet-form limits table ───────────────────────────────
   // pet-onboarding.js owns PET_LIMITS (mirrored later in Laravel). The
-  // compact form reads the SAME table so a name accepted here is a name
-  // accepted by the full Add Pet form, and vice versa.
+  // compact form reads the SAME table through VettiData so a name accepted
+  // here is a name accepted by the full Add Pet form, and vice versa.
   function limits() {
-    return (window.VHSPetOnboarding && window.VHSPetOnboarding.PET_LIMITS)
-      || { name: 50, breedCustom: 60, age: { digits: 2, max: 50 }, weightKg: { digits: 3, decimals: 2, max: 200 } };
+    return Data.getPetLimits();
   }
 
   // ── ONE PET MODEL, SHARED WITH My Pets ─────────────────────────────────
@@ -645,23 +648,21 @@
   }
 
   // ── SAVE ──────────────────────────────────────────────────────────────
-  // Writes through the shared store, exactly like the full Add Pet form.
+  // Writes through the adapter, exactly like the full Add Pet form.
   // Creates ONE pet. Nothing else is fabricated.
-  // TODO(BACKEND): replace with POST /pets; ownership is the authenticated
-  // owner id server-side, never a name match.
+  // TODO(BACKEND): the adapter's createPet becomes the authenticated pets
+  // create endpoint; ownership is the authenticated owner id server-side,
+  // never a name match.
   function submitPetForm() {
     if (!validatePetForm()) return { ok: false, error: 'validation' };
 
     // NOTE: do not name this `ownerId` — a local var of that name would be
     // hoisted over the ownerId() function below and shadow it.
-    var currentOwner = ownerId();
-    if (!currentOwner || !window.SharedMockUsers) {
-      return { ok: false, error: 'no_session' };
-    }
+    if (!Data.getOwnerId()) return { ok: false, error: 'no_session' };
 
     var species = trimmed('vettiPetSpecies');
-    var result = window.SharedMockUsers.addPet({
-      ownerId: currentOwner,
+    // The owner id is resolved by the adapter, never passed in here.
+    var result = Data.createPet({
       name: trimmed('vettiPetName'),
       species: species,
       speciesCustom: resolvedSpeciesCustom(),
@@ -679,12 +680,7 @@
   }
 
   function ownerId() {
-    if (typeof _currentOwnerId === 'function') {
-      var viaPortal = _currentOwnerId();
-      if (viaPortal) return viaPortal;
-    }
-    if (window.SharedMockUsers) return window.SharedMockUsers.currentUserId;
-    return null;
+    return Data.getOwnerId();
   }
 
   global.VettiOnboarding = {
