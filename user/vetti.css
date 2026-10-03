@@ -68,6 +68,7 @@ body.vetti-active .chatbot-container { display: none; }
 }
 
 .vetti-shell {
+  position: relative;           /* anchors the welcome layer */
   display: flex;
   flex-direction: column;
   min-height: 0;
@@ -209,7 +210,11 @@ body.vetti-active .chatbot-container { display: none; }
   padding: 1.125rem 1.5rem 1.375rem;
   display: flex;
   flex-direction: column;
-  gap: 0.875rem;                /* tighter than before: more thread space */
+  /* Turn rhythm: the gap BETWEEN exchanges is clearly wider than the gap
+     WITHIN one exchange (.vetti-turn, 0.4rem), so a reply and the card
+     or form belonging to it read as one block and the next question
+     clearly starts a new one. */
+  gap: 1rem;
   background: var(--vhs-neutral-bg, #F7F7FA);
   scrollbar-width: thin;
 }
@@ -223,9 +228,19 @@ body.vetti-active .chatbot-container { display: none; }
   min-width: 0;
 }
 
-/* The thread sits at the BOTTOM, like a real chat. An auto top margin
-   collapses to 0 as soon as the content is taller than the canvas. */
-.vetti-canvas > *:first-child { margin-top: auto; }
+/* The thread is safe-centred: the free space above and below the content
+   is shared evenly while the conversation is short, and both collapse to
+   0 the moment it outgrows the canvas — at which point it behaves exactly
+   like a normal bottom-anchored chat. Bottom-anchoring alone left a
+   field of dead grey above a short first reply, which is what made the
+   workspace read as empty rather than calm. */
+.vetti-canvas::before,
+.vetti-canvas::after {
+  content: "";
+  flex: 0 0 auto;
+}
+.vetti-canvas::before { margin-top: auto; }
+.vetti-canvas::after { margin-bottom: auto; }
 
 .vetti-turn {
   display: flex;
@@ -266,6 +281,12 @@ body.vetti-active .chatbot-container { display: none; }
   display: block;
   filter: drop-shadow(0 1px 2px rgba(60, 31, 120, 0.2));
 }
+
+/* The avatar appears once per TURN, not once per row. Every later row in
+   the same reply gets this empty gutter instead, so a message, a card
+   and a form all line up on ONE text column without repeating the same
+   face four times. */
+.vetti-chat-avatar.is-gutter img { display: none; }
 
 .vetti-bubble {
   min-width: 0;
@@ -323,29 +344,170 @@ body.vetti-active .chatbot-container { display: none; }
 
 .vetti-row-block { gap: 0.5rem; }
 
+/* Blocks fill the text column rather than shrink-wrapping their content,
+   so a card, a service list and a form all sit on one consistent right
+   edge under a content-width bubble. */
 .vetti-block {
+  flex: 1 1 auto;
   max-width: min(36rem, 100%);
   min-width: 0;
 }
 
-.vetti-intro {
-  padding: 0.8rem 0.9rem;
-  border-radius: var(--radius, 0.75rem);
-  background: var(--vhs-shell-soft, rgba(60, 31, 120, 0.06));
-  border: 1px solid var(--vhs-shell-border, rgba(60, 31, 120, 0.14));
+/* Small action row at the foot of a structured block (e.g. "Open the
+   full Services page"). Text links, never a second button wall. */
+.vetti-block-actions {
+  margin-top: 0.6rem;
 }
 
-.vetti-intro-note {
-  margin: 0 0 0.6rem;
-  font-size: 0.78rem;
+/* ── FIRST-TIME WELCOME LAYER ──────────────────────────────────────────
+   One welcome layer over the workspace, shown once per browser. The
+   workspace behind it stays real and visible — just dimmed — so
+   dismissing it lands the user in their workspace rather than on a new
+   page. Plain surface, one border, one shadow. No blur, no glass. */
+
+.vetti-welcome {
+  position: absolute;
+  inset: 0;
+  z-index: 40;
+  display: flex;
+  justify-content: center;
+  padding: 1.25rem;
+  /* The OVERLAY scrolls, not the card. `margin: auto` on the card centres
+     it when it fits and aligns it to the top when it does not — plain
+     `align-items: center` would push the top of a tall card out of reach
+     on a short phone. */
+  overflow-y: auto;
+  /* The dimming. Kept as a flat wash rather than a blur: it softens the
+     workspace without turning it into a photograph of itself. */
+  background: rgba(36, 32, 51, 0.3);
+}
+.vetti-welcome[hidden] { display: none; }
+
+.vetti-welcome-card {
+  width: 100%;
+  max-width: 27rem;
+  margin: auto;
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  padding: 1.35rem 1.4rem 1.15rem;
+  border-radius: var(--radius-lg, 1rem);
+  background: var(--vhs-neutral-surface, #FFFFFF);
+  border: 1px solid var(--vhs-shell-border, rgba(60, 31, 120, 0.14));
+  box-shadow: 0 12px 32px rgba(36, 32, 51, 0.18);
+}
+
+/* Vetti is present in the welcome. The same transparent-PNG treatment
+   as the header: no frame, no card, a light shadow only. */
+.vetti-welcome-mascot {
+  width: 4.5rem;
+  height: 4.5rem;
+  align-self: flex-start;
+}
+.vetti-welcome-mascot img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+  filter: drop-shadow(0 2px 6px rgba(60, 31, 120, 0.22));
+}
+
+.vetti-welcome-eyebrow {
+  margin: 0;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--vhs-shell, #6546A8);
+}
+
+.vetti-welcome-title {
+  margin: 0;
+  font-size: 1.3rem;
+  font-weight: 700;
+  line-height: 1.25;
+  letter-spacing: -0.01em;
+  color: var(--vhs-neutral-text, #242033);
+}
+
+.vetti-welcome-lead {
+  margin: 0;
+  font-size: 0.88rem;
+  line-height: 1.5;
   color: var(--vhs-neutral-muted, #756F82);
 }
 
-.vetti-intro-actions {
+.vetti-welcome-steps {
+  list-style: none;
+  margin: 0.25rem 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.vetti-welcome-step {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+  min-width: 0;
+}
+
+.vetti-welcome-step-num {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.35rem;
+  height: 1.35rem;
+  border-radius: 50%;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--vhs-shell-dark, #3C1F78);
+  background: var(--vhs-shell-soft, rgba(60, 31, 120, 0.1));
+}
+
+.vetti-welcome-step-text {
+  min-width: 0;
+  font-size: 0.84rem;
+  line-height: 1.45;
+  color: var(--vhs-neutral-muted, #756F82);
+}
+.vetti-welcome-step-text strong {
+  display: block;
+  font-weight: 600;
+  color: var(--vhs-neutral-text, #242033);
+}
+
+.vetti-welcome-actions {
   display: flex;
   align-items: center;
   gap: 0.75rem;
   flex-wrap: wrap;
+  margin-top: 0.85rem;
+}
+
+/* Skip is a real exit, stated once. The "I already know this" reading
+   lives in the label's muted weight, not in a second line of copy. */
+.vetti-welcome-skip {
+  font: inherit;
+  font-size: 0.85rem;
+  padding: 0.4rem 0;
+  background: none;
+  border: 0;
+  color: var(--vhs-neutral-muted, #756F82);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+.vetti-welcome-skip:hover { color: var(--vhs-shell, #6546A8); }
+
+.vetti-welcome-note {
+  margin: 0.75rem 0 0;
+  font-size: 0.72rem;
+  line-height: 1.4;
+  color: var(--vhs-neutral-muted, #756F82);
 }
 
 /* ── COMPACT PET FORM ────────────────────────────────────────────────── */
@@ -519,6 +681,230 @@ body.vetti-active .chatbot-container { display: none; }
   color: var(--vhs-neutral-muted, #756F82);
 }
 
+/* ── PET LIST (every pet, one compact row each) ────────────────────────
+   ONE card holding all the rows, rather than one card per pet: four
+   separate boxes is what turned "Show my pets" into a wall. */
+
+.vetti-card-list { padding-bottom: 0.7rem; }
+
+/* ── ACCOUNT SNAPSHOT ──────────────────────────────────────────────────
+   Two lines: who is on this account, and when the next visit is. No
+   counters, no icons, no chart — it is a sentence about the user's own
+   data, not a dashboard. */
+.vetti-glance { padding: 0.65rem 0.85rem; }
+
+.vetti-glance-line {
+  margin: 0;
+  font-size: 0.84rem;
+  line-height: 1.5;
+  color: var(--vhs-neutral-text, #242033);
+  overflow-wrap: anywhere;
+}
+.vetti-glance-line + .vetti-glance-line { margin-top: 0.15rem; }
+.vetti-glance-line.is-quiet {
+  font-size: 0.8rem;
+  color: var(--vhs-neutral-muted, #756F82);
+}
+
+.vetti-petlist {
+  list-style: none;
+  margin: 0.5rem 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.vetti-petlist-item + .vetti-petlist-item {
+  border-top: 1px solid var(--vhs-neutral-border, #E5E1EC);
+}
+
+/* The row IS the selector: tapping it makes that pet the active one,
+   exactly like the header dropdown. */
+.vetti-petlist-row {
+  width: 100%;
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem 0.75rem;
+  font: inherit;
+  text-align: left;
+  padding: 0.5rem 0.35rem;
+  margin: 0 -0.35rem;
+  border: 0;
+  border-radius: var(--radius-sm, 0.5rem);
+  background: none;
+  cursor: pointer;
+  color: var(--vhs-neutral-text, #242033);
+}
+.vetti-petlist-row:hover { background: var(--vhs-shell-soft, rgba(60, 31, 120, 0.06)); }
+
+.vetti-petlist-name {
+  flex: 0 0 auto;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.vetti-petlist-meta {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: 0.79rem;
+  color: var(--vhs-neutral-muted, #756F82);
+  overflow-wrap: anywhere;
+}
+
+.vetti-petlist-age {
+  flex: 0 0 auto;
+  margin-left: auto;
+  font-size: 0.76rem;
+  color: var(--vhs-neutral-muted, #756F82);
+  white-space: nowrap;
+}
+
+/* ── SERVICE CATEGORIES ─────────────────────────────────────────────────
+   Categories, never the whole catalogue. Two columns on desktop, one on
+   a phone. Each card carries the count, the price span, and ONE small
+   way to go deeper. */
+
+.vetti-servicelist {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.6rem;
+}
+
+.vetti-service {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
+  padding: 0.7rem 0.8rem;
+  border-radius: var(--radius, 0.75rem);
+  background: var(--vhs-neutral-bg, #F7F7FA);
+  border: 1px solid var(--vhs-neutral-border, #E5E1EC);
+  border-left: 3px solid var(--vhs-shell-light, #8a6bd0);
+}
+
+.vetti-service-head {
+  display: flex;
+  align-items: baseline;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+
+.vetti-service-name {
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: var(--vhs-neutral-text, #242033);
+  overflow-wrap: anywhere;
+}
+
+.vetti-service-count {
+  font-size: 0.72rem;
+  color: var(--vhs-neutral-muted, #756F82);
+  white-space: nowrap;
+}
+
+.vetti-service-price {
+  margin: 0;
+  font-size: 0.79rem;
+  color: var(--vhs-neutral-text, #242033);
+  overflow-wrap: anywhere;
+}
+
+.vetti-service-cta {
+  align-self: flex-start;
+  font: inherit;
+  font-size: 0.76rem;
+  margin-top: 0.2rem;
+  padding: 0;
+  background: none;
+  border: 0;
+  color: var(--vhs-shell, #6546A8);
+  cursor: pointer;
+  text-align: left;
+  overflow-wrap: anywhere;
+}
+.vetti-service-cta:hover { color: var(--vhs-shell-light, #8a6bd0); }
+
+.vetti-service-items {
+  list-style: none;
+  margin: 0.5rem 0 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem 0.4rem;
+  font-size: 0.79rem;
+  color: var(--vhs-neutral-text, #242033);
+}
+.vetti-service-items li {
+  padding: 0.15rem 0.45rem;
+  border-radius: 999px;
+  background: var(--vhs-neutral-surface, #FFFFFF);
+  border: 1px solid var(--vhs-neutral-border, #E5E1EC);
+}
+
+/* ── APPOINTMENTS ──────────────────────────────────────────────────────
+   Pet / Service / Date / Time / Status. The status reuses the portal's
+   own badge, so a status never looks different here than it does on
+   My Appointments. */
+
+.vetti-appt-group + .vetti-appt-group { margin-top: 0.7rem; }
+
+.vetti-appt-group-label {
+  margin: 0 0 0.3rem;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--vhs-neutral-muted, #756F82);
+}
+
+.vetti-appt-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.vetti-appt {
+  min-width: 0;
+  padding: 0.55rem 0.7rem;
+  border-radius: var(--radius, 0.75rem);
+  background: var(--vhs-neutral-bg, #F7F7FA);
+  border: 1px solid var(--vhs-neutral-border, #E5E1EC);
+  border-left: 3px solid var(--vhs-shell-light, #8a6bd0);
+}
+
+/* Past visits recede: same shape, less emphasis. */
+.vetti-appt.is-past { border-left-color: var(--vhs-neutral-border, #E5E1EC); }
+
+.vetti-appt-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.vetti-appt-pet {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--vhs-neutral-text, #242033);
+}
+
+.vetti-appt-service {
+  margin: 0.1rem 0 0;
+  font-size: 0.81rem;
+  color: var(--vhs-neutral-text, #242033);
+  overflow-wrap: anywhere;
+}
+
+.vetti-appt-when {
+  margin: 0.05rem 0 0;
+  font-size: 0.76rem;
+  color: var(--vhs-neutral-muted, #756F82);
+}
+
 /* ── D + E. INPUT ZONE (rail + composer, one unit) ──────────────────── */
 
 .vetti-composer-area {
@@ -557,6 +943,18 @@ body.vetti-active .chatbot-container { display: none; }
   background: var(--vhs-neutral-bg, #F7F7FA);
 }
 
+/* "Try asking" — the rail's one line of framing. Costs 14px and is the
+   difference between guided prompts and a row of loose buttons. */
+.vetti-carousel-label {
+  margin: 0 0 0.15rem;
+  padding-left: 0.4rem;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--vhs-neutral-muted, #756F82);
+}
+
 .vetti-carousel-rail {
   position: relative;
   display: flex;
@@ -573,10 +971,16 @@ body.vetti-active .chatbot-container { display: none; }
   padding: 0.125rem 0 0.35rem;
   scroll-behavior: smooth;
   -webkit-overflow-scrolling: touch;
+  /* Swipe is primary on a phone; snapping keeps each prompt readable
+     once it stops rather than leaving it cut through the middle. */
+  scroll-snap-type: x proximity;
+  overscroll-behavior-x: contain;
   min-width: 0;
   flex: 1 1 auto;
 }
 .vetti-carousel-track::-webkit-scrollbar { display: none; }
+
+.vetti-chip { scroll-snap-align: start; }
 
 .vetti-chip {
   flex: 0 0 auto;
@@ -850,7 +1254,7 @@ body.vetti-active .chatbot-container { display: none; }
   }
 
   /* Only claim a full second row when there IS a selector to show. With
-     no pets, "Replay intro" is a small secondary link and sits beside
+     no pets, "Replay welcome" is a small secondary link and sits beside
      the greeting instead of stretching the header to a third line. */
   .vetti-header-tools:has(.vetti-pet-selector:not([hidden])) {
     flex: 1 1 100%;
@@ -859,6 +1263,34 @@ body.vetti-active .chatbot-container { display: none; }
 
   .vetti-pet-selector { width: auto; flex: 1 1 auto; min-width: 0; }
   .vetti-pet-selector select { flex: 1 1 auto; max-width: none; font-size: 0.82rem; }
+
+  /* Welcome layer on a phone: edge to edge, one column, and the primary
+     action full width so it is never the smaller of two targets. The
+     mascot shrinks to keep all five steps above the fold. */
+  .vetti-welcome { padding: 0.85rem; align-items: center; }
+
+  .vetti-welcome-card {
+    max-width: 24rem;
+    gap: 0.45rem;
+    padding: 1rem 1.05rem 0.9rem;
+    border-radius: var(--radius, 0.75rem);
+  }
+
+  .vetti-welcome-mascot { width: 3rem; height: 3rem; }
+  .vetti-welcome-title { font-size: 1.1rem; }
+  .vetti-welcome-lead { font-size: 0.82rem; line-height: 1.45; }
+  .vetti-welcome-steps { gap: 0.4rem; margin-top: 0.15rem; }
+  .vetti-welcome-step-text { font-size: 0.79rem; line-height: 1.4; }
+  .vetti-welcome-note { margin-top: 0.6rem; }
+
+  .vetti-welcome-actions {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.4rem;
+    margin-top: 0.7rem;
+  }
+  .vetti-welcome-actions .btn-primary { width: 100%; }
+  .vetti-welcome-skip { align-self: center; }
 }
 
 /* Mobile spacing pass. Mascot SIZE is deliberately NOT changed here. */
@@ -895,13 +1327,35 @@ body.vetti-active .chatbot-container { display: none; }
   /* Swipe is primary; arrows step aside and release their gutters. */
   .vetti-carousel-btn { display: none; }
   .vetti-carousel-rail.is-scrollable .vetti-carousel-track { padding-inline: 0; }
-  .vetti-chip { max-width: 13rem; font-size: 0.8rem; min-height: 2.25rem; }
+  /* On a phone the rail is swipe-first, so a chip may be as wide as its
+     own label. Truncating a suggestion the user cannot read is worse than
+     making them swipe one more chip. */
+  .vetti-chip { max-width: min(80vw, 20rem); font-size: 0.8rem; min-height: 2.25rem; }
+  .vetti-carousel-label { font-size: 0.65rem; margin-bottom: 0.1rem; }
 
   .vetti-field-row { flex-direction: column; gap: 0.55rem; }
   .vetti-petform { gap: 0.55rem; padding: 0.8rem 0.8rem; }
 
   /* Fact grid collapses to one column so values never clip. */
   .vetti-card-facts { grid-template-columns: 1fr; gap: 0.3rem; }
+
+  /* One category per row on a phone: two columns put a 3-word service
+     name and its price on two lines each. */
+  .vetti-servicelist { grid-template-columns: 1fr; gap: 0.5rem; }
+
+  /* Pet rows stack name over details instead of squeezing three columns
+     into 390px. */
+  .vetti-petlist-row {
+    flex-wrap: wrap;
+    gap: 0.1rem 0.5rem;
+    padding: 0.45rem 0.3rem;
+    margin: 0 -0.3rem;
+  }
+  .vetti-petlist-name { flex: 1 1 auto; }
+  .vetti-petlist-meta { flex: 1 1 100%; }
+  .vetti-petlist-age { margin-left: 0; }
+
+  .vetti-appt { padding: 0.5rem 0.6rem; }
 
   /* 44px target, 16px input prevents iOS zoom. */
   .vetti-send { width: 2.75rem; height: 2.75rem; }
@@ -912,7 +1366,7 @@ body.vetti-active .chatbot-container { display: none; }
    — §6 sets a 52-60px band, and one consistent size reads calmer than a
    size that changes again 10px narrower. */
 @media (max-width: 400px) {
-  .vetti-chip { max-width: 10.5rem; }
+  .vetti-chip { max-width: 80vw; }
 }
 
 /* ── REDUCED MOTION ────────────────────────────────────────────────────
@@ -920,7 +1374,7 @@ body.vetti-active .chatbot-container { display: none; }
    unchanged: motion here is decorative, never load-bearing. */
 @media (prefers-reduced-motion: reduce) {
   .vetti-dots i { animation: none; opacity: 0.6; }
-  .vetti-carousel-track { scroll-behavior: auto; }
+  .vetti-carousel-track { scroll-behavior: auto; scroll-snap-type: none; }
   .vetti-chip,
   .vetti-carousel-btn,
   .vetti-send,
@@ -940,7 +1394,8 @@ body.vetti-active .chatbot-container { display: none; }
 @media print {
   .vetti-composer-area,
   .vetti-scroll-down,
-  .vetti-replay { display: none; }
+  .vetti-replay,
+  .vetti-welcome { display: none; }
   #section-vetti.active { height: auto; max-height: none; }
   .vetti-canvas { overflow: visible; }
   .vetti-turn > .vetti-row { animation: none; }

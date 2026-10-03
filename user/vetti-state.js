@@ -9,8 +9,8 @@
    2. STATE MODEL — the deterministic states Vetti can be in.
    3. INTENTS — a local keyword matcher that produces a scripted
       reply + state. NOT an LLM. No network call is ever made.
-   4. FLAGS — first-time intro / warm-line rotation, persisted so
-      the long introduction is not repeated on every login.
+   4. FLAGS — first-time welcome / warm-line rotation, persisted so
+      the welcome layer is not repeated on every login.
 
    PRODUCT RULE: Vetti is the ASSISTED route. Traditional User
    pages stay available for full manual control.
@@ -20,7 +20,7 @@
    it did not. Replies that would need a backend or an LLM say so
    plainly instead of pretending.
 
-   v4.1.0
+   v4.2.0
    ============================================================ */
 (function (global) {
   'use strict';
@@ -150,9 +150,20 @@
 
   // ── 3. INTENTS (deterministic, local, no LLM) ─────────────────────────
   // Each intent is a list of lowercase keywords. First match wins, so
-  // order matters: more specific intents are listed first. The reply is
-  // a function of the OWNER + PETS so the answer is always consistent
-  // with the data actually on screen.
+  // ORDER IS LOAD-BEARING:
+  //
+  //   booking  ABOVE  appointments, and booking never lists the bare word
+  //   "appointment". Otherwise "Show my appointments" would be answered
+  //   with the booking script.
+  //
+  //   add_pet  ABOVE  another_pet. "Help me add another pet" contains
+  //   both "add another" and "another pet", so the form intent has to be
+  //   reached first — and "Show me another pet" matches none of its
+  //   keywords, so it falls through to another_pet instead of opening
+  //   the add-pet form. That was the bug.
+  //
+  // The reply is a function of the OWNER + PETS + the data the UI already
+  // read, so the answer is always consistent with what is on screen.
   //
   // TODO(AI): replace this table with a real assistant call. Until then
   // every answer is a fixed script — nothing here is inference.
@@ -171,7 +182,8 @@
     {
       id: 'booking',
       state: 'booking',
-      keywords: ['book', 'booking', 'schedule', 'appointment', 'reschedule', 'magreserv', 'schedule ng'],
+      // NOTE: no bare "appointment" here — see the order note above.
+      keywords: ['book', 'booking', 'schedule', 'reschedule', 'magreserv'],
       reply: function (ctx) {
         if (!ctx.hasPets) {
           return {
@@ -206,20 +218,30 @@
             action: 'openPetForm'
           };
         }
+        var up = ctx.appointments ? ctx.appointments.upcoming.length : 0;
         return {
-          // TODO(BACKEND): read the owner's real appointment list from the API.
-          text: 'Your upcoming visits are shown on My Appointments. I do not have live '
-              + 'access to them yet, so please open that page for the current list.',
-          suggestions: ['Tell me about my pets', 'What services do you offer?']
+          // TODO(BACKEND): read the owner's real appointment list from the
+          // API instead of the shared demo store. Until then the card
+          // below is the SAME list My Appointments renders, not a
+          // paraphrase of it, and the wording says so.
+          text: up
+            ? 'You have ' + up + (up === 1 ? ' upcoming visit' : ' upcoming visits')
+              + ' on your account.'
+            : 'You have no upcoming visits right now.',
+          appointments: true,
+          suggestions: ['Show my pets', 'What services do you offer?']
         };
       }
     },
     {
       id: 'add_pet',
       state: 'add_pet',
+      // "another pet" is deliberately NOT a keyword here. It was the root
+      // of the "Show me another pet opens the form" bug — the form
+      // intent claimed the phrase before the list intent could.
       keywords: ['add pet', 'add a pet', 'new pet', 'register pet', 'magdagdag', 'addpet',
-                'i want to add', 'another pet', 'add another', 'second pet', 'help me add',
-                'register another'],
+                'i want to add', 'another pet to add', 'add another', 'second pet',
+                'help me add', 'register another'],
       reply: function (ctx) {
         // The SAME compact form opens either way. Vetti is the assisted
         // route; My Pets stays available as the manual fallback, but it is
@@ -243,6 +265,39 @@
       }
     },
     {
+      // §FIX: "Show me another pet" must NEVER open the add-pet form. It
+      // walks to the next pet already on the account.
+      id: 'another_pet',
+      state: 'pet_profile',
+      keywords: ['another pet', 'other pet', 'different pet', 'next pet', 'who else',
+                'another one', 'some other pet'],
+      reply: function (ctx) {
+        if (!ctx.hasPets) {
+          return {
+            text: 'There is no other pet yet \u2014 this account has none on file. '
+                + 'Let\u2019s add your first pet.',
+            state: 'add_pet',
+            suggestions: ctx.suggestionsNoPet,
+            action: 'openPetForm'
+          };
+        }
+        if (ctx.pets.length < 2) {
+          return {
+            text: ctx.pets[0].name + ' is the only pet on this account so far.',
+            petCard: ctx.pets[0],
+            suggestions: ['Help me add another pet', 'I want to book an appointment']
+          };
+        }
+        var next = ctx.anotherPet;
+        return {
+          text: next.name + ' is the next pet on your account.',
+          petCard: next,
+          suggestions: ['Show all my pets', 'Help me add another pet',
+                        'I want to book ' + next.name + ' an appointment']
+        };
+      }
+    },
+    {
       id: 'pet_profile',
       state: 'pet_profile',
       keywords: ['my pet', 'my pets', 'pet info', 'about my', 'tell me about', 'profile', 'who is', 'pababa'],
@@ -256,13 +311,17 @@
             action: 'openPetForm'
           };
         }
-        var active = ctx.activePet;
+        var n = ctx.pets.length;
         return {
-          text: ctx.petSummary(active),
-          petCard: active,
-          suggestions: ctx.pets.length > 1
-            ? ['Show me another pet', 'I want to book an appointment']
-            : ['I want to book an appointment', 'What services do you offer?']
+          // ALL pets, not just the active one. One line per pet is
+          // rendered as a compact list card beside this message.
+          text: n === 1
+            ? ctx.pets[0].name + ' is the only pet on this account so far.'
+            : 'You have ' + n + ' pets on this account.',
+          petCards: ctx.pets,
+          suggestions: n > 1
+            ? ['Show me another pet', 'Show my appointments', 'Help me add another pet']
+            : ['I want to book an appointment', 'Show my appointments']
         };
       }
     },
@@ -270,13 +329,45 @@
       id: 'services',
       state: 'idle',   // §11: never rest in thinking
       keywords: ['service', 'services', 'price', 'prices', 'cost', 'how much', 'serbisyo'],
-      reply: function () {
-        // TODO(BACKEND): pull the live catalogue from GET /services.
+      reply: function (ctx) {
+        var groups = ctx.serviceGroups || [];
         return {
-          text: 'The clinic offers consultations, vaccinations, grooming and wellness '
-              + 'checks. The full list with current prices is on the Services page \u2014 '
-              + 'I do not have a live price list connected yet.',
-          suggestions: ['Show me my pets', 'Show my appointments']
+          // Summarised by CATEGORY, never a 26-line dump. The cards come
+          // from the same shared catalog the Services page renders, so the
+          // two can never disagree.
+          text: groups.length
+            ? 'The clinic groups its services into ' + groups.length
+              + ' categories. Here is the short version.'
+            : 'The service list is not loaded on this page yet.',
+          serviceCategories: true,
+          suggestions: ['Show my appointments', 'Show my pets']
+        };
+      }
+    },
+    {
+      // The small CTA under each service category card. Answers from the
+      // same catalog, so it can never drift from the card above it.
+      id: 'service_detail',
+      state: 'idle',
+      keywords: ['tell me more', 'more about'],
+      reply: function (ctx) {
+        var groups = ctx.serviceGroups || [];
+        var hit = null;
+        for (var i = 0; i < groups.length; i++) {
+          if (ctx.query && squash(ctx.query).indexOf(squash(groups[i].name)) !== -1) {
+            hit = groups[i];
+            break;
+          }
+        }
+        if (!hit) {
+          // No category named — show the overview rather than guessing.
+          return { serviceCategories: true, suggestions: ['Show my appointments'] };
+        }
+        return {
+          text: hit.names.length + (hit.names.length === 1 ? ' service sits' : ' services sit')
+              + ' under ' + hit.name + ', from ' + hit.priceText + '.',
+          serviceGroup: hit,
+          suggestions: ['What services do you offer?', 'Show my appointments']
         };
       }
     },
@@ -289,7 +380,7 @@
         return {
           text: 'Vaccination reminders come from your pet\u2019s records, which I cannot '
               + 'read yet. Please check Documents, or ask the clinic during your next visit.',
-          suggestions: ['Show my documents', 'Talk to the clinic']
+          suggestions: ['What services do you offer?', 'Show my appointments']
         };
       }
     },
@@ -347,8 +438,9 @@
       reply: function (ctx) {
         return {
           text: 'I am Vetti, the VHS pet-care assistant. I can add a pet for you, show '
-              + 'the pets on your account and point you to appointments, documents and '
-              + 'services. Booking and live records are not connected yet.',
+              + 'every pet on your account as a list, and summarise your visits and the '
+              + 'clinic\u2019s services without sending you through menus. Live booking '
+              + 'and clinical records are not connected yet.',
           suggestions: ctx.hasPets ? ctx.suggestionsWithPet : ctx.suggestionsNoPet
         };
       }
@@ -359,11 +451,23 @@
     return String(text || '').toLowerCase().replace(/\s+/g, ' ').trim();
   }
 
-  // The single resolver. Returns { id, state, text, suggestions, ... }.
-  // An unmatched message is a deterministic "I did not understand" with
-  // the closest useful next step — never an invented answer.
+  // Compares category names without punctuation or spacing, so "Tell me
+  // more about Preventive / Wellness" still finds "Preventive & Wellness"
+  // whichever way the two happened to be written.
+  function squash(text) {
+    return String(text || '').toLowerCase().replace(/[^a-z0-9]+/g, '');
+  }
+
+  // The single resolver. Returns { id, state, text, suggestions, ... }
+  // plus whichever STRUCTURED payload the intent asked for. An unmatched
+  // message is a deterministic "I did not understand" with the closest
+  // useful next step — never an invented answer.
+  //
+  // ctx.query is the normalized message, so a reply can read WHICH
+  // service category was named instead of guessing.
   function resolve(message, ctx) {
     var q = normalize(message);
+    var context = Object.assign({}, ctx, { query: q });
     if (!q) {
       return { id: 'empty', state: 'idle', text: 'Type a message and I will do my best.', suggestions: ctx.suggestionsWithPet };
     }
@@ -371,14 +475,18 @@
       var intent = INTENTS[i];
       for (var k = 0; k < intent.keywords.length; k++) {
         if (q.indexOf(intent.keywords[k]) !== -1) {
-          var answer = intent.reply(ctx) || {};
+          var answer = intent.reply(context) || {};
           return {
             id: intent.id,
             state: answer.state || intent.state || 'idle',
             text: answer.text || '',
             suggestions: answer.suggestions || [],
             action: answer.action || '',
-            petCard: answer.petCard || null
+            petCard: answer.petCard || null,
+            petCards: answer.petCards || null,
+            appointments: answer.appointments || false,
+            serviceCategories: answer.serviceCategories || false,
+            serviceGroup: answer.serviceGroup || null
           };
         }
       }
@@ -444,8 +552,11 @@
   }
 
   // ── 6. FLAGS ──────────────────────────────────────────────────────────
-  // localStorage = "has ever met Vetti" (survives logout/login).
-  // sessionStorage = "intro already shown this session" (survives nav).
+  // localStorage = "has ever met Vetti" (survives logout/login). This is
+  // the ONLY gate for the first-time welcome layer: it is set when the
+  // user finishes or skips the welcome, never when it merely renders, so
+  // abandoning it halfway still shows it next time.
+  // sessionStorage = "welcome completed this session" (survives nav).
   var LS_SEEN = 'vetti.seenIntro';
   var SS_SHOWN = 'vetti.introShown';
 

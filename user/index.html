@@ -13,7 +13,7 @@
     <link rel="stylesheet" href="user-accent.css?v=2.5.0" />
     <link rel="stylesheet" href="../shared/vhs-ui.css?v=2.6.0" />
     <link rel="stylesheet" href="pet-onboarding.css?v=1.0.1" />
-    <link rel="stylesheet" href="vetti.css?v=4.1.0" />
+    <link rel="stylesheet" href="vetti.css?v=4.2.0" />
   </head>
   <body>
     <!-- TOP NAVBAR -->
@@ -190,7 +190,7 @@
                 <!-- Active-pet selector, rendered only when the owner has pets. -->
                 <div class="vetti-pet-selector" id="vettiPetSelector" hidden></div>
                 <button type="button" class="vetti-replay" id="vettiReplayIntro" hidden>
-                  Replay intro
+                  Replay welcome
                 </button>
               </div>
             </header>
@@ -238,6 +238,55 @@
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
                   </button>
                 </form>
+              </div>
+            </div>
+
+            <!-- ===== FIRST-TIME WELCOME LAYER ============================
+                 Shown ONCE, the first time this browser meets Vetti. The
+                 workspace behind it is real and already rendered, just
+                 dimmed, so dismissing the layer drops the user straight
+                 into their workspace (or straight onto the add-pet form
+                 if the account has no pets yet).
+
+                 Deliberately NOT a run of chat bubbles: it is a welcome
+                 layer with a clear way in and a clear way out. Marked
+                 aria-modal because it does cover the workspace. Step copy
+                 comes from vetti-onboarding.js; only the shell is here. -->
+            <div
+              class="vetti-welcome"
+              id="vettiWelcome"
+              hidden
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="vettiWelcomeTitle"
+            >
+              <div class="vetti-welcome-card">
+                <div class="vetti-welcome-mascot">
+                  <img
+                    id="vettiWelcomeMascot"
+                    src="../shared/assets/vetti/vetti-greeting.png"
+                    alt="Vetti the pet-care assistant, smiling in greeting"
+                    width="1254"
+                    height="1254"
+                    decoding="async"
+                    draggable="false"
+                  />
+                </div>
+                <p class="vetti-welcome-eyebrow">Welcome to the VHS Portal</p>
+                <h2 class="vetti-welcome-title" id="vettiWelcomeTitle">
+                  Hi, I&rsquo;m Vetti.
+                </h2>
+                <p class="vetti-welcome-lead" id="vettiWelcomeLead"></p>
+                <ol class="vetti-welcome-steps" id="vettiWelcomeSteps"></ol>
+                <div class="vetti-welcome-actions">
+                  <button type="button" class="btn-primary" id="vettiWelcomeStart">
+                    Let&rsquo;s Get Started
+                  </button>
+                  <button type="button" class="vetti-welcome-skip" id="vettiWelcomeSkip">
+                    Skip
+                  </button>
+                </div>
+                <p class="vetti-welcome-note" id="vettiWelcomeNote"></p>
               </div>
             </div>
           </div>
@@ -1299,8 +1348,8 @@
     <script src="pet-onboarding.js?v=1.0.1"></script>
     <script src="checkin-script.js?v=1.0.0"></script>
     <!-- Vetti: state model -> onboarding -> UI, in dependency order. -->
-    <script src="vetti-state.js?v=4.1.0"></script>
-    <script src="vetti-onboarding.js?v=4.1.0"></script>
-    <script src="vetti-ui.js?v=4.1.0"></script>
+    <script src="vetti-state.js?v=4.2.0"></script>
+    <script src="vetti-onboarding.js?v=4.2.0"></script>
+    <script src="vetti-ui.js?v=4.2.0"></script>
   </body>
 </html>

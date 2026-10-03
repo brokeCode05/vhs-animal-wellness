@@ -2,8 +2,9 @@
    VETTIONBOARDING — first meeting, zero-pet path, first-pet form
    ============================================================
 
-   1. FIRST-TIME INTRO — shown once. Offers Skip, and can be replayed
-      on demand. The long introduction is never repeated on login.
+   1. THE FIRST-TIME WELCOME — the short copy shown once, over the
+      workspace. Rendered as a welcome layer by VettiUI, never as a run
+      of chat bubbles, and never repeated on later logins.
    2. ZERO-PET PATH — an owner with no pets gets a guided, in-
       conversation route to their first pet. Never a lockout.
    3. COMPACT FIRST-PET FORM — a short inline form rendered INSIDE the
@@ -17,7 +18,7 @@
    HONESTY RULE: the pet is written to the shared frontend store only.
    Nothing is sent to a server, and the UI says so.
 
-   v3.0.0
+   v3.1.0
    ============================================================ */
 (function (global) {
   'use strict';
@@ -73,25 +74,51 @@
       .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
   }
 
-  // ── THE INTRO ACTIONS ────────────────────────────────────────────────
-  // §15: the intro itself is 2-3 short conversation messages (rendered by
-  // VettiUI). This is only the action row that follows them.
-  function introActionsMarkup() {
-    return ''
-      + '<div class="vetti-intro" data-vetti-intro="1">'
-      + '  <p class="vetti-intro-note">'
-      + '    Everything here is a working demo on this device. Nothing is sent to the '
-      + '    clinic until the portal is connected.'
-      + '  </p>'
-      + '  <div class="vetti-intro-actions">'
-      + '    <button type="button" class="btn-primary" data-vetti-action="start-intro">'
-      + '      Let&rsquo;s get started'
-      + '    </button>'
-      + '    <button type="button" class="btn-link" data-vetti-action="skip-intro">'
-      + '      Skip intro \u2014 I already know this'
-      + '    </button>'
-      + '  </div>'
-      + '</div>';
+  // ── THE GUIDED WELCOME ────────────────────────────────────────────────
+  // §15: Vetti's first meeting is a welcome LAYER over the workspace
+  // (vetti-ui.js renders it), not a burst of chat bubbles. These are the
+  // four steps and the lead line it shows. Short on purpose — five lines
+  // of useful orientation, not a lecture, and never repeated on later
+  // logins.
+  function welcomeSteps() {
+    return [
+      {
+        title: 'Your pet care, in one place',
+        body: 'I help you add pets, keep their details current, and find what you '
+            + 'need without digging through menus.'
+      },
+      {
+        title: 'Ask with one tap',
+        body: 'The suggestions under this message cover what people ask most. '
+            + 'Tap one and I will take it from there.'
+      },
+      {
+        title: 'Start with a pet',
+        body: 'Most things begin with a pet on file. If you do not have one yet, '
+            + 'I will help you add it right here.'
+      },
+      {
+        title: 'Visits and services, simply',
+        body: 'I can show your pets, your appointments and what the clinic offers '
+            + 'as a short list you can scan.'
+      },
+      {
+        title: 'Or just ask',
+        body: 'Type your own question at any time. The suggestions are a '
+            + 'shortcut, not a limit.'
+      }
+    ];
+  }
+
+  function welcomeLead() {
+    return 'I can help with your pets, your appointments, what the clinic offers, '
+        + 'and simple care guidance.';
+  }
+
+  // The honest disclaimer that used to sit under the intro buttons. Kept
+  // short, because a first-run screen should not lead with a warning.
+  function welcomeNote() {
+    return 'This is a working demo on this device. Nothing is sent to the clinic yet.';
   }
 
   // ── THE COMPACT PET FORM ──────────────────────────────────────────────
@@ -491,7 +518,9 @@
   }
 
   global.VettiOnboarding = {
-    introActionsMarkup: introActionsMarkup,
+    welcomeSteps: welcomeSteps,
+    welcomeLead: welcomeLead,
+    welcomeNote: welcomeNote,
     petFormMarkup: petFormMarkup,
     validatePetForm: validatePetForm,
     clearErrors: clearErrors,
