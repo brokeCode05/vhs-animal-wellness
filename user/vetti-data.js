@@ -216,17 +216,18 @@
 
   // TODO(BACKEND): replace with the owner's authenticated appointments
   // endpoint. Until then this is the shared store, filtered to the
-  // current owner exactly as before.
+  // current owner.
   //
-  // NOTE: with no resolvable owner id the filter is skipped and every
-  // shared record is returned. That is pre-existing behaviour, carried
-  // over unchanged because narrowing it here would be a business-rule
-  // change. It belongs to the backend phase, not to this one.
+  // SAFETY: an unresolvable owner id returns NOTHING. The shared store
+  // holds more than one owner's appointments, so falling back to the
+  // unfiltered list here would show this owner somebody else's visits.
+  // Failing closed costs a blank answer in a broken session; failing open
+  // would leak another owner's records.
   function getAppointments() {
+    var me = getOwnerId();
+    if (!me) return [];
     var a = appts();
     var all = (a && typeof a.all === 'function') ? arr(a.all()) : [];
-    var me = getOwnerId();
-    if (!me) return all;
     return all.filter(function (x) { return String(x.userId) === String(me); });
   }
 
