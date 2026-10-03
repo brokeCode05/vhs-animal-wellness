@@ -659,6 +659,13 @@
             + ' title="' + esc(s) + '">'
             + '<span class="vetti-chip-label">' + esc(s) + '</span></button>';
         }).join('')
+      // One secondary item, LAST in the row: replay is a help action, not a
+      // suggestion. It shares the rail's single swipeable row so it never
+      // claims its own line, and CSS hides it above 768px where the header
+      // button is still the better home for it.
+      + '    <button type="button" class="vetti-chip vetti-chip-utility"'
+      + '            data-vetti-replay="1" title="Replay welcome">'
+      + '      <span class="vetti-chip-label">Replay welcome</span></button>'
       + '  </div>'
       + '  <button type="button" class="vetti-carousel-btn vetti-carousel-next"'
       + '          data-vetti-scroll="1" aria-label="Scroll suggestions right"'
@@ -685,7 +692,14 @@
     var scrollable = track.scrollWidth - track.clientWidth > 4;
     var atStart = track.scrollLeft <= 1;
     var atEnd = track.scrollLeft >= track.scrollWidth - track.clientWidth - 1;
-    if (rail) rail.classList.toggle('is-scrollable', scrollable);
+    // is-at-start / is-at-end let CSS fade only the edge that still has
+    // content behind it, so a phone never shows a fade over a chip the
+    // user is already looking at.
+    if (rail) {
+      rail.classList.toggle('is-scrollable', scrollable);
+      rail.classList.toggle('is-at-start', atStart);
+      rail.classList.toggle('is-at-end', atEnd);
+    }
     var prev = dom.carousel ? dom.carousel.querySelector('.vetti-carousel-prev') : null;
     var next = dom.carousel ? dom.carousel.querySelector('.vetti-carousel-next') : null;
     if (prev) prev.disabled = !scrollable || atStart;
@@ -1635,6 +1649,12 @@
 
       var prompt = target.closest('[data-vetti-prompt]');
       if (prompt) { send(prompt.getAttribute('data-vetti-prompt')); return; }
+
+      // "Replay welcome" lives in the rail on a phone and in the header on
+      // a desktop — CSS decides which one is shown. Both call the SAME
+      // replayIntro(), so relocating it changed where it lives and nothing
+      // about what it does.
+      if (target.closest('[data-vetti-replay]')) { replayIntro(); return; }
 
       // A row in the pet list is a real selector: it does what the header
       // dropdown does, so the list is never a dead read-out.
