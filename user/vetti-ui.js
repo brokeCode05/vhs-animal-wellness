@@ -3,20 +3,20 @@
 
    VETTI HAS EXACTLY TWO VISUAL ROLAS — never mixed:
 
-     1. CANONICAL CHAT AVATAR
-        One single image (vetti-greeting.png) beside EVERY Vetti
-        message, at one fixed size. It is identity, not expression, so
-        it never switches with state.
+     1. CANONICAL CHAT AVATAR (vetti-chat-head.png)
+        One single image beside EVERY Vetti message, at one fixed size.
+        It is identity, not expression, so it never switches with state.
 
      2. HEADER MASCOT
-        One compact mascot INSIDE the workspace header, right of the
-        greeting and next to the active-pet selector, whose EXPRESSION
-        changes with state. This is where idle / thinking / success /
-        concerned and the rest are used. There is no separate mascot
-        row and no mascot stage anywhere in the workspace.
+        One compact mascot INSIDE the workspace header, to the LEFT of
+        the greeting, whose EXPRESSION changes with state. This is where
+        idle / thinking / success / concerned and the rest are used.
+        There is no separate mascot row and no mascot stage anywhere in
+        the workspace.
 
    WORKSPACE STRUCTURE
-     A. .vetti-greeting       compact header (greeting + Vetti + tools)
+     A. .vetti-greeting       compact header
+                              (mascot | greeting | tools)
      B. .vetti-canvas         conversation thread (the only scroller)
      C. .vetti-carousel       suggested prompt rail
      D. .vetti-composer       the composer
@@ -31,7 +31,7 @@
    its current frame directly and crossfades between frames, so it is
    never momentarily blank. No asset is edited or resized.
 
-   v4.0.0
+   v4.1.0
    ============================================================ */
 (function (global) {
   'use strict';
@@ -40,12 +40,13 @@
   var Onboarding = global.VettiOnboarding;
   var esc = Onboarding.escapeText;
 
-  // §C: the ONE canonical chat avatar. Same image on every Vetti
-  // message, so assistant identity never flickers between expressions.
-  var CHAT_AVATAR_STATE = 'greeting';
+  // §4: the ONE canonical chat avatar. It is vetti-chat-head.png — Vetti's
+  // fixed identity beside every normal message. It is deliberately NOT a
+  // state expression, so assistant identity never flickers between the
+  // header mascot's faces.
 
   // §L: expressions that are worth a beat, then settle back to idle.
-  // Without this the presence can sit in "Success" or "Concerned" long
+  // Without this the header mascot can sit in "Success" or "Concerned" long
   // after the moment has passed.
   var TRANSIENT_STATES = {
     success: 1, excited: 1, reminder: 1, concerned: 1,
@@ -278,7 +279,7 @@
   // every single line.
   function chatAvatar() {
     return '<span class="vetti-chat-avatar" aria-hidden="true">'
-      + '<img src="' + esc(State.mascotFor(CHAT_AVATAR_STATE)) + '" alt=""'
+      + '<img src="' + esc(State.chatAvatarFor()) + '" alt=""'
       + ' width="1254" height="1254" decoding="async" draggable="false">'
       + '</span>';
   }
@@ -557,13 +558,16 @@
       var focus = !opts || opts.focus !== false;
       if (name && focus) window.setTimeout(function () { name.focus(); }, 60);
     }
-    // The whole form must be on screen when it appears — including the
-    // footnote and the actions, never clipped by the composer zone.
-    // `block: 'nearest'` scrolls the minimum distance needed, so the
-    // explanation above it stays in view whenever it fits.
+    // Reveal the form when it appears, so its actions and footnote are
+    // never stranded below the fold. If the whole form fits in the
+    // thread, `block: 'nearest'` shows it while keeping the explanation
+    // above it in view. On a short phone the form is TALLER than the
+    // thread, and there the only honest position is the newest content,
+    // so scroll to the bottom instead of pretending it all fits.
     window.setTimeout(function () {
       var node = form || dom.canvas.querySelector('.vetti-form-block');
-      if (node && node.scrollIntoView) {
+      if (!node) { scrollToBottom(true); return; }
+      if (node.offsetHeight <= dom.canvas.clientHeight && node.scrollIntoView) {
         node.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
       } else {
         scrollToBottom(true);

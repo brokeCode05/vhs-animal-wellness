@@ -3,15 +3,16 @@
 
    WORKSPACE STRUCTURE (four parts, one clean area)
    -----------------------------------------------
-     A. .vetti-greeting     compact header — greeting LEFT,
-                            Vetti + active pet + Replay RIGHT
+     A. .vetti-greeting     compact header
+                            [ mascot | greeting | tools ]
      B. .vetti-canvas       conversation thread (the only scroller)
      C. .vetti-carousel     suggested prompt rail
      D. .vetti-composer     the composer
 
    There is no separate mascot row and no mascot stage. Vetti lives
-   inside the header, so the thread starts directly below the header
-   and owns the reclaimed height.
+   inside the header, to the LEFT of the greeting, so the thread starts
+   directly below the header and owns the reclaimed height. On phones the
+   header wraps to two rows rather than squeezing one.
 
    VETTI HAS TWO VISUAL ROLAS, NEVER MIXED
    ---------------------------------------
@@ -20,16 +21,16 @@
         state. No frame, no card, no background, no caption, no blob.
 
      2. CANONICAL CHAT AVATAR (.vetti-chat-avatar)
-        One fixed small image beside every Vetti message. Identity, not
-        expression — it never switches with state.
+        One fixed small image (vetti-chat-head.png) beside every Vetti
+        message. Identity, not expression — it never switches.
 
    ── HEADER MASCOT SIZING ─────────────────────────────────────
    Defined only here, on its OWN breakpoints so a 768px tablet gets
    the tablet size rather than the phone one:
 
-     desktop   4.25rem (68px)   range 64-72px
-     tablet    3.75rem (60px)   range 56-64px   (max-width: 1024px)
-     mobile    3.25rem (52px)   range 48-56px   (max-width: 600px)
+     desktop   5rem     (80px)   range 72-88px
+     tablet    4.25rem  (68px)   range 64-72px   (max-width: 1024px)
+     mobile    3.5rem   (56px)   range 52-60px   (max-width: 600px)
 
    The assets are transparent PNGs, so the mascot gets a soft
    drop-shadow only. Nothing around it can grow the header much.
@@ -42,7 +43,7 @@
    is flex with min-width:0, long words wrap, and the prompt rail
    scrolls horizontally inside its own box.
 
-   v4.0.0
+   v4.1.0
    ============================================================ */
 
 /* ── LEGACY FLOATING CHATBOT ───────────────────────────────────────── */
@@ -81,11 +82,13 @@ body.vetti-active .chatbot-container { display: none; }
 
 /* ── A. WORKSPACE HEADER (compact) ───────────────────────────────────── */
 
+/* [ mascot ] [ greeting ] ......... [ selector / replay ]
+   The mascot leads on the left, the greeting stays the primary block in
+   the middle, and the secondary tools are pushed to the far right. */
 .vetti-greeting {
   display: flex;
-  align-items: center;           /* the mascot must not raise the header */
-  justify-content: space-between;
-  gap: 0.5rem 1.25rem;
+  align-items: center;
+  gap: 0.5rem 1rem;
   flex-wrap: wrap;
   padding: 0.625rem 1.5rem;
   border-bottom: 1px solid var(--vhs-neutral-border, #E5E1EC);
@@ -93,7 +96,11 @@ body.vetti-active .chatbot-container { display: none; }
   min-width: 0;
 }
 
-.vetti-greeting-text { min-width: 0; flex: 1 1 16rem; }
+.vetti-greeting-text {
+  min-width: 0;
+  flex: 1 1 14rem;
+  margin-right: auto;          /* keeps the tools hard right */
+}
 
 .vetti-greeting h1 {
   margin: 0;
@@ -155,16 +162,18 @@ body.vetti-active .chatbot-container { display: none; }
   max-width: 11rem;
 }
 
-/* ── A (right side). HEADER MASCOT + TOOLS ────────────────────────────
-   Vetti sits on the right of the greeting, next to the active-pet
-   selector. Deliberately NOT given a row, a stage, a square frame, a
-   card background or a permanent caption: the transparent PNG is used
-   as-is and only the EXPRESSION changes with state. */
+/* ── A. HEADER MASCOT (left) + TOOLS (right) ──────────────────────────
+   Vetti leads the header on the LEFT of the greeting. Deliberately NOT
+   given a row, a stage, a square frame, a card background or a
+   permanent caption: the transparent PNG is used as-is and only the
+   EXPRESSION changes with state. */
 
+/* Secondary tools, hard right, stacked so neither line crowds the other. */
 .vetti-header-tools {
   display: flex;
-  align-items: center;
-  gap: 0.85rem;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.1rem;
   flex: 0 0 auto;
   min-width: 0;
 }
@@ -174,8 +183,8 @@ body.vetti-active .chatbot-container { display: none; }
 .vetti-header-mascot {
   position: relative;
   flex: 0 0 auto;
-  width: 4.25rem;              /* 68px, desktop — range 64-72px */
-  height: 4.25rem;
+  width: 5rem;                 /* 80px, desktop — range 72-88px */
+  height: 5rem;
 }
 
 .vetti-header-mascot-img {
@@ -187,15 +196,6 @@ body.vetti-active .chatbot-container { display: none; }
   display: block;
   /* The ONLY decoration: a soft shadow so it sits on the surface. */
   filter: drop-shadow(0 2px 6px rgba(60, 31, 120, 0.22));
-}
-
-/* Selector stacked over the replay link, beside the mascot. */
-.vetti-header-meta {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 0.1rem;
-  min-width: 0;
 }
 
 /* ── B. CONVERSATION THREAD ────────────────────────────────────────── */
@@ -813,15 +813,52 @@ body.vetti-active .chatbot-container { display: none; }
 @media (max-width: 1024px) {
   .vetti-canvas > * { max-width: 46rem; }
   .vetti-input-zone { max-width: 46rem; }
-  .vetti-header-mascot { width: 3.75rem; height: 3.75rem; }  /* 60px */
+  .vetti-header-mascot { width: 4.25rem; height: 4.25rem; }  /* 68px — tablet 64-72 */
   .vetti-bubble { max-width: min(33rem, 100%); }
   .vetti-chip { max-width: 14rem; }
 }
 
-/* Phone — header mascot 52px (range 48-56px). */
+/* Phone — header mascot 56px (range 52-60).
+   §6: on a PHONE the header is TWO rows, not a squeezed single row.
+   Row 1: [ mascot ][ greeting ] — mascot and greeting stay visually
+          connected and the greeting keeps its full width.
+   Row 2: selector + replay, secondary, underneath.
+   This lives at 600px, NOT 768px: at 768px the single-line desktop
+   header still fits, and forcing a wrap there pushed "Replay intro"
+   off the right edge. */
 @media (max-width: 600px) {
-  .vetti-header-mascot { width: 3.25rem; height: 3.25rem; }  /* 52px */
-  .vetti-header-tools { gap: 0.6rem; }
+  .vetti-header-mascot { width: 3.5rem; height: 3.5rem; }   /* 56px */
+
+  .vetti-greeting {
+    padding: 0.55rem 0.9rem 0.5rem;
+    gap: 0.45rem 0.7rem;
+  }
+  .vetti-greeting-text {
+    flex: 1 1 55%;
+    margin-right: 0;
+  }
+  .vetti-greeting h1 { font-size: 1.1rem; line-height: 1.22; }
+  .vetti-warm-line { font-size: 0.78rem; line-height: 1.4; margin-top: 0.1rem; }
+  .vetti-replay { font-size: 0.76rem; padding: 0.1rem 0; }
+
+  .vetti-header-tools {
+    flex: 0 1 auto;
+    flex-direction: row;
+    align-items: center;
+    gap: 0.5rem 0.75rem;
+    min-width: 0;
+  }
+
+  /* Only claim a full second row when there IS a selector to show. With
+     no pets, "Replay intro" is a small secondary link and sits beside
+     the greeting instead of stretching the header to a third line. */
+  .vetti-header-tools:has(.vetti-pet-selector:not([hidden])) {
+    flex: 1 1 100%;
+    justify-content: space-between;
+  }
+
+  .vetti-pet-selector { width: auto; flex: 1 1 auto; min-width: 0; }
+  .vetti-pet-selector select { flex: 1 1 auto; max-width: none; font-size: 0.82rem; }
 }
 
 /* Mobile spacing pass. Mascot SIZE is deliberately NOT changed here. */
@@ -833,41 +870,32 @@ body.vetti-active .chatbot-container { display: none; }
     gap: 0.5rem;
   }
 
-  .vetti-greeting { padding: 0.5rem 1rem; gap: 0.4rem 0.75rem; }
-  .vetti-greeting h1 { font-size: 1.15rem; }
-  .vetti-warm-line { font-size: 0.8rem; }
-  .vetti-replay { font-size: 0.78rem; }
-
-  /* On a phone the greeting takes the first line and the mascot plus
-     selector share the second, so the header stays two rows at most. */
-  .vetti-greeting-text { flex: 1 1 100%; }
-  .vetti-header-tools { flex: 1 1 100%; justify-content: flex-start; }
-  .vetti-header-meta { flex: 1 1 auto; align-items: flex-start; min-width: 0; }
-
-  .vetti-pet-selector { width: 100%; }
-  .vetti-pet-selector select { flex: 1 1 auto; max-width: none; }
-
-  .vetti-canvas { padding: 0.9rem 1rem 1.1rem; gap: 0.7rem; }
-  .vetti-turn { gap: 0.35rem; }
-
-  .vetti-composer-area { padding: 0.55rem 0.75rem 0.65rem; }
-  .vetti-carousel { padding: 0.4rem 0.35rem 0.15rem; }
-  .vetti-composer { padding: 0.35rem; }
+  /* §11: Vetti messages take the full width so the text column never
+     gets narrow; the user bubble stays visibly narrower and right
+     aligned, and the avatar costs only a 24px gutter. */
+  .vetti-canvas { padding: 0.75rem 0.75rem 1rem; gap: 0.6rem; }
+  .vetti-turn { gap: 0.3rem; }
 
   .vetti-canvas > * { max-width: 100%; }
   .vetti-input-zone { max-width: 100%; }
   .vetti-block { max-width: 100%; }
-  .vetti-bubble { max-width: 100%; padding: 0.55rem 0.7rem; }
-  .vetti-bubble-user { max-width: 86%; }
 
-  /* Canonical avatar, slightly smaller on mobile. */
+  .vetti-bubble { max-width: 100%; padding: 0.6rem 0.75rem; }
+  .vetti-bubble-user { max-width: 82%; }
+
+  /* Canonical chat avatar, 26px on mobile. */
   .vetti-chat-avatar { width: 1.625rem; height: 1.625rem; }
   .vetti-row-vetti { gap: 0.4rem; }
+
+  /* §19/§20: one bottom zone, tighter padding, swipe-only rail. */
+  .vetti-composer-area { padding: 0.5rem 0.6rem 0.6rem; }
+  .vetti-carousel { padding: 0.45rem 0.35rem 0.2rem; }
+  .vetti-composer { padding: 0.3rem; gap: 0.4rem; }
 
   /* Swipe is primary; arrows step aside and release their gutters. */
   .vetti-carousel-btn { display: none; }
   .vetti-carousel-rail.is-scrollable .vetti-carousel-track { padding-inline: 0; }
-  .vetti-chip { max-width: 12.5rem; font-size: 0.8rem; min-height: 2rem; }
+  .vetti-chip { max-width: 13rem; font-size: 0.8rem; min-height: 2.25rem; }
 
   .vetti-field-row { flex-direction: column; gap: 0.55rem; }
   .vetti-petform { gap: 0.55rem; padding: 0.8rem 0.8rem; }
@@ -877,11 +905,13 @@ body.vetti-active .chatbot-container { display: none; }
 
   /* 44px target, 16px input prevents iOS zoom. */
   .vetti-send { width: 2.75rem; height: 2.75rem; }
-  .vetti-composer textarea { font-size: 16px; }
+  .vetti-composer textarea { font-size: 16px; padding: 0.6rem 0.7rem; }
 }
 
+/* Narrowest phones. The mascot keeps the same 56px as every other phone
+   — §6 sets a 52-60px band, and one consistent size reads calmer than a
+   size that changes again 10px narrower. */
 @media (max-width: 400px) {
-  .vetti-header-mascot { width: 3rem; height: 3rem; }   /* 48px */
   .vetti-chip { max-width: 10.5rem; }
 }
 

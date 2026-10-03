@@ -20,7 +20,7 @@
    it did not. Replies that would need a backend or an LLM say so
    plainly instead of pretending.
 
-   v3.0.0
+   v4.1.0
    ============================================================ */
 (function (global) {
   'use strict';
@@ -75,6 +75,16 @@
     error:        'Vetti the pet-care assistant, apologising',
     apology:      'Vetti the pet-care assistant, apologising'
   };
+
+  // The CHAT AVATAR is deliberately NOT one of the expressions above.
+  // It is Vetti's fixed identity beside every normal message, so it has
+  // its own dedicated asset and never switches with state. Keeping it
+  // here means no other file ever hardcodes a filename.
+  var CHAT_AVATAR = ASSET_DIR + 'vetti-chat-head.png';
+
+  function chatAvatarFor() {
+    return CHAT_AVATAR;
+  }
 
   function mascotFor(state) {
     return MASCOT_BY_STATE[state] || MASCOT_BY_STATE.idle;
@@ -478,6 +488,8 @@
 
   global.VettiState = {
     ASSET_DIR: ASSET_DIR,
+    CHAT_AVATAR: CHAT_AVATAR,
+    chatAvatarFor: chatAvatarFor,
     mascotFor: mascotFor,
     altFor: altFor,
     STATES: STATES,

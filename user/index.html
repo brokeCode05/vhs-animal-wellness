@@ -13,7 +13,7 @@
     <link rel="stylesheet" href="user-accent.css?v=2.5.0" />
     <link rel="stylesheet" href="../shared/vhs-ui.css?v=2.6.0" />
     <link rel="stylesheet" href="pet-onboarding.css?v=1.0.1" />
-    <link rel="stylesheet" href="vetti.css?v=4.0.0" />
+    <link rel="stylesheet" href="vetti.css?v=4.1.0" />
   </head>
   <body>
     <!-- TOP NAVBAR -->
@@ -155,11 +155,30 @@
              below stay reachable from the sidebar. -->
         <section id="section-vetti" class="page-section active">
           <div class="vetti-shell">
-            <!-- A. WORKSPACE HEADER — greeting on the left, Vetti + tools on the
-                 right. Vetti lives INSIDE the header: there is no separate
-                 mascot row, no stage, no square frame and no permanent
-                 caption. State-specific artwork appears here only. -->
+            <!-- A. WORKSPACE HEADER — three parts on one line:
+                 [ Vetti mascot ] [ greeting ] ......... [ pet selector / replay ]
+                 Vetti lives INSIDE the header: no separate mascot row, no
+                 stage, no square frame, no permanent caption. Only the
+                 EXPRESSION changes here. The chat avatar used inside the
+                 thread is a separate, fixed asset (vetti-chat-head.png).
+                 On phones the header wraps to two rows: mascot + greeting
+                 on top, selector + replay below. -->
             <header class="vetti-greeting">
+              <!-- Transparent PNG, natural drop-shadow. Expression only. -->
+              <div class="vetti-header-mascot" id="vettiHeaderMascotFrame" data-state="idle">
+                <img
+                  id="vettiHeaderMascot"
+                  class="vetti-header-mascot-img"
+                  data-vetti-face="1"
+                  src="../shared/assets/vetti/vetti-idle-a.png"
+                  alt="Vetti the pet-care assistant"
+                  width="1254"
+                  height="1254"
+                  decoding="async"
+                  draggable="false"
+                />
+              </div>
+
               <div class="vetti-greeting-text">
                 <h1 id="vettiGreeting">Good day.</h1>
                 <p class="vetti-warm-line" id="vettiWarmLine">
@@ -168,28 +187,11 @@
               </div>
 
               <div class="vetti-header-tools">
-                <!-- Transparent PNG, natural drop-shadow. Expression only. -->
-                <div class="vetti-header-mascot" id="vettiHeaderMascotFrame" data-state="idle">
-                  <img
-                    id="vettiHeaderMascot"
-                    class="vetti-header-mascot-img"
-                    data-vetti-face="1"
-                    src="../shared/assets/vetti/vetti-idle-a.png"
-                    alt="Vetti the pet-care assistant"
-                    width="1254"
-                    height="1254"
-                    decoding="async"
-                    draggable="false"
-                  />
-                </div>
-
-                <div class="vetti-header-meta">
-                  <!-- Active-pet selector, rendered only when the owner has pets. -->
-                  <div class="vetti-pet-selector" id="vettiPetSelector" hidden></div>
-                  <button type="button" class="vetti-replay" id="vettiReplayIntro" hidden>
-                    Replay intro
-                  </button>
-                </div>
+                <!-- Active-pet selector, rendered only when the owner has pets. -->
+                <div class="vetti-pet-selector" id="vettiPetSelector" hidden></div>
+                <button type="button" class="vetti-replay" id="vettiReplayIntro" hidden>
+                  Replay intro
+                </button>
               </div>
             </header>
 
@@ -1297,8 +1299,8 @@
     <script src="pet-onboarding.js?v=1.0.1"></script>
     <script src="checkin-script.js?v=1.0.0"></script>
     <!-- Vetti: state model -> onboarding -> UI, in dependency order. -->
-    <script src="vetti-state.js?v=4.0.0"></script>
-    <script src="vetti-onboarding.js?v=4.0.0"></script>
-    <script src="vetti-ui.js?v=4.0.0"></script>
+    <script src="vetti-state.js?v=4.1.0"></script>
+    <script src="vetti-onboarding.js?v=4.1.0"></script>
+    <script src="vetti-ui.js?v=4.1.0"></script>
   </body>
 </html>
