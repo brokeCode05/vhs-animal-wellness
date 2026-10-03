@@ -620,6 +620,19 @@ body.vetti-active .chatbot-container { display: none; }
   box-shadow: 0 12px 32px rgba(36, 32, 51, 0.18);
 }
 
+/* Mascot and headings are ONE block. On a phone they sit side by side so
+   Vetti reads as introducing herself rather than hovering above her own
+   name; the wrapper is a plain column above 600px, which is the layout
+   that shipped. */
+.vetti-welcome-head {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  min-width: 0;
+}
+
+.vetti-welcome-headings { min-width: 0; }
+
 /* Vetti is present in the welcome. The same transparent-PNG treatment
    as the header: no frame, no card, a light shadow only. */
 .vetti-welcome-mascot {
@@ -1603,19 +1616,32 @@ body.vetti-active .chatbot-container { display: none; }
     max-width: 12rem;
   }
 
-  /* Welcome layer on a phone: edge to edge, one column, and the primary
-     action full width so it is never the smaller of two targets. The
-     mascot shrinks to keep all five steps above the fold. */
-  .vetti-welcome { padding: 0.85rem; align-items: center; }
+  /* Welcome layer on a phone: it now has the whole screen to work with,
+     so it stops being a small centred card and uses the width. */
+  .vetti-welcome { padding: 0.6rem; }
 
   .vetti-welcome-card {
-    max-width: 24rem;
+    max-width: none;
     gap: 0.45rem;
-    padding: 1rem 1.05rem 0.9rem;
+    padding: 0.9rem 1rem 0.85rem;
     border-radius: var(--radius, 0.75rem);
   }
 
-  .vetti-welcome-mascot { width: 3rem; height: 3rem; }
+  /* [ mascot ]  WELCOME TO THE VHS PORTAL
+                 Hi Ana, I'm Vetti.
+     Vetti stands BESIDE her own name instead of floating above it. */
+  .vetti-welcome-head {
+    flex-direction: row;
+    align-items: center;
+    gap: 0.7rem;
+  }
+  .vetti-welcome-mascot {
+    width: 2.75rem;
+    height: 2.75rem;
+    flex: 0 0 auto;
+    align-self: center;
+  }
+  .vetti-welcome-headings { display: flex; flex-direction: column; gap: 0.1rem; }
   .vetti-welcome-title { font-size: 1.1rem; }
   .vetti-welcome-lead { font-size: 0.82rem; line-height: 1.45; }
   .vetti-welcome-steps { gap: 0.4rem; margin-top: 0.15rem; }
@@ -1822,6 +1848,70 @@ body.vetti-active .chatbot-container { display: none; }
   /* 44px tap target for send. The 16px input that stops iOS zooming is
      set with the rest of the composer above. */
   .vetti-send { width: 2.75rem; height: 2.75rem; }
+}
+
+/* ── MOBILE-FIRST SHELL ─────────────────────────────────────────────────
+   The single biggest mobile problem was structural, not spacing: at a
+   phone width the workspace still drew itself as a DESKTOP CARD. The
+   chain was portal page -> 16px white gutter -> white rounded shell with
+   a border and a shadow -> grey rounded inner rectangle -> white cards.
+   Four surfaces, three nested boxes, and only 358px of a 390px screen
+   actually usable.
+
+   A phone gets an APP instead:
+
+     top app bar
+       -> compact context header   (white band, no container)
+       -> conversation surface      (full-bleed, the primary screen)
+       -> composer bar              (white band, no container)
+
+   So on a phone the shell stops being a card: no border, no radius, no
+   shadow, no background of its own, and it runs edge to edge. Safe
+   spacing now comes from INSIDE each band, which is where it belongs —
+   the thread keeps ~12px so text is not flush against the screen edge.
+   Tablet and desktop keep the card shell; this block never applies there. */
+@media (max-width: 600px) {
+  /* The portal's own 16px gutter is what pushed the shell inward. It is
+     reclaimed ONLY while Vetti is the open section (body.vetti-active),
+     so every other page keeps the padding it ships with. */
+  body.vetti-active .main-content { padding: 0; }
+
+  /* With that padding gone the workspace owns the whole area under the
+     app bar. svh first so the composer is never pushed under a mobile
+     URL bar, dvh where the browser supports it. */
+  #section-vetti.active {
+    height: calc(100svh - var(--navbar-height, 60px));
+    height: calc(100dvh - var(--navbar-height, 60px));
+    max-height: calc(100dvh - var(--navbar-height, 60px));
+  }
+
+  .vetti-shell {
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+    background: transparent;
+  }
+
+  /* Header and composer are already plain white BANDS in the base rules —
+     what made them read as containers was the rounded shell drawn AROUND
+     them, and that is gone. Only the inner box has to be undone.
+
+     The composer bar's input zone wrapped the rail and the field in a
+     second bordered, 16px-rounded box inside a white bar. That box is
+     gone; the field itself becomes the single rounded surface. */
+  .vetti-input-zone {
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+  }
+  .vetti-composer {
+    background: var(--vhs-neutral-bg, #F7F7FA);
+    border-radius: 999px;
+    padding: 0.25rem 0.25rem 0.25rem 0.9rem;
+  }
+
+  /* One hairline into the composer bar, not one per nested box. */
+  .vetti-carousel { border-bottom: 0; }
 }
 
 /* Narrowest phones. The mascot keeps the same 44px as every other phone —

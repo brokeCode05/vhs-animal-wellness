@@ -13,7 +13,7 @@
     <link rel="stylesheet" href="user-accent.css?v=2.5.0" />
     <link rel="stylesheet" href="../shared/vhs-ui.css?v=2.6.0" />
     <link rel="stylesheet" href="pet-onboarding.css?v=1.0.1" />
-    <link rel="stylesheet" href="vetti.css?v=4.6.0" />
+    <link rel="stylesheet" href="vetti.css?v=4.7.0" />
   </head>
   <body>
     <!-- TOP NAVBAR -->
@@ -261,21 +261,30 @@
               aria-labelledby="vettiWelcomeTitle"
             >
               <div class="vetti-welcome-card">
-                <div class="vetti-welcome-mascot">
-                  <img
-                    id="vettiWelcomeMascot"
-                    src="../shared/assets/vetti/vetti-greeting.png"
-                    alt="Vetti the pet-care assistant, smiling in greeting"
-                    width="1254"
-                    height="1254"
-                    decoding="async"
-                    draggable="false"
-                  />
+                <!-- Mascot + headings share one block. On a phone they sit
+                     side by side so Vetti reads as introducing herself
+                     rather than floating above her own name; from 601px up
+                     this wrapper is a plain column and the layout is the
+                     one that shipped. -->
+                <div class="vetti-welcome-head">
+                  <div class="vetti-welcome-mascot">
+                    <img
+                      id="vettiWelcomeMascot"
+                      src="../shared/assets/vetti/vetti-greeting.png"
+                      alt="Vetti the pet-care assistant, smiling in greeting"
+                      width="1254"
+                      height="1254"
+                      decoding="async"
+                      draggable="false"
+                    />
+                  </div>
+                  <div class="vetti-welcome-headings">
+                    <p class="vetti-welcome-eyebrow">Welcome to the VHS Portal</p>
+                    <h2 class="vetti-welcome-title" id="vettiWelcomeTitle">
+                      Hi, I&rsquo;m Vetti.
+                    </h2>
+                  </div>
                 </div>
-                <p class="vetti-welcome-eyebrow">Welcome to the VHS Portal</p>
-                <h2 class="vetti-welcome-title" id="vettiWelcomeTitle">
-                  Hi, I&rsquo;m Vetti.
-                </h2>
                 <p class="vetti-welcome-lead" id="vettiWelcomeLead"></p>
                 <ol class="vetti-welcome-steps" id="vettiWelcomeSteps"></ol>
                 <div class="vetti-welcome-actions">
@@ -1388,8 +1397,8 @@
     <script src="pet-onboarding.js?v=1.0.1"></script>
     <script src="checkin-script.js?v=1.0.0"></script>
     <!-- Vetti: state model -> onboarding -> UI, in dependency order. -->
-    <script src="vetti-state.js?v=4.6.0"></script>
-    <script src="vetti-onboarding.js?v=4.6.0"></script>
-    <script src="vetti-ui.js?v=4.6.0"></script>
+    <script src="vetti-state.js?v=4.7.0"></script>
+    <script src="vetti-onboarding.js?v=4.7.0"></script>
+    <script src="vetti-ui.js?v=4.7.0"></script>
   </body>
 </html>
