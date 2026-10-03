@@ -109,6 +109,7 @@
     dom.presenceImg = el('vettiHeaderMascot');
     dom.canvas = el('vettiCanvas');
     dom.carousel = el('vettiCarousel');
+    dom.inputZone = document.querySelector('.vetti-input-zone');
     dom.composer = el('vettiComposer');
     dom.input = el('vettiInput');
     dom.send = el('vettiSend');
@@ -906,8 +907,129 @@
     return Onboarding.tutorialSteps(pets().length > 0);
   }
 
+  // ── TUTORIAL-ONLY PRESENTATION ─────────────────────────────────────────
+  // The walkthrough is allowed to SHOW examples. It is never allowed to
+  // CREATE anything.
+  //
+  // Hard rules this layer keeps, because the tutorial runs against a real
+  // account with real records behind it:
+  //   · no pet, appointment, service or owner is written or read;
+  //   · nothing is written to localStorage;
+  //   · the active pet is never changed;
+  //   · no intent is resolved and send() is never called;
+  //   · examples are attached straight to the DOM — never through
+  //     renderVetti / renderBlock, which would fold them into the real
+  //     conversation history;
+  //   · every node carries data-vetti-tour-demo, so clearTourDemo() can
+  //     sweep the entire set in one query.
+  //
+  // Two real elements are borrowed for the duration of a step and handed
+  // back untouched: the suggestion rail (step 2) and the composer
+  // placeholder (step 1). Both are snapshotted first and restored exactly.
+  var tourDemo = { active: '', rail: null, placeholder: null };
+
+  function tourDemoMarkup(kind) {
+    var hasPets = pets().length > 0;
+    if (kind === 'composer') return Onboarding.tutorialExampleInput();
+    if (kind === 'suggestions') return Onboarding.tutorialSuggestionChips(hasPets);
+    if (kind === 'petform') return Onboarding.tutorialPetFormDemo();
+    if (kind === 'result') return Onboarding.tutorialExampleCard();
+    return '';
+  }
+
+  // One step's example at a time: whatever is on screen is torn down before
+  // the next one goes up, so stepping back and forth can never stack two.
+  function showTourDemo(kind) {
+    clearTourDemo();
+    var html = tourDemoMarkup(kind);
+    if (!html) return null;
+
+    if (kind === 'suggestions') {
+      if (!dom.carousel) return null;
+      // Snapshot the REAL rail verbatim and give it back verbatim — an
+      // account with no suggestions stays without them afterwards.
+      tourDemo.rail = { html: dom.carousel.innerHTML, hidden: dom.carousel.hidden };
+      dom.carousel.innerHTML = html;
+      dom.carousel.hidden = false;
+      var rail = dom.carousel.querySelector('.vetti-carousel-rail');
+      if (rail) rail.classList.remove('is-scrollable');
+    } else {
+      var host = kind === 'composer' ? dom.inputZone : dom.canvas;
+      if (!host) return null;
+      // Into the thread, but NOT inside a .vetti-turn: the example sits
+      // beside the conversation instead of pretending to be part of it.
+      host.insertAdjacentHTML(kind === 'composer' ? 'afterbegin' : 'beforeend', html);
+    }
+
+    if (kind === 'composer' && dom.input) {
+      tourDemo.placeholder = {
+        had: dom.input.hasAttribute('placeholder'),
+        value: dom.input.getAttribute('placeholder')
+      };
+      dom.input.setAttribute('placeholder', 'What services do you offer?');
+    }
+
+    tourDemo.active = kind;
+    var node = document.querySelector('[data-vetti-tour-demo="' + kind + '"]');
+    revealInCanvas(node);
+    return node;
+  }
+
+  // Removes every tutorial-only node and hands back anything borrowed.
+  // Called from closeTutorial(), so Finish, Skip Tutorial, Escape and a
+  // replay closing all take the same exit.
+  function clearTourDemo() {
+    var nodes = document.querySelectorAll('[data-vetti-tour-demo]');
+    for (var i = 0; i < nodes.length; i++) {
+      if (nodes[i].parentNode) nodes[i].parentNode.removeChild(nodes[i]);
+    }
+    if (tourDemo.rail) {
+      if (dom.carousel) {
+        dom.carousel.innerHTML = tourDemo.rail.html;
+        dom.carousel.hidden = tourDemo.rail.hidden;
+      }
+      tourDemo.rail = null;
+    }
+    if (tourDemo.placeholder) {
+      if (dom.input) {
+        if (tourDemo.placeholder.had) {
+          dom.input.setAttribute('placeholder', tourDemo.placeholder.value);
+        } else {
+          dom.input.removeAttribute('placeholder');
+        }
+      }
+      tourDemo.placeholder = null;
+    }
+    tourDemo.active = '';
+  }
+
+  // Scrolls the example into view using the thread's OWN scrollTop only, so
+  // the spotlight never lands on a node clipped outside the canvas.
+  function revealInCanvas(node) {
+    if (!node || !dom.canvas || !dom.canvas.scrollHeight) return;
+    var cr = dom.canvas.getBoundingClientRect();
+    var nr = node.getBoundingClientRect();
+    if (nr.height >= cr.height) return;
+    if (nr.top >= cr.top + 8 && nr.bottom <= cr.bottom - 8) return;
+    dom.canvas.scrollTop += (nr.top - cr.top) - (cr.height - nr.height) / 2;
+  }
+
+  // What the current step spotlights. Usually the real element named by
+  // `target` — the example for that step sits inside it, so framing the
+  // element frames both. A step marked `spot: 'demo'` frames its example
+  // instead, because there the example IS the thing being taught.
+  function currentSpotlight() {
+    var step = tourSteps()[ui.tourIndex];
+    if (!step) return {};
+    var node = step.spot === 'demo' && tourDemo.active
+      ? document.querySelector('[data-vetti-tour-demo="' + tourDemo.active + '"]')
+      : null;
+    return { selector: step.target, node: node };
+  }
+
   function openTutorial() {
     if (!dom.tour) return;
+    clearTourDemo();
     ui.tourIndex = 0;
     dom.tour.hidden = false;
     renderTourStep();
@@ -930,18 +1052,31 @@
     if (dom.tourNext) dom.tourNext.textContent = last ? 'Finish' : 'Next';
     if (dom.tourBack) dom.tourBack.hidden = ui.tourIndex === 0;
 
-    positionTour(step.target);
+    // Every step starts from a clean slate: the previous step's example is
+    // torn down even when this step has none of its own, so Back/Next can
+    // never leave a stale example on screen.
+    clearTourDemo();
+    // The example goes up BEFORE the spotlight is measured, so the ring
+    // frames a region that already contains it.
+    if (step.demo) showTourDemo(step.demo);
+    var spot = currentSpotlight();
+    positionTour(spot.selector, spot.node);
   }
 
   // Places the four masks, the ring and the card. Everything is computed
   // against the SHELL, because the walkthrough is anchored to the
   // workspace rather than the viewport — that is what keeps it correct on
   // a phone inside the portal's own layout.
-  function positionTour(selector) {
+  //
+  // `demoNode` is this step's tutorial example when it has one. It is the
+  // better target than the region behind it: step 4 should frame the
+  // example card, not the whole thread.
+  function positionTour(selector, demoNode) {
     if (!dom.tour || !dom.tourFrame) return;
     var shell = dom.tourFrame;
     var shellRect = shell.getBoundingClientRect();
-    var target = selector ? document.querySelector(selector) : null;
+    var demoUsable = demoNode && demoNode.offsetParent !== null && demoNode.offsetWidth > 0;
+    var target = demoUsable ? demoNode : (selector ? document.querySelector(selector) : null);
 
     // A target that is missing or hidden falls back to framing the whole
     // workspace, so a step can never leave the user staring at nothing.
@@ -999,6 +1134,9 @@
   }
 
   function closeTutorial() {
+    // FIRST, and unconditionally: every exit — Finish, Skip Tutorial,
+    // Escape — has to leave the workspace exactly as it found it.
+    clearTourDemo();
     if (!dom.tour) return;
     dom.tour.hidden = true;
     ui.tourIndex = 0;
@@ -1140,7 +1278,10 @@
 
     var pet = result.pet;
     closePetForm();
-    ui.activePetId = pet.petId;
+    // The pet just saved IS the active one, and it goes in through the one
+    // setter so the dropdown cannot lag behind. Its acknowledgement is
+    // the save message below, not a second "now talking about" line.
+    applyActivePet(pet.petId);
 
     // §9/§AC: a transient "Saving Bruno…" bubble, then success.
     ui.saving = true;
@@ -1399,26 +1540,42 @@
     }, 420);
   }
 
-  // ── Presence micro-animation ─────────────────────────────────────────
-  function selectPet(petId) {
+  // ── Active pet ────────────────────────────────────────────────────────
+  // ONE authoritative state setter. The header dropdown, a row in the pets
+  // card and any Vetti action that deliberately picks a pet all funnel
+  // through here, so the dropdown, the greeting and the reply can never
+  // disagree about who Vetti is talking about.
+  function applyActivePet(petId) {
     var list = pets();
     var hit = list.filter(function (p) {
       return String(p.petId) === String(petId);
     })[0];
-    if (!hit) return;
-    var changed = String(hit.petId) !== String(ui.activePetId);
+    if (!hit) return null;
     ui.activePetId = hit.petId;
     renderPetSelector();
     renderGreeting();
-    if (changed) {
-      // Choosing a pet is a user action, not part of the previous reply,
-      // so it opens a fresh turn instead of trailing off the old one.
-      closeTurn();
-      setPresence('idle');
-      renderVetti('Now talking about ' + hit.name + '.');
-      renderCarousel(suggestionsForContext());
-      scrollToBottom(true);
-    }
+    return hit;
+  }
+
+  // The user-facing switch: apply it, then acknowledge it ONCE. Picking
+  // the pet that is already active is not a change, so it says nothing
+  // rather than repeating the same line.
+  function selectPet(petId) {
+    var current = activePet();
+    var hit = applyActivePet(petId);
+    if (!hit) return;
+    if (current && String(current.petId) === String(hit.petId)) return;
+    announceActivePet(hit);
+  }
+
+  function announceActivePet(hit) {
+    // Choosing a pet is a user action, not part of the previous reply,
+    // so it opens a fresh turn instead of trailing off the old one.
+    closeTurn();
+    setPresence('idle');
+    renderVetti('Now talking about ' + hit.name + '.');
+    renderCarousel(suggestionsForContext());
+    scrollToBottom(true);
   }
 
   function startPresenceMotion() {
@@ -1553,21 +1710,31 @@
       // Re-place the spotlight when the workspace itself reflows.
       dom.tour.addEventListener('click', function (e) {
         if (e.target.closest('.vetti-tour-card')) return;
-        positionTour(tourSteps()[ui.tourIndex] && tourSteps()[ui.tourIndex].target);
+        var spot = currentSpotlight();
+        positionTour(spot.selector, spot.node);
       });
     }
     window.addEventListener('resize', function () {
       if (dom.tour && !dom.tour.hidden) {
-        var step = tourSteps()[ui.tourIndex];
-        if (step) positionTour(step.target);
+        var spot = currentSpotlight();
+        positionTour(spot.selector, spot.node);
       }
     });
 
     if (dom.replay) dom.replay.addEventListener('click', replayIntro);
 
-    var selector = el('vettiActivePet');
-    if (selector) {
-      selector.addEventListener('change', function () { selectPet(selector.value); });
+    // Delegated onto the HOST, never bound to the <select> itself.
+    // renderPetSelector() rebuilds that element from innerHTML every time
+    // the pet list or the active pet changes, so a direct listener is
+    // thrown away on the FIRST switch and every later change silently does
+    // nothing. The host outlives every render, so listening there keeps
+    // the header dropdown and the pets-card rows on one path.
+    if (dom.petSelectorHost) {
+      dom.petSelectorHost.addEventListener('change', function (e) {
+        var target = e.target;
+        if (!target || target.id !== 'vettiActivePet') return;
+        selectPet(target.value);
+      });
     }
 
     if (dom.canvas) {

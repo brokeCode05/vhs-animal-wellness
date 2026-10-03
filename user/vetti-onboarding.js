@@ -130,40 +130,165 @@
   // working if a step's element is absent — VettiUI falls back to
   // highlighting the whole workspace rather than crashing.
   //
-  // Step 3 is account-aware: a zero-pet owner has no selector to point at,
-  // so they are shown the add-pet form instead of a missing dropdown.
+  // `demo` names which piece of tutorial-only presentation markup VettiUI
+  // should show for the step (see the builders at the bottom of this
+  // section). A step with no `demo` points straight at a real element.
+  //
+  // `spot: 'demo'` is the exception: the ring frames the EXAMPLE rather
+  // than the region behind it. Only step 4 wants that — for the other
+  // steps the example sits inside the real element the user is being
+  // taught, so spotlighting that element is both correct and simpler.
+  //
+  // Step 3 is account-aware: a returning owner has a real selector to point
+  // at, while a zero-pet owner is shown a temporary ILLUSTRATION of the
+  // compact setup rather than the real form — so there is nothing on screen
+  // that could possibly be saved while the tutorial is running.
   function tutorialSteps(hasPets) {
     return [
       {
         target: '.vetti-input-zone',
+        demo: 'composer',
         title: 'Type naturally',
-        body: 'You can type naturally here \u2014 ask in your own words.'
+        body: 'You can type naturally here \u2014 just tell me what you need in '
+            + 'your own words.'
       },
       {
         target: '#vettiCarousel',
-        title: 'Use the suggestions',
-        body: 'Use these suggestions when you want a quick starting point.'
+        demo: 'suggestions',
+        title: 'Use quick suggestions',
+        body: 'If you do not know what to type, these suggestions give you a '
+            + 'quick starting point.'
       },
       hasPets
         ? {
             target: '#vettiPetSelector',
+            demo: '',
             title: 'Choose your pet',
-            body: 'Choose which pet you\u2019re talking about here, and I keep '
-                + 'track of it for you.'
+            body: 'Choose which pet you\u2019re talking about here, and I\u2019ll keep '
+                + 'that context for you.'
           }
         : {
-            target: '.vetti-form-block',
+            target: '.vetti-tourdemo-petform',
+            demo: 'petform',
             title: 'Add your first pet',
-            body: 'Most things start with a pet on file. I can add one for you '
-                + 'right here \u2014 it only takes the basics.'
+            body: 'If you do not have a pet yet, I can guide you through adding '
+                + 'the basics right here.'
           },
       {
         target: '#vettiCanvas',
-        title: 'Simple cards',
-        body: 'I can show your pets, appointments and clinic services as '
-            + 'simple cards you can scan.'
+        demo: 'result',
+        spot: 'demo',
+        title: 'Compact cards',
+        body: 'I can show pets, appointments and clinic services in compact '
+            + 'cards like this.'
       }
     ];
+  }
+
+  // ── TUTORIAL-ONLY PRESENTATION MARKUP ────────────────────────────────
+  // Everything below is EXAMPLES for the walkthrough and nothing else.
+  //
+  // Hard rules these obey, because they are what make the walkthrough safe
+  // to run against a real account:
+  //   · no pet, appointment, service or owner is created or read;
+  //   · nothing is written to localStorage;
+  //   · no handler calls send() or any intent resolver;
+  //   · every node is tagged data-vetti-tour-demo so VettiUI can sweep the
+  //     whole set in one query on Finish, Skip or Escape.
+  //
+  // The example text is deliberately generic ("Your pet", "Vaccination").
+  // A walkthrough must never plant a record that reads like one of the
+  // viewer's own.
+  var TOUR_EXAMPLE_TAG = 'Example';
+
+  function tourDemoTag() {
+    return '<span class="vetti-tourdemo-tag">' + escapeText(TOUR_EXAMPLE_TAG) + '</span>';
+  }
+
+  // Step 1: what a typed message looks like. A static strip, shown above
+  // the real composer — never entered into it, never submitted.
+  function tutorialExampleInput() {
+    return ''
+      + '<div class="vetti-tourdemo vetti-tourdemo-input" data-vetti-tour-demo="composer"'
+      + '     aria-hidden="true">'
+      + '  ' + tourDemoTag()
+      + '  <span class="vetti-tourdemo-text">What services do you offer?</span>'
+      + '</div>';
+  }
+
+  // Step 2: the suggestion rail, guaranteed to have something in it. A
+  // zero-pet owner has real suggestions too, but the walkthrough must not
+  // depend on that — so the chips are fixed, and fixed to the same
+  // starting points a real account would offer.
+  function tutorialSuggestionChips(hasPets) {
+    var chips = hasPets
+      ? ['Show my pets', 'What services do you offer?', 'Show my appointments']
+      : ['Help me add my first pet', 'What can Vetti do?', 'What services do you offer?'];
+    return ''
+      + '<div class="vetti-tourdemo" data-vetti-tour-demo="suggestions" aria-hidden="true">'
+      + '  <p class="vetti-carousel-label">' + tourDemoTag() + ' Quick suggestions</p>'
+      + '  <div class="vetti-carousel-rail">'
+      + '    <div class="vetti-carousel-track">'
+      +      chips.map(function (c) {
+            // A SPAN, not a button: there is deliberately no control here
+            // that could send a message. It reads as the real chip and
+            // cannot act like one.
+            return '<span class="vetti-chip vetti-chip-demo">'
+              + '<span class="vetti-chip-label">' + escapeText(c) + '</span></span>';
+          }).join('')
+      + '    </div>'
+      + '  </div>'
+      + '</div>';
+  }
+
+  // Step 3, zero-pet owners: what the compact setup looks like. Rendered
+  // as plain rows rather than form controls, because a control here could
+  // be typed into and submitted, and the tutorial must not save anything.
+  function tutorialPetFormDemo() {
+    var rows = [
+      ['Pet name', 'e.g. Bruno'],
+      ['Species', 'Dog'],
+      ['Breed', 'Choose a breed'],
+      ['Sex', 'Female'],
+      ['Approx. age', '3']
+    ];
+    return ''
+      + '<div class="vetti-tourdemo vetti-tourdemo-petform"'
+      + '     data-vetti-tour-demo="petform" aria-hidden="true">'
+      + '  <div class="vetti-tourdemo-head">'
+      + '    ' + tourDemoTag()
+      + '    <span class="vetti-tourdemo-title">Add your first pet</span>'
+      + '  </div>'
+      + '  <p class="vetti-tourdemo-lead">I only need the basics for now.</p>'
+      + '  <dl class="vetti-tourdemo-fields">'
+      +    rows.map(function (r) {
+            return '<div class="vetti-tourdemo-field">'
+              + '<dt>' + escapeText(r[0]) + '</dt>'
+              + '<dd>' + escapeText(r[1]) + '</dd></div>';
+          }).join('')
+      + '  </dl>'
+      + '  <p class="vetti-tourdemo-foot">Nothing is saved until you finish.</p>'
+      + '</div>';
+  }
+
+  // Step 4: the shape of a real result. Same card construction the live
+  // cards use, filled with neutral placeholder values.
+  function tutorialExampleCard() {
+    return ''
+      + '<div class="vetti-tourdemo" data-vetti-tour-demo="result" aria-hidden="true">'
+      + '  <div class="vetti-tourdemo-head">'
+      + '    ' + tourDemoTag()
+      + '    <span class="vetti-tourdemo-title">Upcoming visit</span>'
+      + '  </div>'
+      + '  <div class="vetti-card vetti-appt is-single">'
+      + '    <div class="vetti-card-head">'
+      + '      <span class="vetti-card-title">Your pet</span>'
+      + '      <span class="status-badge confirmed">Confirmed</span>'
+      + '    </div>'
+      + '    <p class="vetti-appt-service">Vaccination</p>'
+      + '    <p class="vetti-appt-when">Oct 10 \u00b7 3:00 PM</p>'
+      + '  </div>'
+      + '</div>';
   }
 
   // ── THE COMPACT PET FORM ──────────────────────────────────────────────
@@ -567,6 +692,10 @@
     welcomeLead: welcomeLead,
     welcomeNote: welcomeNote,
     tutorialSteps: tutorialSteps,
+    tutorialExampleInput: tutorialExampleInput,
+    tutorialSuggestionChips: tutorialSuggestionChips,
+    tutorialPetFormDemo: tutorialPetFormDemo,
+    tutorialExampleCard: tutorialExampleCard,
     petFormMarkup: petFormMarkup,
     validatePetForm: validatePetForm,
     clearErrors: clearErrors,

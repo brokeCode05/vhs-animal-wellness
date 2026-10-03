@@ -298,6 +298,129 @@ body.vetti-active .chatbot-container { display: none; }
 .vetti-tour-skip:hover { color: var(--vhs-shell, #6546A8); }
 .vetti-tour-back[hidden] { display: none; }
 
+/* ── TUTORIAL-ONLY EXAMPLES ────────────────────────────────────────── */
+/* Markup the walkthrough shows and then removes. Presentation only: it is
+   never a record, never a control, and never something the workspace can
+   save. pointer-events:none keeps every click falling through to the real
+   UI underneath, so an example can never intercept an action. */
+
+.vetti-tourdemo {
+  pointer-events: none;
+  user-select: none;
+}
+
+.vetti-tourdemo-head {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.45rem;
+}
+
+.vetti-tourdemo-title {
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: var(--vhs-neutral-text, #242033);
+}
+
+.vetti-tourdemo-lead {
+  margin: 0 0 0.5rem;
+  font-size: 0.78rem;
+  color: var(--vhs-neutral-muted, #756F82);
+}
+
+.vetti-tourdemo-foot {
+  margin: 0.55rem 0 0;
+  font-size: 0.72rem;
+  color: var(--vhs-neutral-muted, #756F82);
+}
+
+/* The "Example" marker. Every tutorial-only node carries one, so nothing
+   here can be mistaken for a real result. */
+.vetti-tourdemo-tag {
+  display: inline-block;
+  padding: 0.1rem 0.4rem;
+  border-radius: 999px;
+  border: 1px dashed var(--vhs-shell-light, #8a6bd0);
+  background: rgba(138, 107, 208, 0.1);
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--vhs-shell, #6546A8);
+}
+
+/* Step 1 — what a typed message looks like. Sits above the real composer
+   and deliberately does NOT go inside it: nothing is entered, so nothing
+   can be sent. */
+.vetti-tourdemo-input {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.5rem 0.7rem;
+  border-bottom: 1px solid var(--vhs-neutral-border, #E5E1EC);
+  background: rgba(138, 107, 208, 0.06);
+}
+
+.vetti-tourdemo-text {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-size: 0.85rem;
+  color: var(--vhs-neutral-text, #242033);
+}
+
+/* Step 2 — demo chips read exactly like the real ones. They are spans,
+   not buttons, so there is no control here that could send a message. */
+.vetti-chip-demo { cursor: default; }
+
+.vetti-chip-demo .vetti-chip-label { cursor: default; }
+
+/* Step 3 (zero pets) — the compact setup, drawn as static rows. Static
+   rows, not form controls: a control could be typed into and submitted,
+   and the tutorial must not save anything. */
+.vetti-tourdemo-petform {
+  margin: 0.75rem 0;
+  padding: 0.85rem 0.9rem;
+  border: 1px dashed var(--vhs-shell-border, rgba(60, 31, 120, 0.22));
+  border-radius: var(--radius, 0.75rem);
+  background: var(--vhs-neutral-surface, #FFFFFF);
+}
+
+.vetti-tourdemo-fields {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.vetti-tourdemo-field {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  padding: 0.4rem 0.55rem;
+  border-radius: 0.5rem;
+  background: var(--vhs-neutral-bg, #F7F7FA);
+  border: 1px solid var(--vhs-neutral-border, #E5E1EC);
+}
+
+.vetti-tourdemo-field dt {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--vhs-neutral-text, #242033);
+}
+
+.vetti-tourdemo-field dd {
+  margin: 0;
+  font-size: 0.78rem;
+  color: var(--vhs-neutral-muted, #756F82);
+}
+
+/* Step 4 — the example result. Sits in the thread beside the
+   conversation, never inside a turn, so the real history stays untouched. */
+.vetti-tourdemo .vetti-card { margin: 0; }
+
 /* ── B. CONVERSATION THREAD ────────────────────────────────────────── */
 
 .vetti-canvas {
