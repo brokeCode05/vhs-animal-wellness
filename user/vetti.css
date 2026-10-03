@@ -11,8 +11,10 @@
 
    There is no separate mascot row and no mascot stage. Vetti lives
    inside the header, to the LEFT of the greeting, so the thread starts
-   directly below the header and owns the reclaimed height. On phones the
-   header wraps to two rows rather than squeezing one.
+   directly below the header and owns the reclaimed height. The phone
+   header is one row too: the greeting shrinks and wraps internally so the
+   active-pet selector can stay on that row instead of orphaning itself
+   on a second one.
 
    VETTI HAS TWO VISUAL ROLAS, NEVER MIXED
    ---------------------------------------
@@ -1549,28 +1551,34 @@ body.vetti-active .chatbot-container { display: none; }
 }
 
 /* Phone — header mascot 44px.
-   §6: on a PHONE the header is TWO rows, not a squeezed single row.
-   Row 1: [ mascot ][ greeting ] — mascot and greeting stay visually
-          connected and the greeting keeps its full width. The optional
-          subtitle is dropped here so row 1 has one predictable height.
-   Row 2: the active-pet selector alone. Replay is NOT in the header on a
-          phone; it lives at the end of the suggestion rail instead.
+   §6: on a PHONE the header is ONE row: [ mascot ][ greeting ] ... [ pet ].
+   Mascot and greeting stay visually connected, and the active-pet selector
+   rides on the SAME row, hard right. It used to claim a full second row of
+   its own, but with the optional subtitle also dropped on a phone that left
+   the pill alone in white space under the greeting — an orphaned control
+   that read as a layout mistake. Sharing the greeting's row gives it an
+   anchor, and hands the reclaimed header height back to the thread.
+   Replay is NOT in the header on a phone; it lives at the end of the
+   suggestion rail instead.
    This lives at 600px, NOT 768px: at 768px the single-line desktop
    header still fits, and forcing a wrap there pushed the header tools
    off the right edge. */
 @media (max-width: 600px) {
   .vetti-header-mascot { width: 2.75rem; height: 2.75rem; }  /* 44px */
 
-  /* ROW 1 is the mascot and the greeting, side by side. ROW 2 is the
-     active-pet selector on its own, left aligned under them. The header
-     is a phone header, so it earns its height by dropping anything that
-     is not one of those two things. */
+  /* ONE row: mascot, greeting, selector. `nowrap` is what guarantees it —
+     with wrapping on, a long greeting would push the selector down onto a
+     second row and bring the orphan straight back. The greeting absorbs
+     the squeeze instead (it has min-width:0), so it wraps internally and
+     the selector never moves. */
   .vetti-greeting {
     padding: 0.5rem 0.75rem 0.5rem;
     gap: 0.4rem 0.6rem;
+    flex-wrap: nowrap;
   }
   .vetti-greeting-text {
-    flex: 1 1 55%;
+    flex: 1 1 auto;
+    min-width: 0;
     margin-right: 0;
   }
   .vetti-greeting h1 { font-size: 1.05rem; line-height: 1.2; }
@@ -1589,24 +1597,32 @@ body.vetti-active .chatbot-container { display: none; }
   .vetti-replay { display: none; }
 
   .vetti-header-tools {
-    flex: 0 1 auto;
+    flex: 0 0 auto;            /* content-sized; a shrunken box let the
+                                   select overflow it and break the gutter */
     flex-direction: row;
     align-items: center;
     gap: 0.5rem 0.75rem;
-    min-width: 0;
   }
 
-  /* Only claim a full second row when there IS a selector to show. */
-  .vetti-header-tools:has(.vetti-pet-selector:not([hidden])) {
-    flex: 1 1 100%;
-    justify-content: flex-start;
+  /* Hard right on the greeting's row. `margin-left:auto` does the pushing,
+     so the selector is anchored to the edge of the header whether or not
+     it is showing, and the greeting is free to take every pixel between. */
+  .vetti-header-tools {
+    margin-left: auto;
   }
 
-  .vetti-pet-selector { position: relative; width: auto; flex: 0 1 auto; min-width: 0; }
+  /* `flex: 0 0 auto` — sized by its content and never narrower than it.
+     Shrinking this box (the old `0 1 auto` + min-width:0) let it collapse
+     below the select's own intrinsic width, and the select then overflowed
+     its parent by ~5px, breaking the 12px right gutter at 320px. The
+     greeting is what absorbs a narrow screen — it has min-width:0 and
+     wraps — so the selector keeps its full width and the right edge stays
+     on the gutter. The select's own max-width still caps a long pet name. */
+  .vetti-pet-selector { position: relative; width: auto; flex: 0 0 auto; }
 
-  /* The caption goes too on a phone: the dropdown stands alone, left
-     aligned on the same 12px gutter as the mascot above it and the thread
-     below it. The label stays as the accessible name either way. */
+  /* No caption on a phone: the pill reads as a pet chip on its own, and
+     the words would cost more width than the greeting can spare on one
+     row. The label stays as the accessible name either way. */
   .vetti-pet-selector::before { display: none; }
 
   /* 38px tall, 14.4px text: a comfortable thumb target that still reads as
