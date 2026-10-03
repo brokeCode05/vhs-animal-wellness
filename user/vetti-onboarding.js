@@ -17,7 +17,7 @@
    HONESTY RULE: the pet is written to the shared frontend store only.
    Nothing is sent to a server, and the UI says so.
 
-   v1.1.0
+   v2.0.0
    ============================================================ */
 (function (global) {
   'use strict';
@@ -32,6 +32,10 @@
   }
 
   var SPECIES = ['Dog', 'Cat', 'Bird', 'Rabbit', 'Other'];
+  // Sex matches the full Add Pet form and the seeded pets exactly, so a pet
+  // created here and one created there are the same shape.
+  // TODO(BACKEND): this enum is mirrored in Laravel; extend it there first.
+  var GENDERS = ['Male', 'Female'];
   var MICROCHIP_PATTERN = /^[A-Za-z0-9-]*$/;
 
   function escapeText(value) {
@@ -40,69 +44,73 @@
       .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
   }
 
-  // ── THE INTRO ─────────────────────────────────────────────────────────
-  // Returns the markup for the first-meeting block. Kept as markup (not
-  // state text) because it carries Skip + Replay controls.
-  function introMarkup(firstName) {
+  // ── THE INTRO ACTIONS ────────────────────────────────────────────────
+  // §15: the intro itself is 2-3 short conversation messages (rendered by
+  // VettiUI). This is only the action row that follows them.
+  function introActionsMarkup() {
     return ''
       + '<div class="vetti-intro" data-vetti-intro="1">'
-      + '  <h2 class="vetti-intro-title">Nice to meet you, ' + escapeText(firstName) + '.</h2>'
-      + '  <p class="vetti-intro-body">'
-      + '    I&rsquo;m Vetti, the VHS pet-care assistant. Ask me to add a pet, show you '
-      + '    the pets on your account, or point you to appointments, documents and services.'
-      + '  </p>'
       + '  <p class="vetti-intro-note">'
       + '    Everything here is a working demo on this device. Nothing is sent to the '
       + '    clinic until the portal is connected.'
       + '  </p>'
       + '  <div class="vetti-intro-actions">'
-      + '    <button type="button" class="btn-secondary vetti-intro-skip" data-vetti-action="skip-intro">'
-      + '      Skip intro'
+      + '    <button type="button" class="btn-primary" data-vetti-action="start-intro">'
+      + '      Let&rsquo;s get started'
       + '    </button>'
-      + '    <button type="button" class="btn-link vetti-intro-replay" data-vetti-action="replay-intro">'
-      + '      Replay intro'
+      + '    <button type="button" class="btn-link" data-vetti-action="skip-intro">'
+      + '      Skip intro \u2014 I already know this'
       + '    </button>'
       + '  </div>'
       + '</div>';
   }
 
   // ── THE COMPACT PET FORM ──────────────────────────────────────────────
-  // Five fields only: enough to create a real pet record now, with the
-  // rest honestly marked as fillable later on My Pets.
+  // §18. Six fields, nothing more:
+  //   Required — name, species, breed, sex, approximate age
+  //   Optional — weight
   //
-  // One form serves BOTH the first-pet (zero-pet owner) and the
-  // "add another pet" (owner who already has pets) paths. Only the
-  // heading, the lead line and the fallback wording differ. The field
-  // ids are identical in both cases so the ONE validator below always
-  // applies and can never drift between the two paths.
+  // Deliberately NOT collected here (completed later on My Pets):
+  // color, microchip, allergies, chronic conditions, medical notes, photo,
+  // vaccination history.
+  //
+  // TODO(BACKEND): the spec allows "Birthdate OR Approximate Age", but the
+  // pet record has no birthdate field at all (pets store `age` in whole
+  // years). Until the backend model gains one, approximate age is the only
+  // honest option here. Add `birthdate` to addPet and a matching entry in
+  // PET_LIMITS, then surface both.
+  //
+  // One form serves BOTH zero-pet onboarding and "add another pet". Field
+  // ids are identical in both cases, so the ONE validator below applies to
+  // both and can never drift between them.
   function petFormMarkup(opts) {
     var L = limits();
     var hasPets = !!(opts && opts.hasPets);
     var heading = hasPets ? 'Add another pet' : 'Add your first pet';
     var lead = hasPets
-      ? 'Sure. I only need the basics for now \u2014 name and species.'
-      : 'Just the basics for now \u2014 you can add the rest on My Pets.';
+      ? 'Sure. I only need the basics for now.'
+      : 'I only need the basics for now.';
     // The manual route stays available, but only as a secondary link for an
     // owner who already has pets — Vetti is the assisted route.
     var fallbackLink = hasPets
       ? ' Prefer the full form? <button type="button" class="vetti-inline-link"'
         + ' data-vetti-action="open-my-pets">Open My Pets</button>.'
       : '';
+    var required = ' <span class="vetti-required">Required</span>';
+    var optional = ' <span class="vetti-optional">Optional</span>';
     return ''
-      + '<form class="vetti-petform" id="vettiPetForm" novalidate>'
+      + '<form class="vetti-petform" id="vettiPetForm" data-vetti-form="1" novalidate>'
       + '  <h3 class="vetti-petform-heading">' + escapeText(heading) + '</h3>'
       + '  <p class="vetti-petform-lead">' + escapeText(lead) + '</p>'
       + '  <div class="vetti-field">'
-      + '    <label for="vettiPetName">Pet name '
-      + '      <span class="vetti-required">Required</span></label>'
+      + '    <label for="vettiPetName">Pet name' + required + '</label>'
       + '    <input id="vettiPetName" name="vetti_pet_name" type="text" maxlength="' + L.name + '"'
       + '           autocomplete="off" placeholder="e.g. Bruno" aria-describedby="vettiErr-vettiPetName">'
       + '    <p class="vetti-field-error" id="vettiErr-vettiPetName" role="alert" hidden></p>'
       + '  </div>'
       + '  <div class="vetti-field-row">'
       + '    <div class="vetti-field">'
-      + '      <label for="vettiPetSpecies">Species '
-      + '        <span class="vetti-required">Required</span></label>'
+      + '      <label for="vettiPetSpecies">Species' + required + '</label>'
       + '      <select id="vettiPetSpecies" name="vetti_pet_species" aria-describedby="vettiErr-vettiPetSpecies">'
       + '        <option value="">Choose\u2026</option>'
       + SPECIES.map(function (s) { return '<option value="' + s + '">' + s + '</option>'; }).join('')
@@ -110,7 +118,7 @@
       + '      <p class="vetti-field-error" id="vettiErr-vettiPetSpecies" role="alert" hidden></p>'
       + '    </div>'
       + '    <div class="vetti-field">'
-      + '      <label for="vettiPetBreed">Breed <span class="vetti-optional">Optional</span></label>'
+      + '      <label for="vettiPetBreed">Breed' + required + '</label>'
       + '      <input id="vettiPetBreed" name="vetti_pet_breed" type="text" maxlength="' + L.breedCustom + '"'
       + '             autocomplete="off" placeholder="e.g. Aspin" aria-describedby="vettiErr-vettiPetBreed">'
       + '      <p class="vetti-field-error" id="vettiErr-vettiPetBreed" role="alert" hidden></p>'
@@ -118,19 +126,27 @@
       + '  </div>'
       + '  <div class="vetti-field-row">'
       + '    <div class="vetti-field">'
-      + '      <label for="vettiPetAge">Age in years <span class="vetti-optional">Optional</span></label>'
+      + '      <label for="vettiPetSex">Sex' + required + '</label>'
+      + '      <select id="vettiPetSex" name="vetti_pet_gender" aria-describedby="vettiErr-vettiPetSex">'
+      + '        <option value="">Choose\u2026</option>'
+      +        GENDERS.map(function (g) { return '<option value="' + g + '">' + g + '</option>'; }).join('')
+      + '      </select>'
+      + '      <p class="vetti-field-error" id="vettiErr-vettiPetSex" role="alert" hidden></p>'
+      + '    </div>'
+      + '    <div class="vetti-field">'
+      + '      <label for="vettiPetAge">Age in years' + required + '</label>'
       + '      <input id="vettiPetAge" name="vetti_pet_age" type="text" inputmode="numeric" maxlength="'
       + L.age.digits + '" autocomplete="off" spellcheck="false" placeholder="e.g. 3"'
       + '             aria-describedby="vettiErr-vettiPetAge">'
       + '      <p class="vetti-field-error" id="vettiErr-vettiPetAge" role="alert" hidden></p>'
       + '    </div>'
-      + '    <div class="vetti-field">'
-      + '      <label for="vettiPetWeight">Weight in kg <span class="vetti-optional">Optional</span></label>'
-      + '      <input id="vettiPetWeight" name="vetti_pet_weight" type="text" inputmode="decimal" maxlength="'
+      + '  </div>'
+      + '  <div class="vetti-field">'
+      + '    <label for="vettiPetWeight">Weight in kg' + optional + '</label>'
+      + '    <input id="vettiPetWeight" name="vetti_pet_weight" type="text" inputmode="decimal" maxlength="'
       + (L.weightKg.digits + 1 + L.weightKg.decimals) + '" autocomplete="off" spellcheck="false"'
-      + '             placeholder="e.g. 4.5" aria-describedby="vettiErr-vettiPetWeight">'
-      + '      <p class="vetti-field-error" id="vettiErr-vettiPetWeight" role="alert" hidden></p>'
-      + '    </div>'
+      + '           placeholder="e.g. 4.5" aria-describedby="vettiErr-vettiPetWeight">'
+      + '    <p class="vetti-field-error" id="vettiErr-vettiPetWeight" role="alert" hidden></p>'
       + '  </div>'
       + '  <div class="vetti-petform-actions">'
       + '    <button type="submit" class="btn-primary">Add pet</button>'
@@ -182,15 +198,28 @@
 
   function ruleBreed() {
     var v = trimmed('vettiPetBreed');
-    if (v && !MICROCHIP_PATTERN.test(v.replace(/\s+/g, '-'))) {
+    // §18 lists breed as required.
+    if (!v) return 'Enter your pet\u2019s breed.';
+    if (v.length > limits().breedCustom) {
+      return 'Breed must be ' + limits().breedCustom + ' characters or fewer.';
+    }
+    if (!MICROCHIP_PATTERN.test(v.replace(/\s+/g, '-'))) {
       return 'Use letters, numbers and hyphens only.';
     }
     return '';
   }
 
+  function ruleSex() {
+    var v = trimmed('vettiPetSex');
+    if (!v) return 'Choose a sex.';
+    if (GENDERS.indexOf(v) === -1) return 'Choose a sex from the list.';
+    return '';
+  }
+
   function ruleAge() {
     var v = trimmed('vettiPetAge');
-    if (!v) return '';
+    // §18 lists approximate age as required.
+    if (!v) return 'Enter your pet\u2019s age in years.';
     if (!/^[0-9]{1,2}$/.test(v)) {
       return 'Enter age in whole years (0\u2013' + limits().age.max + ').';
     }
@@ -214,6 +243,7 @@
     ['vettiPetName', ruleName],
     ['vettiPetSpecies', ruleSpecies],
     ['vettiPetBreed', ruleBreed],
+    ['vettiPetSex', ruleSex],
     ['vettiPetAge', ruleAge],
     ['vettiPetWeight', ruleWeight]
   ];
@@ -303,6 +333,7 @@
       name: trimmed('vettiPetName'),
       species: species,
       breed: breed,
+      gender: trimmed('vettiPetSex'),
       age: parseInt(trimmed('vettiPetAge'), 10) || 0,
       weightKg: parseFloat(trimmed('vettiPetWeight')) || 0
     });
@@ -323,13 +354,14 @@
   }
 
   global.VettiOnboarding = {
-    introMarkup: introMarkup,
+    introActionsMarkup: introActionsMarkup,
     petFormMarkup: petFormMarkup,
     validatePetForm: validatePetForm,
     clearErrors: clearErrors,
     installGuards: installGuards,
     submitPetForm: submitPetForm,
     escapeText: escapeText,
-    SPECIES: SPECIES
+    SPECIES: SPECIES,
+    GENDERS: GENDERS
   };
 })(window);

@@ -20,7 +20,7 @@
    it did not. Replies that would need a backend or an LLM say so
    plainly instead of pretending.
 
-   v1.1.0
+   v2.0.0
    ============================================================ */
 (function (global) {
   'use strict';
@@ -41,9 +41,9 @@
     listening:       ASSET_DIR + 'vetti-listening.png',
     thinking:        ASSET_DIR + 'vetti-thinking-a.png',
     thinking_alt:    ASSET_DIR + 'vetti-thinking-b.png',
-    no_pet:          ASSET_DIR + 'vetti-add-pet.png',
-    // "Add another pet" for an owner who already has some. Same approved
-    // PNG as the first-pet state — no new asset, no renamed file.
+    // §10: ONE add-pet state covers both zero-pet onboarding and the
+    // "add another pet" flow. Same approved PNG — no new asset, and the
+    // earlier split into no_pet/add_pet is gone.
     add_pet:         ASSET_DIR + 'vetti-add-pet.png',
     pet_profile:     ASSET_DIR + 'vetti-pet-profile.png',
     booking:         ASSET_DIR + 'vetti-booking.png',
@@ -65,8 +65,7 @@
     listening:    'Vetti the pet-care assistant, listening',
     thinking:     'Vetti the pet-care assistant, thinking',
     thinking_alt: 'Vetti the pet-care assistant, thinking',
-    no_pet:       'Vetti the pet-care assistant, ready to help add a first pet',
-    add_pet:      'Vetti the pet-care assistant, ready to help add another pet',
+    add_pet:      'Vetti the pet-care assistant, ready to help add a pet',
     pet_profile:  'Vetti the pet-care assistant, holding a pet profile card',
     booking:      'Vetti the pet-care assistant with a calendar',
     success:      'Vetti the pet-care assistant, pleased',
@@ -86,51 +85,52 @@
   }
 
   // ── 2. STATE MODEL ────────────────────────────────────────────────────
-  // One row per conversation state. Each row decides three presentation
-  // questions, so the UI never re-derives them per message:
+  // Vetti is ONE assistant with ONE visual home (the Vetti Stage). These
+  // states therefore describe the STAGE, not individual chat messages.
   //
-  //   featured — render the LARGE mascot (tier 2) instead of the small
-  //              message avatar (tier 1). This is the sizing system.
-  //   tone     — a restrained surface treatment for the bubble. Deliberately
-  //              a small vocabulary: no gradients, no glow, no alarm red.
-  //   motion   — one reusable motion class (see vetti.css). Every one of
-  //              them is disabled under prefers-reduced-motion.
+  //   motion — one reusable motion class (see vetti.css), applied to the
+  //            stage mascot. All disabled under prefers-reduced-motion.
+  //   label  — the short caption shown under the stage mascot.
   //
-  // Sizing rule: an ORDINARY reply (idle / listening / apology) is always
-  // the small avatar. A STATE CHANGE is always the featured mascot.
+  // §9 CORE RULE: state changes, layout stays stable. There is no longer
+  // a per-message "featured" mascot tier or a per-message bubble tint —
+  // the conversation layout must NOT jump every time Vetti changes state.
+  // Only the stage expression, caption and micro-animation change.
   var STATES = {
-    greeting:   { featured: true,  tone: 'warm',     motion: 'vetti-motion-enter',    label: 'Greeting' },
-    idle:       { featured: false, tone: 'plain',    motion: 'vetti-motion-breathe',  label: 'Idle' },
-    listening:  { featured: false, tone: 'plain',    motion: 'vetti-motion-listen',   label: 'Listening' },
-    thinking:   { featured: true,  tone: 'neutral',  motion: 'vetti-motion-think',    label: 'Thinking' },
-    no_pet:     { featured: true,  tone: 'warm',     motion: 'vetti-motion-enter',    label: 'First pet' },
-    add_pet:    { featured: true,  tone: 'warm',     motion: 'vetti-motion-enter',    label: 'Add a pet' },
-    pet_profile:{ featured: true,  tone: 'neutral',  motion: 'vetti-motion-breathe',  label: 'Pet profile' },
-    booking:    { featured: true,  tone: 'neutral',  motion: 'vetti-motion-enter',    label: 'Booking' },
-    success:    { featured: true,  tone: 'positive', motion: 'vetti-motion-enter',    label: 'Success' },
-    excited:    { featured: true,  tone: 'positive', motion: 'vetti-motion-enter',    label: 'Happy' },
-    reminder:   { featured: true,  tone: 'notice',   motion: 'vetti-motion-breathe',  label: 'Reminder' },
-    concerned:  { featured: true,  tone: 'calm',     motion: 'vetti-motion-breathe',  label: 'Concerned' },
-    error:      { featured: true,  tone: 'calm',     motion: 'vetti-motion-enter',    label: 'Error' },
-    apology:    { featured: false, tone: 'plain',    motion: 'vetti-motion-breathe',  label: 'Apology' }
+    idle:       { motion: 'vetti-motion-breathe', label: 'Ready when you are' },
+    greeting:   { motion: 'vetti-motion-enter',   label: 'Hello' },
+    listening:  { motion: 'vetti-motion-listen',  label: 'Listening' },
+    thinking:   { motion: 'vetti-motion-think',   label: 'Let me check…' },
+    success:    { motion: 'vetti-motion-enter',   label: 'All set' },
+    excited:    { motion: 'vetti-motion-enter',   label: 'Happy to help' },
+    reminder:   { motion: 'vetti-motion-breathe', label: 'Worth a look' },
+    concerned:  { motion: 'vetti-motion-breathe', label: 'Let’s be careful here' },
+    apology:    { motion: 'vetti-motion-breathe', label: 'I didn’t quite catch that' },
+    error:      { motion: 'vetti-motion-enter',   label: 'Something went wrong' },
+    add_pet:    { motion: 'vetti-motion-enter',   label: 'Let’s add a pet' },
+    booking:    { motion: 'vetti-motion-enter',   label: 'Appointments' },
+    pet_profile:{ motion: 'vetti-motion-breathe', label: 'Pet profile' }
   };
 
   function isState(name) {
     return Object.prototype.hasOwnProperty.call(STATES, name);
   }
 
-  function isFeatured(state) {
-    return !!(STATES[state] && STATES[state].featured);
-  }
-
-  // Surface treatment for the bubble. Unknown states fall back to 'plain'
-  // rather than throwing, so a new state can never break rendering.
-  function toneFor(state) {
-    return (STATES[state] && STATES[state].tone) || 'plain';
-  }
-
   function labelFor(state) {
     return (STATES[state] && STATES[state].label) || '';
+  }
+
+  // Reusable motion class for this state (see vetti.css, MOTION).
+  function motionFor(state) {
+    return (STATES[state] && STATES[state].motion) || '';
+  }
+
+  // §11: thinking is TRANSIENT. It may never be an intent's resting state,
+  // or the stage would sit in "thinking" forever and read as though the
+  // answer were still being produced. Any intent that wants it must be
+  // normalised here rather than in each reply.
+  function restingState(state) {
+    return state === 'thinking' ? 'idle' : state;
   }
 
   // Reusable motion class for this state (see vetti.css, §MOTION).
@@ -167,7 +167,7 @@
           return {
             text: 'I can take you through booking once you have a pet on file. '
                 + 'Let\u2019s add your first pet first \u2014 it only takes a moment.',
-            state: 'no_pet',
+            state: 'add_pet',
             suggestions: ctx.suggestionsNoPet,
             action: 'openPetForm'
           };
@@ -191,7 +191,7 @@
           return {
             text: 'There are no appointments yet \u2014 because there are no pets on file. '
                 + 'Add your first pet and I can help from there.',
-            state: 'no_pet',
+            state: 'add_pet',
             suggestions: ctx.suggestionsNoPet,
             action: 'openPetForm'
           };
@@ -206,7 +206,7 @@
     },
     {
       id: 'add_pet',
-      state: 'no_pet',
+      state: 'add_pet',
       keywords: ['add pet', 'add a pet', 'new pet', 'register pet', 'magdagdag', 'addpet',
                 'i want to add', 'another pet', 'add another', 'second pet', 'help me add',
                 'register another'],
@@ -226,7 +226,7 @@
         return {
           text: 'Let\u2019s add your first pet. Just a name and a species to begin \u2014 '
               + 'you can fill in the rest later.',
-          state: 'no_pet',
+          state: 'add_pet',
           action: 'openPetForm',
           suggestions: []
         };
@@ -241,7 +241,7 @@
           return {
             text: 'There is no pet profile to show yet. Add your first pet and I can '
                 + 'summarise it here.',
-            state: 'no_pet',
+            state: 'add_pet',
             suggestions: ctx.suggestionsNoPet,
             action: 'openPetForm'
           };
@@ -258,7 +258,7 @@
     },
     {
       id: 'services',
-      state: 'thinking',
+      state: 'idle',   // §11: never rest in thinking
       keywords: ['service', 'services', 'price', 'prices', 'cost', 'how much', 'serbisyo'],
       reply: function () {
         // TODO(BACKEND): pull the live catalogue from GET /services.
@@ -285,7 +285,7 @@
     },
     {
       id: 'documents',
-      state: 'thinking',
+      state: 'idle',   // §11: never rest in thinking
       keywords: ['document', 'documents', 'record', 'records', 'result', 'results'],
       reply: function () {
         // TODO(BACKEND): no document retrieval yet.
@@ -332,7 +332,7 @@
     },
     {
       id: 'capabilities',
-      state: 'thinking',
+      state: 'idle',   // §11: never rest in thinking
       keywords: ['what can you do', 'help', 'who are you', 'what are you', 'about you', 'kayang'],
       reply: function (ctx) {
         return {
@@ -482,10 +482,9 @@
     altFor: altFor,
     STATES: STATES,
     isState: isState,
-    isFeatured: isFeatured,
-    toneFor: toneFor,
     labelFor: labelFor,
     motionFor: motionFor,
+    restingState: restingState,
     resolve: resolve,
     greetingWord: greetingWord,
     warmLine: warmLine,

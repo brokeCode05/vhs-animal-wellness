@@ -13,7 +13,7 @@
     <link rel="stylesheet" href="user-accent.css?v=2.5.0" />
     <link rel="stylesheet" href="../shared/vhs-ui.css?v=2.6.0" />
     <link rel="stylesheet" href="pet-onboarding.css?v=1.0.1" />
-    <link rel="stylesheet" href="vetti.css?v=1.1.0" />
+    <link rel="stylesheet" href="vetti.css?v=2.0.2" />
   </head>
   <body>
     <!-- TOP NAVBAR -->
@@ -155,7 +155,7 @@
              below stay reachable from the sidebar. -->
         <section id="section-vetti" class="page-section active">
           <div class="vetti-shell">
-            <!-- 1. GREETING AREA -->
+            <!-- A. WORKSPACE HEADER -->
             <header class="vetti-greeting">
               <div class="vetti-greeting-text">
                 <h1 id="vettiGreeting">Good day.</h1>
@@ -173,7 +173,36 @@
               >Replay intro</button>
             </header>
 
-            <!-- 2. CONVERSATION CANVAS — the only scrolling region -->
+            <!-- B. VETTI STAGE — Vetti's ONE persistent visual home.
+                 This is the only place the mascot, its expression, its
+                 state caption and its micro-animation appear. State changes
+                 here; the conversation layout below never moves. -->
+            <section
+              class="vetti-stage"
+              id="vettiStage"
+              data-state="idle"
+              aria-label="Vetti"
+            >
+              <div class="vetti-stage-frame" id="vettiStageFrame">
+                <img
+                  id="vettiStageMascot"
+                  class="vetti-stage-mascot"
+                  data-vetti-face="1"
+                  src="../shared/assets/vetti/vetti-idle-a.png"
+                  alt="Vetti the pet-care assistant"
+                  width="1254"
+                  height="1254"
+                  decoding="async"
+                  draggable="false"
+                />
+              </div>
+              <p class="vetti-stage-caption" id="vettiStageCaption">
+                Ready when you are
+              </p>
+            </section>
+
+            <!-- C. CONVERSATION THREAD — the only scrolling region.
+                 No mascots here: the stage already shows who is speaking. -->
             <div
               class="vetti-canvas"
               id="vettiCanvas"
@@ -188,11 +217,12 @@
               Jump to latest
             </button>
 
+            <!-- D + E. SUGGESTED PROMPT RAIL + COMPOSER — one interaction
+                 zone: the rail sits directly above the composer inside the
+                 same bordered container, so they read as a single control. -->
             <div class="vetti-composer-area">
-              <!-- 3. SUGGESTED PROMPT CAROUSEL — horizontal, above composer -->
-              <div class="vetti-carousel" id="vettiCarousel" hidden></div>
-
-              <!-- 4. COMPOSER -->
+              <div class="vetti-input-zone">
+                <div class="vetti-carousel" id="vettiCarousel" hidden></div>
               <form class="vetti-composer" id="vettiComposer">
                 <label class="vetti-sr-only" for="vettiInput">
                   Message Vetti
@@ -212,6 +242,7 @@
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
                 </button>
               </form>
+              </div>
             </div>
           </div>
         </section>
@@ -1272,8 +1303,8 @@
     <script src="pet-onboarding.js?v=1.0.1"></script>
     <script src="checkin-script.js?v=1.0.0"></script>
     <!-- Vetti: state model -> onboarding -> UI, in dependency order. -->
-    <script src="vetti-state.js?v=1.1.0"></script>
-    <script src="vetti-onboarding.js?v=1.1.0"></script>
-    <script src="vetti-ui.js?v=1.1.0"></script>
+    <script src="vetti-state.js?v=2.0.0"></script>
+    <script src="vetti-onboarding.js?v=2.0.0"></script>
+    <script src="vetti-ui.js?v=2.0.0"></script>
   </body>
 </html>
