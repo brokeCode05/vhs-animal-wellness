@@ -1,0 +1,571 @@
+/* ============================================================
+   VETTI — Ask Vetti workspace styles (frontend only)
+   ============================================================
+
+   Built on the existing VHS tokens (--accent, --vhs-shell-*, the
+   neutral surfaces) so this reads as part of the portal rather than a
+   separate product. Restrained and practical: no glow, no glass, no
+   gradient washes, no decorative blobs.
+
+   Layout contract
+   ---------------
+   The Vetti section is a single flex column that fills the area the
+   existing shell leaves over. The conversation canvas is the ONLY
+   scrolling region, so the page itself never grows and never gains
+   horizontal overflow. Nothing here uses a fixed full-screen overlay
+   or a transform that could widen the document.
+
+   Overflow safety: every row is a grid/flex with min-width:0, long
+   words wrap, and the carousel scrolls horizontally inside its own box.
+
+   v1.0.0
+   ============================================================ */
+
+/* ── LEGACY FLOATING CHATBOT ───────────────────────────────────────── */
+
+/* The portal already had a fixed "VHS Assistant" bubble pinned to the
+   bottom-right. While the Ask Vetti workspace is open it would sit on top
+   of Vetti's send button and duplicate the assistant, so it is hidden for
+   this one section only. It is untouched on every other page and section,
+   and no legacy chatbot behaviour is removed or altered. */
+body.vetti-active .chatbot-container { display: none; }
+
+/* ── SECTION FRAME ──────────────────────────────────────────────────── */
+
+#section-vetti.active {
+  display: flex;
+  flex-direction: column;
+  /* Fill the shell below the navbar. dvh keeps mobile browser chrome
+     from clipping the composer; vh is the fallback. */
+  height: calc(100vh - var(--navbar-height, 60px) - 4rem);
+  height: calc(100dvh - var(--navbar-height, 60px) - 4rem);
+  max-height: calc(100vh - var(--navbar-height, 60px) - 4rem);
+  gap: 0.875rem;
+  min-width: 0;
+}
+
+.vetti-shell {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  flex: 1;
+  min-width: 0;
+  background: var(--vhs-neutral-surface, #FFFFFF);
+  border: 1px solid var(--vhs-neutral-border, #E5E1EC);
+  border-radius: var(--radius-lg, 1rem);
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;              /* clips children to the rounded card */
+}
+
+/* ── 1. GREETING AREA ──────────────────────────────────────────────── */
+
+.vetti-greeting {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  padding: 1.25rem 1.5rem 1rem;
+  border-bottom: 1px solid var(--vhs-neutral-border, #E5E1EC);
+  background: var(--vhs-neutral-surface, #FFFFFF);
+  min-width: 0;
+}
+
+.vetti-greeting-text { min-width: 0; flex: 1 1 16rem; }
+
+.vetti-greeting h1 {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 700;
+  line-height: 1.25;
+  color: var(--vhs-neutral-text, #242033);
+  overflow-wrap: anywhere;
+}
+
+/* One understated supporting line. Deliberately not inspirational. */
+.vetti-warm-line {
+  margin: 0.25rem 0 0;
+  font-size: 0.9rem;
+  color: var(--vhs-neutral-muted, #756F82);
+  overflow-wrap: anywhere;
+}
+
+.vetti-replay {
+  flex: 0 0 auto;
+  background: none;
+  border: 0;
+  padding: 0.25rem 0;
+  font: inherit;
+  font-size: 0.85rem;
+  color: var(--vhs-shell, #6546A8);
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.vetti-replay:hover { color: var(--vhs-shell-light, #8a6bd0); }
+
+/* Active-pet selector — only rendered when the owner has pets. */
+.vetti-pet-selector {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex: 0 0 auto;
+  min-width: 0;
+}
+.vetti-pet-selector[hidden] { display: none; }
+
+.vetti-pet-selector label {
+  font-size: 0.8rem;
+  color: var(--vhs-neutral-muted, #756F82);
+  white-space: nowrap;
+}
+
+.vetti-pet-selector select {
+  font: inherit;
+  font-size: 0.875rem;
+  padding: 0.4rem 0.6rem;
+  border-radius: var(--radius-sm, 0.5rem);
+  border: 1px solid var(--vhs-shell-border, rgba(60, 31, 120, 0.14));
+  background: var(--vhs-neutral-surface, #FFFFFF);
+  color: var(--vhs-neutral-text, #242033);
+  max-width: 11rem;
+}
+
+/* ── 2. CONVERSATION CANVAS ────────────────────────────────────────── */
+
+.vetti-canvas {
+  flex: 1 1 auto;
+  min-height: 0;                /* lets this shrink so it scrolls */
+  overflow-y: auto;
+  overflow-x: hidden;           /* never widen the document */
+  overscroll-behavior: contain;
+  padding: 1.25rem 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.875rem;
+  background: var(--vhs-neutral-bg, #F7F7FA);
+  scrollbar-width: thin;
+}
+
+.vetti-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.625rem;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.vetti-row-user { justify-content: flex-end; }
+
+/* Small avatar beside ordinary Vetti messages. */
+.vetti-avatar {
+  flex: 0 0 auto;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 50%;
+  overflow: hidden;
+  background: var(--vhs-shell-soft, rgba(60, 31, 120, 0.06));
+  border: 1px solid var(--vhs-shell-border, rgba(60, 31, 120, 0.14));
+}
+.vetti-avatar-img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+/* Larger mascot for important states (intro, first pet, profile, ...).
+   Inline with the bubble, NOT a permanent mascot column. */
+.vetti-mascot-lg {
+  flex: 0 0 auto;
+  width: 5.5rem;
+  height: 5.5rem;
+  border-radius: var(--radius-lg, 1rem);
+  overflow: hidden;
+  background: var(--vhs-shell-soft, rgba(60, 31, 120, 0.06));
+  border: 1px solid var(--vhs-shell-border, rgba(60, 31, 120, 0.14));
+}
+.vetti-mascot-img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+/* ── Bubbles ───────────────────────────────────────────────────────── */
+
+.vetti-bubble {
+  min-width: 0;
+  max-width: min(42rem, 82%);
+  padding: 0.7rem 0.9rem;
+  border-radius: var(--radius, 0.75rem);
+  font-size: 0.925rem;
+  line-height: 1.55;
+  overflow-wrap: anywhere;      /* long words never widen the row */
+}
+
+.vetti-bubble-vetti {
+  background: var(--vhs-neutral-surface, #FFFFFF);
+  border: 1px solid var(--vhs-neutral-border, #E5E1EC);
+  color: var(--vhs-neutral-text, #242033);
+  border-top-left-radius: 0.25rem;
+}
+
+.vetti-bubble-user {
+  background: var(--vhs-shell, #6546A8);
+  border: 1px solid var(--vhs-shell, #6546A8);
+  color: #FFFFFF;
+  border-top-right-radius: 0.25rem;
+}
+
+.vetti-text { margin: 0; }
+.vetti-text + .vetti-text { margin-top: 0.5rem; }
+
+.vetti-bubble-intro { border-left: 3px solid var(--vhs-shell-light, #8a6bd0); }
+.vetti-bubble-form { border-left: 3px solid var(--vhs-shell, #6546A8); max-width: min(38rem, 100%); }
+.vetti-bubble-card { border-left: 3px solid var(--accent-soft, rgba(139, 92, 246, 0.12)); }
+
+/* Thinking indicator — three dots, CSS only, no mascot animation. */
+.vetti-bubble-thinking { padding: 0.85rem 1rem; }
+.vetti-dots { display: inline-flex; gap: 0.3rem; align-items: center; }
+.vetti-dots i {
+  width: 0.4rem;
+  height: 0.4rem;
+  border-radius: 50%;
+  background: var(--vhs-shell-light, #8a6bd0);
+  animation: vetti-pulse 1.1s ease-in-out infinite;
+}
+.vetti-dots i:nth-child(2) { animation-delay: 0.15s; }
+.vetti-dots i:nth-child(3) { animation-delay: 0.3s; }
+
+@keyframes vetti-pulse {
+  0%, 60%, 100% { opacity: 0.3; transform: translateY(0); }
+  30%           { opacity: 1;   transform: translateY(-2px); }
+}
+
+/* ── 3. SUGGESTED PROMPT CAROUSEL (horizontal, above composer) ─────── */
+
+.vetti-composer-area {
+  flex: 0 0 auto;
+  border-top: 1px solid var(--vhs-neutral-border, #E5E1EC);
+  background: var(--vhs-neutral-surface, #FFFFFF);
+  padding: 0.75rem 1.5rem 1rem;
+  min-width: 0;
+}
+
+.vetti-carousel[hidden] { display: none; }
+
+.vetti-carousel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.5rem;
+}
+
+.vetti-carousel-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--vhs-neutral-muted, #756F82);
+}
+
+.vetti-carousel-controls { display: flex; gap: 0.25rem; }
+
+.vetti-carousel-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 50%;
+  border: 1px solid var(--vhs-shell-border, rgba(60, 31, 120, 0.14));
+  background: var(--vhs-neutral-surface, #FFFFFF);
+  color: var(--vhs-shell, #6546A8);
+  cursor: pointer;
+  padding: 0;
+  transition: background var(--transition), border-color var(--transition);
+}
+.vetti-carousel-btn:hover {
+  background: var(--vhs-shell-soft, rgba(60, 31, 120, 0.06));
+  border-color: var(--vhs-shell-light, #8a6bd0);
+}
+
+/* Horizontal scroll only — never wraps into a vertical stack. */
+.vetti-carousel-track {
+  display: flex;
+  gap: 0.5rem;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+  padding-bottom: 0.25rem;
+  scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch;
+}
+.vetti-carousel-track::-webkit-scrollbar { display: none; }
+
+.vetti-chip {
+  flex: 0 0 auto;
+  white-space: nowrap;
+  font: inherit;
+  font-size: 0.85rem;
+  padding: 0.4rem 0.8rem;
+  border-radius: 999px;
+  border: 1px solid var(--vhs-shell-border, rgba(60, 31, 120, 0.14));
+  background: var(--vhs-neutral-surface, #FFFFFF);
+  color: var(--vhs-shell-dark, #3C1F78);
+  cursor: pointer;
+  transition: background var(--transition), border-color var(--transition);
+}
+.vetti-chip:hover {
+  background: var(--vhs-shell-soft, rgba(60, 31, 120, 0.06));
+  border-color: var(--vhs-shell-light, #8a6bd0);
+}
+
+/* ── 4. COMPOSER ───────────────────────────────────────────────────── */
+
+.vetti-composer {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.vetti-composer textarea {
+  flex: 1 1 auto;
+  min-width: 0;
+  font: inherit;
+  font-size: 0.9rem;
+  line-height: 1.45;
+  padding: 0.6rem 0.85rem;
+  border-radius: var(--radius, 0.75rem);
+  border: 1px solid var(--vhs-shell-border, rgba(60, 31, 120, 0.14));
+  background: var(--vhs-neutral-surface, #FFFFFF);
+  color: var(--vhs-neutral-text, #242033);
+  resize: none;
+  min-height: 2.75rem;
+  max-height: 8rem;
+  field-sizing: content;
+}
+
+.vetti-send {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  border-radius: 50%;
+  border: 1px solid var(--vhs-shell, #6546A8);
+  background: var(--vhs-shell, #6546A8);
+  color: #FFFFFF;
+  cursor: pointer;
+  padding: 0;
+  transition: background var(--transition);
+}
+.vetti-send:hover { background: var(--vhs-shell-light, #8a6bd0); }
+
+/* Jump-to-latest, shown only when scrolled up. In normal flow — it
+   cannot extend the document horizontally. */
+.vetti-scroll-down {
+  align-self: center;
+  margin-top: 0.5rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font: inherit;
+  font-size: 0.8rem;
+  padding: 0.3rem 0.7rem;
+  border-radius: 999px;
+  border: 1px solid var(--vhs-shell-border, rgba(60, 31, 120, 0.14));
+  background: var(--vhs-neutral-surface, #FFFFFF);
+  color: var(--vhs-shell, #6546A8);
+  cursor: pointer;
+}
+.vetti-scroll-down[hidden] { display: none; }
+
+/* ── INTRO ─────────────────────────────────────────────────────────── */
+
+.vetti-intro-title {
+  margin: 0 0 0.4rem;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--vhs-neutral-text, #242033);
+}
+
+.vetti-intro-body,
+.vetti-intro-note { margin: 0 0 0.5rem; }
+
+.vetti-intro-note {
+  font-size: 0.8rem;
+  color: var(--vhs-neutral-muted, #756F82);
+}
+
+.vetti-intro-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  margin-top: 0.75rem;
+}
+
+/* ── COMPACT FIRST-PET FORM ────────────────────────────────────────── */
+
+.vetti-petform { display: flex; flex-direction: column; gap: 0.75rem; min-width: 0; }
+
+.vetti-petform-lead {
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--vhs-neutral-text, #242033);
+}
+
+.vetti-field { display: flex; flex-direction: column; gap: 0.25rem; min-width: 0; flex: 1 1 0; }
+
+.vetti-field-row { display: flex; gap: 0.75rem; flex-wrap: wrap; }
+
+.vetti-field label {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--vhs-neutral-muted, #756F82);
+}
+
+.vetti-optional { font-weight: 400; }
+
+.vetti-field input,
+.vetti-field select {
+  font: inherit;
+  font-size: 0.875rem;
+  padding: 0.45rem 0.6rem;
+  border-radius: var(--radius-sm, 0.5rem);
+  border: 1px solid var(--vhs-shell-border, rgba(60, 31, 120, 0.14));
+  background: var(--vhs-neutral-surface, #FFFFFF);
+  color: var(--vhs-neutral-text, #242033);
+  width: 100%;
+  min-width: 0;
+}
+
+.vetti-field-error {
+  margin: 0;
+  font-size: 0.78rem;
+  color: #b91c1c;
+}
+.vetti-field-error[hidden] { display: none; }
+
+.vetti-petform-actions { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; }
+
+.vetti-petform-footnote {
+  margin: 0;
+  font-size: 0.75rem;
+  color: var(--vhs-neutral-muted, #756F82);
+}
+
+/* ── PET CARD ──────────────────────────────────────────────────────── */
+
+.vetti-petcard {
+  margin-top: 0.65rem;
+  padding: 0.75rem;
+  border-radius: var(--radius-sm, 0.5rem);
+  background: var(--vhs-neutral-bg, #F7F7FA);
+  border: 1px solid var(--vhs-neutral-border, #E5E1EC);
+  min-width: 0;
+}
+
+.vetti-petcard-head {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.vetti-petcard-name { font-weight: 700; color: var(--vhs-neutral-text, #242033); }
+.vetti-petcard-species { font-size: 0.8rem; color: var(--vhs-neutral-muted, #756F82); }
+
+.vetti-petcard-facts {
+  margin: 0.4rem 0 0;
+  padding-left: 1.1rem;
+  font-size: 0.82rem;
+  color: var(--vhs-neutral-text, #242033);
+}
+
+.vetti-petcard-note {
+  margin: 0.5rem 0 0;
+  font-size: 0.72rem;
+  color: var(--vhs-neutral-muted, #756F82);
+}
+
+/* ── FOCUS (visible, keyboard only) ────────────────────────────────── */
+
+.vetti-shell :focus-visible,
+.vetti-replay:focus-visible {
+  outline: 2px solid var(--vhs-shell, #6546A8);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm, 0.5rem);
+}
+
+/* Screen-reader-only helper text. */
+.vetti-sr-only {
+  position: absolute;
+  width: 1px; height: 1px;
+  padding: 0; margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ── RESPONSIVE ────────────────────────────────────────────────────── */
+
+/* Tablet */
+@media (max-width: 1024px) {
+  .vetti-bubble { max-width: 88%; }
+  .vetti-mascot-lg { width: 4.5rem; height: 4.5rem; }
+}
+
+/* Mobile — sidebar is already collapsed by user-style.css here. */
+@media (max-width: 768px) {
+  #section-vetti.active {
+    /* .main-content padding drops to 1rem at this breakpoint. */
+    height: calc(100vh - var(--navbar-height, 60px) - 2rem);
+    height: calc(100dvh - var(--navbar-height, 60px) - 2rem);
+    max-height: calc(100vh - var(--navbar-height, 60px) - 2rem);
+    gap: 0.625rem;
+  }
+
+  .vetti-greeting { padding: 1rem 1rem 0.75rem; gap: 0.625rem; }
+  .vetti-greeting h1 { font-size: 1.2rem; }
+  .vetti-warm-line { font-size: 0.82rem; }
+
+  /* Selector drops under the greeting and goes full width. */
+  .vetti-pet-selector { width: 100%; }
+  .vetti-pet-selector select { flex: 1 1 auto; max-width: none; }
+
+  .vetti-canvas { padding: 1rem; gap: 0.75rem; }
+  .vetti-composer-area { padding: 0.625rem 1rem 0.85rem; }
+
+  .vetti-bubble { max-width: 90%; padding: 0.6rem 0.75rem; }
+  .vetti-avatar { width: 1.9rem; height: 1.9rem; }
+  .vetti-mascot-lg { width: 3.75rem; height: 3.75rem; }
+
+  .vetti-field-row { flex-direction: column; gap: 0.625rem; }
+
+  /* Composer stays usable: 44px target, no page zoom. */
+  .vetti-send { width: 2.75rem; height: 2.75rem; }
+  .vetti-composer textarea { font-size: 16px; }  /* prevents iOS zoom */
+}
+
+@media (max-width: 400px) {
+  .vetti-row-featured { flex-direction: column; align-items: flex-start; }
+  .vetti-bubble { max-width: 100%; }
+  .vetti-mascot-lg { width: 3.25rem; height: 3.25rem; }
+}
+
+/* ── MOTION ────────────────────────────────────────────────────────── */
+
+@media (prefers-reduced-motion: reduce) {
+  .vetti-dots i { animation: none; opacity: 0.6; }
+  .vetti-carousel-track { scroll-behavior: auto; }
+  .vetti-chip,
+  .vetti-carousel-btn,
+  .vetti-send { transition: none; }
+}
+
+/* ── PRINT ─────────────────────────────────────────────────────────── */
+
+@media print {
+  .vetti-composer-area,
+  .vetti-scroll-down,
+  .vetti-replay { display: none; }
+  #section-vetti.active { height: auto; max-height: none; }
+  .vetti-canvas { overflow: visible; }
+}
