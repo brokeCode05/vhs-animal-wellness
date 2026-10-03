@@ -73,7 +73,8 @@
     presenceReturn: 0,
     lastSuggestions: [],
     welcomeReturn: '',
-    welcomeReplayed: false
+    welcomeReplayed: false,
+    tourIndex: 0
   };
 
   // §13: 2-4 useful contextual prompts. Fewer reads calmer than a wall of
@@ -120,6 +121,22 @@
     dom.welcomeStart = el('vettiWelcomeStart');
     dom.welcomeSkip = el('vettiWelcomeSkip');
     dom.welcomeMascot = el('vettiWelcomeMascot');
+    dom.tour = el('vettiTour');
+    dom.tourFrame = el('vettiTourFrame');
+    dom.tourRing = el('vettiTourRing');
+    dom.tourCard = el('vettiTourCard');
+    dom.tourCount = el('vettiTourCount');
+    dom.tourTitle = el('vettiTourTitle');
+    dom.tourBody = el('vettiTourBody');
+    dom.tourNext = el('vettiTourNext');
+    dom.tourBack = el('vettiTourBack');
+    dom.tourSkip = el('vettiTourSkip');
+    dom.tourMasks = {
+      top: document.querySelector('[data-vetti-tour-mask="top"]'),
+      left: document.querySelector('[data-vetti-tour-mask="left"]'),
+      right: document.querySelector('[data-vetti-tour-mask="right"]'),
+      bottom: document.querySelector('[data-vetti-tour-mask="bottom"]')
+    };
   }
 
   // ── Identity + pets ───────────────────────────────────────────────────
@@ -425,7 +442,12 @@
   }
 
   // Service CATEGORIES, never the whole catalogue. Built from the same
-  // shared catalog the Services page renders, so the two agree.
+  // shared catalog the Services page renders, so the two can never
+  // disagree.
+  //
+  // Deliberately NO per-card button. Drilling in happens from the prompt
+  // rail, so these cards stay scannable instead of turning into a wall of
+  // links.
   function serviceCategoriesMarkup(groups) {
     if (!groups || !groups.length) {
       return '<div class="vetti-card"><p class="vetti-card-note">'
@@ -436,14 +458,11 @@
       + groups.map(function (g) {
           return '<div class="vetti-service">'
             + '<div class="vetti-service-head">'
-            +   '<span class="vetti-service-name">' + esc(g.name) + '</span>'
-            +   '<span class="vetti-service-count">' + g.count
-            +     (g.count === 1 ? ' service' : ' services') + '</span>'
+            + '  <span class="vetti-service-name">' + esc(g.name) + '</span>'
+            + '  <span class="vetti-service-count">' + g.count
+            +    (g.count === 1 ? ' service' : ' services') + '</span>'
             + '</div>'
             + '<p class="vetti-service-price">' + esc(g.priceText) + '</p>'
-            + '<button type="button" class="vetti-service-cta"'
-            +   ' data-vetti-prompt="Tell me more about ' + esc(g.name) + '">'
-            +   'Tell me more about ' + esc(g.shortName) + '</button>'
             + '</div>';
         }).join('')
       + '</div>'
@@ -453,7 +472,8 @@
       + '</div>';
   }
 
-  // ONE category, with what is actually in it.
+  // ONE category, with the services actually inside it — only the fields
+  // the shared catalog actually carries.
   function serviceGroupMarkup(group) {
     if (!group) return '';
     return ''
@@ -463,12 +483,57 @@
       + '    <span class="vetti-card-sub">' + esc(group.priceText) + '</span>'
       + '  </div>'
       + '  <ul class="vetti-service-items">'
-      + group.names.map(function (n) { return '<li>' + esc(n) + '</li>'; }).join('')
+      + group.services.map(function (s) {
+          return '<li class="vetti-service-item">'
+            + '<span class="vetti-service-item-name">' + esc(s.label) + '</span>'
+            + '<span class="vetti-service-item-price">'
+            +   esc(s.price || 'Contact us for pricing') + '</span>'
+            + '</li>';
+        }).join('')
       + '  </ul>'
-      + '  <p class="vetti-card-note">Prices from the clinic service list on this device.</p>'
+      + '  <p class="vetti-card-note">From the clinic service list on this device.</p>'
       + '</div>';
   }
 
+  // ONE service. The catalog carries a label, a group and a price — and
+  // nothing else, so nothing else is shown here. Writing a description
+  // would be inventing clinical copy the clinic never published.
+  function serviceDetailMarkup(service) {
+    if (!service) return '';
+    return ''
+      + '<div class="vetti-card">'
+      + '  <div class="vetti-card-head">'
+      + '    <span class="vetti-card-title">' + esc(service.label) + '</span>'
+      + '    <span class="vetti-card-sub">' + esc(service.group) + '</span>'
+      + '  </div>'
+      + '  <dl class="vetti-card-facts">'
+      + '    <div class="vetti-card-fact"><dt>Price</dt><dd>'
+      +      esc(service.price || 'Contact us for pricing') + '</dd></div>'
+      + '  </dl>'
+      + '  <p class="vetti-card-note">The service list has no description for this '
+      + 'one yet \u2014 the Services page is the source of truth.</p>'
+      + '</div>';
+  }
+
+  // "What can Vetti do?" \u2014 the honest list of what is actually wired up,
+  // including what is NOT.
+  function capabilityListMarkup() {
+    return ''
+      + '<div class="vetti-card">'
+      + '  <ul class="vetti-capabilities">'
+      + '    <li>Keep track of your pets and their details.</li>'
+      + '    <li>Show your pets and your appointments as simple cards.</li>'
+      + '    <li>Explain what the clinic offers, by category.</li>'
+      + '    <li>Guide you through adding a pet, step by step.</li>'
+      + '    <li>Get an appointment started in the clinic\u2019s own booking flow.</li>'
+      + '    <li>Answer simple questions about the portal and clinic hours.</li>'
+      + '  </ul>'
+      + '  <p class="vetti-card-note">I can\u2019t diagnose, prescribe, or make a live '
+      + 'booking for you \u2014 that still goes through the clinic.</p>'
+      + '</div>';
+  }
+
+  // ── APPOINTMENTS ──
   // Appointments: Pet / Service / Date / Time / Status. Upcoming first,
   // then the most recent past visits, both capped so the answer stays a
   // summary rather than a dump.
@@ -503,6 +568,24 @@
       + group('Upcoming', upcoming, '')
       + group('Recent visits', past, 'past')
       + '<p class="vetti-card-note">From the clinic demo records on this device.</p>'
+      + '</div>';
+  }
+
+  // ONE appointment, for "show me my upcoming visit" and for the
+  // reschedule / cancel hand-off. Carries the reference number when the
+  // shared record has one, because that is what the clinic asks for.
+  function singleAppointmentMarkup(a) {
+    if (!a) return '';
+    return ''
+      + '<div class="vetti-card vetti-appt is-single">'
+      + '  <div class="vetti-card-head">'
+      + '    <span class="vetti-card-title">' + esc(a.pet) + '</span>'
+      +    apptStatusBadge(a.status)
+      + '  </div>'
+      + '  <p class="vetti-appt-service">' + esc(a.service) + '</p>'
+      + '  <p class="vetti-appt-when">' + esc(a.date) + ' \u00b7 ' + esc(a.time) + '</p>'
+      + (a.referenceNo
+          ? '  <p class="vetti-card-note">Reference ' + esc(a.referenceNo) + '</p>' : '')
       + '</div>';
   }
 
@@ -634,23 +717,25 @@
     var list = pets();
     if (!list.length) return '';
 
-    var names = list.slice(0, 3).map(function (p) { return p.name; });
-    var petLine = names.join(', ')
-      + (list.length > names.length ? ' and ' + (list.length - names.length) + ' more' : '')
-      + (list.length === 1 ? ' on this account' : ' on this account');
-
     var buckets = appointmentsFor();
-    var up = buckets.upcoming;
-    var line2 = up.length
-      ? up.length + (up.length === 1 ? ' upcoming visit' : ' upcoming visits')
-        + ' \u00b7 Next: ' + up[0].pet + ' \u00b7 ' + up[0].service + ' \u2014 '
-        + up[0].date + ', ' + up[0].time
-      : 'No upcoming visits booked yet.';
+    var next = buckets.upcoming[0];
 
     return ''
       + '<div class="vetti-card vetti-glance">'
-      + '  <p class="vetti-glance-line">' + esc(petLine) + '</p>'
-      + '  <p class="vetti-glance-line is-quiet">' + esc(line2) + '</p>'
+      + '  <p class="vetti-glance-label">Your pets</p>'
+      + '  <p class="vetti-glance-line">'
+      + '    <strong>' + list.length + (list.length === 1 ? ' pet' : ' pets') + '</strong>'
+      + '  </p>'
+      + '  <p class="vetti-glance-names">'
+      +    esc(list.map(function (p) { return p.name; }).join(' \u00b7 '))
+      + '  </p>'
+      + '  <p class="vetti-glance-label">Upcoming</p>'
+      + (next
+          ? '  <p class="vetti-glance-line"><strong>' + esc(next.pet) + '</strong></p>'
+            + '  <p class="vetti-glance-sub">' + esc(next.service) + '</p>'
+            + '  <p class="vetti-glance-sub is-quiet">' + esc(next.date)
+            + ' \u00b7 ' + esc(next.time) + '</p>'
+          : '  <p class="vetti-glance-sub is-quiet">No upcoming visits booked yet.</p>')
       + '</div>';
   }
 
@@ -742,6 +827,20 @@
   function completeWelcome(skipped) {
     if (!dom.welcome || dom.welcome.hidden) return;
     dom.welcome.hidden = true;
+    enterWorkspace(skipped);
+  }
+
+  // "Let's Get Started" is NOT a synonym for Skip: it closes the welcome
+  // and opens the walkthrough. The workspace is only entered once the
+  // walkthrough finishes or is itself skipped.
+  function startTutorial() {
+    if (!dom.welcome || dom.welcome.hidden) return;
+    dom.welcome.hidden = true;
+    openTutorial();
+  }
+
+  // Shared by all three exits: Skip, Finish, and Skip Tutorial.
+  function enterWorkspace(skipped) {
     State.markSeenForever();
     State.markIntroShown();
 
@@ -792,8 +891,141 @@
     if (dom.input) dom.input.focus();
   }
 
-  // Replay runs the same layer over the live workspace. The thread behind
-  // it is left alone, so nothing is duplicated when the user dismisses it.
+  // ── THE GUIDED WALKTHROUGH ────────────────────────────────────────────
+  // What "Let's Get Started" opens: four short steps, each pointing at one
+  // real element. The spotlight is built from FOUR mask panels around the
+  // target, not a full-screen sheet with a hole — so the highlighted
+  // element stays genuinely clickable while everything else is blocked.
+  //
+  // Every step can be exited with Skip Tutorial, and Back/Next are always
+  // present where they mean something.
+  var TOUR_PAD = 6;          // breathing room around the highlighted target
+  var TOUR_GAP = 12;         // space between the target and the card
+
+  function tourSteps() {
+    return Onboarding.tutorialSteps(pets().length > 0);
+  }
+
+  function openTutorial() {
+    if (!dom.tour) return;
+    ui.tourIndex = 0;
+    dom.tour.hidden = false;
+    renderTourStep();
+    var focus = ui.tourIndex === 0 ? dom.tourNext : dom.tourNext;
+    if (focus) focus.focus();
+  }
+
+  function renderTourStep() {
+    var steps = tourSteps();
+    if (!steps.length) { closeTutorial(); enterWorkspace(false); return; }
+    ui.tourIndex = Math.max(0, Math.min(ui.tourIndex, steps.length - 1));
+    var step = steps[ui.tourIndex];
+    var last = ui.tourIndex === steps.length - 1;
+
+    if (dom.tourCount) {
+      dom.tourCount.textContent = 'Step ' + (ui.tourIndex + 1) + ' of ' + steps.length;
+    }
+    if (dom.tourTitle) dom.tourTitle.textContent = step.title;
+    if (dom.tourBody) dom.tourBody.textContent = step.body;
+    if (dom.tourNext) dom.tourNext.textContent = last ? 'Finish' : 'Next';
+    if (dom.tourBack) dom.tourBack.hidden = ui.tourIndex === 0;
+
+    positionTour(step.target);
+  }
+
+  // Places the four masks, the ring and the card. Everything is computed
+  // against the SHELL, because the walkthrough is anchored to the
+  // workspace rather than the viewport — that is what keeps it correct on
+  // a phone inside the portal's own layout.
+  function positionTour(selector) {
+    if (!dom.tour || !dom.tourFrame) return;
+    var shell = dom.tourFrame;
+    var shellRect = shell.getBoundingClientRect();
+    var target = selector ? document.querySelector(selector) : null;
+
+    // A target that is missing or hidden falls back to framing the whole
+    // workspace, so a step can never leave the user staring at nothing.
+    var visible = target && target.offsetParent !== null && target.offsetWidth > 0;
+    var rect = visible
+      ? target.getBoundingClientRect()
+      : { left: shellRect.left + 8, top: shellRect.top + 8,
+          right: shellRect.right - 8, bottom: shellRect.bottom - 8,
+          width: shellRect.width - 16, height: shellRect.height - 16 };
+
+    var W = shellRect.width;
+    var H = shellRect.height;
+    var left = Math.max(0, rect.left - shellRect.left - TOUR_PAD);
+    var top = Math.max(0, rect.top - shellRect.top - TOUR_PAD);
+    var width = Math.min(W - left, rect.width + TOUR_PAD * 2);
+    var height = Math.min(H - top, rect.height + TOUR_PAD * 2);
+
+    // The hole. Four panels, so the hole is genuinely open for clicks.
+    setMask('top', 0, 0, W, top);
+    setMask('left', 0, top, left, height);
+    setMask('right', left + width, top, W - left - width, height);
+    setMask('bottom', 0, top + height, W, H - top - height);
+
+    if (dom.tourRing) {
+      dom.tourRing.style.left = left + 'px';
+      dom.tourRing.style.top = top + 'px';
+      dom.tourRing.style.width = width + 'px';
+      dom.tourRing.style.height = height + 'px';
+    }
+
+    positionTourCard(left, top, width, height, W, H);
+  }
+
+  // The card goes BELOW the target when it fits, ABOVE it when it does not,
+  // and is clamped horizontally either way — so Skip Tutorial is always on
+  // screen and never off the edge of a phone.
+  function positionTourCard(left, top, width, height, W, H) {
+    if (!dom.tourCard) return;
+    var card = dom.tourCard;
+    var cardH = card.offsetHeight || 190;
+    var below = top + height + TOUR_GAP;
+    var y = below + cardH <= H ? below : (top - TOUR_GAP - cardH >= 0 ? top - TOUR_GAP - cardH : Math.max(0, (H - cardH) / 2));
+    var x = left + width / 2 - card.offsetWidth / 2;
+    card.style.left = Math.max(8, Math.min(x, W - card.offsetWidth - 8)) + 'px';
+    card.style.top = Math.max(8, Math.min(y, H - cardH - 8)) + 'px';
+  }
+
+  function setMask(which, x, y, w, h) {
+    var node = dom.tourMasks ? dom.tourMasks[which] : null;
+    if (!node) return;
+    node.style.left = x + 'px';
+    node.style.top = y + 'px';
+    node.style.width = Math.max(0, w) + 'px';
+    node.style.height = Math.max(0, h) + 'px';
+  }
+
+  function closeTutorial() {
+    if (!dom.tour) return;
+    dom.tour.hidden = true;
+    ui.tourIndex = 0;
+  }
+
+  function nextTourStep() {
+    if (ui.tourIndex >= tourSteps().length - 1) { closeTutorial(); enterWorkspace(false); return; }
+    ui.tourIndex++;
+    renderTourStep();
+  }
+
+  function prevTourStep() {
+    if (ui.tourIndex === 0) return;
+    ui.tourIndex--;
+    renderTourStep();
+  }
+
+  // Re-entering the workspace through Skip Tutorial is the same outcome as
+  // Skip on the welcome — it just says so more honestly.
+  function skipTutorial() {
+    closeTutorial();
+    enterWorkspace(true);
+  }
+
+  // Replay runs BOTH layers over the live workspace: the welcome, then the
+  // walkthrough if the owner chooses it. The thread behind is left alone,
+  // so nothing is duplicated when it is dismissed.
   function replayIntro() {
     ui.welcomeReturn = pets().length ? 'idle' : 'add_pet';
     ui.welcomeReplayed = true;
@@ -934,6 +1166,47 @@
     }, 460);
   }
 
+  // ── Actions that hand off to the portal's own UI ───────────────────────
+  // KAN-50 replaces these with deterministic Vetti tools. Until then Vetti
+  // identifies and explains, and the mutation happens in the screens the
+  // user already trusts. Every one degrades safely when the target UI is
+  // absent, rather than silently doing nothing.
+  //
+  // TODO(BACKEND): reschedule/cancel become POST endpoints once the
+  // appointment API owns the lifecycle; Vetti stops calling into globals.
+  function runAction(answer) {
+    switch (answer.action) {
+      case 'openPetForm':
+        openPetForm();
+        return;
+      case 'openBooking':
+        // The portal's own booking wizard. It re-checks for a pet itself,
+        // so a zero-pet owner is guided rather than dropped into an empty
+        // form.
+        if (typeof openBookModal === 'function') openBookModal();
+        else if (typeof showSection === 'function') showSection('appointments');
+        return;
+      case 'openReschedule':
+        openAppointmentScreen(answer.appointment, 'openRescheduleModal');
+        return;
+      case 'openCancel':
+        openAppointmentScreen(answer.appointment, 'cancelAppt');
+        return;
+      default:
+    }
+  }
+
+  function openAppointmentScreen(appointment, fnName) {
+    var target = global[fnName];
+    if (typeof target === 'function' && appointment && appointment.appointmentId) {
+      target(appointment.appointmentId);
+      return;
+    }
+    // No shared handler available: send the owner to the page that has the
+    // controls, which is the manual fallback this phase promises.
+    if (typeof showSection === 'function') showSection('appointments');
+  }
+
   // ── Sending a message ─────────────────────────────────────────────────
   function buildContext() {
     var list = pets();
@@ -944,6 +1217,7 @@
       activePet: activePet(),
       anotherPet: nextPet(),
       appointments: appointmentsFor(),
+      services: serviceCatalog(),
       serviceGroups: serviceGroups(),
       suggestionsWithPet: DEFAULT_SUGGESTIONS_WITH_PET,
       suggestionsNoPet: DEFAULT_SUGGESTIONS_NO_PET
@@ -998,7 +1272,11 @@
           service: label ? (label(a.service) || a.service || '\u2014') : (a.service || '\u2014'),
           date: fmtDate(date),
           time: fmtTime(a.appointmentTime),
-          status: status
+          status: status,
+          // Already in the shared store; carried through so the manual
+          // reschedule / cancel screens can be opened on the right visit.
+          referenceNo: a.referenceNo || '',
+          appointmentId: a.appointmentId
         }
       };
       if (isUpcoming) buckets.upcoming.push(raw);
@@ -1012,19 +1290,25 @@
     };
   }
 
-  // Service categories, read from the SAME shared catalog the Services
-  // page renders, so a category card can never disagree with the page.
+  // The active service catalog, read through the shared adapter. One read,
+// reused by the category grouping below, so the two can never disagree.
   // TODO(BACKEND): GET /services replaces this read.
-  function serviceGroups() {
+  function serviceCatalog() {
     if (!window.SharedMockUsers) return [];
-    var catalog = window.SharedMockUsers.activeServices
+    return window.SharedMockUsers.activeServices
       ? window.SharedMockUsers.activeServices()
       : (window.SharedMockUsers.services ? window.SharedMockUsers.services() : []);
+  }
+
+  // Service categories, read from the SAME shared catalog the Services
+  // page renders, so a category card can never disagree with the page.
+  function serviceGroups() {
+    var catalog = serviceCatalog();
     var byGroup = {};
     catalog.forEach(function (s) {
       var name = s.group || 'Other';
-      if (!byGroup[name]) byGroup[name] = { name: name, labels: [], min: null, max: null };
-      byGroup[name].labels.push(s.label);
+      if (!byGroup[name]) byGroup[name] = { name: name, services: [], min: null, max: null };
+      byGroup[name].services.push(s);
       var p = priceNumber(s.price);
       if (p === null) return;
       if (byGroup[name].min === null || p < byGroup[name].min) byGroup[name].min = p;
@@ -1035,10 +1319,13 @@
       return {
         name: g.name,
         // "Preventive & Wellness" -> "Preventive / Wellness": same words,
-        // one fewer symbol in a button label.
+        // one fewer symbol in a prompt label.
         shortName: name.replace(/\s*&\s*/g, ' / '),
-        count: g.labels.length,
-        names: g.labels,
+        count: g.services.length,
+        names: g.services.map(function (s) { return s.label; }),
+        // The RAW catalog records, so a category card can render exactly
+        // what the Services page shows without a second lookup table.
+        services: g.services,
         priceText: g.min === null
           ? 'Contact us for pricing'
           : peso(g.min) + (g.max !== g.min ? ' \u2013 ' + peso(g.max) : '')
@@ -1087,14 +1374,24 @@
       else if (answer.petCard) renderBlock(petCardMarkup(answer.petCard), 'vetti-card-block');
       if (answer.appointments) {
         renderBlock(appointmentListMarkup(appointmentsFor()), 'vetti-card-block');
+      } else if (answer.appointment) {
+        renderBlock(singleAppointmentMarkup(answer.appointment), 'vetti-card-block');
       }
-      if (answer.serviceGroup) {
+      if (answer.capabilities) {
+        renderBlock(capabilityListMarkup(), 'vetti-card-block');
+      }
+      if (answer.service) {
+        renderBlock(serviceDetailMarkup(answer.service), 'vetti-card-block');
+      } else if (answer.serviceGroup) {
         renderBlock(serviceGroupMarkup(answer.serviceGroup), 'vetti-card-block');
       } else if (answer.serviceCategories) {
         renderBlock(serviceCategoriesMarkup(serviceGroups()));
       }
 
-      if (answer.action === 'openPetForm') openPetForm();
+      // Manual fallbacks. KAN-50 owns the real mutations, so every one of
+      // these hands off to the portal's own UI rather than pretending the
+      // change was made in conversation.
+      runAction(answer);
 
       renderCarousel(answer.suggestions);
       ui.busy = false;
@@ -1212,11 +1509,11 @@
       if (dom.canvas && target === dom.scrollBtn) scrollToBottom(true);
     });
 
-    // The welcome layer's own two exits. Bound directly rather than
-    // through the document listener, which ignores clicks on a hidden
-    // layer and anything behind a visible one.
+    // The welcome layer's own exits. Bound directly rather than through the
+    // document listener, which ignores clicks on a hidden layer and
+    // anything behind a visible one.
     if (dom.welcomeStart) {
-      dom.welcomeStart.addEventListener('click', function () { completeWelcome(false); });
+      dom.welcomeStart.addEventListener('click', startTutorial);
     }
     if (dom.welcomeSkip) {
       dom.welcomeSkip.addEventListener('click', function () { completeWelcome(true); });
@@ -1235,6 +1532,36 @@
         else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
       });
     }
+
+    // The walkthrough's three controls. Escape skips the tutorial for the
+    // same reason it skips the welcome: always an exit, never a trap.
+    if (dom.tourNext) dom.tourNext.addEventListener('click', nextTourStep);
+    if (dom.tourBack) dom.tourBack.addEventListener('click', prevTourStep);
+    if (dom.tourSkip) dom.tourSkip.addEventListener('click', skipTutorial);
+    if (dom.tour) {
+      dom.tour.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape') { skipTutorial(); return; }
+        if (e.key !== 'Tab') return;
+        var focusable = [dom.tourNext, dom.tourBack, dom.tourSkip]
+          .filter(function (n) { return n && !n.hidden; });
+        if (!focusable.length) return;
+        var first = focusable[0];
+        var last = focusable[focusable.length - 1];
+        if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+        else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+      });
+      // Re-place the spotlight when the workspace itself reflows.
+      dom.tour.addEventListener('click', function (e) {
+        if (e.target.closest('.vetti-tour-card')) return;
+        positionTour(tourSteps()[ui.tourIndex] && tourSteps()[ui.tourIndex].target);
+      });
+    }
+    window.addEventListener('resize', function () {
+      if (dom.tour && !dom.tour.hidden) {
+        var step = tourSteps()[ui.tourIndex];
+        if (step) positionTour(step.target);
+      }
+    });
 
     if (dom.replay) dom.replay.addEventListener('click', replayIntro);
 
@@ -1390,6 +1717,8 @@
     replayIntro: replayIntro,
     openWelcome: openWelcome,
     completeWelcome: completeWelcome,
+    startTutorial: startTutorial,
+    skipTutorial: skipTutorial,
     openPetForm: openPetForm,
     closePetForm: closePetForm,
     renderPetSelector: renderPetSelector,

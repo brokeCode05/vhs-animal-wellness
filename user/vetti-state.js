@@ -180,27 +180,112 @@
       }
     },
     {
-      id: 'booking',
-      state: 'booking',
-      // NOTE: no bare "appointment" here — see the order note above.
-      keywords: ['book', 'booking', 'schedule', 'reschedule', 'magreserv'],
+      // Actions ON an existing visit. Listed ABOVE booking and
+      // appointments so "I need to reschedule" cannot be swallowed by the
+      // booking script, and "Show my upcoming appointment" cannot be
+      // answered with the whole list.
+      //
+      // KAN-50 owns the real mutation. In V1 every one of these identifies
+      // the visit, says what is currently booked, and hands off to the
+      // portal's own UI \u2014 it never claims the change was made.
+      id: 'appointment_actions',
+      state: 'reminder',
+      keywords: ['upcoming appointment', 'next appointment', 'i need to reschedule',
+                'reschedule my', 'i need to cancel', 'cancel my', 'cancel this',
+                'what should i prepare', 'prepare for'],
       reply: function (ctx) {
+        var next = ctx.appointments && ctx.appointments.upcoming.length
+          ? ctx.appointments.upcoming[0] : null;
+
         if (!ctx.hasPets) {
           return {
-            text: 'I can take you through booking once you have a pet on file. '
-                + 'Let\u2019s add your first pet first \u2014 it only takes a moment.',
+            text: 'Before we look at visits, let\u2019s add your first pet so I know '
+                + 'who the appointment is for.',
+            state: 'add_pet',
+            suggestions: ctx.suggestionsNoPet,
+            action: 'openPetForm'
+          };
+        }
+
+        var q = ctx.query || '';
+        var wantsReschedule = q.indexOf('reschedul') !== -1;
+        var wantsCancel = q.indexOf('cancel') !== -1;
+        var wantsPrep = q.indexOf('prepare') !== -1;
+
+        if (wantsReschedule || wantsCancel) {
+          if (!next) {
+            return {
+              text: 'There is no upcoming visit to ' + (wantsCancel ? 'cancel' : 'reschedule')
+                  + ' right now, so there is nothing to change.',
+              suggestions: ['Show my appointments', 'I want to book an appointment']
+            };
+          }
+          return {
+            text: (wantsCancel ? 'Your next visit is ' : 'To reschedule, your next visit is ')
+                + next.pet + ' \u00b7 ' + next.service + ' \u2014 ' + next.date + ', '
+                + next.time + '. I can\u2019t change it from here yet, so this opens '
+                + 'the clinic\u2019s own ' + (wantsCancel ? 'cancellation' : 'reschedule')
+                + ' screen for you to confirm.',
+            appointment: next,
+            action: wantsCancel ? 'openCancel' : 'openReschedule',
+            suggestions: ['Show my appointments', 'What services do you offer?']
+          };
+        }
+
+        if (wantsPrep) {
+          // HONESTY: what to bring is clinic policy, and it is not in any
+          // record this page can read. Say so rather than inventing it.
+          return {
+            text: 'What to bring depends on the visit. I do not have the clinic\u2019s '
+                + 'preparation notes yet \u2014 please ask at the front desk, or call '
+                + 'ahead using the details on Clinic Info.',
+            suggestions: ['Show my appointments', 'What services do you offer?']
+          };
+        }
+
+        if (!next) {
+          return {
+            text: 'You have no upcoming visit booked right now.',
+            suggestions: ['Show my appointments', 'I want to book an appointment']
+          };
+        }
+        return {
+          text: 'Your next visit is ' + next.pet + ' \u00b7 ' + next.service + '.',
+          appointment: next,
+          suggestions: ['I need to reschedule', 'I need to cancel',
+                        'What should I prepare?']
+        };
+      }
+    },
+    {
+      id: 'booking',
+      state: 'booking',
+      // NOTE: no bare "appointment" here — see the order note above, and
+      // "reschedule" belongs to the appointment_actions intent above.
+      keywords: ['book', 'booking', 'schedule', 'magreserv'],
+      reply: function (ctx) {
+        // ZERO-PET GATE: never move a booking request toward scheduling
+        // until the owner has a pet to book FOR.
+        if (!ctx.hasPets) {
+          return {
+            text: 'Before we book a visit, let\u2019s add your first pet so I know '
+                + 'who the appointment is for.',
             state: 'add_pet',
             suggestions: ctx.suggestionsNoPet,
             action: 'openPetForm'
           };
         }
         // TODO(BACKEND): real availability, smart scheduling and slot
-        // locking do not exist yet. Say so rather than implying a booking.
+        // locking do not exist yet. KAN-50 replaces this with the
+        // deterministic booking tools. Until then Vetti routes to the
+        // portal's own booking flow rather than pretending to book.
+        var who = (ctx.activePet && ctx.activePet.name) || 'your pet';
         return {
-          text: 'I can help you get to the right clinic hours, but live availability '
-              + 'and real booking are not connected yet. For now I can take you to '
-              + 'My Appointments, where your current visits are listed.',
-          suggestions: ['Show my appointments', 'What services do you offer?']
+          text: 'I can help you get started with an appointment for ' + who + '. '
+              + 'Vetti booking is not connected yet, so I\u2019ll open the existing '
+              + 'booking flow for now.',
+          action: 'openBooking',
+          suggestions: ['What services do you offer?', 'Show my appointments']
         };
       }
     },
@@ -229,7 +314,8 @@
               + ' on your account.'
             : 'You have no upcoming visits right now.',
           appointments: true,
-          suggestions: ['Show my pets', 'What services do you offer?']
+          suggestions: ['Show my upcoming appointment', 'I need to reschedule',
+                        'I need to cancel', 'What should I prepare?']
         };
       }
     },
@@ -320,7 +406,7 @@
             : 'You have ' + n + ' pets on this account.',
           petCards: ctx.pets,
           suggestions: n > 1
-            ? ['Show me another pet', 'Show my appointments', 'Help me add another pet']
+            ? ['Show me another pet', 'Help me add another pet', bookingPromptFor(ctx)]
             : ['I want to book an appointment', 'Show my appointments']
         };
       }
@@ -340,42 +426,87 @@
               + ' categories. Here is the short version.'
             : 'The service list is not loaded on this page yet.',
           serviceCategories: true,
-          suggestions: ['Show my appointments', 'Show my pets']
+          // Drilling in happens from the RAIL, not from a button inside
+          // every card — one row of actions beats a wall of links.
+          suggestions: categorySuggestions(groups, 3)
         };
       }
     },
     {
-      // The small CTA under each service category card. Answers from the
-      // same catalog, so it can never drift from the card above it.
+      // Drills from a category into its services, and from a service into
+      // the sibling services around it. Reads the same catalog as the
+      // category cards, so a name can never drift between the two levels.
       id: 'service_detail',
       state: 'idle',
       keywords: ['tell me more', 'more about'],
       reply: function (ctx) {
         var groups = ctx.serviceGroups || [];
+        var q = squash(ctx.query);
+
+        // A single service wins over its category: "Vaccination" is a
+        // service, while "Preventive & Wellness" is the category holding it.
+        var svc = null;
+        (ctx.services || []).forEach(function (s) {
+          if (q.indexOf(squash(s.label)) !== -1) svc = s;
+        });
+        if (svc) {
+          var group = null;
+          groups.forEach(function (g) { if (g.name === svc.group) group = g; });
+          var siblings = (group ? group.services : []).filter(function (s) {
+            return String(s.serviceId) !== String(svc.serviceId);
+          });
+          return {
+            text: svc.label + ' is under ' + svc.group + '. '
+                + (svc.price ? 'Listed at ' + svc.price + '.' : ''),
+            service: svc,
+            serviceGroupName: svc.group,
+            suggestions: siblings.slice(0, 2).map(function (s) {
+              return 'Tell me more about ' + s.label;
+            }).concat(['Show all service categories'])
+          };
+        }
+
         var hit = null;
         for (var i = 0; i < groups.length; i++) {
-          if (ctx.query && squash(ctx.query).indexOf(squash(groups[i].name)) !== -1) {
+          if (q.indexOf(squash(groups[i].name)) !== -1) {
             hit = groups[i];
             break;
           }
         }
         if (!hit) {
-          // No category named — show the overview rather than guessing.
-          return { serviceCategories: true, suggestions: ['Show my appointments'] };
+          // No category or service named — show the overview rather than
+          // guessing which one was meant.
+          return {
+            serviceCategories: true,
+            suggestions: categorySuggestions(groups, 3)
+          };
         }
         return {
           text: hit.names.length + (hit.names.length === 1 ? ' service sits' : ' services sit')
               + ' under ' + hit.name + ', from ' + hit.priceText + '.',
           serviceGroup: hit,
-          suggestions: ['What services do you offer?', 'Show my appointments']
+          suggestions: hit.services.slice(0, 3).map(function (s) {
+            return 'Tell me more about ' + s.label;
+          }).concat(['Show all service categories'])
         };
       }
     },
     {
       id: 'vaccination',
+      // Same gate as booking: a vaccination request is a pet-specific
+      // booking action, so it cannot proceed without a pet on file.
       state: 'reminder',
       keywords: ['vaccine', 'vaccination', 'vaccines', 'shots', 'bakuna'],
-      reply: function () {
+      reply: function (ctx) {
+        if (!ctx.hasPets) {
+          return {
+            text: 'Before we book a visit, let\u2019s add your first pet so I know '
+                + 'who the appointment is for.',
+            state: 'add_pet',
+            suggestions: ctx.suggestionsNoPet,
+            action: 'openPetForm'
+          };
+        }
         // TODO(AI): vaccination intelligence is explicitly out of scope.
         return {
           text: 'Vaccination reminders come from your pet\u2019s records, which I cannot '
@@ -434,13 +565,15 @@
     {
       id: 'capabilities',
       state: 'idle',   // §11: never rest in thinking
-      keywords: ['what can you do', 'help', 'who are you', 'what are you', 'about you', 'kayang'],
+      // "What can Vetti do?" asks the assistant by NAME, so it has to be
+      // matched here \u2014 "what can you do" alone never caught it and the
+      // question fell through to the apology reply.
+      keywords: ['what can you do', 'what do you do', 'what can vetti', 'vetti do',
+                'can vetti', 'help', 'who are you', 'what are you', 'about you', 'kayang'],
       reply: function (ctx) {
         return {
-          text: 'I am Vetti, the VHS pet-care assistant. I can add a pet for you, show '
-              + 'every pet on your account as a list, and summarise your visits and the '
-              + 'clinic\u2019s services without sending you through menus. Live booking '
-              + 'and clinical records are not connected yet.',
+          text: 'I am Vetti, the VHS pet-care assistant. I can:',
+          capabilities: true,
           suggestions: ctx.hasPets ? ctx.suggestionsWithPet : ctx.suggestionsNoPet
         };
       }
@@ -456,6 +589,26 @@
   // whichever way the two happened to be written.
   function squash(text) {
     return String(text || '').toLowerCase().replace(/[^a-z0-9]+/g, '');
+  }
+
+  // "I want to book Luna an appointment" \u2014 the booking prompt always names
+  // the pet the owner is actually working with, so the rail stays relevant
+  // after a pet is selected.
+  function bookingPromptFor(ctx) {
+    var who = ctx.activePet && ctx.activePet.name;
+    return who
+      ? 'I want to book ' + who + ' an appointment'
+      : 'I want to book an appointment';
+  }
+
+  // Category prompts for the rail. Capped, then topped up with a single
+  // "show everything again" prompt \u2014 the rail is not a second directory.
+  function categorySuggestions(groups, limit) {
+    var prompts = groups.slice(0, limit).map(function (g) {
+      return 'Tell me more about ' + g.shortName;
+    });
+    if (groups.length > limit) prompts.push('Show all service categories');
+    return prompts;
   }
 
   // The single resolver. Returns { id, state, text, suggestions, ... }
@@ -486,7 +639,10 @@
             petCards: answer.petCards || null,
             appointments: answer.appointments || false,
             serviceCategories: answer.serviceCategories || false,
-            serviceGroup: answer.serviceGroup || null
+            serviceGroup: answer.serviceGroup || null,
+            service: answer.service || null,
+            appointment: answer.appointment || null,
+            capabilities: answer.capabilities || false
           };
         }
       }

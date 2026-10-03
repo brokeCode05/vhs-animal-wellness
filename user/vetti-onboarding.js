@@ -18,7 +18,7 @@
    HONESTY RULE: the pet is written to the shared frontend store only.
    Nothing is sent to a server, and the UI says so.
 
-   v3.1.0
+   v3.2.0
    ============================================================ */
 (function (global) {
   'use strict';
@@ -119,6 +119,51 @@
   // short, because a first-run screen should not lead with a warning.
   function welcomeNote() {
     return 'This is a working demo on this device. Nothing is sent to the clinic yet.';
+  }
+
+  // ── THE GUIDED WALKTHROUGH ────────────────────────────────────────────
+  // What "Let's Get Started" actually opens. Four short steps, each one
+  // pointing at a real element in the workspace, in the order a first-time
+  // owner will actually use them: write, tap, choose a pet, read a result.
+  //
+  // `target` is a SELECTOR, not a reference, so the walkthrough keeps
+  // working if a step's element is absent — VettiUI falls back to
+  // highlighting the whole workspace rather than crashing.
+  //
+  // Step 3 is account-aware: a zero-pet owner has no selector to point at,
+  // so they are shown the add-pet form instead of a missing dropdown.
+  function tutorialSteps(hasPets) {
+    return [
+      {
+        target: '.vetti-input-zone',
+        title: 'Type naturally',
+        body: 'You can type naturally here \u2014 ask in your own words.'
+      },
+      {
+        target: '#vettiCarousel',
+        title: 'Use the suggestions',
+        body: 'Use these suggestions when you want a quick starting point.'
+      },
+      hasPets
+        ? {
+            target: '#vettiPetSelector',
+            title: 'Choose your pet',
+            body: 'Choose which pet you\u2019re talking about here, and I keep '
+                + 'track of it for you.'
+          }
+        : {
+            target: '.vetti-form-block',
+            title: 'Add your first pet',
+            body: 'Most things start with a pet on file. I can add one for you '
+                + 'right here \u2014 it only takes the basics.'
+          },
+      {
+        target: '#vettiCanvas',
+        title: 'Simple cards',
+        body: 'I can show your pets, appointments and clinic services as '
+            + 'simple cards you can scan.'
+      }
+    ];
   }
 
   // ── THE COMPACT PET FORM ──────────────────────────────────────────────
@@ -521,6 +566,7 @@
     welcomeSteps: welcomeSteps,
     welcomeLead: welcomeLead,
     welcomeNote: welcomeNote,
+    tutorialSteps: tutorialSteps,
     petFormMarkup: petFormMarkup,
     validatePetForm: validatePetForm,
     clearErrors: clearErrors,
