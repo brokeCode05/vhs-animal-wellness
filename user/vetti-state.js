@@ -20,7 +20,7 @@
    it did not. Replies that would need a backend or an LLM say so
    plainly instead of pretending.
 
-   v1.0.0
+   v1.1.0
    ============================================================ */
 (function (global) {
   'use strict';
@@ -42,6 +42,9 @@
     thinking:        ASSET_DIR + 'vetti-thinking-a.png',
     thinking_alt:    ASSET_DIR + 'vetti-thinking-b.png',
     no_pet:          ASSET_DIR + 'vetti-add-pet.png',
+    // "Add another pet" for an owner who already has some. Same approved
+    // PNG as the first-pet state — no new asset, no renamed file.
+    add_pet:         ASSET_DIR + 'vetti-add-pet.png',
     pet_profile:     ASSET_DIR + 'vetti-pet-profile.png',
     booking:         ASSET_DIR + 'vetti-booking.png',
     success:         ASSET_DIR + 'vetti-success.png',
@@ -62,7 +65,8 @@
     listening:    'Vetti the pet-care assistant, listening',
     thinking:     'Vetti the pet-care assistant, thinking',
     thinking_alt: 'Vetti the pet-care assistant, thinking',
-    no_pet:       'Vetti the pet-care assistant, ready to help add a pet',
+    no_pet:       'Vetti the pet-care assistant, ready to help add a first pet',
+    add_pet:      'Vetti the pet-care assistant, ready to help add another pet',
     pet_profile:  'Vetti the pet-care assistant, holding a pet profile card',
     booking:      'Vetti the pet-care assistant with a calendar',
     success:      'Vetti the pet-care assistant, pleased',
@@ -82,23 +86,33 @@
   }
 
   // ── 2. STATE MODEL ────────────────────────────────────────────────────
-  // 'featured' states render a larger mascot beside the message;
-  // ordinary states use the small avatar only. This is what keeps Vetti
-  // present without a permanent giant mascot column.
+  // One row per conversation state. Each row decides three presentation
+  // questions, so the UI never re-derives them per message:
+  //
+  //   featured — render the LARGE mascot (tier 2) instead of the small
+  //              message avatar (tier 1). This is the sizing system.
+  //   tone     — a restrained surface treatment for the bubble. Deliberately
+  //              a small vocabulary: no gradients, no glow, no alarm red.
+  //   motion   — one reusable motion class (see vetti.css). Every one of
+  //              them is disabled under prefers-reduced-motion.
+  //
+  // Sizing rule: an ORDINARY reply (idle / listening / apology) is always
+  // the small avatar. A STATE CHANGE is always the featured mascot.
   var STATES = {
-    greeting:   { featured: true,  label: 'Greeting' },
-    idle:       { featured: false, label: 'Idle' },
-    listening:  { featured: false, label: 'Listening' },
-    thinking:   { featured: false, label: 'Thinking' },
-    no_pet:     { featured: true,  label: 'First pet' },
-    pet_profile:{ featured: true,  label: 'Pet profile' },
-    booking:    { featured: true,  label: 'Booking' },
-    success:    { featured: true,  label: 'Success' },
-    excited:    { featured: true,  label: 'Happy' },
-    reminder:   { featured: true,  label: 'Reminder' },
-    concerned:  { featured: true,  label: 'Concerned' },
-    error:      { featured: true,  label: 'Error' },
-    apology:    { featured: true,  label: 'Apology' }
+    greeting:   { featured: true,  tone: 'warm',     motion: 'vetti-motion-enter',    label: 'Greeting' },
+    idle:       { featured: false, tone: 'plain',    motion: 'vetti-motion-breathe',  label: 'Idle' },
+    listening:  { featured: false, tone: 'plain',    motion: 'vetti-motion-listen',   label: 'Listening' },
+    thinking:   { featured: true,  tone: 'neutral',  motion: 'vetti-motion-think',    label: 'Thinking' },
+    no_pet:     { featured: true,  tone: 'warm',     motion: 'vetti-motion-enter',    label: 'First pet' },
+    add_pet:    { featured: true,  tone: 'warm',     motion: 'vetti-motion-enter',    label: 'Add a pet' },
+    pet_profile:{ featured: true,  tone: 'neutral',  motion: 'vetti-motion-breathe',  label: 'Pet profile' },
+    booking:    { featured: true,  tone: 'neutral',  motion: 'vetti-motion-enter',    label: 'Booking' },
+    success:    { featured: true,  tone: 'positive', motion: 'vetti-motion-enter',    label: 'Success' },
+    excited:    { featured: true,  tone: 'positive', motion: 'vetti-motion-enter',    label: 'Happy' },
+    reminder:   { featured: true,  tone: 'notice',   motion: 'vetti-motion-breathe',  label: 'Reminder' },
+    concerned:  { featured: true,  tone: 'calm',     motion: 'vetti-motion-breathe',  label: 'Concerned' },
+    error:      { featured: true,  tone: 'calm',     motion: 'vetti-motion-enter',    label: 'Error' },
+    apology:    { featured: false, tone: 'plain',    motion: 'vetti-motion-breathe',  label: 'Apology' }
   };
 
   function isState(name) {
@@ -107,6 +121,21 @@
 
   function isFeatured(state) {
     return !!(STATES[state] && STATES[state].featured);
+  }
+
+  // Surface treatment for the bubble. Unknown states fall back to 'plain'
+  // rather than throwing, so a new state can never break rendering.
+  function toneFor(state) {
+    return (STATES[state] && STATES[state].tone) || 'plain';
+  }
+
+  function labelFor(state) {
+    return (STATES[state] && STATES[state].label) || '';
+  }
+
+  // Reusable motion class for this state (see vetti.css, §MOTION).
+  function motionFor(state) {
+    return (STATES[state] && STATES[state].motion) || '';
   }
 
   // ── 3. INTENTS (deterministic, local, no LLM) ─────────────────────────
@@ -178,13 +207,20 @@
     {
       id: 'add_pet',
       state: 'no_pet',
-      keywords: ['add pet', 'add a pet', 'new pet', 'register pet', 'magdagdag', 'addpet', 'i want to add'],
+      keywords: ['add pet', 'add a pet', 'new pet', 'register pet', 'magdagdag', 'addpet',
+                'i want to add', 'another pet', 'add another', 'second pet', 'help me add',
+                'register another'],
       reply: function (ctx) {
+        // The SAME compact form opens either way. Vetti is the assisted
+        // route; My Pets stays available as the manual fallback, but it is
+        // not where this conversation sends the user first.
         if (ctx.hasPets) {
           return {
-            text: 'You already have ' + ctx.pets.length + (ctx.pets.length === 1 ? ' pet' : ' pets')
-                + ' on file. You can add another from My Pets, or I can open the form here.',
-            suggestions: ['Show my pets', 'Show my appointments']
+            text: 'Sure. I only need the basics for now \u2014 name and species. '
+                + 'You can fill in the rest on My Pets whenever you like.',
+            state: 'add_pet',
+            action: 'openPetForm',
+            suggestions: []
           };
         }
         return {
@@ -215,8 +251,8 @@
           text: ctx.petSummary(active),
           petCard: active,
           suggestions: ctx.pets.length > 1
-            ? ['Show another pet', 'Book an appointment']
-            : ['Book an appointment', 'What services do you offer?']
+            ? ['Show me another pet', 'I want to book an appointment']
+            : ['I want to book an appointment', 'What services do you offer?']
         };
       }
     },
@@ -230,7 +266,7 @@
           text: 'The clinic offers consultations, vaccinations, grooming and wellness '
               + 'checks. The full list with current prices is on the Services page \u2014 '
               + 'I do not have a live price list connected yet.',
-          suggestions: ['Show my pets', 'Show my appointments']
+          suggestions: ['Show me my pets', 'Show my appointments']
         };
       }
     },
@@ -447,6 +483,9 @@
     STATES: STATES,
     isState: isState,
     isFeatured: isFeatured,
+    toneFor: toneFor,
+    labelFor: labelFor,
+    motionFor: motionFor,
     resolve: resolve,
     greetingWord: greetingWord,
     warmLine: warmLine,

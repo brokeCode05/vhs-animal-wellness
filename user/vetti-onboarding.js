@@ -17,7 +17,7 @@
    HONESTY RULE: the pet is written to the shared frontend store only.
    Nothing is sent to a server, and the UI says so.
 
-   v1.0.0
+   v1.1.0
    ============================================================ */
 (function (global) {
   'use strict';
@@ -66,47 +66,69 @@
       + '</div>';
   }
 
-  // ── THE COMPACT FIRST-PET FORM ────────────────────────────────────────
+  // ── THE COMPACT PET FORM ──────────────────────────────────────────────
   // Five fields only: enough to create a real pet record now, with the
   // rest honestly marked as fillable later on My Pets.
-  function petFormMarkup() {
+  //
+  // One form serves BOTH the first-pet (zero-pet owner) and the
+  // "add another pet" (owner who already has pets) paths. Only the
+  // heading, the lead line and the fallback wording differ. The field
+  // ids are identical in both cases so the ONE validator below always
+  // applies and can never drift between the two paths.
+  function petFormMarkup(opts) {
     var L = limits();
+    var hasPets = !!(opts && opts.hasPets);
+    var heading = hasPets ? 'Add another pet' : 'Add your first pet';
+    var lead = hasPets
+      ? 'Sure. I only need the basics for now \u2014 name and species.'
+      : 'Just the basics for now \u2014 you can add the rest on My Pets.';
+    // The manual route stays available, but only as a secondary link for an
+    // owner who already has pets — Vetti is the assisted route.
+    var fallbackLink = hasPets
+      ? ' Prefer the full form? <button type="button" class="vetti-inline-link"'
+        + ' data-vetti-action="open-my-pets">Open My Pets</button>.'
+      : '';
     return ''
       + '<form class="vetti-petform" id="vettiPetForm" novalidate>'
-      + '  <p class="vetti-petform-lead">Just the basics for now \u2014 you can add the rest on My Pets.</p>'
+      + '  <h3 class="vetti-petform-heading">' + escapeText(heading) + '</h3>'
+      + '  <p class="vetti-petform-lead">' + escapeText(lead) + '</p>'
       + '  <div class="vetti-field">'
-      + '    <label for="vettiPetName">Pet name</label>'
+      + '    <label for="vettiPetName">Pet name '
+      + '      <span class="vetti-required">Required</span></label>'
       + '    <input id="vettiPetName" name="vetti_pet_name" type="text" maxlength="' + L.name + '"'
-      + '           autocomplete="off" placeholder="e.g. Bruno">'
+      + '           autocomplete="off" placeholder="e.g. Bruno" aria-describedby="vettiErr-vettiPetName">'
       + '    <p class="vetti-field-error" id="vettiErr-vettiPetName" role="alert" hidden></p>'
       + '  </div>'
       + '  <div class="vetti-field-row">'
       + '    <div class="vetti-field">'
-      + '      <label for="vettiPetSpecies">Species</label>'
-      + '      <select id="vettiPetSpecies" name="vetti_pet_species">'
+      + '      <label for="vettiPetSpecies">Species '
+      + '        <span class="vetti-required">Required</span></label>'
+      + '      <select id="vettiPetSpecies" name="vetti_pet_species" aria-describedby="vettiErr-vettiPetSpecies">'
       + '        <option value="">Choose\u2026</option>'
       + SPECIES.map(function (s) { return '<option value="' + s + '">' + s + '</option>'; }).join('')
       + '      </select>'
       + '      <p class="vetti-field-error" id="vettiErr-vettiPetSpecies" role="alert" hidden></p>'
       + '    </div>'
       + '    <div class="vetti-field">'
-      + '      <label for="vettiPetBreed">Breed <span class="vetti-optional">(optional)</span></label>'
+      + '      <label for="vettiPetBreed">Breed <span class="vetti-optional">Optional</span></label>'
       + '      <input id="vettiPetBreed" name="vetti_pet_breed" type="text" maxlength="' + L.breedCustom + '"'
-      + '             autocomplete="off" placeholder="e.g. Aspin">'
+      + '             autocomplete="off" placeholder="e.g. Aspin" aria-describedby="vettiErr-vettiPetBreed">'
       + '      <p class="vetti-field-error" id="vettiErr-vettiPetBreed" role="alert" hidden></p>'
       + '    </div>'
       + '  </div>'
       + '  <div class="vetti-field-row">'
       + '    <div class="vetti-field">'
-      + '      <label for="vettiPetAge">Age in years <span class="vetti-optional">(optional)</span></label>'
+      + '      <label for="vettiPetAge">Age in years <span class="vetti-optional">Optional</span></label>'
       + '      <input id="vettiPetAge" name="vetti_pet_age" type="text" inputmode="numeric" maxlength="'
-      + L.age.digits + '" autocomplete="off" spellcheck="false" placeholder="e.g. 3">'
+      + L.age.digits + '" autocomplete="off" spellcheck="false" placeholder="e.g. 3"'
+      + '             aria-describedby="vettiErr-vettiPetAge">'
       + '      <p class="vetti-field-error" id="vettiErr-vettiPetAge" role="alert" hidden></p>'
       + '    </div>'
       + '    <div class="vetti-field">'
-      + '      <label for="vettiPetWeight">Weight in kg <span class="vetti-optional">(optional)</span></label>'
+      + '      <label for="vettiPetWeight">Weight in kg <span class="vetti-optional">Optional</span></label>'
       + '      <input id="vettiPetWeight" name="vetti_pet_weight" type="text" inputmode="decimal" maxlength="'
-      + (L.weightKg.digits + 1 + L.weightKg.decimals) + '" autocomplete="off" spellcheck="false" placeholder="e.g. 4.5">'
+      + (L.weightKg.digits + 1 + L.weightKg.decimals) + '" autocomplete="off" spellcheck="false"'
+      + '             placeholder="e.g. 4.5" aria-describedby="vettiErr-vettiPetWeight">'
       + '      <p class="vetti-field-error" id="vettiErr-vettiPetWeight" role="alert" hidden></p>'
       + '    </div>'
       + '  </div>'
@@ -114,7 +136,9 @@
       + '    <button type="submit" class="btn-primary">Add pet</button>'
       + '    <button type="button" class="btn-link" data-vetti-action="cancel-pet-form">Not now</button>'
       + '  </div>'
-      + '  <p class="vetti-petform-footnote">Saved on this device only in this demo.</p>'
+      + '  <p class="vetti-petform-footnote">'
+      + '    Saved on this device only in this demo.' + fallbackLink
+      + '  </p>'
       + '</form>';
   }
 

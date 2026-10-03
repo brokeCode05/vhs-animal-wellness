@@ -20,7 +20,7 @@
    only given a src the first time its state is actually shown, and
    the two idle variants are preloaded. No asset is edited or resized.
 
-   v1.0.0
+   v1.1.0
    ============================================================ */
 (function (global) {
   'use strict';
@@ -37,17 +37,22 @@
     busy: false,
     booted: false,
     loaded: {},              // asset path -> true, so src is set once
+    listening: false,        // composer focused
+    thinkFlip: false,        // thinking-a / thinking-b
     lastSuggestions: []
   };
 
+  // Conversational sentences, not dashboard labels. Each one is phrased so
+  // it reads as something you would say to an assistant.
   var DEFAULT_SUGGESTIONS_WITH_PET = [
-    'Show my pets',
-    'Book an appointment',
+    'Show me my pets',
+    'I want to book an appointment',
     'What services do you offer?',
+    'Help me add another pet',
     'What can Vetti do?'
   ];
   var DEFAULT_SUGGESTIONS_NO_PET = [
-    'Add a pet',
+    'Help me add a pet',
     'What can Vetti do?'
   ];
 
@@ -107,6 +112,20 @@
     return list[0];
   }
 
+  // ── AVATAR SIZE TIERS (the sizing system) ────────────────────────────
+  // Three tiers and nothing else. The rendered size is decided by the tier
+  // in vetti.css — never by the 1254x1254 source PNG. Each box is a fixed
+  // square with object-fit, so no asset is ever stretched or cropped oddly.
+  //
+  //   avatar   — tier 1, beside an ORDINARY reply (idle, apology)
+  //   featured — tier 2, beside a STATE CHANGE (success, concerned, ...)
+  //   card     — tier 3, a small mascot inside a structured card
+  var TIERS = {
+    avatar:   'vetti-avatar',
+    featured: 'vetti-mascot',
+    card:     'vetti-mascot-card'
+  };
+
   // ── Lazy mascot images ────────────────────────────────────────────────
   // The approved PNGs total ~12 MB, so only the states actually shown
   // get a src. The asset files themselves are untouched.
@@ -117,8 +136,21 @@
     ui.loaded[src] = true;
     return '<img class="' + className + '"' + preloaded
       + ' data-vetti-src="' + src + '"'
+      + ' data-vetti-face="1"'
       + ' alt="' + esc(State.altFor(state)) + '"'
       + ' width="1254" height="1254" decoding="async" draggable="false">';
+  }
+
+  // One place builds a mascot box, so a tier can never be forgotten and no
+  // message can end up with an arbitrary ad-hoc size.
+  function mascotBox(state, tier, extraClass) {
+    var box = TIERS[tier] || TIERS.avatar;
+    var motion = State.motionFor(state);
+    return '<span class="' + box
+      + (motion ? ' ' + motion : '')
+      + (extraClass ? ' ' + extraClass : '') + '"'
+      + ' data-state="' + esc(state) + '">'
+      + mascotImg(state, box + '-img') + '</span>';
   }
 
   // The src is attached after the node is in the document so the browser
@@ -148,19 +180,45 @@
     if (dom.scrollBtn) dom.scrollBtn.hidden = true;
   }
 
+  // ── TURN GROUPING ────────────────────────────────────────────────────
+  // One assistant turn = the mascot + reply + any inline card/result. They
+  // are wrapped together so a reply and its result read as ONE response
+  // rather than as unrelated floating cards. A user message closes the
+  // open turn, so the next assistant answer starts a fresh group.
+  var openTurn = null;
+
+  function turnNode() {
+    if (!openTurn || !openTurn.parentNode) {
+      openTurn = document.createElement('div');
+      openTurn.className = 'vetti-turn';
+      dom.canvas.appendChild(openTurn);
+    }
+    return openTurn;
+  }
+
+  function closeTurn() {
+    openTurn = null;
+  }
+
   function renderVetti(text, state, extraClass) {
     var featured = State.isFeatured(state);
+    var tone = State.toneFor(state);
+    var label = State.labelFor(state);
     var node = document.createElement('div');
     node.className = 'vetti-row vetti-row-vetti' + (featured ? ' vetti-row-featured' : '');
-    node.innerHTML = (featured
-      ? '<div class="vetti-mascot-lg" data-state="' + esc(state) + '">'
-        + mascotImg(state, 'vetti-mascot-img') + '</div>'
-      : '<span class="vetti-avatar" data-state="' + esc(state) + '">'
-        + mascotImg(state, 'vetti-avatar-img') + '</span>')
-      + '<div class="vetti-bubble vetti-bubble-vetti' + (extraClass ? ' ' + extraClass : '') + '">'
+    node.setAttribute('data-state', state);
+    node.innerHTML = mascotBox(state, featured ? 'featured' : 'avatar')
+      + '<div class="vetti-response">'
+      // A small state label, shown ONLY on a featured state — naming the
+      // state on every ordinary reply would be clutter.
+      + (featured && label
+          ? '<span class="vetti-state-label">' + esc(label) + '</span>'
+          : '')
+      + '<div class="vetti-bubble vetti-bubble-vetti' + (extraClass ? ' ' + extraClass : '') + '"'
+      + ' data-tone="' + esc(tone) + '">'
       + '<p class="vetti-text">' + esc(text).replace(/\n/g, '<br>') + '</p>'
-      + '</div>';
-    dom.canvas.appendChild(node);
+      + '</div></div>';
+    turnNode().appendChild(node);
     // Hydrate this node immediately: any path that appends a mascot must
     // resolve its src, or the browser renders a broken image.
     hydrateMascots(node);
@@ -173,6 +231,8 @@
     node.innerHTML = '<div class="vetti-bubble vetti-bubble-user">'
       + '<p class="vetti-text">' + esc(text).replace(/\n/g, '<br>') + '</p>'
       + '</div>';
+    // The user speaks, so any open assistant group is finished.
+    closeTurn();
     dom.canvas.appendChild(node);
     return node;
   }
@@ -188,18 +248,23 @@
   }
 
   // A transient "thinking" note. Deliberately short and fixed — this is a
-  // UI state, not a simulated model thinking.
+  // UI state, not a simulated model thinking. Thinking is a FEATURED state,
+  // so it uses the tier-2 mascot plus a short status line.
   function showThinking() {
     var node = document.createElement('div');
-    node.className = 'vetti-row vetti-row-vetti vetti-thinking-row';
+    node.className = 'vetti-row vetti-row-vetti vetti-row-featured vetti-thinking-row';
     node.id = 'vettiThinkingRow';
-    node.innerHTML = '<span class="vetti-avatar" data-state="thinking">'
-      + mascotImg('thinking', 'vetti-avatar-img') + '</span>'
-      + '<div class="vetti-bubble vetti-bubble-vetti vetti-bubble-thinking">'
-      + '<span class="vetti-dots" aria-hidden="true"><i></i><i></i><i></i></span>'
-      + '<span class="vetti-sr-only">Vetti is thinking</span>'
+    node.setAttribute('data-state', 'thinking');
+    node.innerHTML = mascotBox('thinking', 'featured')
+      + '<div class="vetti-response">'
+      + '  <span class="vetti-state-label">Thinking</span>'
+      + '  <div class="vetti-bubble vetti-bubble-vetti vetti-bubble-thinking" data-tone="neutral">'
+      + '    <span class="vetti-dots" aria-hidden="true"><i></i><i></i><i></i></span>'
+      + '    <span class="vetti-thinking-text">Checking\u2026</span>'
+      + '    <span class="vetti-sr-only">Vetti is thinking</span>'
+      + '  </div>'
       + '</div>';
-    dom.canvas.appendChild(node);
+    turnNode().appendChild(node);
     hydrateMascots(node);
     scrollToBottom(true);
     return node;
@@ -211,7 +276,9 @@
   }
 
   // ── Pet summary (future structured card) ─────────────────────────────
-  function petCardMarkup(pet) {
+  // The card carries its own TIER-3 mascot, so a structured result reads
+  // as part of the conversation instead of a detached panel.
+  function petCardMarkup(pet, state) {
     if (!pet) return '';
     // Species already sits in the card header, so it is not repeated here.
     var bits = [];
@@ -221,8 +288,11 @@
     return ''
       + '<div class="vetti-petcard">'
       + '  <div class="vetti-petcard-head">'
-      + '    <span class="vetti-petcard-name">' + esc(pet.name) + '</span>'
-      + '    <span class="vetti-petcard-species">' + esc(pet.species || 'Species not set') + '</span>'
+      + mascotBox(state || 'pet_profile', 'card')
+      + '    <span class="vetti-petcard-id">'
+      + '      <span class="vetti-petcard-name">' + esc(pet.name) + '</span>'
+      + '      <span class="vetti-petcard-species">' + esc(pet.species || 'Species not set') + '</span>'
+      + '    </span>'
       + '  </div>'
       + (bits.length ? '<ul class="vetti-petcard-facts">'
           + bits.map(function (b) { return '<li>' + b + '</li>'; }).join('') + '</ul>' : '')
@@ -254,42 +324,73 @@
 
   // ── Suggested prompt carousel ─────────────────────────────────────────
   // Horizontal only. Keyboard reachable, labelled for screen readers.
+  // Arrows live INSIDE the rail (which clips), so they can never widen the
+  // document, and they only appear when the track can actually scroll.
   function renderCarousel(items) {
     if (!dom.carousel) return;
     var list = (items && items.length) ? items : suggestionsForContext();
     ui.lastSuggestions = list.slice();
 
     if (!list.length) {
-      dom.carousel.innerHTML = '';
-      dom.carousel.hidden = true;
+      hideCarousel();
       return;
     }
     dom.carousel.hidden = false;
     dom.carousel.innerHTML = ''
       + '<div class="vetti-carousel-head">'
       + '  <span class="vetti-carousel-label" id="vettiCarouselLabel">Suggestions</span>'
-      + '  <div class="vetti-carousel-controls">'
-      + '    <button type="button" class="vetti-carousel-btn" data-vetti-scroll="-1"'
-      + '            aria-label="Scroll suggestions left">'
-      + '      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"'
-      + '           stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'
-      + '        <polyline points="15 18 9 12 15 6"/></svg>'
-      + '    </button>'
-      + '    <button type="button" class="vetti-carousel-btn" data-vetti-scroll="1"'
-      + '            aria-label="Scroll suggestions right">'
-      + '      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"'
-      + '           stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'
-      + '        <polyline points="9 18 15 12 9 6"/></svg>'
-      + '    </button>'
-      + '  </div>'
+      + '  <span class="vetti-carousel-hint">Tap to ask</span>'
       + '</div>'
-      + '<div class="vetti-carousel-track" id="vettiCarouselTrack" role="group"'
-      + '     aria-labelledby="vettiCarouselLabel">'
+      + '<div class="vetti-carousel-rail">'
+      + '  <button type="button" class="vetti-carousel-btn vetti-carousel-prev"'
+      + '          data-vetti-scroll="-1" aria-label="Scroll suggestions left"'
+      + '          aria-controls="vettiCarouselTrack" disabled>'
+      + '    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"'
+      + '         stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'
+      + '      <polyline points="15 18 9 12 15 6"/></svg>'
+      + '  </button>'
+      + '  <div class="vetti-carousel-track" id="vettiCarouselTrack" role="group"'
+      + '       aria-labelledby="vettiCarouselLabel" tabindex="0">'
       + list.map(function (s) {
           return '<button type="button" class="vetti-chip" data-vetti-prompt="' + esc(s) + '">'
             + esc(s) + '</button>';
         }).join('')
+      + '  </div>'
+      + '  <button type="button" class="vetti-carousel-btn vetti-carousel-next"'
+      + '          data-vetti-scroll="1" aria-label="Scroll suggestions right"'
+      + '          aria-controls="vettiCarouselTrack" disabled>'
+      + '    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"'
+      + '         stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'
+      + '      <polyline points="9 18 15 12 9 6"/></svg>'
+      + '  </button>'
       + '</div>';
+
+    // Sizes settle only after the track is in the document, so measure
+    // on the next frame rather than guessing.
+    window.requestAnimationFrame(syncCarouselControls);
+  }
+
+  function hideCarousel() {
+    if (!dom.carousel) return;
+    dom.carousel.innerHTML = '';
+    dom.carousel.hidden = true;
+  }
+
+  // Arrows are shown ONLY when the track overflows, and disabled at each
+  // end. Below 768px the arrows are hidden by CSS entirely — swiping is
+  // the primary gesture there and there is no room for them.
+  function syncCarouselControls() {
+    var track = el('vettiCarouselTrack');
+    if (!track) return;
+    var rail = track.parentNode;
+    var scrollable = track.scrollWidth - track.clientWidth > 4;
+    var atStart = track.scrollLeft <= 1;
+    var atEnd = track.scrollLeft >= track.scrollWidth - track.clientWidth - 1;
+    if (rail) rail.classList.toggle('is-scrollable', scrollable);
+    var prev = dom.carousel ? dom.carousel.querySelector('.vetti-carousel-prev') : null;
+    var next = dom.carousel ? dom.carousel.querySelector('.vetti-carousel-next') : null;
+    if (prev) prev.disabled = !scrollable || atStart;
+    if (next) next.disabled = !scrollable || atEnd;
   }
 
   function suggestionsForContext() {
@@ -382,10 +483,18 @@
   }
 
   // ── Zero-pet path + inline pet form ───────────────────────────────────
-  function openPetForm() {
+  // ONE compact form for BOTH routes. An owner with no pets reaches it
+  // automatically; an owner who already has pets reaches the same form by
+  // asking ("Help me add another pet"). It is never a redirect to My Pets —
+  // My Pets stays available as the manual fallback inside the form.
+  function openPetForm(opts) {
     if (ui.petFormOpen) return;
     ui.petFormOpen = true;
-    renderBlock('no_pet', Onboarding.petFormMarkup(), 'vetti-bubble-form');
+    var hasPets = pets().length > 0;
+    // 'no_pet' and 'add_pet' are the same approved add-pet artwork, kept
+    // as separate states so the label and framing stay honest.
+    var state = (opts && opts.state) || (hasPets ? 'add_pet' : 'no_pet');
+    renderBlock(state, Onboarding.petFormMarkup({ hasPets: hasPets }), 'vetti-bubble-form');
     hydrateMascots();
     var form = el('vettiPetForm');
     if (form) {
@@ -427,7 +536,7 @@
 
     // Exactly one pet was created. No appointment, document or vaccine.
     renderVetti(pet.name + ' is on your account now.', 'success');
-    renderBlock('pet_profile', petCardMarkup(pet), 'vetti-bubble-card');
+    renderBlock('pet_profile', petCardMarkup(pet, 'pet_profile'), 'vetti-bubble-card');
     renderVetti(
       'That is the only record created \u2014 no appointments or documents were made up. '
       + 'You can add more details on My Pets whenever you like.',
@@ -437,6 +546,7 @@
     renderPetSelector();
     renderGreeting();
     renderCarousel(DEFAULT_SUGGESTIONS_WITH_PET);
+    hydrateMascots();
     scrollToBottom(true);
 
     // Keep the rest of the portal in step with the new pet.
@@ -475,7 +585,7 @@
     if (!message || ui.busy) return;
 
     renderUser(message);
-    renderCarousel([]);
+    hideCarousel();
     scrollToBottom(true);
 
     ui.busy = true;
@@ -505,22 +615,91 @@
     }, 420);
   }
 
-  // ── Idle alternation (subtle, controlled) ─────────────────────────────
-  // Only two idle frames, swapped on a slow timer, and only while the
-  // user is not mid-conversation. No continuous mascot animation.
-  function startIdleAlternation() {
+  // ── Mascot alternation (subtle, controlled) ─────────────────────────
+  // Each state ships exactly two approved frames. The idle pair swaps
+  // slowly (idle-a <-> idle-b) and only while Vetti is not working; the
+  // thinking pair swaps faster and only while a reply is pending. Nothing
+  // animates continuously and nothing travels far — the gentle motion is
+  // CSS (see vetti.css, MOTION); this only swaps the expression.
+  function swapVariant(selector, base, alt, flipped) {
+    if (!dom.canvas) return;
+    var nodes = dom.canvas.querySelectorAll(selector);
+    Array.prototype.forEach.call(nodes, function (node) {
+      crossfadeFace(node, base, alt, flipped);
+    });
+  }
+
+  // Swapping src on a rendered <img> blanks the box until the new ~750 KB
+  // PNG decodes, which flickers every few seconds. Instead the new frame is
+  // layered on top and crossfaded in once it has actually decoded, so the
+  // mascot is never momentarily empty.
+  function crossfadeFace(node, base, alt, flipped) {
+    var current = node.querySelector('img[data-vetti-face]');
+    if (!current) return;
+    var src = State.mascotFor(flipped ? alt : base);
+    if (current.getAttribute('src') === src) return;
+
+    var next = document.createElement('img');
+    next.className = current.className;
+    next.setAttribute('data-vetti-face', '1');
+    next.setAttribute('alt', State.altFor(flipped ? alt : base));
+    next.width = 1254;
+    next.height = 1254;
+    next.decoding = 'async';
+    next.draggable = false;
+    next.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;'
+      + 'object-fit:cover;opacity:0;';
+    next.addEventListener('error', function () {
+      if (next.parentNode) next.parentNode.removeChild(next);
+    });
+    node.appendChild(next);
+
+    var settle = function () {
+      next.style.transition = 'opacity .45s ease';
+      next.style.opacity = '1';
+      if (current.parentNode) current.parentNode.removeChild(current);
+    };
+    if (next.complete && next.naturalWidth) {
+      window.requestAnimationFrame(settle);
+    } else {
+      next.addEventListener('load', settle, { once: true });
+    }
+    next.src = src;
+  }
+
+  function startMascotMotion() {
+    // Idle: slow, and skipped entirely while Vetti is mid-conversation.
     window.setInterval(function () {
-      if (ui.busy || document.hidden) return;
+      if (ui.busy || ui.listening || document.hidden) return;
       ui.idleAlt = !ui.idleAlt;
-      var avatars = dom.canvas.querySelectorAll('.vetti-avatar[data-state="idle"]');
-      Array.prototype.forEach.call(avatars, function (node) {
-        var src = State.mascotFor(ui.idleAlt ? 'idle_alt' : 'idle');
-        var img = node.querySelector('img');
-        if (!img || img.getAttribute('src') === src) return;
-        img.setAttribute('src', src);
-        img.setAttribute('alt', State.altFor(ui.idleAlt ? 'idle_alt' : 'idle'));
-      });
+      swapVariant('.vetti-avatar[data-state="idle"]', 'idle', 'idle_alt', ui.idleAlt);
     }, 6000);
+
+    // Thinking: a little quicker, and only while the row actually exists.
+    window.setInterval(function () {
+      if (document.hidden || !el('vettiThinkingRow')) return;
+      ui.thinkFlip = !ui.thinkFlip;
+      swapVariant('[data-state="thinking"]', 'thinking', 'thinking_alt', ui.thinkFlip);
+    }, 900);
+  }
+
+  // The composer being focused is the one honest signal that Vetti is
+  // listening, so only the MOST RECENT idle avatar changes expression.
+  // Rewriting older messages would be noise, not personality.
+  function setListening(on) {
+    if (ui.listening === on) return;
+    ui.listening = on;
+    var shell = dom.canvas ? dom.canvas.closest('.vetti-shell') : null;
+    if (shell) shell.classList.toggle('vetti-listening', on);
+    if (!dom.canvas) return;
+    var avatars = dom.canvas.querySelectorAll('.vetti-avatar[data-state="idle"]');
+    var last = avatars[avatars.length - 1];
+    if (!last) return;
+    // data-state deliberately stays 'idle' so this avatar is still
+    // discoverable on blur — the listening look is a class, not a new state.
+    crossfadeFace(last, 'idle', 'listening', on);
+    last.classList.toggle('vetti-motion-listen', on);
+    last.classList.toggle('vetti-motion-breathe', !on);
   }
 
   // ── Wiring ────────────────────────────────────────────────────────────
@@ -543,6 +722,9 @@
             : dom.composer.dispatchEvent(new Event('submit', { cancelable: true }));
         }
       });
+      // Composer focus is the honest "Vetti is listening" cue.
+      dom.input.addEventListener('focus', function () { setListening(true); });
+      dom.input.addEventListener('blur', function () { setListening(false); });
     }
   }
 
@@ -563,6 +745,11 @@
         if (name === 'skip-intro') skipIntro();
         else if (name === 'replay-intro') replayIntro();
         else if (name === 'cancel-pet-form') closePetForm();
+        else if (name === 'open-my-pets') {
+          // Manual route, offered from inside the form as a fallback.
+          closePetForm();
+          if (typeof showSection === 'function') showSection('pets');
+        }
         return;
       }
       var scroll = target.closest && target.closest('[data-vetti-scroll]');
@@ -603,6 +790,14 @@
         dom.scrollBtn.hidden = atBottom;
       });
     }
+
+    // Keep the arrows honest while the user swipes.
+    if (dom.carousel) {
+      dom.carousel.addEventListener('scroll', function (e) {
+        if (e.target && e.target.id === 'vettiCarouselTrack') syncCarouselControls();
+      }, true);
+    }
+    window.addEventListener('resize', syncCarouselControls);
   }
 
   function bindFormSubmit() {
@@ -630,10 +825,38 @@
     scrollToBottom(true);
   }
 
+  // ── DEV/QA ONLY: repeat the true first-login experience ───────────────
+  // ?vettiIntro=reset forgets ONLY Vetti's own intro flags and reloads, so
+  // the genuine first-login moment can be re-tested on demand instead of
+  // clearing site data by hand.
+  //
+  // It touches nothing else: pets, appointments, documents, profile and
+  // every other store key are left exactly as they are.
+  //
+  // DEV/QA ONLY — not a production User control. The normal, always-
+  // available way back to the intro is the "Replay intro" button.
+  // TODO(BACKEND): gate this behind a QA role, or remove it, once there is
+  // a real backend and real authentication.
+  function applyQaIntroReset() {
+    var search = window.location.search || '';
+    if (!/[?&]vettiIntro=reset(&|$)/.test(search)) return false;
+    State.resetIntro();
+    try {
+      // Drop only this parameter (keeping ?as=4 etc.), then reload so the
+      // intro is re-evaluated from a clean slate on a fresh mount.
+      var url = new URL(window.location.href);
+      url.searchParams.delete('vettiIntro');
+      window.history.replaceState({}, '', url.pathname + url.search + url.hash);
+    } catch (e) { /* flags are already cleared; a stale param is harmless */ }
+    window.location.reload();
+    return true;
+  }
+
   // ── Mount ─────────────────────────────────────────────────────────────
   function mount() {
     cacheDom();
     if (!dom.canvas) return;
+    if (applyQaIntroReset()) return;   // reloading; nothing else to do
 
     showOpening();
     hydrateMascots();
@@ -642,7 +865,7 @@
     bindComposer();
     bindClicks();
     bindFormSubmit();
-    startIdleAlternation();
+    startMascotMotion();
     syncLegacyChatbot();
 
     ui.booted = true;
