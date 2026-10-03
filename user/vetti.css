@@ -1546,7 +1546,7 @@ body.vetti-active .chatbot-container { display: none; }
      is a phone header, so it earns its height by dropping anything that
      is not one of those two things. */
   .vetti-greeting {
-    padding: 0.5rem 0.85rem 0.5rem;
+    padding: 0.5rem 0.75rem 0.5rem;
     gap: 0.4rem 0.6rem;
   }
   .vetti-greeting-text {
@@ -1692,8 +1692,9 @@ body.vetti-active .chatbot-container { display: none; }
 
   /* §11: Vetti messages take the full width so the text column never
      gets narrow; the user bubble stays visibly narrower and right
-     aligned, and the avatar costs only a small gutter. */
-  .vetti-canvas { padding: 0.6rem 0.6rem 0.75rem; gap: 0.55rem; }
+     aligned, and the avatar costs only a small gutter. The 0.75rem
+     sides are the shared mobile gutter — see the composer area. */
+  .vetti-canvas { padding: 0.75rem 0.75rem 0.875rem; gap: 0.55rem; }
   .vetti-turn { gap: 0.3rem; }
 
   .vetti-canvas > * { max-width: 100%; }
@@ -1731,8 +1732,11 @@ body.vetti-active .chatbot-container { display: none; }
     line-height: 1.4;
   }
 
-  /* §19/§20: one bottom zone, tighter padding, swipe-only rail. */
-  .vetti-composer-area { padding: 0.4rem 0.6rem 0.5rem; }
+  /* §19/§20: one bottom zone, tighter padding, swipe-only rail. The 0.75rem
+     sides match the thread and the header so all three bands sit on ONE
+     12px gutter; the shell is edge to edge now, so that shared line is
+     the only thing separating content from the screen edge. */
+  .vetti-composer-area { padding: 0.4rem 0.75rem 0.5rem; }
   .vetti-carousel { padding: 0.4rem 0.4rem 0.15rem; }
   /* The row is 44px because the send button is. End-aligning left the
      39px textarea hanging off the BOTTOM of that row, which put the
