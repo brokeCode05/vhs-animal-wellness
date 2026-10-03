@@ -1,39 +1,48 @@
 /* ============================================================
    VETTI — Ask Vetti workspace styles (frontend only)
 
-   WORKSPACE STRUCTURE
-   -------------------
-     A. .vetti-greeting        compact header
-     B. .vetti-presence        compact Vetti presence + transient status
-     C. .vetti-canvas          conversation thread (the only scroller)
-     D + E. .vetti-input-zone  prompt rail + composer, one unit
+   WORKSPACE STRUCTURE (four parts, one clean area)
+   -----------------------------------------------
+     A. .vetti-greeting     compact header — greeting LEFT,
+                            Vetti + active pet + Replay RIGHT
+     B. .vetti-canvas       conversation thread (the only scroller)
+     C. .vetti-carousel     suggested prompt rail
+     D. .vetti-composer     the composer
+
+   There is no separate mascot row and no mascot stage. Vetti lives
+   inside the header, so the thread starts directly below the header
+   and owns the reclaimed height.
 
    VETTI HAS TWO VISUAL ROLAS, NEVER MIXED
    ---------------------------------------
-     1. CANONICAL CHAT AVATAR (.vetti-chat-avatar)
-        One fixed 30px image beside every Vetti message. Identity, not
+     1. HEADER MASCOT (.vetti-header-mascot)
+        One compact mascot in the header whose EXPRESSION changes with
+        state. No frame, no card, no background, no caption, no blob.
+
+     2. CANONICAL CHAT AVATAR (.vetti-chat-avatar)
+        One fixed small image beside every Vetti message. Identity, not
         expression — it never switches with state.
 
-     2. MAIN VETTI PRESENCE (.vetti-presence)
-        One compact mascot whose expression changes with state.
+   ── HEADER MASCOT SIZING ─────────────────────────────────────
+   Defined only here, on its OWN breakpoints so a 768px tablet gets
+   the tablet size rather than the phone one:
 
-   ── PRESENCE SIZING ───────────────────────────────────────────
-   One size, defined only here:
+     desktop   4.25rem (68px)   range 64-72px
+     tablet    3.75rem (60px)   range 56-64px   (max-width: 1024px)
+     mobile    3.25rem (52px)   range 48-56px   (max-width: 600px)
 
-     desktop   4.75rem (76px)     range 72-88px
-     tablet    4.25rem (68px)     range 64-80px
-     mobile    3.75rem (60px)     range 56-72px
+   The assets are transparent PNGs, so the mascot gets a soft
+   drop-shadow only. Nothing around it can grow the header much.
 
-   The presence frame has NO background, NO border and NO card — the
-   assets are transparent PNGs, so it gets a soft drop-shadow only. A
-   soft organic blob appears behind it for a few featured moments
-   (welcome, zero-pet onboarding, success) and never otherwise.
+   ── MEASURE ──────────────────────────────────────────────────
+   One readable centred column, 50rem (800px) on desktop, shared by
+   the thread and the bottom interaction zone so they line up.
 
    Overflow safety: the canvas is the only scrolling region, every row
    is flex with min-width:0, long words wrap, and the prompt rail
    scrolls horizontally inside its own box.
 
-   v3.0.0
+   v4.0.0
    ============================================================ */
 
 /* ── LEGACY FLOATING CHATBOT ───────────────────────────────────────── */
@@ -74,11 +83,11 @@ body.vetti-active .chatbot-container { display: none; }
 
 .vetti-greeting {
   display: flex;
-  align-items: flex-end;
+  align-items: center;           /* the mascot must not raise the header */
   justify-content: space-between;
-  gap: 0.4rem 1.25rem;
+  gap: 0.5rem 1.25rem;
   flex-wrap: wrap;
-  padding: 0.875rem 1.5rem 0.75rem;
+  padding: 0.625rem 1.5rem;
   border-bottom: 1px solid var(--vhs-neutral-border, #E5E1EC);
   background: var(--vhs-neutral-surface, #FFFFFF);
   min-width: 0;
@@ -146,52 +155,30 @@ body.vetti-active .chatbot-container { display: none; }
   max-width: 11rem;
 }
 
-/* ── B. MAIN VETTI PRESENCE (compact) ──────────────────────────────────
-   A transparent mascot with a soft shadow. No square, no card, no
-   bordered box. The soft blob is decorative and only for featured
-   moments. */
+/* ── A (right side). HEADER MASCOT + TOOLS ────────────────────────────
+   Vetti sits on the right of the greeting, next to the active-pet
+   selector. Deliberately NOT given a row, a stage, a square frame, a
+   card background or a permanent caption: the transparent PNG is used
+   as-is and only the EXPRESSION changes with state. */
 
-.vetti-presence {
-  position: relative;
-  flex: 0 0 auto;
+.vetti-header-tools {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
-  padding: 0.5rem 1.5rem;
-  min-height: 5.5rem;          /* the whole row stays compact */
-  border-bottom: 1px solid var(--vhs-neutral-border, #E5E1EC);
-  background: var(--vhs-neutral-surface, #FFFFFF);
+  gap: 0.85rem;
+  flex: 0 0 auto;
   min-width: 0;
 }
 
-/* Soft, organic, subtle. Purely decorative; never a glow or a hard edge. */
-.vetti-presence::before {
-  content: "";
-  position: absolute;
-  z-index: 0;
-  left: 0.55rem;
-  top: 50%;
-  width: 6.25rem;
-  height: 6.25rem;
-  transform: translateY(-50%);
-  border-radius: 58% 42% 47% 53% / 45% 55% 48% 52%;
-  background: radial-gradient(circle at 50% 45%,
-    rgba(139, 92, 246, 0.17), rgba(139, 92, 246, 0.05) 58%, rgba(139, 92, 246, 0) 76%);
-  opacity: 0;
-  transition: opacity 0.5s ease;
-  pointer-events: none;
-}
-.vetti-presence[data-blob="1"]::before { opacity: 1; }
-
-.vetti-presence-frame {
+/* Sizing box only. It has no background, border, radius or box
+   shadow — nothing here can read as a container. */
+.vetti-header-mascot {
   position: relative;
-  z-index: 1;
   flex: 0 0 auto;
-  width: 4.75rem;              /* 76px — the one presence size */
-  height: 4.75rem;
+  width: 4.25rem;              /* 68px, desktop — range 64-72px */
+  height: 4.25rem;
 }
 
-.vetti-presence-mascot {
+.vetti-header-mascot-img {
   position: absolute;
   inset: 0;
   width: 100%;
@@ -199,23 +186,19 @@ body.vetti-active .chatbot-container { display: none; }
   object-fit: contain;         /* transparent PNG, never cropped */
   display: block;
   /* The ONLY decoration: a soft shadow so it sits on the surface. */
-  filter: drop-shadow(0 3px 8px rgba(60, 31, 120, 0.22));
+  filter: drop-shadow(0 2px 6px rgba(60, 31, 120, 0.22));
 }
 
-/* Transient status: visible ONLY while a real process is running. */
-.vetti-status {
-  position: relative;
-  z-index: 1;
-  margin: 0;
-  font-size: 0.87rem;
-  font-weight: 600;
-  color: var(--vhs-neutral-muted, #756F82);
+/* Selector stacked over the replay link, beside the mascot. */
+.vetti-header-meta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.1rem;
   min-width: 0;
-  overflow-wrap: anywhere;
 }
-.vetti-status[hidden] { display: none; }
 
-/* ── C. CONVERSATION THREAD ────────────────────────────────────────── */
+/* ── B. CONVERSATION THREAD ────────────────────────────────────────── */
 
 .vetti-canvas {
   flex: 1 1 auto;
@@ -231,10 +214,11 @@ body.vetti-active .chatbot-container { display: none; }
   scrollbar-width: thin;
 }
 
-/* Readable measure on a wide canvas. */
+/* One readable centred column. Widened from 46rem so the thread feels
+   less cramped now that it owns all the reclaimed vertical space. */
 .vetti-canvas > * {
   width: 100%;
-  max-width: 46rem;
+  max-width: 50rem;            /* 800px — desktop target range 760-860 */
   margin-inline: auto;
   min-width: 0;
 }
@@ -340,7 +324,7 @@ body.vetti-active .chatbot-container { display: none; }
 .vetti-row-block { gap: 0.5rem; }
 
 .vetti-block {
-  max-width: min(32rem, 100%);
+  max-width: min(36rem, 100%);
   min-width: 0;
 }
 
@@ -498,11 +482,35 @@ body.vetti-active .chatbot-container { display: none; }
 
 .vetti-card-sub { font-size: 0.8rem; color: var(--vhs-neutral-muted, #756F82); }
 
+/* Only useful facts, laid out as a definition list. No bullet glyphs,
+   no nested card, no nested list inside the card. */
 .vetti-card-facts {
-  margin: 0.5rem 0 0;
-  padding-left: 1.1rem;
+  display: grid;
+  /* Breed / Age / Weight side by side. Three columns even when a fact is
+     missing — an empty track costs nothing and keeps every card the
+     same compact height instead of stacking three label/value pairs. */
+  grid-template-columns: repeat(3, minmax(0, auto));
+  justify-content: start;
+  gap: 0.4rem 1.1rem;
+  margin: 0.55rem 0 0;
   font-size: 0.82rem;
   color: var(--vhs-neutral-text, #242033);
+}
+
+.vetti-card-fact { min-width: 0; }
+
+.vetti-card-fact dt {
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--vhs-neutral-muted, #756F82);
+}
+
+.vetti-card-fact dd {
+  margin: 0.05rem 0 0;
+  color: var(--vhs-neutral-text, #242033);
+  overflow-wrap: anywhere;
 }
 
 .vetti-card-note {
@@ -514,6 +522,7 @@ body.vetti-active .chatbot-container { display: none; }
 /* ── D + E. INPUT ZONE (rail + composer, one unit) ──────────────────── */
 
 .vetti-composer-area {
+  position: relative;           /* anchors the jump-to-latest pill */
   flex: 0 0 auto;
   padding: 0.75rem 1.5rem 0.875rem;
   border-top: 1px solid var(--vhs-neutral-border, #E5E1EC);
@@ -521,8 +530,11 @@ body.vetti-active .chatbot-container { display: none; }
   min-width: 0;
 }
 
+/* The rail and the composer live in one bordered unit so the bottom of
+   the workspace reads as a single interaction zone. It shares the
+   thread's measure, so both line up on the same left/right edges. */
 .vetti-input-zone {
-  max-width: 46rem;
+  max-width: 50rem;
   margin-inline: auto;
   border: 1px solid var(--vhs-shell-border, rgba(60, 31, 120, 0.14));
   border-radius: var(--radius-lg, 1rem);
@@ -568,7 +580,6 @@ body.vetti-active .chatbot-container { display: none; }
 
 .vetti-chip {
   flex: 0 0 auto;
-  white-space: nowrap;
   font: inherit;
   font-size: 0.83rem;
   line-height: 1.3;
@@ -582,8 +593,18 @@ body.vetti-active .chatbot-container { display: none; }
   background: var(--vhs-neutral-surface, #FFFFFF);
   color: var(--vhs-shell-dark, #3C1F78);
   cursor: pointer;
+  overflow: hidden;
   transition: background var(--transition), border-color var(--transition);
 }
+
+/* Truncates inside the pill so a long prompt never spills past it. */
+.vetti-chip-label {
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .vetti-chip:hover {
   background: var(--vhs-shell-soft, rgba(60, 31, 120, 0.06));
   border-color: var(--vhs-shell-light, #8a6bd0);
@@ -703,9 +724,15 @@ body.vetti-active .chatbot-container { display: none; }
 }
 .vetti-send:hover { background: var(--vhs-shell-light, #8a6bd0); }
 
+/* Floats over the bottom of the thread instead of sitting in the flow,
+   so showing or hiding it can never resize the canvas — which is what
+   made a tall card (or the zero-pet form) fight for the same pixels. */
 .vetti-scroll-down {
-  align-self: center;
-  margin-top: 0.4rem;
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 0.4rem);
+  transform: translateX(-50%);
+  z-index: 3;
   display: inline-flex;
   align-items: center;
   gap: 0.3rem;
@@ -715,8 +742,12 @@ body.vetti-active .chatbot-container { display: none; }
   border-radius: 999px;
   border: 1px solid var(--vhs-shell-border, rgba(60, 31, 120, 0.14));
   background: var(--vhs-neutral-surface, #FFFFFF);
+  box-shadow: 0 2px 8px rgba(36, 32, 51, 0.14);
   color: var(--vhs-shell, #6546A8);
   cursor: pointer;
+}
+.vetti-scroll-down:hover {
+  background: var(--vhs-shell-soft, rgba(60, 31, 120, 0.06));
 }
 .vetti-scroll-down[hidden] { display: none; }
 
@@ -776,28 +807,24 @@ body.vetti-active .chatbot-container { display: none; }
 
 /* ── RESPONSIVE ────────────────────────────────────────────────────── */
 
-/* Tablet — presence 68px (range 64-80px). The presence has its OWN sizing
-   breakpoints so a 768px tablet gets the tablet size, not the phone one,
-   even though the rest of the layout switches to phone spacing there. */
+/* Tablet. The header mascot SIZE is set here, at its own 1024px
+   breakpoint, so a 768px tablet keeps the tablet size even though the
+   spacing below switches to phone values at 768px. */
 @media (max-width: 1024px) {
-  .vetti-canvas > * { max-width: 42rem; }
-  .vetti-input-zone { max-width: 42rem; }
-  .vetti-presence-frame { width: 4.25rem; height: 4.25rem; }
-  .vetti-presence { min-height: 5rem; }
-  .vetti-presence::before { width: 5.75rem; height: 5.75rem; }
+  .vetti-canvas > * { max-width: 46rem; }
+  .vetti-input-zone { max-width: 46rem; }
+  .vetti-header-mascot { width: 3.75rem; height: 3.75rem; }  /* 60px */
   .vetti-bubble { max-width: min(33rem, 100%); }
   .vetti-chip { max-width: 14rem; }
 }
 
-/* Phone — presence 60px (range 56-72px). */
+/* Phone — header mascot 52px (range 48-56px). */
 @media (max-width: 600px) {
-  .vetti-presence-frame { width: 3.75rem; height: 3.75rem; }
-  .vetti-presence { min-height: 4.5rem; }
-  .vetti-presence::before { width: 5rem; height: 5rem; }
+  .vetti-header-mascot { width: 3.25rem; height: 3.25rem; }  /* 52px */
+  .vetti-header-tools { gap: 0.6rem; }
 }
 
-/* Mobile spacing pass. The presence SIZE is set above (600px breakpoint)
-   so a 768px tablet keeps the tablet size. */
+/* Mobile spacing pass. Mascot SIZE is deliberately NOT changed here. */
 @media (max-width: 768px) {
   #section-vetti.active {
     height: calc(100vh - var(--navbar-height, 60px) - 2rem);
@@ -806,20 +833,19 @@ body.vetti-active .chatbot-container { display: none; }
     gap: 0.5rem;
   }
 
-  .vetti-greeting { padding: 0.7rem 1rem 0.6rem; gap: 0.35rem; }
+  .vetti-greeting { padding: 0.5rem 1rem; gap: 0.4rem 0.75rem; }
   .vetti-greeting h1 { font-size: 1.15rem; }
   .vetti-warm-line { font-size: 0.8rem; }
   .vetti-replay { font-size: 0.78rem; }
 
+  /* On a phone the greeting takes the first line and the mascot plus
+     selector share the second, so the header stays two rows at most. */
+  .vetti-greeting-text { flex: 1 1 100%; }
+  .vetti-header-tools { flex: 1 1 100%; justify-content: flex-start; }
+  .vetti-header-meta { flex: 1 1 auto; align-items: flex-start; min-width: 0; }
+
   .vetti-pet-selector { width: 100%; }
   .vetti-pet-selector select { flex: 1 1 auto; max-width: none; }
-
-  .vetti-presence {
-    padding: 0.35rem 1rem;
-    gap: 0.6rem;
-  }
-  .vetti-presence::before { left: 0.3rem; }
-  .vetti-status { font-size: 0.82rem; }
 
   .vetti-canvas { padding: 0.9rem 1rem 1.1rem; gap: 0.7rem; }
   .vetti-turn { gap: 0.35rem; }
@@ -846,13 +872,16 @@ body.vetti-active .chatbot-container { display: none; }
   .vetti-field-row { flex-direction: column; gap: 0.55rem; }
   .vetti-petform { gap: 0.55rem; padding: 0.8rem 0.8rem; }
 
+  /* Fact grid collapses to one column so values never clip. */
+  .vetti-card-facts { grid-template-columns: 1fr; gap: 0.3rem; }
+
   /* 44px target, 16px input prevents iOS zoom. */
   .vetti-send { width: 2.75rem; height: 2.75rem; }
   .vetti-composer textarea { font-size: 16px; }
 }
 
 @media (max-width: 400px) {
-  .vetti-presence-frame { width: 3.5rem; height: 3.5rem; }
+  .vetti-header-mascot { width: 3rem; height: 3rem; }   /* 48px */
   .vetti-chip { max-width: 10.5rem; }
 }
 
@@ -866,7 +895,6 @@ body.vetti-active .chatbot-container { display: none; }
   .vetti-carousel-btn,
   .vetti-send,
   .vetti-input-zone,
-  .vetti-presence::before,
   .vetti-carousel-rail::before,
   .vetti-carousel-rail::after { transition: none; }
 

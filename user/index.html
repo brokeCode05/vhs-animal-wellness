@@ -13,7 +13,7 @@
     <link rel="stylesheet" href="user-accent.css?v=2.5.0" />
     <link rel="stylesheet" href="../shared/vhs-ui.css?v=2.6.0" />
     <link rel="stylesheet" href="pet-onboarding.css?v=1.0.1" />
-    <link rel="stylesheet" href="vetti.css?v=3.0.3" />
+    <link rel="stylesheet" href="vetti.css?v=4.0.0" />
   </head>
   <body>
     <!-- TOP NAVBAR -->
@@ -155,7 +155,10 @@
              below stay reachable from the sidebar. -->
         <section id="section-vetti" class="page-section active">
           <div class="vetti-shell">
-            <!-- A. WORKSPACE HEADER -->
+            <!-- A. WORKSPACE HEADER — greeting on the left, Vetti + tools on the
+                 right. Vetti lives INSIDE the header: there is no separate
+                 mascot row, no stage, no square frame and no permanent
+                 caption. State-specific artwork appears here only. -->
             <header class="vetti-greeting">
               <div class="vetti-greeting-text">
                 <h1 id="vettiGreeting">Good day.</h1>
@@ -163,40 +166,34 @@
                   I&rsquo;m here whenever you need help with your pet&rsquo;s care.
                 </p>
               </div>
-              <!-- Active-pet selector, rendered only when the owner has pets. -->
-              <div class="vetti-pet-selector" id="vettiPetSelector" hidden></div>
-              <button
-                type="button"
-                class="vetti-replay"
-                id="vettiReplayIntro"
-                hidden
-              >Replay intro</button>
+
+              <div class="vetti-header-tools">
+                <!-- Transparent PNG, natural drop-shadow. Expression only. -->
+                <div class="vetti-header-mascot" id="vettiHeaderMascotFrame" data-state="idle">
+                  <img
+                    id="vettiHeaderMascot"
+                    class="vetti-header-mascot-img"
+                    data-vetti-face="1"
+                    src="../shared/assets/vetti/vetti-idle-a.png"
+                    alt="Vetti the pet-care assistant"
+                    width="1254"
+                    height="1254"
+                    decoding="async"
+                    draggable="false"
+                  />
+                </div>
+
+                <div class="vetti-header-meta">
+                  <!-- Active-pet selector, rendered only when the owner has pets. -->
+                  <div class="vetti-pet-selector" id="vettiPetSelector" hidden></div>
+                  <button type="button" class="vetti-replay" id="vettiReplayIntro" hidden>
+                    Replay intro
+                  </button>
+                </div>
+              </div>
             </header>
 
-            <!-- B. MAIN VETTI PRESENCE — one compact mascot whose EXPRESSION
-                 changes with state. This is the ONLY place state-specific
-                 artwork appears; every Vetti message below uses the one
-                 canonical chat avatar. No square frame, no permanent
-                 caption: status text appears only while something is
-                 genuinely processing. -->
-            <div class="vetti-presence" id="vettiPresence" data-state="idle" data-blob="0">
-              <div class="vetti-presence-frame" id="vettiPresenceFrame">
-                <img
-                  id="vettiPresenceMascot"
-                  class="vetti-presence-mascot"
-                  data-vetti-face="1"
-                  src="../shared/assets/vetti/vetti-idle-a.png"
-                  alt="Vetti the pet-care assistant"
-                  width="1254"
-                  height="1254"
-                  decoding="async"
-                  draggable="false"
-                />
-              </div>
-              <p class="vetti-status" id="vettiStatus" role="status" hidden></p>
-            </div>
-
-            <!-- C. CONVERSATION THREAD — the only scrolling region. -->
+            <!-- B. CONVERSATION THREAD — the only scrolling region. -->
             <div
               class="vetti-canvas"
               id="vettiCanvas"
@@ -206,36 +203,39 @@
               aria-label="Conversation with Vetti"
             ></div>
 
-            <button type="button" class="vetti-scroll-down" id="vettiScrollDown" hidden>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
-              Jump to latest
-            </button>
-
-            <!-- D + E. SUGGESTED PROMPT RAIL + COMPOSER — one interaction
+            <!-- C + D. SUGGESTED PROMPT RAIL + COMPOSER — one bottom interaction
                  zone: the rail sits directly above the composer inside the
-                 same bordered container, so they read as a single control. -->
+                 same bordered container, so they read as a single control.
+
+                 "Jump to latest" is anchored to this zone and floats just
+                 above it, so appearing or disappearing never changes the
+                 canvas height. -->
             <div class="vetti-composer-area">
+              <button type="button" class="vetti-scroll-down" id="vettiScrollDown" hidden>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
+                Jump to latest
+              </button>
               <div class="vetti-input-zone">
                 <div class="vetti-carousel" id="vettiCarousel" hidden></div>
-              <form class="vetti-composer" id="vettiComposer">
-                <label class="vetti-sr-only" for="vettiInput">
-                  Message Vetti
-                </label>
-                <textarea
-                  id="vettiInput"
-                  rows="1"
-                  placeholder="Ask Vetti about your pet’s care…"
-                  autocomplete="off"
-                ></textarea>
-                <button
-                  type="submit"
-                  class="vetti-send"
-                  id="vettiSend"
-                  aria-label="Send message to Vetti"
-                >
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
-                </button>
-              </form>
+                <form class="vetti-composer" id="vettiComposer">
+                  <label class="vetti-sr-only" for="vettiInput">
+                    Message Vetti
+                  </label>
+                  <textarea
+                    id="vettiInput"
+                    rows="1"
+                    placeholder="Ask Vetti about your pet’s care…"
+                    autocomplete="off"
+                  ></textarea>
+                  <button
+                    type="submit"
+                    class="vetti-send"
+                    id="vettiSend"
+                    aria-label="Send message to Vetti"
+                  >
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
+                  </button>
+                </form>
               </div>
             </div>
           </div>
@@ -1297,8 +1297,8 @@
     <script src="pet-onboarding.js?v=1.0.1"></script>
     <script src="checkin-script.js?v=1.0.0"></script>
     <!-- Vetti: state model -> onboarding -> UI, in dependency order. -->
-    <script src="vetti-state.js?v=3.0.2"></script>
-    <script src="vetti-onboarding.js?v=3.0.1"></script>
-    <script src="vetti-ui.js?v=3.0.1"></script>
+    <script src="vetti-state.js?v=4.0.0"></script>
+    <script src="vetti-onboarding.js?v=4.0.0"></script>
+    <script src="vetti-ui.js?v=4.0.0"></script>
   </body>
 </html>

@@ -8,28 +8,30 @@
         message, at one fixed size. It is identity, not expression, so
         it never switches with state.
 
-     2. MAIN VETTI PRESENCE
-        One compact mascot near the top of the conversation, in one
-        location, whose EXPRESSION changes with state. This is where
-        idle / thinking / success / concerned and the rest are used.
+     2. HEADER MASCOT
+        One compact mascot INSIDE the workspace header, right of the
+        greeting and next to the active-pet selector, whose EXPRESSION
+        changes with state. This is where idle / thinking / success /
+        concerned and the rest are used. There is no separate mascot
+        row and no mascot stage anywhere in the workspace.
 
    WORKSPACE STRUCTURE
-     A. .vetti-greeting       compact header
-     B. .vetti-presence       compact Vetti presence + transient status
-     C. .vetti-canvas         conversation thread (the only scroller)
-     D + E. .vetti-input-zone   prompt rail + composer, one unit
+     A. .vetti-greeting       compact header (greeting + Vetti + tools)
+     B. .vetti-canvas         conversation thread (the only scroller)
+     C. .vetti-carousel       suggested prompt rail
+     D. .vetti-composer       the composer
 
    CORE RULES
      - State changes, layout stays stable. Nothing reflows.
      - Thinking is TRANSIENT and never visible alongside the answer.
-     - No permanent per-state caption. Status text appears only while a
-       real process is running, and is removed when it finishes.
+     - No permanent per-state caption anywhere. The temporary status is
+       an ordinary thread row that is removed when the work finishes.
 
-   IMAGE LOADING: the approved PNGs are large. The presence loads its
-   current frame directly and crossfades between frames, so it is never
-   momentarily blank. No asset is edited or resized.
+   IMAGE LOADING: the approved PNGs are large. The header mascot loads
+   its current frame directly and crossfades between frames, so it is
+   never momentarily blank. No asset is edited or resized.
 
-   v3.0.0
+   v4.0.0
    ============================================================ */
 (function (global) {
   'use strict';
@@ -68,13 +70,13 @@
     lastSuggestions: []
   };
 
-  // Conversational sentences, not dashboard labels.
+  // §13: 2-4 useful contextual prompts. Fewer reads calmer than a wall of
+  // chips, and leaves the rail from needing to scroll on desktop.
   var DEFAULT_SUGGESTIONS_WITH_PET = [
     'Show me my pets',
     'I want to book an appointment',
     'What services do you offer?',
-    'Help me add another pet',
-    'What can Vetti do?'
+    'Help me add another pet'
   ];
   var DEFAULT_SUGGESTIONS_NO_PET = [
     'Help me add a pet',
@@ -91,10 +93,9 @@
     dom.warmLine = el('vettiWarmLine');
     dom.petSelectorHost = el('vettiPetSelector');
     dom.replay = el('vettiReplayIntro');
-    dom.presence = el('vettiPresence');
-    dom.presenceFrame = el('vettiPresenceFrame');
-    dom.presenceImg = el('vettiPresenceMascot');
-    dom.status = el('vettiStatus');
+    dom.presence = el('vettiHeaderMascotFrame');
+    dom.presenceFrame = el('vettiHeaderMascotFrame');
+    dom.presenceImg = el('vettiHeaderMascot');
     dom.canvas = el('vettiCanvas');
     dom.carousel = el('vettiCarousel');
     dom.composer = el('vettiComposer');
@@ -141,8 +142,10 @@
     return list[0];
   }
 
-  // ── B. MAIN VETTI PRESENCE ───────────────────────────────────────────
-  // One compact location. Only the EXPRESSION changes here.
+  // ── HEADER VETTI MASCOT ──────────────────────────────────────────────
+  // Vetti lives INSIDE the workspace header. One location, one size, and
+  // only the EXPRESSION changes here. No separate row, no square frame,
+  // no permanent caption.
   //
   // Crossfade rather than swap src: replacing the src on a rendered
   // <img> blanks the box until a ~750 KB PNG decodes, which is very
@@ -158,9 +161,9 @@
 
     var token = ++presenceToken;
     var next = document.createElement('img');
-    next.className = 'vetti-presence-mascot';
+    next.className = 'vetti-header-mascot-img';
     // Keep the id so the element stays referenceable after a swap.
-    next.id = 'vettiPresenceMascot';
+    next.id = 'vettiHeaderMascot';
     next.setAttribute('data-vetti-face', '1');
     next.setAttribute('alt', alt);
     next.width = 1254;
@@ -195,16 +198,25 @@
     next.src = src;
   }
 
-  // §I: status text exists only while a real process is running.
-  function setStatus(text) {
-    if (!dom.status) return;
-    if (text) {
-      dom.status.textContent = text;
-      dom.status.hidden = false;
-    } else {
-      dom.status.textContent = '';
-      dom.status.hidden = true;
-    }
+  // The temporary status lives in the THREAD as a transient bubble, so
+  // there is no second status element to keep in sync with the header.
+  function showTransient(text, dots) {
+    var node = document.createElement('div');
+    node.className = 'vetti-row vetti-row-vetti vetti-thinking-row';
+    node.id = 'vettiThinkingRow';
+    node.innerHTML = chatAvatar()
+      + '<div class="vetti-bubble vetti-bubble-vetti vetti-bubble-thinking">'
+      + (dots === false ? '' : '<span class="vetti-dots" aria-hidden="true"><i></i><i></i><i></i></span>')
+      + '<span>' + esc(text) + '</span>'
+      + '</div>';
+    turnNode().appendChild(node);
+    scrollToBottom(true);
+    return node;
+  }
+
+  function clearTransient() {
+    var node = el('vettiThinkingRow');
+    if (node && node.parentNode) node.parentNode.removeChild(node);
   }
 
   function setPresence(state) {
@@ -218,11 +230,7 @@
       }
       if (motion) dom.presenceFrame.classList.add(motion);
       ui.presenceMotion = motion;
-    }
-    // §F: the soft blob is decorative and only for a few moments.
-    if (dom.presence) {
-      dom.presence.setAttribute('data-state', next);
-      dom.presence.setAttribute('data-blob', State.usesBlob(next) ? '1' : '0');
+      dom.presenceFrame.setAttribute('data-state', next);
     }
 
     var src = State.mascotFor(next);
@@ -307,40 +315,29 @@
   }
 
   // ── THINKING (strictly transient) ───────────────────────────────────
-  // §J: presence -> thinking, temporary status appears, the answer is NOT
-  // rendered yet. clearThinking() runs BEFORE the reply is rendered, so
-  // "thinking" and a complete answer are never on screen together.
+  // §9: header mascot -> thinking, a temporary status bubble appears, and
+  // the answer is NOT rendered yet. clearThinking() runs BEFORE the reply
+  // is rendered, so "thinking" and a complete answer are never on screen
+  // together.
   function showThinking() {
     ui.thinking = true;
-    setStatus('Let me check that\u2026');
     setPresence('thinking');
-    var node = document.createElement('div');
-    node.className = 'vetti-row vetti-row-vetti vetti-thinking-row';
-    node.id = 'vettiThinkingRow';
-    node.innerHTML = chatAvatar()
-      + '<div class="vetti-bubble vetti-bubble-vetti vetti-bubble-thinking">'
-      + '<span class="vetti-dots" aria-hidden="true"><i></i><i></i><i></i></span>'
-      + '<span>Let me check that for you\u2026</span>'
-      + '</div>';
-    turnNode().appendChild(node);
-    scrollToBottom(true);
-    return node;
+    return showTransient('Let me check that for you\u2026');
   }
 
   function clearThinking() {
     ui.thinking = false;
-    setStatus('');
-    var node = el('vettiThinkingRow');
-    if (node && node.parentNode) node.parentNode.removeChild(node);
+    clearTransient();
   }
 
-  // ── Structured card ──────────────────────────────────────────────────
+  // ── Structured card ─────────────────────────────────────────────────
+  // One container, only useful fields, no nested boxes.
   function petCardMarkup(pet) {
     if (!pet) return '';
-    var bits = [];
-    if (pet.breed) bits.push(esc(pet.breed));
-    if (pet.age) bits.push(esc(pet.age) + (Number(pet.age) === 1 ? ' year old' : ' years old'));
-    if (pet.weightKg) bits.push(esc(pet.weightKg) + ' kg');
+    var rows = [];
+    if (pet.breed) rows.push(['Breed', pet.breed]);
+    if (pet.age) rows.push(['Age', pet.age + (Number(pet.age) === 1 ? ' year' : ' years')]);
+    if (pet.weightKg) rows.push(['Weight', pet.weightKg + ' kg']);
     return ''
       + '<div class="vetti-card">'
       + '  <div class="vetti-card-head">'
@@ -348,13 +345,17 @@
       + '    <span class="vetti-card-sub">' + esc(pet.species || 'Species not set')
       +      (pet.gender ? ' \u00b7 ' + esc(pet.gender) : '') + '</span>'
       + '  </div>'
-      + (bits.length ? '<ul class="vetti-card-facts">'
-          + bits.map(function (b) { return '<li>' + b + '</li>'; }).join('') + '</ul>' : '')
+      + (rows.length ? '<dl class="vetti-card-facts">'
+          + rows.map(function (r) {
+              return '<div class="vetti-card-fact"><dt>' + esc(r[0])
+                + '</dt><dd>' + esc(r[1]) + '</dd></div>';
+            }).join('')
+          + '</dl>' : '')
       + '  <p class="vetti-card-note">From your records on this device.</p>'
       + '</div>';
   }
 
-  // ── Active-pet selector ──────────────────────────────────────────────
+  // ── Active-pet selector ────────────────────────────────────────────
   function renderPetSelector() {
     if (!dom.petSelectorHost) return;
     var list = pets();
@@ -396,8 +397,11 @@
       + '  <div class="vetti-carousel-track" id="vettiCarouselTrack" role="group"'
       + '       aria-label="Suggested questions" tabindex="0">'
       + list.map(function (s) {
-          return '<button type="button" class="vetti-chip" data-vetti-prompt="' + esc(s) + '">'
-            + esc(s) + '</button>';
+          // The label lives in its own span so a long prompt can ellipsis
+          // inside the pill instead of spilling out past its own border.
+          return '<button type="button" class="vetti-chip" data-vetti-prompt="' + esc(s) + '"'
+            + ' title="' + esc(s) + '">'
+            + '<span class="vetti-chip-label">' + esc(s) + '</span></button>';
         }).join('')
       + '  </div>'
       + '  <button type="button" class="vetti-carousel-btn vetti-carousel-next"'
@@ -502,26 +506,27 @@
       return;
     }
 
-    // Returning user: compact, short, no repeated introduction.
+    // Returning user: ONE opening line. The header already says "Good
+    // afternoon, Maria.", so repeating it in the thread was pure noise.
     if (dom.replay) dom.replay.hidden = false;
     if (pets().length) {
       setPresence('idle');
-      renderVetti('Good to see you, ' + firstName() + '.');
-      renderVetti('Happy to help whenever you need it \u2014 ask me about '
-        + activePet().name + ' or anything else.');
+      renderVetti('Ask me about ' + activePet().name + ', appointments, or clinic '
+        + 'services whenever you need help.');
       renderCarousel(suggestionsForContext());
       return;
     }
     zeroPetNotice();
   }
 
+  // §10: zero pets -> one short explanation -> the compact form appears
+  // IMMEDIATELY. No extra click required.
   function zeroPetNotice() {
     setPresence('add_pet');
     renderVetti('Before I can help with pet-specific tasks, let\u2019s add your first pet.');
     renderVetti('I only need the basics for now.');
-    renderVetti('You can complete the rest later from My Pets, or ask me to help you '
-      + 'update it later.');
     renderCarousel(DEFAULT_SUGGESTIONS_NO_PET);
+    openPetForm({ focus: false });
   }
 
   function replayIntro() {
@@ -536,7 +541,9 @@
   }
 
   // ── COMPACT PET FORM ─────────────────────────────────────────────────
-  function openPetForm() {
+  // opts.focus defaults to true; the automatic zero-pet path passes false
+  // so the page does not steal focus on load.
+  function openPetForm(opts) {
     if (ui.petFormOpen) return;
     ui.petFormOpen = true;
     var hasPets = pets().length > 0;
@@ -547,9 +554,21 @@
       Onboarding.installGuards(form);
       Onboarding.wireCustomFields(form);
       var name = el('vettiPetName');
-      if (name) window.setTimeout(function () { name.focus(); }, 60);
+      var focus = !opts || opts.focus !== false;
+      if (name && focus) window.setTimeout(function () { name.focus(); }, 60);
     }
-    scrollToBottom(true);
+    // The whole form must be on screen when it appears — including the
+    // footnote and the actions, never clipped by the composer zone.
+    // `block: 'nearest'` scrolls the minimum distance needed, so the
+    // explanation above it stays in view whenever it fits.
+    window.setTimeout(function () {
+      var node = form || dom.canvas.querySelector('.vetti-form-block');
+      if (node && node.scrollIntoView) {
+        node.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+      } else {
+        scrollToBottom(true);
+      }
+    }, 40);
   }
 
   function closePetForm() {
@@ -581,14 +600,14 @@
     closePetForm();
     ui.activePetId = pet.petId;
 
-    // §AC: temporary saving status, then a success expression.
+    // §9/§AC: a transient "Saving Bruno…" bubble, then success.
     ui.saving = true;
-    setStatus('Saving ' + pet.name + '\u2026');
     setPresence('thinking');
+    showTransient('Saving ' + pet.name + '\u2026', false);
 
     window.setTimeout(function () {
       ui.saving = false;
-      setStatus('');                 // temporary text removed on completion
+      clearTransient();              // removed before the reply renders
       setPresence('success');
       renderVetti(pet.name + ' is now part of your account.');
       renderVetti('You can add more details anytime from My Pets, or ask me to help '
@@ -907,7 +926,6 @@
     refresh: refresh,
     send: send,
     setPresence: setPresence,
-    setStatus: setStatus,
     showOpening: showOpening,
     replayIntro: replayIntro,
     openPetForm: openPetForm,

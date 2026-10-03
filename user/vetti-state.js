@@ -125,17 +125,10 @@
     return (STATES[state] && STATES[state].motion) || '';
   }
 
-  // §D: states that may show the soft decorative blob behind the compact
-  // presence. Deliberately few — a blob on every state would be clutter.
-  var BLOB_STATES = { greeting: 1, add_pet: 1, success: 1, excited: 1 };
-  function usesBlob(state) {
-    return !!BLOB_STATES[state];
-  }
-
   // §11: thinking is TRANSIENT. It may never be an intent's resting state,
-  // or the stage would sit in "thinking" forever and read as though the
-  // answer were still being produced. Any intent that wants it must be
-  // normalised here rather than in each reply.
+  // or the header mascot would sit in "thinking" forever and read as
+  // though the answer were still being produced. Any intent that wants it
+  // must be normalised here rather than in each reply.
   function restingState(state) {
     return state === 'thinking' ? 'idle' : state;
   }
@@ -490,7 +483,6 @@
     STATES: STATES,
     isState: isState,
     motionFor: motionFor,
-    usesBlob: usesBlob,
     restingState: restingState,
     resolve: resolve,
     greetingWord: greetingWord,
