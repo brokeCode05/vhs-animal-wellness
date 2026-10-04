@@ -1572,9 +1572,21 @@ const MEDICINE_LIMITS = { medicine: 100, frequency: 50, instructions: 500 };
   // leave them unused. A row is only incomplete once any part is filled in.
   var DURATION_MESSAGE = 'Enter a valid duration between ' + DURATION_RANGE.min + ' and ' + DURATION_RANGE.max + ' days.';
 
+  // The two dropdowns open on a placeholder option ("Unit…" / "Choose…"), stored
+  // as CHOOSE_UNIT / CHOOSE_PATTERN. Those placeholders are NOT vet input: read
+  // as data they made a completely untouched row look filled, which then demanded
+  // a medicine name and blocked Save draft / Complete consultation on every
+  // consultation that prescribed nothing. Strip them here — exactly as
+  // dosageText() and frequencyText() already do when they compose the final
+  // sentence. Everything downstream (medicineRowFilled, the dosage and frequency
+  // checks) then sees the row the vet actually filled in.
+  var PLACEHOLDER_VALUES = { dosageUnit: CHOOSE_UNIT, frequencyPattern: CHOOSE_PATTERN };
+
   function partValue(row, part) {
     var el = row.querySelector('[data-part="' + part + '"]');
-    return el ? String(el.value || '').trim() : '';
+    if (!el) return '';
+    var value = String(el.value || '').trim();
+    return value === PLACEHOLDER_VALUES[part] ? '' : value;
   }
   function fieldValue(row, field) {
     var el = row.querySelector('[data-field="' + field + '"]');
