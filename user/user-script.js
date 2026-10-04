@@ -2573,11 +2573,17 @@ function submitReschedule(e) {
     if (_isWithinTwoHours(rec.appointmentDate, rec.appointmentTime)) { _showCutoffModal(); return; }
     var result = store.reschedule(rec.appointmentId, newDate, newTime);
     if (!result.ok) {
-      showToast(result.error === 'slot_taken'
-        ? 'That slot has just been taken. Please pick another time.'
-        : result.error === 'invalid_status'
-          ? 'Only confirmed appointments can be rescheduled.'
-          : 'Could not reschedule. Please try again.', 'error');
+      // Conflict wording comes from the shared scheduling engine so the User
+      // portal explains a rejection exactly as Admin does.
+      var _taken = result.error === 'slot_taken' || result.error === 'doctor_conflict' ||
+                   result.error === 'resource_capacity_reached';
+      showToast(result.error === 'invalid_status'
+        ? 'Only confirmed appointments can be rescheduled.'
+        : _taken
+          ? 'That slot has just been taken. Please pick another time.'
+          : (window.SmartScheduling && window.SmartScheduling.describeReason
+              ? window.SmartScheduling.describeReason(result.error)
+              : 'Could not reschedule. Please try again.'), 'error');
       return;
     }
     if (reason) store.update(rec.appointmentId, { notes: (rec.notes ? rec.notes + ' | ' : '') + 'Rescheduled — ' + reason });

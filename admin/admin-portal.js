@@ -393,7 +393,15 @@ function submitAdminReschedule(e) {
   var oldTime = _before ? _before.appointmentTime : '';
   var result = shared ? shared.reschedule(id, newDate, newTime) : { ok: false, error: 'not_found' };
   if (!result.ok) {
-    showToast(result.error === 'slot_taken' ? 'That slot is already booked.' : 'Could not reschedule.', 'error');
+    // Same shared wording the User portal uses, so the front desk and the
+    // owner are told the same thing about the same conflict.
+    var _taken = result.error === 'slot_taken' || result.error === 'doctor_conflict' ||
+                 result.error === 'resource_capacity_reached';
+    showToast(_taken
+      ? 'That slot is already booked.'
+      : (window.SmartScheduling && window.SmartScheduling.describeReason
+          ? window.SmartScheduling.describeReason(result.error)
+          : 'Could not reschedule.'), 'error');
     return;
   }
   closeAdminReschedule();
