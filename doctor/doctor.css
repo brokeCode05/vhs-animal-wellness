@@ -225,13 +225,14 @@ dd { margin: 0.2rem 0 0; font-weight: 700; font-size: 0.95rem; overflow-wrap: an
    State is carried by text and shape as well as colour. */
 .scribe-recorder { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; }
 .scribe-recorder-row { display: flex; align-items: center; gap: 0.5rem; }
-.scribe-panel .scribe-recorder .btn-secondary,
-.scribe-panel .scribe-recorder .btn-stop {
+/* Stop is an ordinary .btn-secondary so it keeps every base button state —
+   including the portal's :focus-visible ring — and only its colours differ. */
+.scribe-panel .scribe-recorder .btn-secondary {
   display: inline-flex; align-items: center; gap: 0.4rem;
   padding: 0.4rem 0.85rem; min-height: 36px; font-size: 0.82rem; background: #ffffff;
 }
-.scribe-panel .scribe-btn-stop { background: #fef2f2; border-color: #fca5a5; color: #991b1b; font-weight: 700; }
-.scribe-panel .scribe-btn-stop:hover:not([disabled]) { background: #fee2e2; }
+.scribe-panel .scribe-recorder .scribe-btn-stop { background: #fef2f2; border-color: #fca5a5; color: #991b1b; font-weight: 700; }
+.scribe-panel .scribe-recorder .scribe-btn-stop:hover:not([disabled]) { background: #fee2e2; }
 .scribe-rec-indicator {
   width: 0.6rem; height: 0.6rem; border-radius: 50%; background: #dc2626;
   box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.16); animation: scribe-rec-pulse 1.2s ease-in-out infinite;
