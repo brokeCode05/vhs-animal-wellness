@@ -27,12 +27,20 @@ It is **not** machine learning. There is no model, no training, no inference and
 | Clinic hours | `VHSClinicSettings` | Weekday/weekend hours, `slotIntervalMinutes`, cut-offs |
 | Appointments | `SharedMockAppointments` | Effective records; mutation, persistence, lifecycle |
 | Doctor roster | `SharedMockDoctors` | `activeDoctors()` → doctor capacity |
-| User portal | `user/user-script.js` | Booking form + reschedule dropdown read the engine |
-| Admin portal | `admin/admin-portal.js` | Reschedule dropdown reads the engine |
+| User portal | `user/user-script.js` | `_smartSchedulingSlots()` — booking form + reschedule dropdown |
+| Admin portal | `admin/admin-portal.js` | `_adminSchedulingSlots()` — booking form; `_populateAdminRescheduleSlots()` — reschedule dropdown |
 | Vetti | `user/vetti-data.js` | `getAvailableSlots()` / `getServiceScheduling()` adapters |
 | Mutator | `shared/mock-appointments.js` | `_slotGuard` revalidates immediately before every reschedule |
 
 All consumers call the **same** engine instance. There is no second copy of scheduling logic in the UI.
+
+**Five call sites, one engine.** `_smartSchedulingSlots()` (User), `_adminSchedulingSlots()` (Admin booking), `_populateAdminRescheduleSlots()` (Admin reschedule), `VettiData.getAvailableSlots()` (Vetti), `_slotGuard()` (reschedule mutation). Admin booking additionally calls `validateAppointmentRequest()` on submit — see §11.
+
+### 2.1 Admin booking degraded mode
+
+`php_files/get_booked_slots.php` survives **only** as a legacy fallback, isolated in `_legacyBookedSlotsFromPhp()`. It is reached when the engine cannot answer at all — the engine script missing, or the selected service unresolvable against the catalog — and never for an ordinary UI state such as "no service chosen yet" (that shows the clinic's own hours, matching the User form).
+
+The fallback applies the old universal "anything at this wall-clock time is booked" rule and understands neither doctor capacity nor per-service capacity, so it is **never authoritative**: its answer only populates the dropdown, and the final save (§11) revalidates through the engine and refuses if the engine is unavailable rather than trusting it.
 
 ---
 
@@ -159,12 +167,23 @@ Both portals pass the id: the User reschedule modal (`user/user-script.js`) and 
 
 ## 11. Final-save revalidation requirement
 
-**The dropdown is never trusted.** Immediately before the mutation, `SharedMockAppointments.reschedule()` calls `_slotGuard(...)`, which revalidates through `SmartScheduling.validateAppointmentRequest({serviceId, date, time, excludeAppointmentId})`.
+**The dropdown is never trusted.** Every write path revalidates through `SmartScheduling.validateAppointmentRequest({serviceId, date, time, excludeAppointmentId})` immediately before mutating:
 
-- Rejected ⇒ **no mutation**, **no audit success entry**, and the portal shows its mapped error.
-- Accepted ⇒ the **same record** is mutated; `appointmentId`, `referenceNo`, owner, pet and lifecycle are untouched.
+| Path | Revalidation point |
+|---|---|
+| Reschedule (all portals) | `SharedMockAppointments.reschedule()` → `_slotGuard(...)` |
+| **Admin booking** | `submitAdminBooking()`, after field checks and **before** any id/reference is minted |
+| User booking | *(gap)* — `SharedMockAppointments.add()` only rejects duplicate id/reference; the engine guards the dropdown, not the submit |
+
+- Rejected ⇒ **no mutation**, **no audit entry at all** (not even a success one), and the portal shows its mapped error.
+- Accepted ⇒ the record is written/mutated as before; `appointmentId`, `referenceNo`, owner, pet and lifecycle are untouched.
+- If the engine is unavailable, Admin booking degrades to the legacy exact-time store check (`takenSlots`) and still refuses a taken slot — it never silently allows an unverified one.
+
+Reason codes map to portal copy exactly as in the reschedule handler: `slot_taken` / `doctor_conflict` / `resource_capacity_reached` ⇒ "That slot is already booked."; every other reason renders `describeReason(reason)` so a closed-day or off-hours request is not mislabelled as a booking conflict.
 
 The dropdown and the submit therefore cannot disagree — they are one engine, evaluated twice.
+
+**Known gap (not part of this change):** the User booking *submit* path is still dropdown-guarded only. `add()` performs no availability check, so a User form left open long enough can write a slot that is taken. Closing this means giving the User submit the same `validateAppointmentRequest()` call Admin booking now has; it is listed in §17.
 
 ---
 
@@ -195,7 +214,9 @@ These shapes are a **proposal**, not a commitment. The backend must re-validate 
 Today: `UI → scheduling adapter (VettiData / portal adapter) → SmartScheduling mock`
 Later: `UI → same adapter → backend scheduling API → backend service → database`
 
-Cutover is confined to the adapter edge — `VettiData.getAvailableSlots()`, `_slotGuard()`, and the two portal call sites. UI, forms and dropdowns are untouched. Every UI already consumes reason codes rather than engine internals, so the swap is mechanical.
+Cutover is confined to the adapter edge — `VettiData.getAvailableSlots()`, `_slotGuard()`, `_smartSchedulingSlots()`, `_adminSchedulingSlots()` and `_populateAdminRescheduleSlots()`. UI, forms and dropdowns are untouched. Every UI already consumes reason codes rather than engine internals, so the swap is mechanical.
+
+The Admin booking cutover is already complete on the mock side. Its remaining legacy artefact is `_legacyBookedSlotsFromPhp()`; that function is deleted the moment `GET /api/scheduling/slots` exists, and the whole adapter edge then swaps to the API in one pass.
 
 ---
 
@@ -206,7 +227,7 @@ Cutover is confined to the adapter edge — `VettiData.getAvailableSlots()`, `_s
 - Weekday/weekend hours only — no per-date overrides or blackout periods.
 - Slot interval is uniform; capacity is per slot, so a long visit does not occupy the following slot.
 - Everything is per-browser `localStorage`; no cross-device or shared state.
-- Admin **booking** still uses its own PHP `get_booked_slots.php` path and is **not** on this engine (out of scope; noted as a divergence to close).
+- Admin booking still carries a **fallback-only** reference to `php_files/get_booked_slots.php` (§2.1). It is unreachable in normal operation and is not authoritative; it is deleted when `GET /api/scheduling/slots` lands.
 - Unknown/retired stored services fail closed as Doctor-required.
 
 ## 17. Open backend decisions
@@ -217,4 +238,5 @@ Cutover is confined to the adapter edge — `VettiData.getAvailableSlots()`, `_s
 4. Per-date blackout/holiday handling beyond weekday/weekend.
 5. Whether a cancelled appointment should free a slot retroactively for history.
 6. Authoritative cut-off and concurrency/conflict resolution under simultaneous submits.
+7. Whether the User booking submit adopts Admin's engine revalidation (§11) — the recommended answer is yes, at the same seam.
 7. Whether `slot_taken` survives as a public code or is retired in favour of the three specific codes.
