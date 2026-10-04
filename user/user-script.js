@@ -794,6 +794,39 @@ function onBookDateChange() {
   _refreshBookSlots();
 }
 
+// One adapter from the User portal to the shared scheduling engine. Resolves
+// the service, asks SmartScheduling which slots are actually bookable, and
+// returns 12h slot labels for the existing <select> markup — the form is not
+// redesigned and the engine never returns UI.
+//
+// options: { serviceId?, excludeAppointmentId? }. With no service resolved
+// (nothing chosen yet, or the engine not loaded) this falls back to the
+// clinic's own configured hours, which is exactly what the form did before.
+function _smartSchedulingSlots(dateStr, options) {
+  var o = options || {};
+  var allHours = getVHSTimeSlots(dateStr);
+  var sched = window.SmartScheduling;
+  var users = window.SharedMockUsers;
+  if (!sched || typeof sched.getAvailableSlots !== 'function' ||
+      !users || typeof users.serviceByValue !== 'function') return allHours;
+
+  var serviceId = o.serviceId;
+  if (!serviceId) {
+    var sel = document.getElementById('service_id');
+    var svc = (sel && sel.value && users.serviceByValue(sel.value)) || null;
+    serviceId = svc ? svc.serviceId : null;
+  }
+  // Nothing to check capacity against yet — list the clinic's own hours.
+  if (!serviceId) return allHours;
+
+  var result = sched.getAvailableSlots({
+    serviceId: serviceId,
+    date: dateStr,
+    excludeAppointmentId: o.excludeAppointmentId || null
+  });
+  return result.ok ? result.slots.map(function (s) { return s.time; }) : [];
+}
+
 // ─── TIME SLOT LOGIC ─────────────────────────────────────────────────────────
 function _refreshBookSlots() {
   var dateInput = document.getElementById('appointment_date');
@@ -804,42 +837,13 @@ function _refreshBookSlots() {
     timeSelect.innerHTML = '<option value="">Select a date first</option>';
     return;
   }
-  var slots = getVHSTimeSlots(dateVal);
-  var store = window.SharedMockAppointments;
-  // Booked-slot filtering derives from the EFFECTIVE canonical records (not a
-  // portal-local copy) so User, Admin, and reschedules never diverge.
+  // Availability comes from the ONE shared scheduling engine, so the User
+  // form, Vetti and Admin can never disagree about what is bookable.
   // TODO(BACKEND): slot availability comes from the API's availability check.
-  var taken = store ? store.takenSlots(dateVal) : [];
-  var today = new Date();
-  var todayStr = today.getFullYear() + '-' + String(today.getMonth() + 1).padStart(2, '0') + '-' + String(today.getDate()).padStart(2, '0');
-  if (dateVal === todayStr) {
-    // Same-day bookable slots = strictly AFTER now (times are STARTS; the
-    // last slot of the day must remain selectable all day).
-    var now = new Date();
-    var nowMins = now.getHours() * 60 + now.getMinutes();
-    slots = slots.filter(function(slot) {
-      var parts = slot.trim().match(/(\d{1,2}):(\d{2})\s*(AM|PM)/i);
-      if (!parts) return true;
-      var h = parseInt(parts[1], 10);
-      var m = parseInt(parts[2], 10);
-      var ampm = parts[3].toUpperCase();
-      if (ampm === 'PM' && h !== 12) h += 12;
-      if (ampm === 'AM' && h === 12) h = 0;
-      return (h * 60 + m) > nowMins;
-    });
-  }
-  if (taken.length) {
-    var toHHMM = window.AppointmentContract ? window.AppointmentContract.timeToHHMM : function(v){return v;};
-    var takenSet = taken.map(function(t){ return String(toHHMM(t)); });
-    slots = slots.filter(function(slot) {
-      var parts = String(slot).trim().match(/(\d{1,2}):(\d{2})\s*(AM|PM)/i);
-      if (!parts) return true;
-      var h = parseInt(parts[1], 10);
-      if (parts[3].toUpperCase() === 'PM' && h !== 12) h += 12;
-      if (parts[3].toUpperCase() === 'AM' && h === 12) h = 0;
-      return takenSet.indexOf(h + ':' + parts[2]) === -1;
-    });
-  }
+  var slots = _smartSchedulingSlots(dateVal);
+  // Same-day bookable slots = strictly AFTER now (times are STARTS; the last
+  // slot of the day must remain selectable all day).
+  slots = _filterPastSlots(slots, dateVal);
   timeSelect.innerHTML = slots.length
     ? '<option value="">Select time</option>' + slots.map(function(s) {
         return '<option value="' + s + '">' + s + '</option>';
@@ -2485,26 +2489,19 @@ function _populateRescheduleSlots(dateStr) {
   var timeSelect = document.getElementById('rescheduleTime');
   if (!timeSelect) return;
   var targetDate = dateStr || new Date().toISOString().split('T')[0];
-  var slots = getVHSTimeSlots(targetDate);
-  slots = _filterPastSlots(slots, targetDate);
-  // Hide slots already held by OTHER effective appointments (this
-  // appointment's own current slot stays selectable).
+  // Same shared engine as the booking form. excludeAppointmentId keeps this
+  // appointment from blocking its OWN current slot while it still holds it.
   // TODO(BACKEND): slot availability comes from the API availability check.
-  var store = window.SharedMockAppointments;
-  if (store) {
-    var apptId = document.getElementById('rescheduleApptId') ? document.getElementById('rescheduleApptId').value : null;
-    var taken = store.takenSlots(targetDate, apptId);
-    var toHHMM = window.AppointmentContract ? window.AppointmentContract.timeToHHMM : function(v){return v;};
-    var takenSet = taken.map(function(t){ return String(toHHMM(t)); });
-    slots = slots.filter(function(slot) {
-      var parts = String(slot).trim().match(/(\d{1,2}):(\d{2})\s*(AM|PM)/i);
-      if (!parts) return true;
-      var h = parseInt(parts[1], 10);
-      if (parts[3].toUpperCase() === 'PM' && h !== 12) h += 12;
-      if (parts[3].toUpperCase() === 'AM' && h === 12) h = 0;
-      return takenSet.indexOf(h + ':' + parts[2]) === -1;
-    });
-  }
+  var apptId = document.getElementById('rescheduleApptId') ? document.getElementById('rescheduleApptId').value : null;
+  var _store = window.SharedMockAppointments;
+  var _appt = (apptId && _store) ? _store.byId(apptId) : null;
+  var _svc = (_appt && window.SharedMockUsers && window.SharedMockUsers.serviceByValue)
+    ? window.SharedMockUsers.serviceByValue(_appt.service) : null;
+  var slots = _smartSchedulingSlots(targetDate, {
+    serviceId: _svc ? _svc.serviceId : null,
+    excludeAppointmentId: apptId || null
+  });
+  slots = _filterPastSlots(slots, targetDate);
   timeSelect.innerHTML = '<option value="">Select time</option>' + slots.map(function(s) {
     return '<option value="' + s + '">' + s + '</option>';
   }).join('');

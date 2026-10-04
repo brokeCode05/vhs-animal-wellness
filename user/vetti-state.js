@@ -190,8 +190,14 @@
       // portal's own UI \u2014 it never claims the change was made.
       id: 'appointment_actions',
       state: 'reminder',
+      // Bare "reschedule" / "cancel" are listed because matching is a
+      // SUBSTRING test: "reschedule" contains "schedule", so before these
+      // were here a plain reschedule request matched NO keyword on this
+      // intent, fell through, and was answered by booking via its
+      // "schedule" keyword. Order still puts this intent above booking,
+      // and the bare word never appears in the booking keyword list.
       keywords: ['upcoming appointment', 'next appointment', 'i need to reschedule',
-                'reschedule my', 'i need to cancel', 'cancel my', 'cancel this',
+                'reschedule', 'i need to cancel', 'cancel', 'cancel this',
                 'what should i prepare', 'prepare for'],
       reply: function (ctx) {
         var next = ctx.appointments && ctx.appointments.upcoming.length

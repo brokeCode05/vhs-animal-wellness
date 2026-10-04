@@ -334,17 +334,38 @@ function _populateAdminRescheduleSlots() {
   var dateVal = dateInput.value;
   if (!dateVal) { timeSel.innerHTML = '<option value="">Select a date first</option>'; return; }
   var slots = (typeof getVHSTimeSlots === 'function') ? getVHSTimeSlots(dateVal) : [];
-  var taken = window.SharedMockAppointments ? window.SharedMockAppointments.takenSlots(dateVal) : [];
-  var toHHMM = window.AppointmentContract ? window.AppointmentContract.timeToHHMM : function(v){return v;};
-  var takenSet = taken.map(function(t){ return String(toHHMM(t)); });
-  slots = slots.filter(function(slot) {
-    var parts = String(slot).trim().match(/(\d{1,2}):(\d{2})\s*(AM|PM)/i);
-    if (!parts) return true;
-    var h = parseInt(parts[1], 10);
-    if (parts[3].toUpperCase() === 'PM' && h !== 12) h += 12;
-    if (parts[3].toUpperCase() === 'AM' && h === 12) h = 0;
-    return takenSet.indexOf(h + ':' + parts[2]) === -1;
-  });
+  // Same shared scheduling engine as the User booking form and Vetti, so the
+  // front desk can never offer a slot the owner portal refuses (or hide one
+  // it allows). excludeAppointmentId keeps this appointment from blocking
+  // its OWN current slot.
+  // TODO(BACKEND): slot availability comes from the API availability check.
+  var apptId = document.getElementById('adminRescheduleApptId') ? document.getElementById('adminRescheduleApptId').value : null;
+  var sched = window.SmartScheduling;
+  var users = window.SharedMockUsers;
+  var appt = (apptId && window.SharedMockAppointments) ? window.SharedMockAppointments.byId(apptId) : null;
+  var svc = (appt && users && users.serviceByValue) ? users.serviceByValue(appt.service) : null;
+  if (sched && typeof sched.getAvailableSlots === 'function' && svc) {
+    var result = sched.getAvailableSlots({
+      serviceId: svc.serviceId,
+      date: dateVal,
+      excludeAppointmentId: apptId || null
+    });
+    slots = result.ok ? result.slots.map(function (s) { return s.time; }) : [];
+  } else {
+    // Engine or service unavailable: fall back to the clinic's own hours
+    // rather than guessing at availability.
+    var fallback = window.SharedMockAppointments ? window.SharedMockAppointments.takenSlots(dateVal, apptId) : [];
+    var toHHMM = window.AppointmentContract ? window.AppointmentContract.timeToHHMM : function (v) { return v; };
+    var takenSet = fallback.map(function (t) { return String(toHHMM(t)); });
+    slots = slots.filter(function (slot) {
+      var parts = String(slot).trim().match(/(\d{1,2}):(\d{2})\s*(AM|PM)/i);
+      if (!parts) return true;
+      var h = parseInt(parts[1], 10);
+      if (parts[3].toUpperCase() === 'PM' && h !== 12) h += 12;
+      if (parts[3].toUpperCase() === 'AM' && h === 12) h = 0;
+      return takenSet.indexOf(h + ':' + parts[2]) === -1;
+    });
+  }
   timeSel.innerHTML = slots.length
     ? '<option value="">Select time</option>' + slots.map(function(s){ return '<option value="' + s + '">' + s + '</option>'; }).join('')
     : '<option value="">No available slots that day</option>';

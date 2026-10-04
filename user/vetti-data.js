@@ -306,6 +306,35 @@
     return null;
   }
 
+  // ── SMART SCHEDULING (adapter boundary) ───────────────────────────
+  // Vetti never decides availability itself: it asks the shared engine
+  // and reports only what the engine returned. Vetti UI keeps talking to
+  // VettiData, so the VettiData/VettiTools abstraction is unchanged and
+  // SmartScheduling stays swappable for a backend API.
+  // TODO(BACKEND): replace with GET /api/scheduling/slots.
+  function getAvailableSlots(options) {
+    var sched = window.SmartScheduling;
+    if (!sched || typeof sched.getAvailableSlots !== 'function') {
+      return { ok: false, slots: [], reason: 'scheduling_unavailable' };
+    }
+    var o = options || {};
+    var result = sched.getAvailableSlots({
+      serviceId: o.serviceId,
+      date: o.date,
+      doctorId: o.doctorId,
+      excludeAppointmentId: o.excludeAppointmentId
+    });
+    return { ok: result.ok === true, slots: result.slots || [], reason: result.reason || null };
+  }
+
+  // Scheduling metadata for one service (duration, requiresDoctor,
+  // capacityPerSlot, active). Read-only pass-through to the engine.
+  function getServiceScheduling(serviceId) {
+    var sched = window.SmartScheduling;
+    if (!sched || typeof sched.getServiceScheduling !== 'function') return null;
+    return sched.getServiceScheduling(serviceId);
+  }
+
   // ── QA / DEMO ONLY ────────────────────────────────────────────────
   // Not reachable from any product path — no module in the workspace
   // calls it. It lives beside the store it repairs so Vetti UI never
@@ -359,6 +388,9 @@
     // other reads
     getPetDocuments: getPetDocuments,
     getClinicInfo: getClinicInfo,
+    // smart scheduling (shared engine, never decided by Vetti)
+    getAvailableSlots: getAvailableSlots,
+    getServiceScheduling: getServiceScheduling,
     // QA/demo only — never called by product code
     qaPruneOwnerPets: qaPruneOwnerPets
   };
