@@ -851,7 +851,10 @@
                    (shared/mock-users.js) so the booked service label matches
                    Clerk and Doctor exactly. TODO(BACKEND): serve from a
                    vet_services table. -->
-              <select class="form-select" id="service_id" name="service_id" required>
+              <!-- onchange recomputes the slot list: availability is per
+                   service, so a service change after a date is populated must
+                   not leave the previous service's slots on offer. -->
+              <select class="form-select" id="service_id" name="service_id" required onchange="onBookServiceChange()">
                 <option value="">Choose a service</option>
               </select>
             </div>
@@ -1394,7 +1397,7 @@
     <script src="../shared/audit-store.js?v=1.0.0"></script>
     <script src="../shared/document-store.js?v=1.0.3"></script>
     <script src="../shared/document-render.js?v=1.1.0"></script>
-    <script src="user-script.js?v=4.1.0"></script>
+    <script src="user-script.js?v=4.2.0"></script>
     <script src="pet-onboarding.js?v=1.0.1"></script>
     <script src="checkin-script.js?v=1.0.0"></script>
     <!-- Vetti, in dependency order:

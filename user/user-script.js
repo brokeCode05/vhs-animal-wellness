@@ -794,6 +794,29 @@ function onBookDateChange() {
   _refreshBookSlots();
 }
 
+// Availability is per SERVICE (requiresDoctor and capacityPerSlot differ per
+// service), so a service change must recompute the slot list. The 3-step wizard
+// normally picks the service in step 1 before the date in step 2, which is why
+// this was latent — but a service changed after a date (or a slot) is already
+// populated would otherwise keep offering the previous service's slots, which
+// is the same stale-dropdown defect Admin booking had.
+//
+// This reuses the SAME _refreshBookSlots() → _smartSchedulingSlots() →
+// SmartScheduling path as the date handler. There is no second validator here,
+// and final-submit revalidation is untouched.
+function onBookServiceChange() {
+  var timeSelect = document.getElementById('time_slot');
+  var previous = timeSelect ? timeSelect.value : '';
+  _refreshBookSlots();
+  // _refreshBookSlots() rebuilds the <select>, so an unavailable time is
+  // already cleared. Re-select the previous choice ONLY when it is still
+  // bookable under the new service, so a valid pick is never thrown away.
+  if (!previous || !timeSelect) return;
+  for (var i = 0; i < timeSelect.options.length; i++) {
+    if (timeSelect.options[i].value === previous) { timeSelect.value = previous; return; }
+  }
+}
+
 // One adapter from the User portal to the shared scheduling engine. Resolves
 // the service, asks SmartScheduling which slots are actually bookable, and
 // returns 12h slot labels for the existing <select> markup — the form is not
