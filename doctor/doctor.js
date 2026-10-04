@@ -546,7 +546,10 @@ const MEDICINE_LIMITS = { medicine: 100, frequency: 50, instructions: 500 };
       return;
     }
     rec.recording = built.recording;
-    setRecState(REC.RECORDED, `Recording captured — ${formatRecTime(durationSeconds)} held in memory only. Review it, then process or discard it.`);
+    // Human wording only: the MIME type and byte count stay on the recording
+    // object for the adapter, the console and the future upload contract —
+    // they are never the Doctor's primary status text.
+    setRecState(REC.RECORDED, `Recording ready · ${formatRecTime(durationSeconds)}. Process it, record again, or discard it.`);
   }
   function discardScribeRecording(message) {
     releaseRecording();
@@ -573,8 +576,13 @@ const MEDICINE_LIMITS = { medicine: 100, frequency: 50, instructions: 500 };
       recordedAt: rec.recording.recordedAt
     };
     setRecState(REC.PROCESSING);
-    // THE SEAM: identical call site now and when Laravel exists. The Doctor UI
-    // never learns a provider, an endpoint or a key from either branch.
+    // THE SEAM. Semantics locked in Phase 2: for RECORDED AUDIO this button is the
+    // end-to-end action — transcribe AND generate the SOAP draft, in one step,
+    // with no second click. For a PASTED/UPLOADED transcript, "Generate SOAP
+    // Draft" is the equivalent action over text. Today the backend half of the
+    // audio path does not exist yet, so it says so instead of pretending.
+    // TODO(BACKEND): the body becomes POST recording -> STT -> SOAP; the call
+    // site below does not move.
     Promise.resolve(SCRIBE.processRecording(input, {
       appointmentId: target ? target.appointmentId : '',
       petId: target ? target.petId : ''
@@ -587,10 +595,11 @@ const MEDICINE_LIMITS = { medicine: 100, frequency: 50, instructions: 500 };
         return;
       }
       // Phase 2 has no speech-to-text, so NOTHING is written into the transcript
-      // box and no SOAP draft is generated: the Doctor is told plainly what is
-      // missing, and the paste/upload path stays the way forward.
-      setRecState(REC.RECORDED, `Recording captured successfully — ${formatRecTime(result.meta.durationSeconds)}, ${result.meta.mimeType}. Speech-to-text integration is not connected yet, so nothing was transcribed from it.`);
-      setScribeNote('Recording held in memory only: it is released when you discard it, switch patients or leave this page. Paste or upload the transcript, then generate the SOAP draft.');
+      // box and no SOAP draft is generated. The recording is KEPT so the
+      // Doctor can retry, and the transcript path stays the way forward —
+      // they are never forced into a pointless extra generation step.
+      setRecState(REC.RECORDED, 'Recording ready. AI transcription is not connected yet. Once the backend is connected, Process Recording will transcribe the consultation and generate a SOAP draft automatically. You can paste or upload a transcript for now.');
+      setScribeNote('Your recording is kept in this browser only and released when you discard it, switch patients or leave this page.');
       revealScribeTranscript(true);
     });
   }
@@ -1472,7 +1481,21 @@ const MEDICINE_LIMITS = { medicine: 100, frequency: 50, instructions: 500 };
     // duration/timer logic is preserved untouched.
     // TODO(BACKEND): PATCH /appointments/:id/status { completed }.
     const store = window.SharedMockAppointments;
-    if (store && selectedPatient.appointmentId) store.setStatus(selectedPatient.appointmentId, 'completed');
+    const completion = (store && selectedPatient.appointmentId)
+      ? store.setStatus(selectedPatient.appointmentId, 'completed')
+      : { ok: false, error: 'no_store' };
+    // The APPOINTMENT is the lifecycle authority. If the canonical transition
+    // was refused, this consultation is NOT complete — showing it as completed
+    // here while every other portal still reads the old status is exactly the
+    // divergence this guard exists to prevent. Nothing is stamped: no audit
+    // event, no completedAt, no documents, no button state.
+    if (!completion.ok) {
+      status.textContent = completion.error === 'not_found'
+        ? 'This appointment is no longer in the schedule. Nothing was changed.'
+        : 'This consultation was already finalized or cannot be completed right now. Nothing was changed.';
+      syncScribePanel();
+      return;
+    }
     if (window.AuditLog) window.AuditLog.add({ actor: { actorType: 'Doctor', actorId: VETERINARIAN.id, actorName: VETERINARIAN.name }, action: 'consultation_completed', entityType: 'appointment', entityId: selectedPatient.appointmentId, referenceNo: selectedPatient.referenceNo || '', description: VETERINARIAN.name + ' completed consultation for ' + selectedPatient.name });
     draft.completedAt = new Date().toISOString();
     draft.durationMinutes = durationBetween(draft.startedAt, draft.completedAt);

@@ -136,10 +136,24 @@
   // calls — POST /appointments on add(), GET /appointments on all(); this
   // layer and the OVERRIDES layer below are deleted together.
   var ADDED_KEY = 'vhs_mock_appointments_added_v1';
-  var ADDED = (function () {
-    try { return JSON.parse(localStorage.getItem(ADDED_KEY) || '[]') || []; }
+  var ADDED = _readAdded();
+
+  // ── WRITE-THROUGH THAT CANNOT CLOBBER ANOTHER PORTAL ───────────────────
+  // These layers live in localStorage precisely so every portal tab sees
+  // them, but each page also keeps its OWN copy loaded at start-up. Writing
+  // that copy back wholesale is last-writer-wins: an ordinary, unrelated write
+  // from a stale tab (a check-in, an edit, any add) silently REVERTS whatever
+  // another portal changed after this page loaded — including a completed
+  // consultation, which then falls back to checked_in and offers Start
+  // Consultation again on a record the audit log says is finished.
+  //
+  // Every write therefore re-reads the stored layer and merges ONLY this
+  // page's own change into it, so concurrent tabs accumulate instead of
+  // overwriting each other.
+  function _readAdded() {
+    try { var v = JSON.parse(localStorage.getItem(ADDED_KEY) || '[]'); return Array.isArray(v) ? v : []; }
     catch (e) { return []; }
-  })();
+  }
 
   function _saveAdded() {
     try { localStorage.setItem(ADDED_KEY, JSON.stringify(ADDED)); } catch (e) { /* storage unavailable */ }
@@ -160,13 +174,29 @@
   // status change made in User is visible in Admin/Doctor tabs on this origin
   // (sessionStorage is per-tab, which silently split the portals apart).
   var CHECKIN_OVERRIDES_KEY = 'vhs_mock_checkin_overrides_v1';
-  var OVERRIDES = (function () {
-    try { return JSON.parse(localStorage.getItem(CHECKIN_OVERRIDES_KEY) || '{}') || {}; }
+  var OVERRIDES = _readOverrides();
+
+  function _readOverrides() {
+    try { var v = JSON.parse(localStorage.getItem(CHECKIN_OVERRIDES_KEY) || '{}');
+      return (v && typeof v === 'object' && !Array.isArray(v)) ? v : {}; }
     catch (e) { return {}; }
-  })();
+  }
 
   function _saveOverrides() {
     try { localStorage.setItem(CHECKIN_OVERRIDES_KEY, JSON.stringify(OVERRIDES)); } catch (e) { /* storage unavailable */ }
+  }
+
+  // Another portal tab just wrote one of the layers. Re-read it so THIS page
+  // stops answering from a stale copy: from here on, byId()/all() reflect the
+  // other portal's change without a reload. (The storage event only fires in
+  // the other tabs, never in the writer — so a page never fights itself.)
+  if (typeof global.addEventListener === 'function') {
+    global.addEventListener('storage', function (event) {
+      if (!event) return;
+      if (event.key === ADDED_KEY) ADDED = _readAdded();
+      else if (event.key === CHECKIN_OVERRIDES_KEY) OVERRIDES = _readOverrides();
+      else return;
+    });
   }
 
   function effective(base) {
@@ -257,12 +287,16 @@
       if (!c || !c.appointmentId || !c.referenceNo) {
         return { ok: false, error: 'invalid', appointment: null };
       }
-      if (_allBase().some(function (a) {
+      // Merge into the CURRENT stored layer, never into this page's copy.
+      var fresh = _readAdded();
+      var clash = MOCK_APPOINTMENTS.concat(fresh).some(function (a) {
         return String(a.appointmentId) === String(c.appointmentId) || a.referenceNo === c.referenceNo;
-      })) {
+      });
+      if (clash) {
         return { ok: false, error: 'duplicate', appointment: null };
       }
-      ADDED.push(c);
+      fresh.push(c);
+      ADDED = fresh;
       _saveAdded();
       return { ok: true, appointment: this.byId(c.appointmentId) };
     },
@@ -274,15 +308,21 @@
     update: function (id, fields) {
       var f = fields || {};
       delete f.status; // status changes only via setStatus()/updateStatus()
-      var base = ADDED.find(function (a) { return String(a.appointmentId) === String(id); });
+      // Read-modify-write against the stored layer so a stale page never
+      // writes back a whole copy that would undo another portal's work.
+      var fresh = _readAdded();
+      var base = fresh.find(function (a) { return String(a.appointmentId) === String(id); });
       if (base) {
         Object.assign(base, f);
+        ADDED = fresh;
         _saveAdded();
         return { ok: true, appointment: this.byId(id) };
       }
       var seeded = _allBase().find(function (a) { return String(a.appointmentId) === String(id); });
       if (!seeded) return { ok: false, error: 'not_found' };
-      OVERRIDES[seeded.appointmentId] = Object.assign({}, OVERRIDES[seeded.appointmentId] || {}, f);
+      var freshOverrides = _readOverrides();
+      freshOverrides[seeded.appointmentId] = Object.assign({}, freshOverrides[seeded.appointmentId] || {}, f);
+      OVERRIDES = freshOverrides;
       _saveOverrides();
       return { ok: true, appointment: this.byId(id) };
     },
@@ -379,6 +419,11 @@
     // update_appointment_status.php) once the API owns state; Laravel then
     // owns transition validation and timestamps.
     setStatus: function (id, nextStatus) {
+      // Guard against a stale page: re-sync the persisted layers BEFORE
+      // deciding, so the transition is validated against the live status
+      // (a completed appointment cannot be restarted from an old snapshot).
+      ADDED = _readAdded();
+      OVERRIDES = _readOverrides();
       var base = _allBase().find(function (a) { return String(a.appointmentId) === String(id); });
       if (!base) return { ok: false, error: 'not_found' };
       var eff = effective(base);
@@ -403,12 +448,20 @@
       if (next === 'checked_in') patch.checkedInAt = stamp;
       if (next === 'in_consultation') patch.consultationStartedAt = stamp;
       if (next === 'completed') patch.consultationCompletedAt = stamp;
-      if (ADDED.some(function (a) { return String(a.appointmentId) === String(id); })) {
-        // Added-session record: update the persisted copy itself.
-        Object.assign(base, patch);
+      // Write through the CURRENT stored layer. The decision above is taken
+      // against the live record, and the write touches only this appointment:
+      // a tab that has been open since before another portal finished a
+      // consultation can no longer drag that record back to checked_in.
+      var freshAdded = _readAdded();
+      var target = freshAdded.find(function (a) { return String(a.appointmentId) === String(id); });
+      if (target) {
+        Object.assign(target, patch);
+        ADDED = freshAdded;
         _saveAdded();
       } else {
-        OVERRIDES[base.appointmentId] = Object.assign({}, OVERRIDES[base.appointmentId] || {}, patch);
+        var freshOverrides = _readOverrides();
+        freshOverrides[base.appointmentId] = Object.assign({}, freshOverrides[base.appointmentId] || {}, patch);
+        OVERRIDES = freshOverrides;
         _saveOverrides();
       }
       return { ok: true, appointment: this.byId(id) };

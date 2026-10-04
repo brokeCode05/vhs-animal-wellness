@@ -8,18 +8,18 @@
   <link rel="stylesheet" href="../admin/admin-style.css?v=3.4.4">
   <link rel="stylesheet" href="../shared/dashboard-theme.css?v=3.4.6">
   <link rel="stylesheet" href="../shared/dashboard-icons.css">
-  <link rel="stylesheet" href="doctor.css?v=3.6.1">
+  <link rel="stylesheet" href="doctor.css?v=3.7.0">
   <script src="../shared/appointment-contract.js?v=2.8.0"></script>
   <script src="../shared/mock-users.js?v=2.13.0"></script>
   <script src="../shared/mock-doctors.js?v=2.9.0"></script>
-  <script src="../shared/mock-appointments.js?v=2.9.0"></script>
+  <script src="../shared/mock-appointments.js?v=2.10.0"></script>
   <script src="../shared/mock-clinical.js?v=1.0.0"></script>
   <script src="../shared/smart-scheduling.js?v=1.1.0"></script>
   <script src="../shared/audit-store.js?v=1.0.0"></script>
   <script src="../shared/document-store.js?v=1.0.3"></script>
   <script src="../shared/document-render.js?v=1.1.0"></script>
   <script src="doctor-scribe.js?v=3.0.0"></script>
-  <script src="doctor.js?v=2.20.2" defer></script>
+  <script src="doctor.js?v=2.22.0" defer></script>
 </head>
 <body class="doctor-portal">
   <a class="skip-link" href="#workspace">Skip to current view</a>
@@ -114,6 +114,12 @@
               </div>
               <p class="scribe-rec-status" id="scribe-record-status" role="status" aria-live="polite">Recording is idle.</p>
             </div>
+            <p class="scribe-or" id="scribe-or">or use an existing transcript</p>
+            <div class="scribe-transcript" id="scribe-transcript-wrap" hidden>
+              <label class="form-label" for="scribe-transcript">Consultation transcript / notes</label>
+              <textarea class="form-textarea" id="scribe-transcript" name="scribeTranscript" rows="4" maxlength="8000" placeholder="Paste or type the consultation transcript, then generate a SOAP draft."></textarea>
+              <p class="helper">Kept with this draft on this device. Nothing is sent anywhere, and a recording is never written here — it stays in memory for this page only.</p>
+            </div>
             <div class="scribe-controls">
               <button type="button" class="btn-secondary" id="scribe-paste-toggle" aria-expanded="false" aria-controls="scribe-transcript-wrap">
                 <span class="scribe-btn-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 4h6v3H9z"/><path d="M15 5.5h2A2 2 0 0 1 19 7.5v11a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2v-11a2 2 0 0 1 2-2h2"/></svg></span>
@@ -127,11 +133,6 @@
               <button type="button" class="btn-primary scribe-btn-generate" id="scribe-generate">Generate SOAP Draft</button>
             </div>
             <p class="scribe-disclaimer" id="scribe-disclaimer">Recording captures audio in this browser only and never leaves this device. Speech-to-text is not connected yet, so a recording is not transcribed &mdash; paste or upload the transcript instead.</p>
-            <div class="scribe-transcript" id="scribe-transcript-wrap" hidden>
-              <label class="form-label" for="scribe-transcript">Consultation transcript / notes</label>
-              <textarea class="form-textarea" id="scribe-transcript" name="scribeTranscript" rows="4" maxlength="8000" placeholder="Paste or type the consultation transcript, then generate a SOAP draft."></textarea>
-              <p class="helper">Kept with this draft on this device. Nothing is sent anywhere, and a recording is never written here — it stays in memory for this page only.</p>
-            </div>
             <p class="scribe-note" id="scribe-note">Assistive draft only &mdash; review and edit every field. Nothing is saved or finalized until you do.</p>
             <p class="scribe-lock" id="scribe-lock" hidden></p>
           </section>

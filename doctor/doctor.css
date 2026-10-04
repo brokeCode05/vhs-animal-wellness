@@ -248,7 +248,18 @@ dd { margin: 0.2rem 0 0; font-weight: 700; font-size: 0.95rem; overflow-wrap: an
 .scribe-panel .scribe-recorder button[disabled] { opacity: 0.55; cursor: not-allowed; box-shadow: none; transform: none; }
 /* Stands in for the recording seat until transcription exists. */
 .scribe-disclaimer { margin: 0.6rem 0 0; color: var(--doctor-muted); font-size: 0.75rem; line-height: 1.5; }
+/* Two ALTERNATIVE sources, not consecutive steps. The divider is the whole
+   point: record the consultation, or start from a transcript you already have. */
+.scribe-or {
+  display: flex; align-items: center; gap: 0.6rem;
+  margin: 0.7rem 0 0.6rem; color: var(--doctor-muted);
+  font-size: 0.75rem; text-transform: lowercase;
+}
+.scribe-or::before, .scribe-or::after {
+  content: ''; flex: 1; height: 1px; background: var(--doctor-border);
+}
 .scribe-transcript { margin-top: 0.9rem; }
+.scribe-panel .scribe-controls .scribe-btn-generate { margin-left: auto; }
 .scribe-transcript .form-textarea { margin-top: 0.3rem; min-height: 90px; }
 .scribe-transcript[hidden] { display: none; }
 /* Regeneration guard: a warning line, never a blocking modal. */

@@ -61,9 +61,48 @@ Supporting surface:
 |---|---|
 | `vhs_mock_clinical_emr_v1` | Per-pet baseline EMR. |
 | `vhs_mock_consultation_drafts_v1` | Consultation drafts, keyed by **appointmentId**. |
+| `vhs_mock_appointments_added_v1` | **Appointment status authority** for records created in the demo (the ADDED layer). |
+| `vhs_mock_checkin_overrides_v1` | **Appointment status authority** for seeded records (the OVERRIDES layer). |
+| `vhs_audit_log_v1` | History/events only. Never a status source. |
 
 Drafts are capped at `MAX_DRAFTS = 500` so a long demo session cannot grow
 without bound.
+
+---
+
+## 2.2 Canonical appointment status
+
+**`appointment.status` has exactly one owner: the shared appointment store
+(`SharedMockAppointments`).** Every portal — User, Admin, Doctor, Vetti —
+reads it through that store and nothing else.
+
+| Rule | Consequence |
+|---|---|
+| `confirmed → checked_in → in_consultation → completed` | The only legal lifecycle. Transitions are guarded in one table in `shared/mock-appointments.js`. |
+| Persisted in localStorage | `vhs_mock_appointments_added_v1` (created records) or `vhs_mock_checkin_overrides_v1` (seeded records). A status survives a hard refresh. |
+| Clinical storage is NOT the status authority | Drafts hold SOAP, transcript, prescriptions/labs and clinical timestamps. `draft.completedAt` is a record, never a status. |
+| Audit is history only | `vhs_audit_log_v1` proves what happened. It never sets, repairs or overrides a status, and no portal infers status from it. |
+| One record per appointment | `appointmentId` and `referenceNo` stay stable through the whole lifecycle; a status change never creates a second record. |
+
+**Cross-tab write rule (the fix for the QA-reported revert).** Each page loads
+its own copy of the persisted layers at start-up. Every store write is
+therefore **read-modify-write against what is in storage now**, touching only
+the appointment being changed — never a wholesale write of the page's own
+copy. Writing the stale copy back was last-writer-wins: an ordinary check-in
+from a tab that had been open since before another portal finished a
+consultation silently dragged that appointment back to `checked_in`, so the
+Doctor portal lost a completed consultation on refresh and offered Start
+Consultation again on a record the audit log already said was finished.
+Writes now accumulate; a `storage` listener re-reads the layers so an open tab
+stops answering from a stale copy.
+
+**Double-consultation protection.** A `completed` appointment can only be left
+alone: `setStatus()` refuses `completed → in_consultation` and any repeat of
+`completed` with `invalid_status`, so a direct Start or a duplicate Complete
+fails safely. The Doctor portal additionally treats the store's answer as
+final — if the canonical transition is refused it stamps **nothing** (no audit
+event, no `completedAt`, no documents, no button state) and says so, instead
+of showing a completion the rest of the system does not have.
 
 ---
 
@@ -125,6 +164,8 @@ observes the same lifecycle.
 
 The draft mirrors `startedAt` / `completedAt` / `durationMinutes` for the
 consultation record itself. **The store is canonical; the draft copy is derived.**
+Status follows the same rule: the appointment owns it (see §2.2), and a draft
+timestamp never stands in for it.
 
 Status transitions are guarded in one table (see
 `VHS_SMART_SCHEDULING_CONTRACT.md` §lifecycle and `shared/mock-appointments.js`).
@@ -424,6 +465,34 @@ integration must preserve exactly this fallback.
 
 Phase 2 replaces the Phase 1 "seat" with **real browser audio capture**. It
 still transcribes nothing and calls nothing.
+
+#### A0. Two source paths, not consecutive steps
+
+The Scribe panel offers **two alternative ways in**. They are never a chain, and
+the UI is laid out so the Doctor can tell them apart at a glance:
+
+```
+RECORDING PATH   Record → Stop → Recording ready → Process Recording
+                 (audio → future STT → SOAP, ONE action, no second click)
+
+TRANSCRIPT PATH  Paste Transcript / Upload .txt → transcript → Generate SOAP Draft
+                 (text → SOAP)
+```
+
+* **Process Recording** is the end-to-end action for *recorded audio*: once the
+  backend exists it transcribes AND fills the SOAP fields in one step. The
+  Doctor does **not** then press Generate SOAP Draft.
+* **Generate SOAP Draft** is the equivalent action for a *text* source. It is
+  about the transcript, not the audio.
+
+Until the backend half exists, Process Recording says so and keeps the clip —
+it never fabricates a transcript, never fills the SOAP fields, and never forces
+an extra generation step. Paste, upload and manual SOAP entry keep working, so
+recording remains optional.
+
+User-facing wording is deliberately plain ("Recording ready · 00:13"). Codec and
+byte counts stay on the recording object for the adapter, the console and the
+future upload contract — they are not the Doctor's status text.
 
 #### A. Recording states
 
