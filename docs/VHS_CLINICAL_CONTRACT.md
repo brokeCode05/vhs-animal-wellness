@@ -254,7 +254,7 @@ of the summary.
 | Source | State | Notes |
 |---|---|---|
 | Typed into the transcript box | current | Plain text, up to `MAX_TRANSCRIPT_CHARS`. |
-| Pasted into the transcript box | current | Pasting over existing text asks first (§7.6). |
+| Pasted into the transcript box | current | An empty box takes the paste natively (bounded by `maxlength`). Over existing text it asks first (§7.6), and a confirmed paste **replaces** the transcript exactly as an upload does. Over `MAX_TRANSCRIPT_CHARS` it is refused. |
 | `.txt` file upload | current | Read in the browser with `FileReader`. `.txt` only, 64 KB / `MAX_TRANSCRIPT_CHARS` limits, friendly rejection otherwise. Nothing is uploaded. |
 | Recorded audio → transcription | **CONTRACT NEEDED / TBD** | `recording.supported` is `false`; the control states that no audio is captured. |
 

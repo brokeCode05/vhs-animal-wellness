@@ -613,8 +613,10 @@ const MEDICINE_LIMITS = { medicine: 100, frequency: 50, instructions: 500 };
   // ── TRANSCRIPT SOURCES ────────────────────────────────────────────────────
   // Typed/pasted text, a local .txt file, and — later — recorded audio. All
   // three end up in the same textarea, so the generator has one input.
-  function setTranscriptText(text) {
-    revealScribeTranscript(false);
+  // keepVisible keeps the box open for a paste — the Doctor is looking at it
+  // and must not have it collapse the moment they press Ctrl+V.
+  function setTranscriptText(text, keepVisible) {
+    if (!keepVisible) revealScribeTranscript(false);
     scribe.transcript.value = String(text == null ? '' : text);
     scribe.transcript.dispatchEvent(new Event('input', { bubbles: true }));
   }
@@ -668,16 +670,20 @@ const MEDICINE_LIMITS = { medicine: 100, frequency: 50, instructions: 500 };
       scribe.paste.setAttribute('aria-expanded', String(open));
       if (open) scribe.transcript.focus();
     });
-    // Pasting over real notes must not silently discard them.
+    // Pasting over real notes must not silently discard them. Confirmed pastes
+    // replace the transcript exactly like an upload — one helper, one status —
+    // so the dialog title and the box can never disagree.
     scribe.transcript.addEventListener('paste', event => {
       if (!scribe.transcript.value.trim()) return; // nothing to replace
       event.preventDefault();
-      const text = (event.clipboardData || window.clipboardData).getData('text') || '';
-      replaceTranscript('pasted text', () => {
-        const field = scribe.transcript;
-        field.setRangeText(text, field.selectionStart, field.selectionEnd, 'end');
-        field.dispatchEvent(new Event('input', { bubbles: true }));
-      });
+      const text = (event.clipboardData || window.clipboardData || {}).getData('text') || '';
+      if (!text) return;
+      // The box's maxlength no longer bounds this path: we assign the value.
+      if (text.length > SCRIBE.MAX_TRANSCRIPT_CHARS) {
+        setScribeNote('Pasted text is over ' + SCRIBE.MAX_TRANSCRIPT_CHARS + ' characters. Paste a shorter transcript.');
+        return;
+      }
+      replaceTranscript('pasted text', () => setTranscriptText(text, true));
     });
     if (scribe.upload && scribe.file) {
       scribe.upload.addEventListener('click', () => scribe.file.click());
