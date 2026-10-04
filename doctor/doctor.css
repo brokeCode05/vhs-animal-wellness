@@ -129,22 +129,33 @@ dd { margin: 0.2rem 0 0; font-weight: 700; font-size: 0.95rem; overflow-wrap: an
 .history p { grid-column: 2; margin: 0.15rem 0 0; line-height: 1.6; }
 
 /* ===== CONSULTATION NOTES (SOAP) ===== */
-/* AI-assisted summary: quiet strip above the form, ready for a future
-   AI endpoint. It must not outshine the SOAP fields. */
+/* Pre-consultation summary. Readable enough to be useful, compact enough not
+   to compete with the SOAP fields. Deliberately a PLAIN white card with a
+   violet left rule, while the Scribe panel below is the tinted one: the two
+   AI surfaces must never read as one component. No hero treatment, no mascot,
+   no glow. */
 .ai-strip {
-  display: grid; grid-template-columns: auto 1fr; gap: 0.2rem 0.65rem;
-  align-items: center; padding: 0.6rem 0.8rem; margin-bottom: 1.25rem;
-  background: var(--vhs-shell-soft); border-left: 3px solid var(--vhs-shell-light); border-radius: 0.35rem;
+  display: grid; gap: 0.35rem; padding: 0.75rem 0.9rem; margin-bottom: 1.1rem;
+  background: #ffffff; border: 1px solid var(--doctor-border);
+  border-left: 3px solid var(--vhs-shell-light); border-radius: 0.4rem;
 }
+.ai-strip-head { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
 .ai-chip {
-  grid-row: 1 / 3; align-self: start; display: inline-grid; place-items: center;
-  min-width: 1.5rem; height: 1.5rem; border-radius: 0.4rem;
-  background: var(--accent-badge-bg); color: var(--accent-dark); font-size: 0.7rem; font-weight: 800;
+  display: inline-grid; place-items: center;
+  min-width: 1.4rem; height: 1.4rem; border-radius: 0.4rem;
+  background: var(--vhs-shell-soft); border: 1px solid var(--doctor-border);
+  color: #5b3fa8; font-size: 0.68rem; font-weight: 800;
 }
-.ai-body { display: flex; align-items: baseline; gap: 0.6rem; flex-wrap: wrap; }
-.ai-body strong { font-size: 0.8rem; color: var(--accent-dark); }
-.ai-body span { font-size: 0.72rem; color: var(--doctor-muted); }
-#ai-summary { grid-column: 2; margin: 0; font-size: 0.875rem; line-height: 1.6; color: #4d4259; }
+.ai-strip-title { font-size: 0.82rem; color: var(--accent-dark); }
+/* "Pre-consultation" — says when the text was produced, before any exam. */
+.ai-strip-tag {
+  margin-left: auto; padding: 0.1rem 0.5rem; border-radius: 10px;
+  background: #ffffff; border: 1px solid var(--doctor-border);
+  color: var(--doctor-muted); font-size: 0.68rem; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.03em; white-space: nowrap;
+}
+#ai-summary { margin: 0; font-size: 0.875rem; line-height: 1.6; color: #4d4259; }
+.ai-strip-foot { margin: 0; color: var(--doctor-muted); font-size: 0.72rem; }
 .soap-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1.5rem 2rem; }
 .soap-block { min-width: 0; }
 .soap-block h3 {
@@ -182,12 +193,32 @@ dd { margin: 0.2rem 0 0; font-weight: 700; font-size: 0.95rem; overflow-wrap: an
 }
 .scribe-status[data-state='transcript_ready'] { background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%); color: #1e40af; border-color: #93c5fd; }
 .scribe-status[data-state='draft_generated'] { background: var(--accent-badge-bg); color: var(--accent-dark); border-color: var(--accent-badge-border); }
+/* Saved is a quiet confirmation, not a second "ready" tone. */
+.scribe-status[data-state='saved'] { background: #ecfdf5; color: #065f46; border-color: #6ee7b7; }
 .scribe-status[data-state='unsaved_changes'] { background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%); color: #92400e; border-color: #f0c33c; }
 .scribe-status[data-state='recording'] { background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%); color: #991b1b; border-color: #f87171; }
 .scribe-subtitle { margin: 0.4rem 0 0.85rem; font-size: 0.85rem; color: var(--doctor-muted); }
-.scribe-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 0.6rem; }
-.scribe-controls .btn-primary, .scribe-controls .btn-secondary { padding: 0.45rem 0.95rem; min-height: 38px; font-size: 0.85rem; }
+/* Controls share one row and one size, but not one weight: Generate is the
+   primary action, the two transcript sources are secondary, and the recording
+   seat carries a mic so it is never confused with them. */
+.scribe-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; }
+/* Scoped to the panel so it outranks the portal's own 44px button rule —
+   four actions in one row must not read as four headline buttons. */
+.scribe-panel .scribe-controls .btn-primary,
+.scribe-panel .scribe-controls .btn-secondary {
+  display: inline-flex; align-items: center; gap: 0.4rem;
+  padding: 0.4rem 0.85rem; min-height: 36px; font-size: 0.82rem;
+}
+.scribe-btn-icon { display: inline-flex; width: 1rem; height: 1rem; }
+.scribe-btn-icon svg { width: 100%; height: 100%; }
+/* Secondary sources read as outline actions; nothing but Generate is filled. */
+.scribe-controls .btn-secondary { background: #ffffff; }
+.scribe-btn-record { border-style: dashed; color: var(--doctor-muted); }
+/* The strongest control in the section. */
+.scribe-btn-generate { font-weight: 800; margin-left: auto; }
 .scribe-controls button[disabled] { opacity: 0.55; cursor: not-allowed; box-shadow: none; transform: none; }
+/* Stands in for the recording seat until transcription exists. */
+.scribe-disclaimer { margin: 0.6rem 0 0; color: var(--doctor-muted); font-size: 0.75rem; line-height: 1.5; }
 .scribe-transcript { margin-top: 0.9rem; }
 .scribe-transcript .form-textarea { margin-top: 0.3rem; min-height: 90px; }
 .scribe-transcript[hidden] { display: none; }
@@ -198,6 +229,11 @@ dd { margin: 0.2rem 0 0; font-weight: 700; font-size: 0.95rem; overflow-wrap: an
 }
 .scribe-warning[hidden] { display: none; }
 .scribe-note { margin: 0.6rem 0 0; color: var(--doctor-muted); font-size: 0.8rem; line-height: 1.5; }
+/* ===== CONFIRMATION DIALOG ===== */
+/* One dialog for every irreversible step in the consultation. It reuses the
+   existing document-modal chrome so there is no second dialog style. */
+.confirm-modal { max-width: 460px; }
+.confirm-message { margin: 0 0 1.25rem; color: #4d4259; font-size: 0.9rem; line-height: 1.6; }
 .scribe-lock { margin: 0.6rem 0 0; color: var(--doctor-muted); font-size: 0.8rem; }
 .scribe-lock[hidden] { display: none; }
 @media (max-width: 600px) {

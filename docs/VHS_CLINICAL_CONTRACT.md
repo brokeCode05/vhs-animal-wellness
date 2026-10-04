@@ -215,13 +215,52 @@ workflow.
 | `validateScribeInput(input)` | `→ {ok, code, message, charCount, wordCount}` | The single gate both the UI and the generator use, so the wording the Doctor reads and the rule that runs cannot disagree. `code` ∈ `ok` / `empty` / `too_short` / `too_long`. |
 | `generateSoapDraft(input)` | `→ result` (synchronous mock) | The mock generator. Same input ⇒ same output. |
 | `createSoapDraft(input)` | `→ Promise<result>` | The seam the UI calls. Resolves on the microtask queue today; awaits the future endpoint instead. **The call site does not change.** |
-| `getScribeStatus(state)` | `→ {state, label}` | One place decides the indicator: `ready` / `recording` / `transcript_ready` / `draft_generated` / `unsaved_changes`. |
+| `getScribeStatus(state)` | `→ {state, label}` | One place decides the indicator: `ready` / `recording` / `transcript_ready` / `draft_generated` / `saved` / `unsaved_changes`. |
+| `buildPreConsultationSummary(context)` | `→ string` | The "AI-assisted summary" strip. Grounded in appointment data only (§7.2). |
 | `recording` | `{supported: false, mode, message}` | The UI reads this before implying anything about audio. |
 
-Also exported: `SOAP_FIELDS`, `FIELD_LIMITS`, `NOT_PROVIDED`, `engine: 'mock'`,
-`identityMode: 'mock'`, `version`.
+Also exported: `SOAP_FIELDS`, `VITAL_FIELDS`, `APPLY_TARGETS`, `FIELD_LIMITS`,
+`NOT_PROVIDED`, `MAX_TRANSCRIPT_CHARS`, `engine: 'mock'`, `identityMode: 'mock'`,
+`version`.
 
-### 7.2 Transcript input shape (current)
+### 7.2 Pre-consultation summary — source rules
+
+The strip above the SOAP form is a **pre-consultation** read of what the clinic
+already holds. `DoctorScribe.buildPreConsultationSummary(context)` builds it from
+exactly these fields:
+
+| Field | Source | Example |
+|---|---|---|
+| `petName` | appointment pet | `Luna` |
+| `species` | appointment pet | `Cat` |
+| `serviceLabel` | booked service, resolved through `SharedMockUsers.serviceLabel()` | `Blood Test` |
+| `reason` | `visitContext` / `customVisitContext` stored with the booking | `Reduced appetite for 2 days` |
+| `notes` | booking notes | — |
+
+**It must never name a symptom, duration, diagnosis, treatment or observation
+that is not in those fields.** With nothing on file it says so explicitly:
+
+> Luna is scheduled for Blood Test. No additional symptoms or concerns were
+> provided with the appointment.
+
+The pet's `ai_summary` triage fixture is **not** a permitted source. That text
+describes the same symptoms for every visit of that pet, so reusing it showed
+"vomiting and reduced appetite over 24 hours" to a patient booked for a blood
+test with no notes. Triage severity remains a queue-level badge and is not part
+of the summary.
+
+### 7.3 Transcript sources
+
+| Source | State | Notes |
+|---|---|---|
+| Typed into the transcript box | current | Plain text, up to `MAX_TRANSCRIPT_CHARS`. |
+| Pasted into the transcript box | current | Pasting over existing text asks first (§7.6). |
+| `.txt` file upload | current | Read in the browser with `FileReader`. `.txt` only, 64 KB / `MAX_TRANSCRIPT_CHARS` limits, friendly rejection otherwise. Nothing is uploaded. |
+| Recorded audio → transcription | **CONTRACT NEEDED / TBD** | `recording.supported` is `false`; the control states that no audio is captured. |
+
+All sources write the same textarea, so the generator has one input shape.
+
+### 7.4 Transcript input shape (current)
 
 ```js
 DoctorScribe.generateSoapDraft({
@@ -236,15 +275,31 @@ DoctorScribe.generateSoapDraft({
 Identity fields are echoed into `meta.patient` for traceability. **No clinical
 content is derived from them.**
 
-### 7.3 SOAP output shape (current)
+### 7.5 SOAP output shape (current)
 
 ```js
 {
   ok: true,
-  soap: { subjective, exam, assessment, plan },   // the EXISTING textarea ids
-  fields: ['subjective', 'exam', 'assessment', 'plan'],
+  // Structured result — the documented contract.
+  soap: {
+    subjective: 'Owner reports vomiting since last night.',
+    objective: {
+      weightKg: null,          // number | null  → Weight (kg)
+      temperatureC: 39.4,      // number | null  → Temp. (°C)
+      heartRateBpm: null,      // number | null  → Heart rate (bpm)
+      findings: 'Mild dehydration observed.'   // → Examination findings
+    },
+    assessment: 'Not provided.',
+    plan: 'CBC requested.'
+  },
+  // Flat map for the UI, keyed by the EXISTING control names. The UI writes
+  // these and nothing else — it never parses medical text.
+  apply: { subjective, weight, temperature, heartRate, exam, assessment, plan },
+
+  fields: ['subjective','weight','temperature','heartRate','exam','assessment','plan'],
   filled: [...],        // sections the transcript covered
   missing: [...],       // sections written as NOT_PROVIDED
+  absentVitals: [...],  // vitals the transcript never stated (left blank)
   unclassified: [...],  // lines the transcript did not place (never guessed into a section)
   dropped: {field: n},  // lines omitted because the field limit was reached
   meta: { engine: 'mock', generator: 'doctor-scribe-mock', version, deterministic: true,
@@ -252,9 +307,19 @@ content is derived from them.**
 }
 ```
 
-`exam` is the Objective textarea. `FIELD_LIMITS` equals the `maxlength` already
-declared on each SOAP textarea, so a generated value can never trip
-`doctorValidateClinical()`.
+**Vital extraction rules.** A vital is read only when the transcript states it:
+`Weight is 6.8 kg`, `Temperature is 39.4°C`, `Heart rate is 125 bpm`. A bare
+number is not enough — "2 kg of food", "weight loss" and "three degrees of
+lameness" must not become a weight or a temperature. A measurement is lifted out
+of the sentence that carries it, so the same fact never appears twice: the vital
+goes to its dedicated field and the rest of the sentence ("…and mild
+dehydration observed") stays in `findings`. The first mention of a vital wins;
+a later repeat is ignored rather than allowed to contradict it. Values are
+passed through as parsed — clinical range judgement stays with the portal's
+existing vitals validators, not with the generator.
+
+`FIELD_LIMITS` equals the `maxlength` already declared on each SOAP textarea, so
+a generated value can never trip `doctorValidateClinical()`.
 
 **What the mock generator will not do:** it only moves the Doctor's own
 sentences between sections using routing vocabulary. It never proposes a
@@ -263,7 +328,21 @@ transcript does not cover is emitted as `NOT_PROVIDED` (`"Not provided."`). It
 cannot write prescriptions or lab requests — those controls are outside its
 reach entirely.
 
-### 7.4 Draft vs. final
+### 7.6 Confirmations required
+
+Every irreversible step in the consultation asks first, through one shared
+dialog that resolves to a boolean:
+
+| Action | Condition | Message |
+|---|---|---|
+| Regenerate SOAP draft | any control the generator writes already has content (generated **or** hand-typed) | "This will replace the current SOAP fields. Any unsaved manual edits will be lost." |
+| Replace transcript | paste or upload over a non-empty transcript | "Your existing transcript text (…) will be replaced." Never shown for an empty box. |
+| Complete consultation | **after** every existing validation guard passes | "Once completed, this consultation will become read-only. Make sure the SOAP notes, prescriptions, and lab requests have been reviewed." |
+
+Cancelling any of them changes nothing. Completion re-runs its guards after the
+dialog closes, because the Doctor may have edited the form while it was open.
+
+### 7.7 Draft vs. final
 
 AI output is **always a draft**. Generating fills the four SOAP textareas and
 nothing else: it does not set `saved`, does not tick the review
@@ -281,7 +360,7 @@ draft.scribe = {
   transcriptAtGenerate,  // staleness check for the indicator
   generatedAt,           // when the last draft was produced
   engine,                // 'mock' today
-  soap,                  // snapshot of what was written (regeneration guard)
+  soap,                  // snapshot of what was written, keyed by control name
   patient                // appointmentId/petId linkage, pass-through
 }
 ```
@@ -289,7 +368,7 @@ draft.scribe = {
 The finalized consultation document (§6.3) is unaffected: it is built by
 `buildConsultation()` from the Doctor's saved SOAP fields.
 
-### 7.5 Doctor approval responsibility
+### 7.8 Doctor approval responsibility
 
 The veterinarian remains the sole author of the record. AI Scribe may not start
 a consultation, end one, complete an appointment, approve a SOAP note, or sign a
@@ -306,7 +385,7 @@ generation), the first press of **Generate SOAP Draft** only arms an explicit
 | `in_consultation` | enabled |
 | `completed` | read-only |
 
-### 7.6 Future recording / transcription boundary
+### 7.9 Future recording / transcription boundary
 
 `DoctorScribe.recording.supported` is `false` in Phase 1 and the **Start
 Recording** button states that no microphone audio is captured or transcribed —
@@ -319,7 +398,7 @@ When it arrives, the expected chain is:
 Doctor UI
   → DoctorScribe (unchanged)
   → transcription / AI backend            ← CONTRACT NEEDED / TBD
-  → SOAP draft response (§7.3 shape)
+  → SOAP draft response (§7.5 shape)
   → Doctor review / edit / save
 ```
 
@@ -329,7 +408,7 @@ server-side; consent and retention for recorded audio; whether a transcript is
 stored server-side or stays device-local; maximum duration/size; authentication
 and per-doctor authorization; error and timeout behaviour.
 
-### 7.7 Failure and fallback
+### 7.10 Failure and fallback
 
 The adapter contains its failures: `createSoapDraft()` resolves with
 `{ok: false, error: {message}}` instead of throwing, and the UI writes that
@@ -353,7 +432,7 @@ Everything here is **open**. None is settled by the frontend.
 | 6 | Prescription pricing snapshot — captured at booking or at issue? | **TBD** |
 | 7 | Retention: who may delete a consultation record? | **TBD** |
 | 8 | Do drafts carry an `updatedAt` conflict check (optimistic locking)? | **TBD** — mock overwrites unconditionally |
-| 9 | AI Scribe transcription + SOAP draft service (§7.6) | **CONTRACT NEEDED / TBD** |
+| 9 | AI Scribe transcription + SOAP draft service (§7.9) | **CONTRACT NEEDED / TBD** |
 
 ---
 

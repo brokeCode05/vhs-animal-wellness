@@ -2,21 +2,25 @@
  *
  * WHY THIS FILE EXISTS
  * The Doctor consultation form already owns the SOAP fields (Subjective,
- * Objective, Assessment, Plan). AI Scribe must FILL those fields, never
- * replace them, so the workflow lives here as an adapter instead of as
- * generation rules inside doctor/doctor.js:
+ * Objective, Assessment, Plan) and the vitals (weight, temperature, heart
+ * rate). AI Scribe must FILL those controls, never replace them, so the
+ * workflow lives here as an adapter instead of as generation rules inside
+ * doctor/doctor.js:
  *
  *     Doctor UI  ->  window.DoctorScribe  ->  mock generator NOW
  *                                       ->  transcription/AI API LATER
  *
- * doctor.js therefore never learns what a draft may contain, how a transcript
- * is read, or how a SOAP section is filled. When the backend lands, ONLY the
- * body of generateSoapDraft() changes (mock text assembly -> POST to the
- * consultation AI endpoint); the UI call site does not move.
+ * doctor/doctor.js therefore never learns what a draft may contain, how a
+ * transcript is read, or which control a fact belongs in. The adapter returns
+ * BOTH the structured result (the documented contract) and a flat `apply` map
+ * of the exact strings for the existing controls, so the UI writes values
+ * without ever parsing medical text. When the backend lands, ONLY the body of
+ * generateSoapDraft() changes (mock text assembly -> POST to the consultation
+ * AI endpoint); the UI call site does not move.
  * TODO(BACKEND): endpoint, route, auth and payload are CONTRACT NEEDED /
  * TBD — see docs/VHS_CLINICAL_CONTRACT.md §8. Do not invent them here.
  *
- * HARD RULES this module enforces (Phase 1 scope):
+ * HARD RULES this module enforces:
  * - No microphone capture, no speech-to-text, no audio is requested or faked.
  * - No network, no storage, no DOM: the adapter is pure logic over strings, so
  *   the same call works in the browser and in a future unit test.
@@ -24,25 +28,39 @@
  * - It only ever MOVES the doctor's own words. It never invents a diagnosis,
  *   a medication, a dosage, or a treatment decision. A section the transcript
  *   does not cover is emitted as the explicit NOT_PROVIDED marker.
+ * - Measurements are only read when the transcript states them next to a
+ *   vital word; a number alone is never treated as a vital.
+ * - The pre-consultation summary is built ONLY from pet identity, the booked
+ *   service and the concerns recorded with the booking. It never names a
+ *   symptom that was not provided.
  * - Prescriptions and lab requests are out of scope: this module cannot and
  *   does not touch them.
  */
 (function (global) {
   'use strict';
 
-  var VERSION = '1.0.0';
+  var VERSION = '2.0.0';
 
-  // The EXISTING consultation fields, in SOAP order. `exam` is the Objective
-  // textarea; weight/temperature/heartRate are vitals the Scribe never guesses.
+  // The EXISTING consultation controls, in SOAP order. `exam` is the Objective
+  // textarea; the three vitals are the structured inputs the Scribe can fill
+  // when — and only when — the transcript states them.
   var SOAP_FIELDS = ['subjective', 'exam', 'assessment', 'plan'];
-  // Must equal the maxlength already declared on each SOAP textarea, so a
-  // generated value can never trip doctorValidateClinical()'s limit check.
+  // The vitals the consultation already collects. Scribe never estimates these.
+  var VITAL_FIELDS = ['weight', 'temperature', 'heartRate'];
+  // Every control the generator may write, and the `apply` key that feeds it.
+  // Keys are the existing form control names, so the UI writes by name and the
+  // regenerate guard can compare a stored snapshot against the live controls
+  // without knowing anything about SOAP.
+  var APPLY_TARGETS = ['subjective', 'weight', 'temperature', 'heartRate', 'exam', 'assessment', 'plan'];
+  // Character caps already declared on each SOAP textarea, so a generated value
+  // can never trip doctorValidateClinical()'s limit check.
   var FIELD_LIMITS = { subjective: 1000, exam: 1000, assessment: 800, plan: 1000 };
   // Written into a section the transcript does not cover. Explicit beats blank:
   // the Doctor can see at a glance which sections the transcript missed.
   var NOT_PROVIDED = 'Not provided.';
   var MIN_CHARS = 12;     // below this there is nothing usable to structure
   var MAX_TRANSCRIPT_CHARS = 8000;
+  var MAX_NOTE_CHARS = 160; // pre-consultation summary stays 2-4 short lines
 
   // Recording is an integration seat, not a feature. Phase 1 ships no
   // microphone capture and no speech-to-text, so the UI asks this flag before
@@ -50,16 +68,17 @@
   var RECORDING = {
     supported: false,
     mode: 'unavailable',
-    message: 'Recording is not active in this build — no microphone audio is captured or transcribed. Paste the consultation transcript instead.'
+    message: 'Recording is not active in this build — no microphone audio is captured or transcribed. Paste or upload the consultation transcript instead.'
   };
 
   // ── phrase matching ───────────────────────────────────────────────────────
-  // Cue lists ROUTE existing words; they never contribute content. Built with
-  // explicit boundaries so 'ears' cannot match inside 'years' and 'crt' cannot
-  // match inside another word.
+  // Cue lists ROUTE existing words; they never contribute content. They match
+  // on a LEADING boundary only, so a stem like 'dehydrat' also catches
+  // 'dehydration' and 'dehydrated', while a full word like 'ears' still cannot
+  // match inside 'years' (the character before it is a letter, not a boundary).
   function cueMatcher(cues) {
     var parts = cues.map(function (cue) {
-      return '(?:^|[^a-z0-9])' + cue.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '(?![a-z0-9])';
+      return '(?:^|[^a-z0-9])' + cue.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     });
     return new RegExp(parts.join('|'), 'i');
   }
@@ -67,10 +86,10 @@
   // 1. Explicit section labels. Full words only — a single "A:" is too
   //    ambiguous to route safely, so single letters are deliberately ignored.
   var LABELS = [
-    { field: 'subjective', re: /^\s*(?:subjective|hpi|history of presenting complaint)\s*[:\-\u2013\u2014]\s*/i },
-    { field: 'exam', re: /^\s*(?:objective|findings|examination findings|exam findings)\s*[:\-\u2013\u2014]\s*/i },
-    { field: 'assessment', re: /^\s*(?:assessment|impression|diagnosis|differentials?)\s*[:\-\u2013\u2014]\s*/i },
-    { field: 'plan', re: /^\s*(?:plan|plan of action|next steps?|treatment plan)\s*[:\-\u2013\u2014]\s*/i }
+    { field: 'subjective', re: /^\s*(?:subjective|hpi|history of presenting complaint)\s*[:\-–—]\s*/i },
+    { field: 'exam', re: /^\s*(?:objective|findings|examination findings|exam findings)\s*[:\-–—]\s*/i },
+    { field: 'assessment', re: /^\s*(?:assessment|impression|diagnosis|differentials?)\s*[:\-–—]\s*/i },
+    { field: 'plan', re: /^\s*(?:plan|plan of action|next steps?|treatment plan)\s*[:\-–—]\s*/i }
   ];
   // 2. Owner-sourced history: the Doctor's report of what the owner said or
   //    saw at home. Always history, never an exam finding. Deliberately narrow —
@@ -80,7 +99,7 @@
     'owner', 'owners', 'reported', 'reports', 'complains', 'complaining', 'complaint',
     'mentions', 'mentioned', 'describes', 'described', 'history', 'observed at home'
   ]);
-  // 3a. A measurement: number + unit. This is the strongest objective signal.
+  // 3a. A measurement: number + unit. The strongest objective signal.
   var MEASURED_VALUE = /(?:^|[^a-z0-9])\d{1,4}(?:[.,]\d+)?\s*(?:kgs?|°\s?[cf]|\bc\b|celsius|fahrenheit|degrees|bpm|beats per minute|cm|mm|seconds|minutes)\b/i;
   // 3b. An examination observation or maneuver.
   var EXAM_CUES = cueMatcher([
@@ -92,12 +111,13 @@
     'respiratory rate', 'heart rate', 'temperature is', 'weight is', 'weighs', 'weighed',
     'posture', 'pain response', 'gum colour', 'gum color'
   ]);
-  // 4. Plan / next-step vocabulary.
+  // 4. Plan / next-step vocabulary, including a requested test or panel.
   var PLAN_CUES = cueMatcher([
     'plan', 'next step', 'follow up', 'follow-up', 'followup', 'recheck', 're-check',
     'review in', 'advise', 'advised', 'instruction', 'discharge', 'refer', 'referral',
     'monitor', 'treatment', 'therapy', 'dose', 'dosage', 'medication', 'prescription',
-    'antibiotic', 'suture', 'dressing', 'deworm', 'vaccinat', 'continue', 'at home'
+    'antibiotic', 'suture', 'dressing', 'deworm', 'vaccinat', 'continue', 'at home',
+    'request', 'requested', 'ordered', 'panel of'
   ]);
   // 5. Assessment / diagnostic reasoning the Doctor stated. Phrased claims
   //    only — the generator never proposes one of these itself.
@@ -117,6 +137,99 @@
   ]);
 
   function matches(re, text) { return re.test(text); }
+  function toNumber(raw) {
+    var n = Number(String(raw).replace(',', '.'));
+    return isFinite(n) ? n : null;
+  }
+
+  // ── STRUCTURED VITALS ────────────────────────────────────────────────────
+  // A vital is only read when the transcript names it. "Temperature is 39.4°C"
+  // is a measurement; a bare "6.8 kg of food" is not, and neither is "weight
+  // loss" with no number. Each pattern must therefore either carry the vital's
+  // own word, or be a unit that cannot mean anything else (°C, bpm).
+  var VITAL_EXTRACTORS = [
+    {
+      key: 'weight',
+      // "weight is 6.8 kg", "Weight: 6.8kg", "weighs 6.8 kg"
+      re: /(?:body\s*weight|weight|weighs|weighed)\s*(?:of\s+|is\s+|:\s*|at\s+|now\s+)?(\d{1,4}(?:[.,]\d{1,2})?)\s*(?:kgs?|kilograms?)\b/gi
+    },
+    {
+      key: 'temperature',
+      // "temperature is 39.4°C", "Temp 39.4 degrees", "fever of 39.1"
+      re: /(?:temperature|temps?|pyrexia|fever)\s*(?:of\s+|is\s+|:\s*|at\s+)?(\d{1,2}(?:[.,]\d)?)\s*(?:°\s*[cf]\b|degrees?\b|celsius\b|centigrade\b|fahrenheit\b)?/gi
+    },
+    {
+      key: 'heartRate',
+      // "heart rate is 125 bpm", "pulse 140", "HR: 110"
+      re: /(?:heart\s*rate|heartrate|\bpulse\b|\bhr\b)\s*(?:of\s+|is\s+|:\s*|at\s+)?(\d{1,3})\s*(?:bpm\b|beats per minute\b)?/gi
+    }
+  ];
+  // Unit-only fallbacks: a degree-Celsius value or a bpm reading cannot mean
+  // anything else, so these need no vital word.
+  var VITAL_FALLBACKS = [
+    { key: 'temperature', re: /(\d{1,2}(?:[.,]\d)?)\s*°\s*[cf]\b/gi },
+    { key: 'heartRate', re: /(\d{1,3})\s*bpm\b/gi }
+  ];
+
+  // Removes a matched vital phrase from the sentence and returns the number it
+  // carried, so the same fact never appears twice in the note.
+  function pullVital(pattern, text) {
+    var value = null;
+    var rest = text.replace(pattern, function (match, num) {
+      if (value === null && num !== undefined) value = toNumber(num);
+      return ' ';
+    });
+    return { value: value, text: rest };
+  }
+
+  // Reads every vital a sentence states. Returns the values found plus the
+  // sentence with those phrases removed, so non-measurement words in the same
+  // sentence ("Weight 6.8 kg and mild dehydration observed") survive into the
+  // examination findings.
+  function extractVitals(sentence) {
+    var values = {};
+    var rest = sentence;
+    VITAL_EXTRACTORS.forEach(function (spec) {
+      if (values[spec.key] !== undefined && values[spec.key] !== null) return;
+      var pulled = pullVital(spec.re, rest);
+      rest = pulled.text;
+      if (pulled.value !== null) values[spec.key] = pulled.value;
+    });
+    VITAL_FALLBACKS.forEach(function (spec) {
+      if (values[spec.key] !== undefined && values[spec.key] !== null) return;
+      var pulled = pullVital(spec.re, rest);
+      rest = pulled.text;
+      if (pulled.value !== null) values[spec.key] = pulled.value;
+    });
+    return { values: values, rest: rest };
+  }
+
+  // Tidies what is left after the measurements are lifted out: drops the
+  // orphaned punctuation and connectors the removal leaves behind. The
+  // sentence's own full stop is KEPT — it is part of the Doctor's sentence.
+// Returns '' when nothing but punctuation survived, so a pure measurement
+  // sentence simply disappears from the findings instead of leaving "is ."
+// behind.
+//
+// `capitalize` is passed only when a measurement was actually removed: that
+// repair can leave a fragment starting mid-sentence ("and mild dehydration
+// observed"), which reads as a sentence once the vital is gone. A sentence the
+// Doctor wrote whole is returned untouched, label body included, so a labelled
+// section keeps the Doctor's own capitalisation.
+function tidyResidual(text, capitalize) {
+  var out = String(text || '')
+    .replace(/\s+/g, ' ')
+    .replace(/\s*([,;:])\s*/g, '$1 ')
+    .replace(/([,;:])\s*([,;.])/g, '$2')
+    .trim()
+    .replace(/^[,;:.\-\s]+/, '')
+    .replace(/[\s,;:\-]+$/, '')
+    .replace(/^(?:and|with|also|but|then)\s+/i, '')
+    .trim();
+  if (!/[a-z0-9]/i.test(out)) return '';
+  if (!capitalize) return out;
+  return out.charAt(0).toUpperCase() + out.slice(1);
+}
 
   // ── normalizeTranscript ───────────────────────────────────────────────────
   // Accepts the raw textarea value, a {transcript} object, or nothing at all.
@@ -146,7 +259,7 @@
   function validateScribeInput(input) {
     var normalized = normalizeTranscript(input);
     if (normalized.isEmpty) {
-      return { ok: false, code: 'empty', message: 'Paste or type the consultation transcript before generating a SOAP draft.' };
+      return { ok: false, code: 'empty', message: 'Add the consultation transcript before generating a SOAP draft.' };
     }
     if (normalized.charCount < MIN_CHARS) {
       return { ok: false, code: 'too_short', message: 'The transcript is too short to structure — add the consultation notes and try again.' };
@@ -165,6 +278,7 @@
     var s = state && typeof state === 'object' ? state : {};
     if (s.unsavedChanges) return { state: 'unsaved_changes', label: 'Unsaved changes' };
     if (s.recording) return { state: 'recording', label: 'Recording' };
+    if (s.saved) return { state: 'saved', label: 'Saved draft' };
     if (s.generatedAt) return { state: 'draft_generated', label: 'Draft generated' };
     if (typeof s.transcript === 'string' && s.transcript.trim()) return { state: 'transcript_ready', label: 'Transcript ready' };
     return { state: 'ready', label: 'Ready' };
@@ -176,7 +290,7 @@
   // assessment > symptom vocabulary > unclassified.
   function splitSegments(text) {
     // A sentence break only counts when punctuation is followed by whitespace,
-    // so decimals ("39.1") and abbreviations are never split apart.
+    // so decimals ("39.4") are never split apart.
     return text
       .replace(/([.!?;])\s+/g, '$1\n')
       .split(/\n+/)
@@ -185,23 +299,39 @@
   }
 
   function classifySegment(segment) {
+    var labelMatch = null;
     for (var i = 0; i < LABELS.length; i++) {
       var hit = segment.match(LABELS[i].re);
-      if (hit) {
-        var rest = segment.slice(hit[0].length).trim();
-        return rest ? { field: LABELS[i].field, text: rest } : null;
-      }
+      if (hit) { labelMatch = LABELS[i].field; segment = segment.slice(hit[0].length).trim(); break; }
     }
-    var ownerSourced = matches(OWNER_CUES, segment);
-    var objective = matches(MEASURED_VALUE, segment) || matches(EXAM_CUES, segment);
-    // Owner history stays history unless the sentence also reports a measured
-    // value or an examination finding ("owner reports the wound is swollen").
-    if (ownerSourced) return objective ? { field: 'exam', text: segment } : { field: 'subjective', text: segment };
-    if (objective) return { field: 'exam', text: segment };
-    if (matches(PLAN_CUES, segment)) return { field: 'plan', text: segment };
-    if (matches(ASSESSMENT_CUES, segment)) return { field: 'assessment', text: segment };
-    if (matches(SYMPTOM_CUES, segment)) return { field: 'subjective', text: segment };
-    return null;
+    // Measurements are lifted out of every sentence, whatever it routes to:
+    // "Weight 6.8 kg and mild dehydration observed" must yield the vital AND
+    // the observation, never both in the findings and the vital field.
+    var vitals = extractVitals(segment);
+    // One residual for both paths: a labelled section has its label stripped
+    // above, so `vitals.rest` is the section body minus the measurements —
+    // "Objective: weight 3.1 kg." yields the vital and nothing in findings.
+    var residual = tidyResidual(vitals.rest, hasVital(vitals.values));
+
+    var route = labelMatch;
+    if (!route) {
+      var ownerSourced = matches(OWNER_CUES, segment);
+      var objective = matches(MEASURED_VALUE, segment) || matches(EXAM_CUES, segment) || hasVital(vitals.values);
+      if (ownerSourced) route = objective ? 'exam' : 'subjective';
+      else if (objective) route = 'exam';
+      else if (matches(PLAN_CUES, segment)) route = 'plan';
+      else if (matches(ASSESSMENT_CUES, segment)) route = 'assessment';
+      else if (matches(SYMPTOM_CUES, segment)) route = 'subjective';
+      else route = null;
+    }
+    if (!route) {
+      return hasVital(vitals.values) ? { field: 'exam', text: '', vitals: vitals.values } : null;
+    }
+    return { field: route, text: residual, vitals: vitals.values };
+  }
+
+  function hasVital(values) {
+    return values.weight !== undefined || values.temperature !== undefined || values.heartRate !== undefined;
   }
 
   // Appends whole segments only: a section is never truncated mid-sentence.
@@ -237,30 +367,76 @@
     var normalized = normalizeTranscript(options);
     var validation = validateScribeInput(normalized);
     if (!validation.ok) {
-      return { ok: false, error: validation, soap: null, filled: [], missing: [], unclassified: [], dropped: {} };
+      return {
+        ok: false, error: validation, soap: null, apply: null,
+        filled: [], missing: [], absentVitals: VITAL_FIELDS.slice(),
+        unclassified: [], dropped: {}
+      };
     }
 
     var segments = splitSegments(normalized.text);
     var buckets = { subjective: [], exam: [], assessment: [], plan: [] };
     var unclassified = [];
+    var objectiveVitals = { weightKg: null, temperatureC: null, heartRateBpm: null };
     segments.forEach(function (segment) {
       var routed = classifySegment(segment);
       if (!routed) { unclassified.push(segment); return; }
-      buckets[routed.field].push(routed.text);
+      // First mention wins; a later repeat of the same vital is ignored rather
+      // than contradicting the value already read.
+      if (routed.vitals.weight !== undefined && objectiveVitals.weightKg === null) objectiveVitals.weightKg = routed.vitals.weight;
+      if (routed.vitals.temperature !== undefined && objectiveVitals.temperatureC === null) objectiveVitals.temperatureC = routed.vitals.temperature;
+      if (routed.vitals.heartRate !== undefined && objectiveVitals.heartRateBpm === null) objectiveVitals.heartRateBpm = routed.vitals.heartRate;
+      if (routed.text) buckets[routed.field].push(routed.text);
     });
     Object.keys(buckets).forEach(function (field) { buckets[field] = dedupe(buckets[field]); });
 
-    var soap = {};
     var dropped = {};
-    var missing = [];
-    SOAP_FIELDS.forEach(function (field) {
+    function section(field, fallback) {
       var joined = joinWithinLimit(buckets[field], FIELD_LIMITS[field]);
       if (joined.dropped) dropped[field] = joined.dropped;
-      soap[field] = joined.text || NOT_PROVIDED;
-      if (!joined.text) missing.push(field);
+      return { text: joined.text, droppedCount: joined.dropped };
+    }
+
+    var subjective = section('subjective');
+    var objective = section('exam');
+    var assessment = section('assessment');
+    var plan = section('plan');
+
+    var soap = {
+      subjective: subjective.text || NOT_PROVIDED,
+      objective: {
+        weightKg: objectiveVitals.weightKg,
+        temperatureC: objectiveVitals.temperatureC,
+        heartRateBpm: objectiveVitals.heartRateBpm,
+        findings: objective.text || NOT_PROVIDED
+      },
+      assessment: assessment.text || NOT_PROVIDED,
+      plan: plan.text || NOT_PROVIDED
+    };
+
+    var missing = [];
+    if (!subjective.text) missing.push('subjective');
+    if (!objective.text) missing.push('objective');
+    if (!assessment.text) missing.push('assessment');
+    if (!plan.text) missing.push('plan');
+    var filled = ['subjective', 'objective', 'assessment', 'plan'].filter(function (field) { return missing.indexOf(field) === -1; });
+    var absentVitals = VITAL_FIELDS.filter(function (field) {
+      return objectiveVitals[VITAL_KEYS[field]] === null;
     });
 
-    var filled = SOAP_FIELDS.filter(function (field) { return missing.indexOf(field) === -1; });
+    // The flat map the UI writes. Vitals the transcript never stated are
+    // blanked rather than left stale, so a regenerated draft is a clean draft
+    // and never a mix of old and new. Text sections always carry a value.
+    var apply = {
+      subjective: soap.subjective,
+      weight: objectiveVitals.weightKg === null ? '' : String(objectiveVitals.weightKg),
+      temperature: objectiveVitals.temperatureC === null ? '' : String(objectiveVitals.temperatureC),
+      heartRate: objectiveVitals.heartRateBpm === null ? '' : String(objectiveVitals.heartRateBpm),
+      exam: soap.objective.findings,
+      assessment: soap.assessment,
+      plan: soap.plan
+    };
+
     // generatedAt is metadata about the run, never part of the clinical text.
     // The caller may pass nowIso to keep the result reproducible in tests.
     var nowIso = typeof options.nowIso === 'string' ? options.nowIso : new Date().toISOString();
@@ -269,9 +445,13 @@
       ok: true,
       error: null,
       soap: soap,
-      fields: SOAP_FIELDS.slice(),
+      apply: apply,
+      fields: APPLY_TARGETS.slice(),
       filled: filled,
       missing: missing,
+      // Vitals the transcript did not state: the corresponding control is left
+      // blank and the UI says so, so nobody reads an empty box as a normal one.
+      absentVitals: absentVitals,
       // Sentences the transcript did not place. They are never silently moved
       // into a SOAP section — the Doctor still has them in the transcript.
       unclassified: unclassified,
@@ -289,6 +469,9 @@
       }
     };
   }
+
+  // Form control name -> objective key in the structured result.
+  var VITAL_KEYS = { weight: 'weightKg', temperature: 'temperatureC', heartRate: 'heartRateBpm' };
 
   // Pass-through identity only. No clinical content is derived from it here.
   function sanitizePatient(patient) {
@@ -313,10 +496,50 @@
       return Promise.resolve({
         ok: false,
         error: { ok: false, code: 'failed', message: 'The SOAP draft could not be generated. Enter the SOAP note manually.' },
-        soap: null, filled: [], missing: [], unclassified: [], dropped: {},
+        soap: null, apply: null, filled: [], missing: [], absentVitals: VITAL_FIELDS.slice(),
+        unclassified: [], dropped: {},
         meta: { engine: 'mock', generator: 'doctor-scribe-mock', version: VERSION, generatedAt: new Date().toISOString() }
       });
     }
+  }
+
+  // ── PRE-CONSULTATION SUMMARY ─────────────────────────────────────────────
+  // The strip above the SOAP form. It is a PRE-consultation read of what the
+  // clinic already knows: who the pet is, what the appointment is booked for,
+  // and what the owner wrote when booking. It is deliberately NOT the pet's
+  // triage fixture — that text describes symptoms for every visit of that pet,
+  // including visits booked for something unrelated, so reusing it here would
+  // invent symptoms the owner never reported for THIS appointment.
+  //
+  // Nothing is generated beyond those fields, and the concerns are echoed
+  // verbatim. With nothing on file the summary says exactly that.
+  function clip(text) {
+    var value = String(text || '').replace(/\s+/g, ' ').trim();
+    if (value.length <= MAX_NOTE_CHARS) return value;
+    return value.slice(0, MAX_NOTE_CHARS - 1).replace(/\s+\S*$/, '') + '…';
+  }
+
+  function buildPreConsultationSummary(context) {
+    var c = context && typeof context === 'object' ? context : {};
+    var pet = clip(c.petName) || 'This patient';
+    var service = clip(c.serviceLabel || c.service);
+    var reason = clip(c.reason);
+    var notes = clip(c.notes);
+
+    var parts = [];
+    parts.push(service
+      ? (pet + ' is scheduled for ' + service + '.')
+      : (pet + ' is scheduled for a consultation; no service was recorded with the appointment.'));
+    if (reason && notes) {
+      parts.push('Owner-stated concern: ' + reason + '. Booking notes: ' + notes + '.');
+    } else if (reason) {
+      parts.push('Owner-stated concern: ' + reason + '.');
+    } else if (notes) {
+      parts.push('Notes from the booking: ' + notes + '.');
+    } else {
+      parts.push('No additional symptoms or concerns were provided with the appointment.');
+    }
+    return parts.join(' ');
   }
 
   global.DoctorScribe = {
@@ -324,13 +547,17 @@
     engine: 'mock',
     version: VERSION,
     SOAP_FIELDS: SOAP_FIELDS,
+    VITAL_FIELDS: VITAL_FIELDS,
+    APPLY_TARGETS: APPLY_TARGETS,
     FIELD_LIMITS: FIELD_LIMITS,
     NOT_PROVIDED: NOT_PROVIDED,
+    MAX_TRANSCRIPT_CHARS: MAX_TRANSCRIPT_CHARS,
     recording: RECORDING,
     normalizeTranscript: normalizeTranscript,
     validateScribeInput: validateScribeInput,
     getScribeStatus: getScribeStatus,
     generateSoapDraft: generateSoapDraft,
-    createSoapDraft: createSoapDraft
+    createSoapDraft: createSoapDraft,
+    buildPreConsultationSummary: buildPreConsultationSummary
   };
 })(window);

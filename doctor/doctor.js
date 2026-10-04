@@ -100,7 +100,24 @@ const MEDICINE_LIMITS = { medicine: 100, frequency: 50, instructions: 500 };
         : a.visitContext) || '',
       severity: appt.ai_triage || 'Routine',
       checkedIn: a.status === 'checked_in' || !!appt.checked_in,
-      aiSummary: appt.ai_summary || '',
+      // Pre-consultation summary, built by the adapter from THIS appointment
+      // only — pet, booked service and the concerns recorded at booking. The
+      // pet's `ai_summary` triage fixture is deliberately NOT reused here: it
+      // describes the same symptoms for every visit of that pet, so a patient
+      // booked for a blood test with no notes would be shown symptoms nobody
+      // reported. Read off `window` directly (not the SCRIBE const below,
+      // which is in its temporal dead zone while mapAppointment runs at init).
+      aiSummary: (window.DoctorScribe && window.DoctorScribe.buildPreConsultationSummary)
+        ? window.DoctorScribe.buildPreConsultationSummary({
+          petName: a.pet.name,
+          species: a.pet.species,
+          serviceLabel: svcLabel(a.service),
+          reason: (a.customVisitContext
+            ? (a.visitContext ? a.visitContext + ': ' + a.customVisitContext : a.customVisitContext)
+            : a.visitContext) || '',
+          notes: a.notes || ''
+        })
+        : '',
       // Pet/EMR domain — clinical history is not part of the appointment.
       history: appt.visits || []
     };
@@ -321,34 +338,83 @@ const MEDICINE_LIMITS = { medicine: 100, frequency: 50, instructions: 500 };
     document.getElementById('save-status').textContent = '';
   }
   // ─── AI SCRIBE (mock) ──────────────────────────────────────────────────────
-  // The Doctor UI owns NO soap-generation rules. It reads the transcript, calls
-  // the adapter, and writes the returned strings into the EXISTING SOAP fields.
-  // What a draft may contain lives in doctor-scribe.js, so replacing the mock
-  // generator with the transcription/AI endpoint later changes one file instead
-  // of this workflow.
+  // The Doctor UI owns NO soap-generation rules and parses NO medical text. It
+  // hands the transcript to the adapter and writes back the `apply` map the
+  // adapter returns, keyed by the existing control names. What a draft may
+  // contain, and which control each fact belongs in, lives in
+  // doctor-scribe.js — so replacing the mock generator with the
+  // transcription/AI endpoint later changes one file instead of this workflow.
   // TODO(BACKEND): the adapter body becomes the SOAP draft request. Route,
   // payload and auth are CONTRACT NEEDED / TBD — see
   // docs/VHS_CLINICAL_CONTRACT.md §8. Do not invent them here.
   const SCRIBE = window.DoctorScribe || null;
   // Default line under the controls. Every other message is temporary.
   const SCRIBE_HINT = 'Assistive draft only — review and edit every field. Nothing is saved or finalized until you do.';
+  // Phase 1 reads .txt only, entirely in the browser. Nothing is uploaded.
+  const TRANSCRIPT_FILE_MAX_BYTES = 64 * 1024;
   const scribe = {
     panel: document.getElementById('scribe-section'),
     status: document.getElementById('scribe-status'),
     note: document.getElementById('scribe-note'),
     lock: document.getElementById('scribe-lock'),
+    disclaimer: document.getElementById('scribe-disclaimer'),
     record: document.getElementById('scribe-record'),
     paste: document.getElementById('scribe-paste-toggle'),
+    upload: document.getElementById('scribe-upload'),
+    file: document.getElementById('scribe-file'),
     generate: document.getElementById('scribe-generate'),
-    cancel: document.getElementById('scribe-cancel'),
-    warning: document.getElementById('scribe-warning'),
     wrap: document.getElementById('scribe-transcript-wrap'),
-    transcript: document.getElementById('scribe-transcript'),
-    // True only while a regeneration waits for explicit confirmation. Screen
-    // state, never persisted: it must not survive a patient switch or reload.
-    pendingRegenerate: false
+    transcript: document.getElementById('scribe-transcript')
   };
-  const SOAP_LABELS = { subjective: 'Subjective', exam: 'Objective', assessment: 'Assessment', plan: 'Plan' };
+  const SOAP_LABELS = { subjective: 'Subjective', objective: 'Objective findings', assessment: 'Assessment', plan: 'Plan' };
+  const VITAL_LABELS = { weight: 'Weight (kg)', temperature: 'Temperature (°C)', heartRate: 'Heart rate (bpm)' };
+
+  // ── CONFIRMATION ──────────────────────────────────────────────────────────
+  // One modal serves every destructive step in the consultation: regenerating
+  // over existing notes, replacing a transcript, and completing. It resolves to
+  // a boolean, so each caller reads as "ask, then act" instead of hiding the
+  // branch inside the action itself. Fails closed: without the dialog, a
+  // destructive step is never taken.
+  const confirmUi = {
+    overlay: document.getElementById('confirm-overlay'),
+    title: document.getElementById('confirm-title'),
+    message: document.getElementById('confirm-message'),
+    cancel: document.getElementById('confirm-cancel'),
+    accept: document.getElementById('confirm-accept'),
+    close: document.getElementById('confirm-close'),
+    resolver: null,
+    lastFocus: null
+  };
+  function confirmAction(options) {
+    const cfg = options || {};
+    if (!confirmUi.overlay || confirmUi.resolver) return Promise.resolve(false);
+    return new Promise(resolve => {
+      confirmUi.resolver = resolve;
+      confirmUi.lastFocus = document.activeElement;
+      confirmUi.title.textContent = cfg.title || 'Please confirm';
+      confirmUi.message.textContent = cfg.message || '';
+      confirmUi.accept.textContent = cfg.acceptLabel || 'Confirm';
+      confirmUi.overlay.classList.add('show');
+      confirmUi.cancel.focus({ preventScroll: true }); // safe choice first
+    });
+  }
+  function settleConfirm(value) {
+    if (!confirmUi.resolver) return;
+    const resolve = confirmUi.resolver;
+    confirmUi.resolver = null;
+    confirmUi.overlay.classList.remove('show');
+    const back = confirmUi.lastFocus;
+    if (back && typeof back.focus === 'function') back.focus({ preventScroll: true });
+    resolve(value);
+  }
+  if (confirmUi.overlay) {
+    confirmUi.cancel.addEventListener('click', () => settleConfirm(false));
+    confirmUi.accept.addEventListener('click', () => settleConfirm(true));
+    confirmUi.close.addEventListener('click', () => settleConfirm(false));
+    // Clicking the backdrop or pressing Escape both mean "no".
+    confirmUi.overlay.addEventListener('click', event => { if (event.target === confirmUi.overlay) settleConfirm(false); });
+    document.addEventListener('keydown', event => { if (event.key === 'Escape' && confirmUi.resolver) settleConfirm(false); });
+  }
 
   // Unknown keys are preserved so the draft record can grow without a migration.
   function writeScribeState(draft, patch) {
@@ -361,7 +427,8 @@ const MEDICINE_LIMITS = { medicine: 100, frequency: 50, instructions: 500 };
     return {
       transcript: typeof s.transcript === 'string' ? s.transcript : '',
       generatedAt: s.generatedAt || null,
-      // Snapshot of what the generator last wrote, used by the regenerate guard.
+      // Snapshot of what the generator last wrote (keyed by control name), so
+      // the indicator can compare it against the live controls.
       soap: (s.soap && typeof s.soap === 'object') ? s.soap : null,
       transcriptAtGenerate: typeof s.transcriptAtGenerate === 'string' ? s.transcriptAtGenerate : null
     };
@@ -377,14 +444,17 @@ const MEDICINE_LIMITS = { medicine: 100, frequency: 50, instructions: 500 };
     if (status === 'completed') return { status, locked: false, readOnly: true, editable: false };
     return { status, locked: true, readOnly: true, editable: false };
   }
-  // DERIVED, never stored as a flag: has the Doctor changed a generated SOAP
-  // field, or the transcript it came from? Comparing against the snapshot the
-  // generator wrote means this can never drift out of step with the fields.
+  // DERIVED, never stored as a flag: has the Doctor changed anything the
+  // generator wrote, or the transcript it came from? Comparing the live controls
+  // against the snapshot means this can never drift out of step with the form.
   function scribeSoapEdited() {
     if (!SCRIBE || !selectedPatient) return false;
     const snapshot = scribeState(draftFor(selectedPatient)).soap;
     if (!snapshot) return false;
-    return SCRIBE.SOAP_FIELDS.some(name => (form.elements.namedItem(name).value || '') !== String(snapshot[name] || ''));
+    return Object.keys(snapshot).some(name => {
+      const field = form.elements.namedItem(name);
+      return field && (field.value || '') !== String(snapshot[name] || '');
+    });
   }
   function scribeTranscriptChanged() {
     if (!selectedPatient) return false;
@@ -401,38 +471,43 @@ const MEDICINE_LIMITS = { medicine: 100, frequency: 50, instructions: 500 };
     if (scribe.paste) scribe.paste.setAttribute('aria-expanded', 'true');
     if (focus) scribe.transcript.focus();
   }
-  function resetScribeRegenerate() {
-    scribe.pendingRegenerate = false;
-    if (scribe.warning) scribe.warning.hidden = true;
-    if (scribe.cancel) scribe.cancel.hidden = true;
-    if (scribe.generate) scribe.generate.textContent = 'Generate SOAP Draft';
+  // Would a regeneration destroy something? Any non-empty control the generator
+  // writes counts — generated or typed by hand.
+  function scribeHasContent() {
+    if (!SCRIBE) return false;
+    return SCRIBE.APPLY_TARGETS.some(name => {
+      const field = form.elements.namedItem(name);
+      return field && String(field.value || '').trim() !== '';
+    });
   }
-  // One place decides the indicator. Ready / Recording / Transcript ready /
-  // Draft generated / Unsaved changes — all five come from the adapter so the
-  // label and the underlying state can never disagree.
+  // One place decides the indicator: Ready / Transcript ready / Draft generated /
+  // Saved draft / Unsaved changes — every label comes from the adapter, so the
+  // pill and the underlying state can never disagree.
   function syncScribePanel() {
     if (!scribe.panel || !SCRIBE) return;
     const access = scribeAccess();
-    const state = selectedPatient
-      ? scribeState(draftFor(selectedPatient))
-      : { transcript: '', generatedAt: null, soap: null, transcriptAtGenerate: null };
+    const draft = selectedPatient ? draftFor(selectedPatient) : null;
+    const state = scribeState(draft);
     const info = SCRIBE.getScribeStatus({
       // Phase 1 captures no audio, so nothing can set this yet. The seat exists
       // for the future transcription integration.
       recording: false,
       transcript: state.transcript,
       generatedAt: state.generatedAt,
-      unsavedChanges: scribeSoapEdited() || scribeTranscriptChanged()
+      saved: !!(draft && draft.saved === true && state.generatedAt),
+      // Drift from the generated draft counts as unsaved ONLY while the draft
+      // itself is unsaved — otherwise saving the draft would still read
+      // "Unsaved changes" forever.
+      unsavedChanges: !!draft && draft.saved !== true && (scribeSoapEdited() || scribeTranscriptChanged())
     });
     scribe.status.textContent = info.label;
     scribe.status.dataset.state = info.state;
     scribe.record.disabled = !access.editable;
     scribe.paste.disabled = !access.editable;
+    scribe.upload.disabled = !access.editable;
     scribe.generate.disabled = !access.editable;
-    scribe.cancel.disabled = !access.editable;
     scribe.transcript.readOnly = !access.editable;
     scribe.panel.classList.toggle('is-locked', access.locked);
-    if (!access.editable && scribe.pendingRegenerate) resetScribeRegenerate();
     const lockText = access.locked
       ? 'AI Scribe unlocks once the consultation is in progress.'
       : (access.readOnly ? 'This consultation is completed — AI Scribe is read-only.' : '');
@@ -441,22 +516,17 @@ const MEDICINE_LIMITS = { medicine: 100, frequency: 50, instructions: 500 };
       scribe.lock.hidden = !lockText;
     }
   }
-  // Regeneration is destructive — it rewrites all four SOAP fields. When a
-  // generated draft has been edited the run is never silent: the button turns
-  // into an explicit confirmation the Doctor has to press a second time.
-  function requestScribeGenerate() {
-    if (scribe.pendingRegenerate) {
-      resetScribeRegenerate();
-      runScribeGenerate();
-      return;
-    }
-    if (scribeSoapEdited() || scribeTranscriptChanged()) {
-      scribe.pendingRegenerate = true;
-      scribe.warning.hidden = false;
-      scribe.cancel.hidden = false;
-      scribe.generate.textContent = 'Confirm Regenerate';
-      scribe.generate.focus();
-      return;
+  // Regenerating rewrites every field the generator owns, so it is never silent:
+  // an explicit confirmation stands between the Doctor and losing notes.
+  async function requestScribeGenerate() {
+    if (!scribeAccess().editable) { setScribeNote('AI Scribe is read-only for this consultation.'); return; }
+    if (scribeHasContent()) {
+      const confirmed = await confirmAction({
+        title: 'Regenerate SOAP draft?',
+        message: 'This will replace the current SOAP fields. Any unsaved manual edits will be lost.',
+        acceptLabel: 'Regenerate'
+      });
+      if (!confirmed) { syncScribePanel(); return; }
     }
     runScribeGenerate();
   }
@@ -483,7 +553,7 @@ const MEDICINE_LIMITS = { medicine: 100, frequency: 50, instructions: 500 };
     // Promise-returning seam: the mock resolves immediately, the future
     // transcription/AI endpoint is the same call. Nothing leaves this device.
     SCRIBE.createSoapDraft(input).then(result => {
-      if (!result.ok || !result.soap) {
+      if (!result.ok || !result.apply) {
         setScribeNote(result.error && result.error.message ? result.error.message : 'The SOAP draft could not be generated. Enter the SOAP note manually.');
         return;
       }
@@ -492,27 +562,29 @@ const MEDICINE_LIMITS = { medicine: 100, frequency: 50, instructions: 500 };
     });
   }
   function applyScribeDraft(patient, result) {
-    // Fills the EXISTING SOAP fields. There is no second SOAP form in this
-    // portal, and no prescription, lab or lifecycle control is touched.
-    const written = [];
-    SCRIBE.SOAP_FIELDS.forEach(name => {
+    // Writes the EXISTING controls by name. No second SOAP form exists, and no
+    // prescription, lab or lifecycle control is touched. Vitals the transcript
+    // never stated are written blank, so a regenerated draft is a clean draft
+    // rather than a mix of old and new.
+    SCRIBE.APPLY_TARGETS.forEach(name => {
       const field = form.elements.namedItem(name);
-      if (!field) return;
-      field.value = result.soap[name] || '';
-      written.push(field);
+      if (field) field.value = result.apply[name] == null ? '' : String(result.apply[name]);
     });
-    // The character counters attached by the validation layer only re-read the
-    // field on an input event, so a programmatic fill would leave them showing
-    // the PREVIOUS length. Re-dispatch so the counter, the draft flag and the
-    // indicator all agree with what is actually on screen.
-    written.forEach(field => field.dispatchEvent(new Event('input', { bubbles: true })));
     writeScribeState(draftFor(patient), {
       transcript: scribe.transcript.value,
       transcriptAtGenerate: scribe.transcript.value,
       generatedAt: result.meta.generatedAt,
       engine: result.meta.engine,
-      soap: Object.assign({}, result.soap),
+      soap: Object.assign({}, result.apply),
       patient: result.meta.patient
+    });
+    // The character counters attached by the validation layer only re-read a
+    // field on an input event, so a programmatic fill would leave them showing
+    // the PREVIOUS length. Re-dispatch on the SOAP textareas only (the vitals
+    // have no counter and their strict entry filters need no nudge).
+    SCRIBE.SOAP_FIELDS.forEach(name => {
+      const field = form.elements.namedItem(name);
+      if (field) field.dispatchEvent(new Event('input', { bubbles: true }));
     });
     // Generated text is working state, never a saved one, and never a review:
     // markChanged() unsets the saved flag AND the acknowledgement checkbox,
@@ -526,6 +598,9 @@ const MEDICINE_LIMITS = { medicine: 100, frequency: 50, instructions: 500 };
     if (result.missing && result.missing.length) {
       parts.push('No ' + result.missing.map(name => SOAP_LABELS[name] || name).join(' or ') + ' content was in the transcript, so "' + SCRIBE.NOT_PROVIDED + '" was used.');
     }
+    if (result.absentVitals && result.absentVitals.length) {
+      parts.push('No ' + result.absentVitals.map(name => VITAL_LABELS[name] || name).join(' or ') + ' was stated in the transcript, so the field was left blank.');
+    }
     if (result.unclassified && result.unclassified.length) {
       parts.push(result.unclassified.length + ' line(s) could not be placed and were not added — check them in the transcript.');
     }
@@ -534,10 +609,55 @@ const MEDICINE_LIMITS = { medicine: 100, frequency: 50, instructions: 500 };
     }
     return parts.join(' ');
   }
+
+  // ── TRANSCRIPT SOURCES ────────────────────────────────────────────────────
+  // Typed/pasted text, a local .txt file, and — later — recorded audio. All
+  // three end up in the same textarea, so the generator has one input.
+  function setTranscriptText(text) {
+    revealScribeTranscript(false);
+    scribe.transcript.value = String(text == null ? '' : text);
+    scribe.transcript.dispatchEvent(new Event('input', { bubbles: true }));
+  }
+  // Anything that would discard transcript content asks first. Not shown for an
+  // empty box — there is nothing to lose.
+  function replaceTranscript(label, apply) {
+    if (!scribe.transcript.value.trim()) { apply(); return; }
+    confirmAction({
+      title: 'Replace current transcript?',
+      message: 'Your existing transcript text' + (label ? ' (' + label + ')' : '') + ' will be replaced.',
+      acceptLabel: 'Replace'
+    }).then(confirmed => { if (confirmed) apply(); });
+  }
+  function readTranscriptFile(file) {
+    if (!file) return;
+    const name = file.name || 'this file';
+    // Extension is the check the Doctor can see; the MIME type is a courtesy.
+    // Neither decides anything beyond "plain text file".
+    if (!/\.txt$/i.test(name) && file.type !== 'text/plain') {
+      setScribeNote('Upload a plain .txt transcript — "' + name + '" is not supported.');
+      return;
+    }
+    if (file.size > TRANSCRIPT_FILE_MAX_BYTES) {
+      setScribeNote('"' + name + '" is larger than 64 KB. Split the transcript into a smaller .txt file.');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      const text = String(reader.result || '');
+      if (text.length > SCRIBE.MAX_TRANSCRIPT_CHARS) {
+        setScribeNote('"' + name + '" holds more than ' + SCRIBE.MAX_TRANSCRIPT_CHARS + ' characters. Split it into a smaller file.');
+        return;
+      }
+      replaceTranscript(name, () => setTranscriptText(text));
+    };
+    reader.onerror = () => setScribeNote('"' + name + '" could not be read. Try again with a plain .txt file.');
+    reader.readAsText(file);
+  }
+
   if (scribe.panel && SCRIBE) {
     // Start Recording is an INTEGRATION SEAT, not a recorder. Phase 1 ships no
-    // microphone capture and no speech-to-text, so the button states exactly
-    // that and opens the working path instead of implying audio is being taken.
+    // microphone capture and no speech-to-text, so the button says exactly that
+    // and opens the working path instead of implying audio is being taken.
     scribe.record.addEventListener('click', () => {
       setScribeNote(SCRIBE.recording.message);
       revealScribeTranscript(true);
@@ -548,12 +668,26 @@ const MEDICINE_LIMITS = { medicine: 100, frequency: 50, instructions: 500 };
       scribe.paste.setAttribute('aria-expanded', String(open));
       if (open) scribe.transcript.focus();
     });
-    scribe.generate.addEventListener('click', requestScribeGenerate);
-    scribe.cancel.addEventListener('click', () => {
-      resetScribeRegenerate();
-      setScribeNote(SCRIBE_HINT);
-      syncScribePanel();
+    // Pasting over real notes must not silently discard them.
+    scribe.transcript.addEventListener('paste', event => {
+      if (!scribe.transcript.value.trim()) return; // nothing to replace
+      event.preventDefault();
+      const text = (event.clipboardData || window.clipboardData).getData('text') || '';
+      replaceTranscript('pasted text', () => {
+        const field = scribe.transcript;
+        field.setRangeText(text, field.selectionStart, field.selectionEnd, 'end');
+        field.dispatchEvent(new Event('input', { bubbles: true }));
+      });
     });
+    if (scribe.upload && scribe.file) {
+      scribe.upload.addEventListener('click', () => scribe.file.click());
+      scribe.file.addEventListener('change', () => {
+        const file = scribe.file.files && scribe.file.files[0];
+        scribe.file.value = ''; // let the same file be picked again
+        readTranscriptFile(file);
+      });
+    }
+    scribe.generate.addEventListener('click', requestScribeGenerate);
     // Transcript edits are handled by the ONE form-level input listener below
     // (the textarea lives inside the consultation form, like every other
     // field), so there is no second edit path to keep in step.
@@ -723,9 +857,9 @@ const MEDICINE_LIMITS = { medicine: 100, frequency: 50, instructions: 500 };
     }
     document.getElementById('ai-summary').textContent = patient.aiSummary;
     // AI Scribe restores from the same draft record: the transcript, the last
-    // generated SOAP snapshot, and a lifecycle-appropriate enabled/read-only
-    // state. Switching patients also drops any pending regenerate confirmation.
-    resetScribeRegenerate();
+    // generated snapshot, and a lifecycle-appropriate enabled/read-only state.
+    // The confirmation dialog is stateless and always settles itself, so
+    // switching patients never leaves one open.
     if (scribe.transcript) {
       const scribeDraftState = scribeState(draft);
       scribe.transcript.value = scribeDraftState.transcript;
@@ -925,7 +1059,6 @@ const MEDICINE_LIMITS = { medicine: 100, frequency: 50, instructions: 500 };
       // Scribe transcript — is a draft edit: the saved flag and the review
       // acknowledgement both drop, and the Scribe indicator catches up so an
       // edited generated draft reads "Unsaved changes".
-      if (event.target.id === 'scribe-transcript') resetScribeRegenerate();
       markChanged();
       syncScribePanel();
     }
@@ -975,6 +1108,7 @@ const MEDICINE_LIMITS = { medicine: 100, frequency: 50, instructions: 500 };
     }
     { const d = draftFor(selectedPatient); d.saved = true; persistDraft(selectedPatient, d); }
     document.getElementById('draft-state').textContent = 'Saved on this device';
+    syncScribePanel(); // the Scribe pill moves to "Saved draft"
     // TODO(BACKEND): Persist the consultation through the consultation endpoint
     // and enable front-desk handoff once the API exists.
     status.textContent = 'Draft saved on this device.';
@@ -982,7 +1116,7 @@ const MEDICINE_LIMITS = { medicine: 100, frequency: 50, instructions: 500 };
   // Complete ends the lifecycle: stop the timer, record end time + duration.
   // TODO(BACKEND): Finalize through the consultation API; the backend then
   // releases the record to Clerk/Admin and the owner's account.
-  document.getElementById('complete-consultation').addEventListener('click', () => {
+  document.getElementById('complete-consultation').addEventListener('click', async () => {
     const draft = draftFor(selectedPatient);
     const status = document.getElementById('save-status');
     // TODO(BACKEND): Validate the completion transition server-side.
@@ -1001,6 +1135,25 @@ const MEDICINE_LIMITS = { medicine: 100, frequency: 50, instructions: 500 };
       showView('orders', false);
       status.textContent = incomplete.message;
       if (incomplete.field) incomplete.field.focus();
+      return;
+    }
+    // Every existing guard above has passed; ONLY now is the Doctor asked,
+    // because completion is irreversible and locks the record. Cancelling
+    // leaves the consultation exactly as it was — still in consultation, still
+    // editable, nothing stamped.
+    const confirmed = await confirmAction({
+      title: 'Complete consultation?',
+      message: 'Once completed, this consultation will become read-only. Make sure the SOAP notes, prescriptions, and lab requests have been reviewed.',
+      acceptLabel: 'Complete Consultation'
+    });
+    if (!confirmed) { status.textContent = 'Completion cancelled. The consultation is unchanged.'; return; }
+    // The Doctor can edit while the dialog was open, so the guards are re-run
+    // rather than trusted: the record must still be finalizable at the moment
+    // it actually completes.
+    if (statusFor(selectedPatient) !== 'in_consultation') { status.textContent = 'Start the consultation before completing it.'; return; }
+    if (window.doctorValidateClinical && !window.doctorValidateClinical()) {
+      const rx = window.doctorFirstPrescriptionIssue && window.doctorFirstPrescriptionIssue();
+      status.textContent = rx ? rx.message : 'Fix the highlighted clinical fields before completing the consultation.';
       return;
     }
     // Same canonical record: the shared store stamps

@@ -8,7 +8,7 @@
   <link rel="stylesheet" href="../admin/admin-style.css?v=3.4.4">
   <link rel="stylesheet" href="../shared/dashboard-theme.css?v=3.4.6">
   <link rel="stylesheet" href="../shared/dashboard-icons.css">
-  <link rel="stylesheet" href="doctor.css?v=3.4.9">
+  <link rel="stylesheet" href="doctor.css?v=3.5.0">
   <script src="../shared/appointment-contract.js?v=2.8.0"></script>
   <script src="../shared/mock-users.js?v=2.13.0"></script>
   <script src="../shared/mock-doctors.js?v=2.9.0"></script>
@@ -18,8 +18,8 @@
   <script src="../shared/audit-store.js?v=1.0.0"></script>
   <script src="../shared/document-store.js?v=1.0.3"></script>
   <script src="../shared/document-render.js?v=1.1.0"></script>
-  <script src="doctor-scribe.js?v=1.0.0"></script>
-  <script src="doctor.js?v=2.17.0" defer></script>
+  <script src="doctor-scribe.js?v=2.0.0"></script>
+  <script src="doctor.js?v=2.18.0" defer></script>
 </head>
 <body class="doctor-portal">
   <a class="skip-link" href="#workspace">Skip to current view</a>
@@ -74,10 +74,17 @@
       <form id="consultation-form" novalidate hidden>
         <section class="content-section" id="soap-section" data-panel="notes" aria-labelledby="soap-heading" hidden>
           <div class="section-heading"><h2 class="section-title" id="soap-heading">SOAP note</h2></div>
+          <!-- Pre-consultation read of what the clinic ALREADY knows: pet,
+               booked service and the concerns recorded with the booking. It is
+               built by the adapter, never from the pet's triage fixture. -->
           <div class="ai-strip">
-            <span class="ai-chip" aria-hidden="true">AI</span>
-            <div class="ai-body"><strong>AI-assisted summary</strong><span>Assistive draft — verify against your own examination.</span></div>
+            <div class="ai-strip-head">
+              <span class="ai-chip" aria-hidden="true">AI</span>
+              <strong class="ai-strip-title">AI-assisted summary</strong>
+              <span class="ai-strip-tag">Pre-consultation</span>
+            </div>
             <p id="ai-summary"></p>
+            <p class="ai-strip-foot">Context only &mdash; verify against your own examination.</p>
           </div>
           <!-- AI Scribe: a compact clinical tool that FILLS the SOAP fields below.
                It never owns them, and it never adds a second SOAP form. -->
@@ -88,17 +95,27 @@
             </div>
             <p class="scribe-subtitle" id="scribe-subtitle">Convert consultation notes or transcript into a structured SOAP draft for review.</p>
             <div class="scribe-controls">
-              <button type="button" class="btn-secondary" id="scribe-record">Start Recording</button>
-              <button type="button" class="btn-secondary" id="scribe-paste-toggle" aria-expanded="false" aria-controls="scribe-transcript-wrap">Paste Transcript</button>
-              <button type="button" class="btn-primary" id="scribe-generate">Generate SOAP Draft</button>
-              <button type="button" class="btn-secondary btn-small" id="scribe-cancel" hidden>Cancel</button>
+              <button type="button" class="btn-secondary scribe-btn-record" id="scribe-record">
+                <span class="scribe-btn-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0"/><path d="M12 18v3"/><path d="M9 21h6"/></svg></span>
+                Start Recording
+              </button>
+              <button type="button" class="btn-secondary" id="scribe-paste-toggle" aria-expanded="false" aria-controls="scribe-transcript-wrap">
+                <span class="scribe-btn-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 4h6v3H9z"/><path d="M15 5.5h2A2 2 0 0 1 19 7.5v11a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2v-11a2 2 0 0 1 2-2h2"/></svg></span>
+                Paste Transcript
+              </button>
+              <button type="button" class="btn-secondary" id="scribe-upload">
+                <span class="scribe-btn-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V3"/><path d="m8 7 4-4 4 4"/><path d="M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/></svg></span>
+                Upload Transcript
+              </button>
+              <input type="file" id="scribe-file" accept=".txt,text/plain" hidden>
+              <button type="button" class="btn-primary scribe-btn-generate" id="scribe-generate">Generate SOAP Draft</button>
             </div>
+            <p class="scribe-disclaimer" id="scribe-disclaimer">Recording is not active in this build &mdash; no microphone audio is captured or transcribed. Paste or upload the transcript instead.</p>
             <div class="scribe-transcript" id="scribe-transcript-wrap" hidden>
               <label class="form-label" for="scribe-transcript">Consultation transcript / notes</label>
               <textarea class="form-textarea" id="scribe-transcript" name="scribeTranscript" rows="4" maxlength="8000" placeholder="Paste or type the consultation transcript, then generate a SOAP draft."></textarea>
               <p class="helper">Kept with this draft on this device. Nothing is recorded, transcribed or sent anywhere.</p>
             </div>
-            <p class="scribe-warning" id="scribe-warning" hidden>Regenerating replaces the SOAP fields below with a new draft. Your edits to them will be lost.</p>
             <p class="scribe-note" id="scribe-note">Assistive draft only &mdash; review and edit every field. Nothing is saved or finalized until you do.</p>
             <p class="scribe-lock" id="scribe-lock" hidden></p>
           </section>
@@ -123,6 +140,19 @@
           <p id="save-status" role="status"></p>
         </div>
       </form>
+      <div class="modal-overlay" id="confirm-overlay" role="dialog" aria-modal="true" aria-labelledby="confirm-title" aria-describedby="confirm-message">
+        <div class="modal-content confirm-modal">
+          <div class="modal-header">
+            <h2 class="modal-title" id="confirm-title">Confirm</h2>
+            <button class="modal-close" type="button" id="confirm-close" aria-label="Close confirmation">&times;</button>
+          </div>
+          <p id="confirm-message" class="confirm-message"></p>
+          <div class="document-actions">
+            <button class="btn-secondary" type="button" id="confirm-cancel">Cancel</button>
+            <button class="btn-primary" type="button" id="confirm-accept">Confirm</button>
+          </div>
+        </div>
+      </div>
       <div class="modal-overlay" id="document-preview-overlay" role="dialog" aria-modal="true" aria-labelledby="document-preview-title">
         <div class="modal-content document-modal">
           <div class="modal-header">
