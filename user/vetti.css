@@ -463,11 +463,16 @@ body.vetti-active .chatbot-container { display: none; }
   scrollbar-width: thin;
 }
 
-/* One readable centred column. Widened from 46rem so the thread feels
-   less cramped now that it owns all the reclaimed vertical space. */
+/* One workspace, with one readable text column INSIDE it. The workspace
+   takes most of the desktop width — capped so it never runs edge to edge,
+   and never less than a 1.5rem gutter each side. What stays narrow is the
+   text: every bubble, card and block below keeps its own comfortable
+   measure, so widening the FRAME removes the dead white space without
+   wrecking the line length. Tablet and phone override this in the 1024px
+   and 768px blocks further down; this rule is desktop only. */
 .vetti-canvas > * {
   width: 100%;
-  max-width: 50rem;            /* 800px — desktop target range 760-860 */
+  max-width: min(88rem, calc(100% - 3rem));
   margin-inline: auto;
   min-width: 0;
 }
@@ -1230,15 +1235,38 @@ body.vetti-active .chatbot-container { display: none; }
 
 /* The rail and the composer live in one bordered unit so the bottom of
    the workspace reads as a single interaction zone. It shares the
-   thread's measure, so both line up on the same left/right edges. */
+   WORKSPACE's width (not the text column's), so the composer lines up
+   with the thread above it on both edges. */
 .vetti-input-zone {
-  max-width: 50rem;
+  max-width: min(88rem, calc(100% - 3rem));
   margin-inline: auto;
   border: 1px solid var(--vhs-shell-border, rgba(60, 31, 120, 0.14));
   border-radius: var(--radius-lg, 1rem);
   background: var(--vhs-neutral-surface, #FFFFFF);
   overflow: hidden;
   transition: border-color var(--transition), box-shadow var(--transition);
+}
+
+/* ── DESKTOP GUTTER MATCHING (>1024px) ───────────────────────────────
+   On desktop the thread is as wide as the composer can get, so the two
+   must end up EXACTLY the same width. The canvas is a scroll container
+   and reserves a scrollbar track; the composer area is not, which leaves
+   the composer one scrollbar wider and overhanging on the right. Reserving
+   the same track in both boxes lines them up again — and reserving it in
+   the canvas ALSO stops the workspace jumping sideways the moment the
+   conversation starts scrolling. The composer track is painted transparent,
+   so it costs alignment and shows nothing.
+
+   Desktop only on purpose: on tablet and phone the thread is a fixed
+   measure, never the full width, so this pairing is unnecessary there and
+   the reserved track would only steal 11px from a phone. */
+@media (min-width: 1025px) {
+  .vetti-canvas { scrollbar-gutter: stable; }
+  .vetti-composer-area {
+    overflow-y: scroll;
+    scrollbar-width: thin;
+    scrollbar-color: transparent transparent;
+  }
 }
 
 /* Composer focused = Vetti is listening. A soft ring, not a glow. */
