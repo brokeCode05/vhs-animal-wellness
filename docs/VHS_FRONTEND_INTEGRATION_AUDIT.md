@@ -122,7 +122,7 @@ can silently disagree the moment the backend becomes authoritative.
 ### 3.2 Findings
 
 **`service` is persisted in two conventions.** Seed appointments store the display
-label (`'Consultation'`, `'Dog Grooming'` — `mock-appointments.js:32-115`); every
+label (`'Consultation'`, `'Dog Grooming'` — `shared/mock-appointments.js:32-115`); every
 newly written record stores the catalog value (`'consultation'`). `serviceByValue()`
 and `serviceLabel()` both resolve either via an alias map, so nothing breaks — but a
 backend column with an FK to `services.id` cannot hold both. This is the single
@@ -131,18 +131,18 @@ most likely source of a migration bug.
 **Three `referenceNo` formats coexist:**
 | Format | Example | Source |
 |---|---|---|
-| Generated numeric | `VHS-20261007-0901` | `user-script.js:1097`, `admin-portal.js:636` |
-| Seed hex | `VHS-20260926-A1B2C3` | `mock-appointments.js:32-115` |
-| Demo placeholder | `VHS-DEMO-APT900` | `mock-appointments.js:101`, `document-store.js:86` |
+| Generated numeric | `VHS-20261007-0901` | `user/user-script.js:1097`, `admin/admin-portal.js:636` |
+| Seed hex | `VHS-20260926-A1B2C3` | `shared/mock-appointments.js:32-115` |
+| Demo placeholder | `VHS-DEMO-APT900` | `shared/mock-appointments.js:101`, `shared/document-store.js:86` |
 | Dead legacy | `VHS-2026-0915-001` | `_legacyUserFixtures`, not rendered |
 
-**ID minting is duplicated.** `user-script.js:1092-1097` and `admin-portal.js:631-636`
+**ID minting is duplicated.** `user/user-script.js:1092-1097` and `admin/admin-portal.js:631-636`
 contain the *same* algorithm (`max(apt\d+)+1`, zero-padded to 3, reference padded
 to 4). They agree today. Two copies of an ID allocator is exactly the kind of rule
 that drifts.
 
 **Collisions fail safe.** `add()` rejects a duplicate `appointmentId` **or**
-`referenceNo` (`mock-appointments.js:260-265`), so a concurrent double-mint cannot
+`referenceNo` (`shared/mock-appointments.js:260-265`), so a concurrent double-mint cannot
 corrupt the store — the second write is refused. The user-facing error is misleading
 ("This booking already exists"), which is a UX bug not a data bug.
 
@@ -155,14 +155,14 @@ corrupt the store — the second write is refused. The user-facing error is misl
 
 ### 4.1 Canonical set
 
-`AppointmentContract.STATUSES` (`appointment-contract.js:16`):
+`AppointmentContract.STATUSES` (`shared/appointment-contract.js:16`):
 ```
 pending · confirmed · checked_in · in_consultation · completed · canceled · no_show · rescheduled
 ```
 
 ### 4.2 Transition table — the single source
 
-`mock-appointments.js:387-395`:
+`shared/mock-appointments.js:387-395`:
 ```
 confirmed        → checked_in
 checked_in       → in_consultation
@@ -181,13 +181,13 @@ writes through it. **This is a genuine strength.**
 
 - **`normalizeStatus()` absorbs legacy values** (`scheduled`, `approved`, `cancelled`,
   `checked in`, `in-consultation`) into canonical ones, defaulting unknown values to
-  `pending`. Safe, and one definition only — `vetti-data.js:169` is a thin delegating
+  `pending`. Safe, and one definition only — `user/vetti-data.js:169` is a thin delegating
   wrapper, not a reimplementation.
 - **`no_show` is unreachable.** It is a valid status but has no entry in the
   transition table, so nothing can set it. Currently harmless (no UI offers it).
 - **`pending` is nearly unreachable.** New bookings are written `confirmed`, so the
   `pending` branch is reachable only via a legacy seed. Admin's Approve/Reject actions
-  are correctly gated on `a.status === 'pending'` (`admin-portal.js:58`), so this is
+  are correctly gated on `a.status === 'pending'` (`admin/admin-portal.js:58`), so this is
   *not* a stale-UI bug — it is a mostly-dead action path.
 - **No portal reimplements transitions.** Admin (`setStatus`), Doctor (`setStatus`),
   User cancel (`setStatus`), check-in (`checkIn` → `setStatus`) all route correctly.
@@ -203,16 +203,16 @@ writes through it. **This is a genuine strength.**
 | User booking | **A** adapter | `_smartSchedulingSlots` → engine; `_finalizeBooking` → engine → `store.add` |
 | Admin booking | **A** adapter | `_adminSchedulingSlots` → engine; `submitAdminBooking` → engine → `store.add` |
 | Reschedule (both) | **A** adapter | store `_slotGuard` → engine |
-| Cancel (User) | **A**, with a legacy `else` | `user-script.js:2740-2746` mutates `mockAppointmentsData` when no shared store — **F-P2-5** |
+| Cancel (User) | **A**, with a legacy `else` | `user/user-script.js:2743-2746` mutates `mockAppointmentsData` when no shared store — **F-P2-5** |
 | Check-in | **B** acceptable | `checkin-script.js` calls the store directly; thin and correct |
 | Admin approve/reject/cancel | **A** | `_adminSharedStatus` → `setStatus` |
 | Doctor queue | **A/B** | reads the store; keeps a local `drafts` map — F-P0-3 |
 | Doctor start/end consultation | **A** | `store.setStatus` + audit ✅ |
-| EMR / pet history | **B — duplicate** | `doctor.js:63-88` carries its own hardcoded per-pet history arrays — F-P2-7 |
+| EMR / pet history | **B — duplicate** | `doctor/doctor.js:63-88` carries its own hardcoded per-pet history arrays — F-P2-7 |
 | SOAP / prescription / labs | **E — none** | memory-only `draft` — F-P0-3 |
 | Documents | **A** | `SharedDocuments` + `document-render` |
 | Vetti | **A** | `VettiData` / `VettiTools` |
-| Public site | **A** (partial) | `website-services.js:16` reads `SharedMockUsers` |
+| Public site | **A** (partial) | `web-page/website-services.js:16` reads `SharedMockUsers` |
 
 ### 5.2 Direct localStorage from UI code
 
@@ -220,11 +220,11 @@ Essentially clean. The only *real* access outside `shared/` is:
 
 | Site | Purpose | Verdict |
 |---|---|---|
-| `vetti-state.js:737-758` | `LS_SEEN` — "has ever met Vetti" | Acceptable UI preference; survives logout by design |
-| `vetti-data.js:349-358` | `qaPruneOwnerPets` — QA-only helper | Documented as QA-only, unreferenced by product code |
+| `user/vetti-state.js:737-758` | `LS_SEEN` — "has ever met Vetti" | Acceptable UI preference; survives logout by design |
+| `user/vetti-data.js:349-358` | `qaPruneOwnerPets` — QA-only helper | Documented as QA-only, unreferenced by product code |
 
 Everything else that mentions `localStorage` in portal files is a **comment**
-(`admin-portal.js:950` explicitly states "localStorage lives only inside the shared store").
+(`admin/admin-portal.js:950` explicitly states "localStorage lives only inside the shared store").
 **This is a strong result and a meaningful cutover asset.**
 
 ---
@@ -237,17 +237,17 @@ One engine, five read surfaces, three write-time guards:
 
 | Surface | Adapter | Location |
 |---|---|---|
-| User booking dropdown | `_smartSchedulingSlots()` | `user-script.js:805` |
-| User booking submit | `_finalizeBooking()` | `user-script.js:1032` |
-| User reschedule dropdown | `_populateRescheduleSlots()` | `user-script.js:2559` |
-| Admin booking dropdown | `_adminSchedulingSlots()` | `admin-portal.js:488` |
-| Admin booking submit | `submitAdminBooking()` | `admin-portal.js:591` |
-| Admin reschedule dropdown | `_populateAdminRescheduleSlots()` | `admin-portal.js:333` |
-| Vetti | `VettiData.getAvailableSlots()` | `vetti-data.js:315` |
-| Reschedule mutation | `_slotGuard()` | `mock-appointments.js:191` |
+| User booking dropdown | `_smartSchedulingSlots()` | `user/user-script.js:828` |
+| User booking submit | `_finalizeBooking()` | `user/user-script.js:1036` |
+| User reschedule dropdown | `_populateRescheduleSlots()` | `user/user-script.js:2582` |
+| Admin booking dropdown | `_adminSchedulingSlots()` | `admin/admin-portal.js:497` |
+| Admin booking submit | `submitAdminBooking()` | `admin/admin-portal.js:578` |
+| Admin reschedule dropdown | `_populateAdminRescheduleSlots()` | `admin/admin-portal.js:330` |
+| Vetti | `VettiData.getAvailableSlots()` | `user/vetti-data.js:315` |
+| Reschedule mutation | `_slotGuard()` | `shared/mock-appointments.js:191` |
 
 Service-change and date-change triggers exist on **both** booking forms
-(`admin-portal.js:454`, `user-script.js:793` + the `onchange` on `#service_id`).
+(`admin/admin-portal.js:454`, `user/user-script.js:807` + the `onchange` on `#service_id`).
 Verified live during the KAN-63 work: User == Admin == VettiData == engine for
 consultation, cherry-eye (doctor-required) and cat grooming (non-doctor, capacity 2).
 
@@ -255,9 +255,9 @@ consultation, cherry-eye (doctor-required) and cat grooming (non-doctor, capacit
 
 | Fallback | Sites | Classification |
 |---|---|---|
-| `takenSlots()` when engine absent | `admin-portal.js:357`, `admin-portal.js:607`, `user-script.js:1052`, `mock-appointments.js:214` | **Acceptable temporary** — unreachable while `smart-scheduling.js` loads; fails *closed* (refuses), never open |
-| `get_booked_slots.php` via `_legacyBookedSlotsFromPhp()` | `admin-portal.js:473` | **Must be removed at cutover** — legacy endpoint, `TODO(BACKEND)` already marks it |
-| "No service chosen → clinic hours" early return | `admin-portal.js:526` | **Acceptable** — a UI state, not an engine failure |
+| `takenSlots()` when engine absent | `admin/admin-portal.js:357`, `admin/admin-portal.js:621`, `user/user-script.js:1075`, `shared/mock-appointments.js:214` | **Acceptable temporary** — unreachable while `smart-scheduling.js` loads; fails *closed* (refuses), never open |
+| `get_booked_slots.php` via `_legacyBookedSlotsFromPhp()` | `admin/admin-portal.js:484` | **Must be removed at cutover** — legacy endpoint, `TODO(BACKEND)` already marks it |
+| "No service chosen → clinic hours" early return | `admin/admin-portal.js:536` | **Acceptable** — a UI state, not an engine failure |
 
 No dangerous duplication: there is exactly one place where availability is *decided*.
 
@@ -274,19 +274,19 @@ No dangerous duplication: there is exactly one place where availability is *deci
 
 | Value | Location | Class |
 |---|---|---|
-| **Owner identity `CURRENT_USER_ID = 1`** | `mock-users.js:79` | **D — dangerous** → F-P0-1 |
-| **Veterinarian `{id:'vet-001', name:'Dr. Santos'}`** | `doctor.js:169` | **D — dangerous** → F-P0-2 |
-| Clinic hours, `slotIntervalMinutes: 60` | `clinic-settings.js:23-27` | **B — centralised config** ✅ |
-| Cancellation/reschedule cutoff 120 min, no-show grace 15 | `clinic-settings.js:28-30` | **B** ✅ |
-| `SERVICE_SCHEDULING` durations/capacity | `mock-users.js:186-211` | **C — temporary mock**, correctly marked non-authoritative |
+| **Owner identity `CURRENT_USER_ID = 1`** | `shared/mock-users.js:79` | **D — dangerous** → F-P0-1 |
+| **Veterinarian `{id:'vet-001', name:'Dr. Santos'}`** | `doctor/doctor.js:169` | **D — dangerous** → F-P0-2 |
+| Clinic hours, `slotIntervalMinutes: 60` | `shared/clinic-settings.js:23-27` | **B — centralised config** ✅ |
+| Cancellation/reschedule cutoff 120 min, no-show grace 15 | `shared/clinic-settings.js:28-30` | **B** ✅ |
+| `SERVICE_SCHEDULING` durations/capacity | `shared/mock-users.js:186-211` | **C — temporary mock**, correctly marked non-authoritative |
 | Service labels + prices (₱) | `mock-users.js` catalog | **C** — demo data, not domain logic ✅ |
 | PHP endpoints (`get_users.php`, `get_pets.php`, …) | portal `fetch()` calls | **E — backend-owned**, already `TODO(BACKEND)`-annotated |
 | `apt###` / `VHS-…` patterns | 2 minting sites | **C**, but duplicated → F-P1-3 |
-| `DOCTOR_TEST_DATE = null` | `doctor.js:106` | **A** — documented test seam, correctly inert ✅ |
-| Admin actor `{admin-001, Administrator}` | `audit-store.js:36` | **E** — backend owns identity |
-| `MAX_DOCS = 500`, `MAX_ENTRIES = 500` | `document-store.js:30`, `audit-store.js:30` | **A** — demo safety valves, commented |
-| `doctor.js:63-88` hardcoded pet history + dates | `doctor.js` | **D — dangerous** → F-P2-7 |
-| `_legacyUserFixtures` (`apt001` scheme, `VHS-2026-0915-001`) | `user-script.js:2295-2345` | **P3 dead code** — explicitly "NOT rendered" |
+| `DOCTOR_TEST_DATE = null` | `doctor/doctor.js:106` | **A** — documented test seam, correctly inert ✅ |
+| Admin actor `{admin-001, Administrator}` | `shared/audit-store.js:36` | **E** — backend owns identity |
+| `MAX_DOCS = 500`, `MAX_ENTRIES = 500` | `shared/document-store.js:30`, `shared/audit-store.js:30` | **A** — demo safety valves, commented |
+| `doctor/doctor.js:63-88` hardcoded pet history + dates | `doctor.js` | **D — dangerous** → F-P2-7 |
+| `_legacyUserFixtures` (`apt001` scheme, `VHS-2026-0915-001`) | `user/user-script.js:2296-2346` | **P3 dead code** — explicitly "NOT rendered" |
 
 No hardcoded value has leaked into domain logic. The dangerous ones are **identities**,
 which is the theme of §1.
@@ -323,7 +323,7 @@ is correct. The cost is that the effective-record merge is duplicated in
 ### 8.3 Stale snapshots — confirmed
 
 `ADDED` and `OVERRIDES` are **module-level IIFE snapshots** read once at script load
-(`mock-appointments.js:139-142, 163-166`). No `storage` event listener exists.
+(`shared/mock-appointments.js:139-142, 163-166`). No `storage` event listener exists.
 
 Consequence, observed live during this audit: a record written by the User portal is
 **invisible to an already-open Admin/Doctor tab** until that tab reloads. Availability
@@ -389,7 +389,7 @@ from `SharedMockAppointments.all()` filtered by owner. Healthy.
 | Lab requests | `draft.labs` | Lost on refresh |
 | Consultation document | generated on completion (`:776`) | **No persistence contract** — a document is created but SOAP data itself is never stored |
 
-`drafts` is a plain `Map` (`doctor.js:165, 306-309`). **Nothing about a consultation
+`drafts` is a plain `Map` (`doctor/doctor.js:165, 306-309`). **Nothing about a consultation
 survives a page reload.** For a clinical workflow this is the most serious functional
 gap found. → **F-P0-3**
 
@@ -442,11 +442,11 @@ adapter; the entire Vetti UI is untouched. This is the best-prepared module in t
 | `fmtDate` | `document-render`, `checkin-script`, `vetti-data`, `vetti-ui` | **4 files** |
 
 **Not duplicated (checked, to avoid false positives):**
-- `normalizeStatus` — one definition; `vetti-data.js:169` delegates.
+- `normalizeStatus` — one definition; `user/vetti-data.js:169` delegates.
 - `VHSserviceLabel` — thin alias over `mock-users.serviceLabel`, not a reimplementation.
 
 **Dead code**
-- `_legacyUserFixtures` (9 records, `user-script.js:2295-2345`) — marked "NOT rendered",
+- `_legacyUserFixtures` (9 records, `user/user-script.js:2296-2346`) — marked "NOT rendered",
   never referenced. Carries a *third* reference format and an `apt001` ID scheme that
   would confuse a reader.
 - `clerk/` — 4 HTML pages, **zero** `<script src>` tags.
@@ -474,7 +474,7 @@ Existing documentation consulted before writing this (no endpoints invented):
 
 | Capability | Contract exists? | Current frontend source | Cutover adapter | Open decision |
 |---|---|---|---|---|
-| **Auth / session** | **No** | `mock-users.js:79` constant | **new** — nothing to swap | IdP, token, role model |
+| **Auth / session** | **No** | `shared/mock-users.js:79` constant | **new** — nothing to swap | IdP, token, role model |
 | **Users** | Partial (`VHS_API_CONTRACT`) | `mock-users.js` | `SharedMockUsers` | PII ownership |
 | **Pets** | Partial | `mock-users.js` | `SharedMockUsers` | pet-owner FK |
 | **Services** | Partial | `mock-users.js` catalog | `SharedMockUsers` | `service` label-vs-value (F-P1-1) |
@@ -530,8 +530,8 @@ store values. Handled by alias lookup; breaks a real FK.
 **F-P1-2 · Three `referenceNo` formats** — numeric, hex, demo placeholder.
 *Owner: Backend · With ID assignment decision*
 
-**F-P1-3 · ID minting duplicated** — identical algorithm in `user-script.js:1092-1097`
-and `admin-portal.js:631-636`. Will drift.
+**F-P1-3 · ID minting duplicated** — identical algorithm in `user/user-script.js:1092-1097`
+and `admin/admin-portal.js:631-636`. Will drift.
 *Owner: Frontend · Before API cutover*
 
 **F-P1-4 · Doctor `draft.status` shadows the shared appointment status**
@@ -541,12 +541,12 @@ store does not hold.
 *Owner: Frontend · Before Doctor E2E*
 
 **F-P1-5 · Legacy cancel path is a second source of truth**
-`user-script.js:2740-2746` — when no shared store exists, cancel mutates
+`user/user-script.js:2743-2746` — when no shared store exists, cancel mutates
 `mockAppointmentsData` directly.
 *Owner: Frontend · Before final E2E*
 
 **F-P1-6 · `no_show` unreachable from the transition table**
-`mock-appointments.js:387-395`. Valid status with no path into it.
+`shared/mock-appointments.js:387-395`. Valid status with no path into it.
 *Owner: Backend + Shared · With lifecycle contract*
 
 **F-P1-7 · Cache-buster version skew on shared modules**
@@ -564,14 +564,14 @@ null-guarded.
 
 | ID | File | Issue | Owner |
 |---|---|---|---|
-| F-P2-1 | `admin-portal.js:473` | `get_booked_slots.php` legacy adapter — remove at cutover | Frontend |
+| F-P2-1 | `admin/admin-portal.js:484` | `get_booked_slots.php` legacy adapter — remove at cutover | Frontend |
 | F-P2-2 | 4 sites | `takenSlots()` degraded fallbacks — remove at cutover | Frontend |
 | F-P2-3 | `doctor/doctor.js` | Own status renderer instead of shared `statusBadge()` | Frontend |
-| F-P2-4 | `dashboard-shared.js:165` | `VHSserviceLabel` global alias duplicates the catalog accessor | Frontend |
+| F-P2-4 | `shared/dashboard-shared.js:165` | `VHSserviceLabel` global alias duplicates the catalog accessor | Frontend |
 | F-P2-5 | `doctor/doctor.js:63-88` | Hardcoded per-pet medical history + dates — portal-local clinical data | Frontend |
-| F-P2-6 | `user-script.js:1092` | ID collision produces a misleading "already exists" message | Frontend |
-| F-P2-7 | `mock-appointments.js:277` | `update()` reaches into `ADDED` directly while everything else uses `_allBase()` | Frontend |
-| F-P2-8 | `admin/documents.html:180` | `document-store.js` loads AFTER `admin-portal.js`, unlike the User page | Frontend |
+| F-P2-6 | `user/user-script.js:1092` | ID collision produces a misleading "already exists" message | Frontend |
+| F-P2-7 | `shared/mock-appointments.js:277` | `update()` reaches into `ADDED` directly while everything else uses `_allBase()` | Frontend |
+| F-P2-8 | `admin/documents.html:133` | `document-store.js` loads AFTER `admin-portal.js`, unlike the User page | Frontend |
 | F-P2-9 | `PHPMailer-7.1.1/` | Vendored mailer committed to the repo | Backend |
 
 ### P3 — cosmetic / maintainability
@@ -580,7 +580,7 @@ null-guarded.
 |---|---|---|
 | F-P3-1 | 8 files | `esc`/`escapeHtml` duplicated |
 | F-P3-2 | 4 files | `fmtDate` duplicated |
-| F-P3-3 | `user/user-script.js:2295-2345` | `_legacyUserFixtures` dead code with a conflicting ID scheme |
+| F-P3-3 | `user/user-script.js:2296-2346` | `_legacyUserFixtures` dead code with a conflicting ID scheme |
 | F-P3-4 | `clerk/` | 4 dead HTML pages, no scripts |
 | F-P3-5 | `user/user-script.js` (4,227 lines) | Mixed responsibilities |
 | F-P3-6 | `shared/dashboard-shared.js` | Theme + helpers + widget + bootstrap in one file |
