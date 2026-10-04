@@ -8,7 +8,7 @@
   <link rel="stylesheet" href="../admin/admin-style.css?v=3.4.4">
   <link rel="stylesheet" href="../shared/dashboard-theme.css?v=3.4.6">
   <link rel="stylesheet" href="../shared/dashboard-icons.css">
-  <link rel="stylesheet" href="doctor.css?v=3.5.0">
+  <link rel="stylesheet" href="doctor.css?v=3.6.0">
   <script src="../shared/appointment-contract.js?v=2.8.0"></script>
   <script src="../shared/mock-users.js?v=2.13.0"></script>
   <script src="../shared/mock-doctors.js?v=2.9.0"></script>
@@ -18,8 +18,8 @@
   <script src="../shared/audit-store.js?v=1.0.0"></script>
   <script src="../shared/document-store.js?v=1.0.3"></script>
   <script src="../shared/document-render.js?v=1.1.0"></script>
-  <script src="doctor-scribe.js?v=2.0.0"></script>
-  <script src="doctor.js?v=2.19.0" defer></script>
+  <script src="doctor-scribe.js?v=3.0.0"></script>
+  <script src="doctor.js?v=2.20.2" defer></script>
 </head>
 <body class="doctor-portal">
   <a class="skip-link" href="#workspace">Skip to current view</a>
@@ -94,11 +94,27 @@
               <p class="scribe-status" id="scribe-status" role="status" data-state="ready">Ready</p>
             </div>
             <p class="scribe-subtitle" id="scribe-subtitle">Convert consultation notes or transcript into a structured SOAP draft for review.</p>
+            <div class="scribe-recorder" id="scribe-recorder" data-state="ready">
+              <div class="scribe-recorder-row">
+                <button type="button" class="btn-secondary scribe-btn-record" id="scribe-record" aria-describedby="scribe-record-status">
+                  <span class="scribe-btn-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0"/><path d="M12 18v3"/><path d="M9 21h6"/></svg></span>
+                  Start Recording
+                </button>
+                <button type="button" class="btn-stop scribe-btn-stop" id="scribe-stop" hidden>
+                  <span class="scribe-btn-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><rect x="6" y="6" width="12" height="12" rx="2"/></svg></span>
+                  Stop Recording
+                </button>
+                <span class="scribe-rec-indicator" id="scribe-record-indicator" aria-hidden="true" hidden></span>
+                <span class="scribe-rec-timer" id="scribe-record-timer" hidden>00:00</span>
+              </div>
+              <div class="scribe-recorded-actions" id="scribe-recorded-actions" hidden>
+                <button type="button" class="btn-secondary" id="scribe-process">Process Recording</button>
+                <button type="button" class="btn-secondary" id="scribe-discard">Discard Recording</button>
+                <button type="button" class="btn-secondary" id="scribe-again">Record Again</button>
+              </div>
+              <p class="scribe-rec-status" id="scribe-record-status" role="status" aria-live="polite">Recording is idle.</p>
+            </div>
             <div class="scribe-controls">
-              <button type="button" class="btn-secondary scribe-btn-record" id="scribe-record">
-                <span class="scribe-btn-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0"/><path d="M12 18v3"/><path d="M9 21h6"/></svg></span>
-                Start Recording
-              </button>
               <button type="button" class="btn-secondary" id="scribe-paste-toggle" aria-expanded="false" aria-controls="scribe-transcript-wrap">
                 <span class="scribe-btn-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 4h6v3H9z"/><path d="M15 5.5h2A2 2 0 0 1 19 7.5v11a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2v-11a2 2 0 0 1 2-2h2"/></svg></span>
                 Paste Transcript
@@ -110,11 +126,11 @@
               <input type="file" id="scribe-file" accept=".txt,text/plain" hidden>
               <button type="button" class="btn-primary scribe-btn-generate" id="scribe-generate">Generate SOAP Draft</button>
             </div>
-            <p class="scribe-disclaimer" id="scribe-disclaimer">Recording is not active in this build &mdash; no microphone audio is captured or transcribed. Paste or upload the transcript instead.</p>
+            <p class="scribe-disclaimer" id="scribe-disclaimer">Recording captures audio in this browser only and never leaves this device. Speech-to-text is not connected yet, so a recording is not transcribed &mdash; paste or upload the transcript instead.</p>
             <div class="scribe-transcript" id="scribe-transcript-wrap" hidden>
               <label class="form-label" for="scribe-transcript">Consultation transcript / notes</label>
               <textarea class="form-textarea" id="scribe-transcript" name="scribeTranscript" rows="4" maxlength="8000" placeholder="Paste or type the consultation transcript, then generate a SOAP draft."></textarea>
-              <p class="helper">Kept with this draft on this device. Nothing is recorded, transcribed or sent anywhere.</p>
+              <p class="helper">Kept with this draft on this device. Nothing is sent anywhere, and a recording is never written here — it stays in memory for this page only.</p>
             </div>
             <p class="scribe-note" id="scribe-note">Assistive draft only &mdash; review and edit every field. Nothing is saved or finalized until you do.</p>
             <p class="scribe-lock" id="scribe-lock" hidden></p>

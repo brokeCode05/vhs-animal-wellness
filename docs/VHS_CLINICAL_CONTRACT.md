@@ -387,16 +387,20 @@ generation), the first press of **Generate SOAP Draft** only arms an explicit
 
 ### 7.9 Future recording / transcription boundary
 
-`DoctorScribe.recording.supported` is `false` in Phase 1 and the **Start
-Recording** button states that no microphone audio is captured or transcribed —
-it must never imply otherwise. The placement, control and status value
-(`recording`) already exist for the real integration.
+**Phase 1 (superseded):** `recording.supported` was `false` and **Start
+Recording** stated that no microphone audio was captured.
+
+**Phase 2 (current):** capture is real — see §7.11 for states, the recording
+object and the audio-handling rules. Transcription is still absent, and the UI
+still never implies otherwise: `recording.transcription` is `'not-connected'`
+and `processRecording()` returns an empty transcription with an explicit
+warning.
 
 When it arrives, the expected chain is:
 
 ```
 Doctor UI
-  → DoctorScribe (unchanged)
+  → DoctorScribe.processRecording() (unchanged call site, §7.11 C)
   → transcription / AI backend            ← CONTRACT NEEDED / TBD
   → SOAP draft response (§7.5 shape)
   → Doctor review / edit / save
@@ -416,6 +420,139 @@ message under the controls and leaves every SOAP field untouched. The Doctor can
 always type the note by hand — AI Scribe is never required. A backend
 integration must preserve exactly this fallback.
 
+### 7.11 Browser recording (Phase 2) and the future transcription seam
+
+Phase 2 replaces the Phase 1 "seat" with **real browser audio capture**. It
+still transcribes nothing and calls nothing.
+
+#### A. Recording states
+
+`DoctorScribe.RECORDING_STATES` + `getRecordingStatus(state)` own the wording;
+the Doctor UI owns nothing but the buttons.
+
+| State | Entered when | UI |
+|---|---|---|
+| `ready` | idle | Start Recording enabled |
+| `requesting_permission` | `getUserMedia()` pending | Start disabled; live line "Waiting for microphone permission…" |
+| `recording` | `MediaRecorder.start()` resolved | Stop Recording prominent; timer + indicator visible; Paste / Upload / Generate disabled |
+| `recorded` | a non-empty clip is in memory | Process Recording / Discard Recording / Record Again |
+| `processing` | `processRecording()` called | controls disabled; "Processing recording…" |
+| `error` | permission, device or encoder failure | friendly message; retry stays available |
+
+#### B. Recording object shape
+
+Built by `DoctorScribe.buildRecording(blob, meta)` — the shape a future upload
+expects:
+
+```js
+{ blob, mimeType, sizeBytes, durationSeconds, recordedAt }
+```
+
+`mimeType` and `sizeBytes` come from the Blob itself; `durationSeconds` and
+`recordedAt` come from the recorder. An empty Blob is refused
+(`empty_recording`). `validateRecording()` is the single gate.
+
+MIME type is **capability detected**, never hardcoded:
+`pickRecordingMimeType(isSupported, candidates)` walks
+`audio/webm;codecs=opus → audio/webm → audio/ogg;codecs=opus → audio/mp4`
+through `MediaRecorder.isTypeSupported()` and returns `''` when none is
+supported, which tells `MediaRecorder` to use its own default.
+
+#### C. `processRecording()` — the seam
+
+```js
+DoctorScribe.processRecording(recording, {
+  appointmentId, petId, patientContext, appointmentContext
+})
+```
+
+The call site does not change between Phase 2 and production. Only the body
+does: today it is a local mock; later it is a POST to the consultation AI
+endpoint whose answer goes through `normalizeBackendResponse()`.
+
+**Today's mock result is explicit, never faked:**
+
+```js
+{ ok: true, source: 'mock',
+  transcription: { text: '', language: null, durationSeconds },
+  soap: null,                                   // no draft is invented
+  warnings: ['speech_to_text_not_connected'],
+  providerMeta: null }
+```
+
+An empty `transcription.text` is the contract: no words are ever produced from
+audio. The UI says so on screen and keeps Paste / Upload as the way forward.
+
+#### D. Future Laravel responsibility
+
+```
+Doctor UI → DoctorScribe adapter → Laravel endpoint → external provider
+```
+
+Laravel owns credentials, provider calls, upload validation, size/duration
+limits, rate limiting, audit and error normalization. The browser owns none of
+it.
+
+#### E. Security boundary (enforced, not aspirational)
+
+The frontend must never contain a provider API key, call a provider directly,
+or name a provider in UI text. `providerMeta` is passthrough so the backend
+stays the only component that knows who transcribed. `processRecording()`'s
+mock result contains no provider name, no URL and no key.
+
+#### F. Temporary audio rule (Phase 2)
+
+Audio is **memory-only**: never written to `localStorage`, never into
+`SharedMockClinical`, never uploaded, never surviving a reload. It is released
+on Discard, on Record Again, on patient switch, on completion, and on
+`pagehide`. Track.stop() releases the microphone; recorder handlers are
+detached before stop so a discarded session cannot rebuild a clip.
+
+#### G. Patient-switch behaviour
+
+A recording belongs to one patient. Switching patients is confirmed first:
+*"Stop the recording and switch patients?"* while recording, *"Discard the
+recording and switch patients?"* when a clip is waiting. Cancelling switches
+nothing and the recording continues. The clip also stores its patient id and
+`processRecording()` drops it on a mismatch, so patient A's audio can never be
+applied under patient B.
+
+#### H. Failure and fallback
+
+`NotAllowedError` / `SecurityError` → "Microphone permission was denied.";
+`NotFoundError` → "No microphone was found."; `NotReadableError` /
+`TrackStartError` / `AbortError` → "The microphone could not be accessed.";
+`NotSupportedError` and a missing `MediaRecorder` → "Audio recording is not
+supported in this browser." Raw errors go to the console only. Every failure
+ends in "Paste or upload the transcript instead.", because paste, upload,
+manual SOAP entry and Generate SOAP Draft keep working unchanged.
+
+#### I. Future request / response shape — CONTRACT NEEDED / TBD
+
+Route, auth, multipart field names, size/duration limits, retry policy and
+error codes are **CONTRACT NEEDED / TBD**. No URL is invented here. The
+response is expected conceptually as:
+
+```js
+{ success: true,
+  transcription: { text, language, durationSeconds },
+  soap: { subjective, objective: { weightKg, temperatureC, heartRateBpm, findings }, assessment, plan },
+  warnings: [],
+  providerMeta: { … } }
+```
+
+`normalizeBackendResponse()` accepts exactly this shape, fails closed when
+`success !== true`, and never invents content for missing sections.
+
+#### J. Phase 2 scope
+
+No external AI service is called, no provider key exists in the frontend, and
+no real speech-to-text runs. Recording produces an in-memory audio clip and an
+explicit "not connected" result. Recording is allowed **only** while the
+appointment is `in_consultation`: it is disabled before the consultation and
+read-only after completion, and it never starts, completes or otherwise changes
+an appointment.
+
 ---
 
 ## 8. Unresolved backend decisions
@@ -433,6 +570,7 @@ Everything here is **open**. None is settled by the frontend.
 | 7 | Retention: who may delete a consultation record? | **TBD** |
 | 8 | Do drafts carry an `updatedAt` conflict check (optimistic locking)? | **TBD** — mock overwrites unconditionally |
 | 9 | AI Scribe transcription + SOAP draft service (§7.9) | **CONTRACT NEEDED / TBD** |
+| 10 | Recording upload: route, auth, size/duration limits, retention, multipart shape (§7.11) | **CONTRACT NEEDED / TBD** |
 
 ---
 

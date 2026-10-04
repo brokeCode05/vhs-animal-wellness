@@ -359,6 +359,15 @@ const MEDICINE_LIMITS = { medicine: 100, frequency: 50, instructions: 500 };
     lock: document.getElementById('scribe-lock'),
     disclaimer: document.getElementById('scribe-disclaimer'),
     record: document.getElementById('scribe-record'),
+    recorder: document.getElementById('scribe-recorder'),
+    stop: document.getElementById('scribe-stop'),
+    timer: document.getElementById('scribe-record-timer'),
+    indicator: document.getElementById('scribe-record-indicator'),
+    recordedActions: document.getElementById('scribe-recorded-actions'),
+    process: document.getElementById('scribe-process'),
+    discard: document.getElementById('scribe-discard'),
+    again: document.getElementById('scribe-again'),
+    recStatus: document.getElementById('scribe-record-status'),
     paste: document.getElementById('scribe-paste-toggle'),
     upload: document.getElementById('scribe-upload'),
     file: document.getElementById('scribe-file'),
@@ -368,6 +377,249 @@ const MEDICINE_LIMITS = { medicine: 100, frequency: 50, instructions: 500 };
   };
   const SOAP_LABELS = { subjective: 'Subjective', objective: 'Objective findings', assessment: 'Assessment', plan: 'Plan' };
   const VITAL_LABELS = { weight: 'Weight (kg)', temperature: 'Temperature (°C)', heartRate: 'Heart rate (bpm)' };
+
+  // ── AI SCRIBE RECORDING (browser capture) ────────────────────────────────
+  // Only the browser can hold a microphone, so CAPTURE lives here while every
+  // RULE about a recording — states, wording, metadata shape, processing result
+  // — lives in the adapter. The audio never leaves this page session: no
+  // localStorage, nothing in SharedMockClinical, no upload, nothing after a
+  // reload. It is released on discard, on patient switch and on page hide.
+  const REC = (window.DoctorScribe && window.DoctorScribe.RECORDING_STATES) || {
+    READY: 'ready', REQUESTING: 'requesting_permission', RECORDING: 'recording',
+    RECORDED: 'recorded', PROCESSING: 'processing', ERROR: 'error'
+  };
+  const rec = {
+    supported: !!(navigator.mediaDevices
+      && typeof navigator.mediaDevices.getUserMedia === 'function'
+      && typeof window.MediaRecorder === 'function'),
+    state: REC.READY,
+    stream: null,
+    recorder: null,
+    chunks: [],
+    startedAt: 0,
+    elapsed: 0,
+    tickId: null,
+    recording: null,
+    // Which patient the audio in memory belongs to. A recording captured under
+    // one patient can never be applied to another.
+    patientId: null
+  };
+  function formatRecTime(totalSeconds) {
+    const s = Math.max(0, Math.floor(totalSeconds || 0));
+    return `${s / 60 < 10 ? '0' : ''}${Math.floor(s / 60)}:${s % 60 < 10 ? '0' : ''}${s % 60}`;
+  }
+  function stopStream() {
+    if (rec.stream && typeof rec.stream.getTracks === 'function') {
+      rec.stream.getTracks().forEach(track => { try { track.stop(); } catch (e) { /* already gone */ } });
+    }
+    rec.stream = null;
+  }
+  function stopTimer() {
+    if (rec.tickId) { clearInterval(rec.tickId); rec.tickId = null; }
+  }
+  function paintRecTimer() {
+    if (scribe.timer && !scribe.timer.hidden) scribe.timer.textContent = formatRecTime(rec.elapsed);
+  }
+  function startRecTimer() {
+    stopTimer();
+    rec.elapsed = 0;
+    paintRecTimer();
+    // 250ms keeps the mm:ss readout honest without a busy 1s repaint.
+    rec.tickId = setInterval(() => {
+      rec.elapsed = (Date.now() - rec.startedAt) / 1000;
+      paintRecTimer();
+    }, 250);
+  }
+  // Drops every reference to the audio. Handlers are detached BEFORE stop() so
+  // an in-flight recorder cannot rebuild a clip out of a discarded session.
+  function releaseRecording() {
+    stopTimer();
+    if (rec.recorder) {
+      rec.recorder.onstop = null;
+      rec.recorder.ondataavailable = null;
+      rec.recorder.onerror = null;
+      try { if (rec.recorder.state !== 'inactive') rec.recorder.stop(); } catch (e) { /* nothing to stop */ }
+    }
+    stopStream();
+    rec.recorder = null;
+    rec.chunks = [];
+    rec.recording = null;
+    rec.patientId = null;
+    rec.startedAt = 0;
+    rec.elapsed = 0;
+  }
+  function setRecState(state, message) {
+    rec.state = state;
+    if (scribe.recorder) scribe.recorder.dataset.state = state;
+    if (scribe.recStatus) {
+      const label = SCRIBE && SCRIBE.getRecordingStatus ? SCRIBE.getRecordingStatus({ state, message }).label : '';
+      scribe.recStatus.textContent = message || label;
+    }
+    syncScribePanel();
+  }
+  async function startScribeRecording() {
+    if (!SCRIBE) return;
+    if (!rec.supported) {
+      setRecState(REC.ERROR, SCRIBE.describeRecordingError('unsupported').message + ' Paste or upload the transcript instead.');
+      return;
+    }
+    if (!scribeAccess().editable) { setScribeNote('AI Scribe is read-only for this consultation.'); return; }
+    if (rec.state === REC.RECORDING || rec.state === REC.REQUESTING) return;
+    // A clip is only ever replaced with the Doctor's agreement.
+    if (rec.recording) {
+      const replace = await confirmAction({
+        title: 'Record again?',
+        message: 'The recording you have not processed yet will be discarded. Nothing is saved.',
+        acceptLabel: 'Record Again'
+      });
+      if (!replace) return;
+      releaseRecording();
+    }
+    setRecState(REC.REQUESTING);
+    let stream;
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    } catch (error) {
+      // Raw errors are development detail; the Doctor gets the friendly line.
+      console.warn('[AI Scribe] getUserMedia failed:', error && (error.name || error));
+      const info = SCRIBE.describeRecordingError(error);
+      setRecState(REC.ERROR, info.message + ' Paste or upload the transcript instead.');
+      return;
+    }
+    rec.stream = stream;
+    rec.patientId = selectedPatient ? String(selectedPatient.id) : null;
+    try {
+      // Capability detection, not a hardcoded format: an unsupported type must
+      // never stop an otherwise working browser from recording.
+      const mimeType = SCRIBE.pickRecordingMimeType(
+        type => window.MediaRecorder.isTypeSupported(type),
+        SCRIBE.RECORDING_MIME_CANDIDATES
+      );
+      const recorder = mimeType ? new window.MediaRecorder(stream, { mimeType }) : new window.MediaRecorder(stream);
+      rec.recorder = recorder;
+      rec.chunks = [];
+      recorder.ondataavailable = event => { if (event.data && event.data.size) rec.chunks.push(event.data); };
+      recorder.onstop = finishScribeRecording;
+      recorder.onerror = event => {
+        console.warn('[AI Scribe] MediaRecorder error:', event && (event.error || event));
+        releaseRecording();
+        setRecState(REC.ERROR, 'Recording stopped unexpectedly. Try again, or paste the transcript.');
+      };
+      recorder.start(1000); // timeslice: a long take still yields data
+      rec.startedAt = Date.now();
+      startRecTimer();
+      setRecState(REC.RECORDING);
+    } catch (error) {
+      console.warn('[AI Scribe] MediaRecorder could not start:', error);
+      releaseRecording();
+      const info = SCRIBE.describeRecordingError(error);
+      setRecState(REC.ERROR, info.message + ' Paste or upload the transcript instead.');
+    }
+  }
+  function stopScribeRecording() {
+    if (!rec.recorder || rec.state !== REC.RECORDING) return;
+    stopTimer();
+    try { rec.recorder.stop(); } catch (error) {
+      console.warn('[AI Scribe] stop failed:', error);
+      releaseRecording();
+      setRecState(REC.ERROR, 'The recording could not be stopped cleanly. Try again.');
+    }
+  }
+  function finishScribeRecording() {
+    const recorder = rec.recorder;
+    const mimeType = (recorder && recorder.mimeType) || (rec.chunks[0] && rec.chunks[0].type) || '';
+    const durationSeconds = rec.startedAt ? (Date.now() - rec.startedAt) / 1000 : 0;
+    stopTimer();
+    stopStream();
+    const blob = new Blob(rec.chunks, mimeType ? { type: mimeType } : undefined);
+    const built = SCRIBE.buildRecording(blob, {
+      mimeType: mimeType || blob.type,
+      durationSeconds: durationSeconds,
+      recordedAt: new Date().toISOString()
+    });
+    rec.chunks = [];
+    rec.recorder = null;
+    if (!built.ok) {
+      rec.recording = null;
+      rec.elapsed = 0;
+      setRecState(REC.ERROR, built.error.message);
+      return;
+    }
+    rec.recording = built.recording;
+    setRecState(REC.RECORDED, `Recording captured — ${formatRecTime(durationSeconds)} held in memory only. Review it, then process or discard it.`);
+  }
+  function discardScribeRecording(message) {
+    releaseRecording();
+    setRecState(REC.READY, message || 'Recording discarded. Nothing was saved.');
+  }
+  function processScribeRecording() {
+    if (!SCRIBE || !rec.recording) return;
+    const target = selectedPatient;
+    // Belt and braces against cross-patient leakage: the clip remembers who it
+    // was recorded for, and a mismatch is dropped rather than applied.
+    if (rec.patientId && target && String(rec.patientId) !== String(target.id)) {
+      discardScribeRecording('That recording belonged to a different patient and was discarded.');
+      return;
+    }
+    if (!scribeAccess().editable) {
+      setRecState(REC.RECORDED, 'This consultation is read-only, so the recording cannot be processed.');
+      return;
+    }
+    const input = {
+      blob: rec.recording.blob,
+      mimeType: rec.recording.mimeType,
+      sizeBytes: rec.recording.sizeBytes,
+      durationSeconds: rec.recording.durationSeconds,
+      recordedAt: rec.recording.recordedAt
+    };
+    setRecState(REC.PROCESSING);
+    // THE SEAM: identical call site now and when Laravel exists. The Doctor UI
+    // never learns a provider, an endpoint or a key from either branch.
+    Promise.resolve(SCRIBE.processRecording(input, {
+      appointmentId: target ? target.appointmentId : '',
+      petId: target ? target.petId : ''
+    })).then(result => {
+      if (selectedPatient !== target) { releaseRecording(); return; }
+      if (!result || !result.ok) {
+        setRecState(REC.RECORDED, (result && result.error && result.error.message)
+          ? result.error.message
+          : 'The recording could not be processed. Paste or upload the transcript instead.');
+        return;
+      }
+      // Phase 2 has no speech-to-text, so NOTHING is written into the transcript
+      // box and no SOAP draft is generated: the Doctor is told plainly what is
+      // missing, and the paste/upload path stays the way forward.
+      setRecState(REC.RECORDED, `Recording captured successfully — ${formatRecTime(result.meta.durationSeconds)}, ${result.meta.mimeType}. Speech-to-text integration is not connected yet, so nothing was transcribed from it.`);
+      setScribeNote('Recording held in memory only: it is released when you discard it, switch patients or leave this page. Paste or upload the transcript, then generate the SOAP draft.');
+      revealScribeTranscript(true);
+    });
+  }
+  // Audio belongs to ONE patient. Leaving the patient is a destructive act and
+  // is confirmed before anything is stopped or released.
+  async function confirmPatientSwitchForRecording() {
+    if (rec.state === REC.RECORDING || rec.state === REC.REQUESTING) {
+      const ok = await confirmAction({
+        title: 'Stop the recording and switch patients?',
+        message: 'The recording in progress will be stopped and released from memory. Nothing is saved.',
+        acceptLabel: 'Stop and Switch'
+      });
+      if (ok) discardScribeRecording();
+      return ok;
+    }
+    if (rec.recording) {
+      const ok = await confirmAction({
+        title: 'Discard the recording and switch patients?',
+        message: 'The recording you have not processed will be released from memory. Nothing is saved.',
+        acceptLabel: 'Discard and Switch'
+      });
+      if (ok) discardScribeRecording();
+      return ok;
+    }
+    return true;
+  }
+  // Leaving the page releases the microphone and the blob. The clip is
+  // deliberately NOT persisted — it is a transient artefact by design.
+  window.addEventListener('pagehide', () => { releaseRecording(); });
 
   // ── CONFIRMATION ──────────────────────────────────────────────────────────
   // One modal serves every destructive step in the consultation: regenerating
@@ -483,15 +735,37 @@ const MEDICINE_LIMITS = { medicine: 100, frequency: 50, instructions: 500 };
   // One place decides the indicator: Ready / Transcript ready / Draft generated /
   // Saved draft / Unsaved changes — every label comes from the adapter, so the
   // pill and the underlying state can never disagree.
+  function syncRecordingControls() {
+    if (!scribe.recorder) return;
+    const editable = scribeAccess().editable && rec.supported;
+    const recording = rec.state === REC.RECORDING;
+    const requesting = rec.state === REC.REQUESTING;
+    const recorded = rec.state === REC.RECORDED;
+    const processing = rec.state === REC.PROCESSING;
+    const busy = recording || requesting || processing;
+    if (scribe.record) {
+      // A clip waiting in memory is replaced through Record Again, so Start is
+      // not offered twice for the same moment.
+      scribe.record.hidden = recording || processing || recorded;
+      scribe.record.disabled = !editable || busy;
+    }
+    if (scribe.stop) { scribe.stop.hidden = !recording; scribe.stop.disabled = !recording; }
+    if (scribe.recordedActions) scribe.recordedActions.hidden = !recorded;
+    if (scribe.process) scribe.process.disabled = !editable;
+    if (scribe.discard) scribe.discard.disabled = false;
+    if (scribe.again) scribe.again.disabled = !editable;
+    if (scribe.timer) { scribe.timer.hidden = !recording; if (recording) scribe.timer.textContent = formatRecTime(rec.elapsed); }
+    if (scribe.indicator) scribe.indicator.hidden = !recording;
+  }
   function syncScribePanel() {
     if (!scribe.panel || !SCRIBE) return;
     const access = scribeAccess();
     const draft = selectedPatient ? draftFor(selectedPatient) : null;
     const state = scribeState(draft);
     const info = SCRIBE.getScribeStatus({
-      // Phase 1 captures no audio, so nothing can set this yet. The seat exists
-      // for the future transcription integration.
-      recording: false,
+      // Phase 2 records for real: the pill says so while audio is being
+      // captured. Everything else about a recording stays out of the draft.
+      recording: rec.state === REC.RECORDING,
       transcript: state.transcript,
       generatedAt: state.generatedAt,
       saved: !!(draft && draft.saved === true && state.generatedAt),
@@ -502,11 +776,14 @@ const MEDICINE_LIMITS = { medicine: 100, frequency: 50, instructions: 500 };
     });
     scribe.status.textContent = info.label;
     scribe.status.dataset.state = info.state;
-    scribe.record.disabled = !access.editable;
-    scribe.paste.disabled = !access.editable;
-    scribe.upload.disabled = !access.editable;
-    scribe.generate.disabled = !access.editable;
-    scribe.transcript.readOnly = !access.editable;
+    // While audio is being captured (or handed to the adapter) the destructive
+    // transcript actions are held: a recording and a transcript rewrite must
+    // never race each other.
+    const recordingBusy = rec.state === REC.RECORDING || rec.state === REC.REQUESTING || rec.state === REC.PROCESSING;
+    scribe.paste.disabled = !access.editable || recordingBusy;
+    scribe.upload.disabled = !access.editable || recordingBusy;
+    scribe.generate.disabled = !access.editable || recordingBusy;
+    scribe.transcript.readOnly = !access.editable || recordingBusy;
     scribe.panel.classList.toggle('is-locked', access.locked);
     const lockText = access.locked
       ? 'AI Scribe unlocks once the consultation is in progress.'
@@ -515,6 +792,7 @@ const MEDICINE_LIMITS = { medicine: 100, frequency: 50, instructions: 500 };
       scribe.lock.textContent = lockText;
       scribe.lock.hidden = !lockText;
     }
+    syncRecordingControls();
   }
   // Regenerating rewrites every field the generator owns, so it is never silent:
   // an explicit confirmation stands between the Doctor and losing notes.
@@ -657,13 +935,15 @@ const MEDICINE_LIMITS = { medicine: 100, frequency: 50, instructions: 500 };
   }
 
   if (scribe.panel && SCRIBE) {
-    // Start Recording is an INTEGRATION SEAT, not a recorder. Phase 1 ships no
-    // microphone capture and no speech-to-text, so the button says exactly that
-    // and opens the working path instead of implying audio is being taken.
-    scribe.record.addEventListener('click', () => {
-      setScribeNote(SCRIBE.recording.message);
-      revealScribeTranscript(true);
-    });
+    // Real capture: Start asks the browser for the microphone, Stop ends the take,
+    // and the clip waits in memory until the Doctor processes or discards it.
+    // Nothing is generated automatically — the Doctor sees the recording first.
+    if (scribe.disclaimer) scribe.disclaimer.textContent = SCRIBE.recording.message;
+    scribe.record.addEventListener('click', startScribeRecording);
+    if (scribe.stop) scribe.stop.addEventListener('click', stopScribeRecording);
+    if (scribe.discard) scribe.discard.addEventListener('click', () => discardScribeRecording());
+    if (scribe.again) scribe.again.addEventListener('click', startScribeRecording);
+    if (scribe.process) scribe.process.addEventListener('click', processScribeRecording);
     scribe.paste.addEventListener('click', () => {
       const open = scribe.wrap.hidden;
       scribe.wrap.hidden = !open;
@@ -874,6 +1154,13 @@ const MEDICINE_LIMITS = { medicine: 100, frequency: 50, instructions: 500 };
       if (scribe.paste) scribe.paste.setAttribute('aria-expanded', String(!scribe.wrap.hidden));
     }
     syncScribePanel();
+    // The recorder's live line belongs to the patient on screen. The switch
+    // guards guarantee no audio carries over, so the message must not either.
+    if (scribe.recStatus) {
+      scribe.recStatus.textContent = rec.recording
+        ? 'A recording is held in memory for this patient only.'
+        : SCRIBE.getRecordingStatus({ state: rec.state }).label;
+    }
     document.getElementById('context-name').textContent = patient.name;
     document.getElementById('context-appointment').textContent = `${patient.species} · ${patient.breed} · ${patient.dateDisplay}, ${patient.time} · ${svcLabel(patient.service)}`;
     const timerLine = document.getElementById('context-timer');
@@ -986,7 +1273,16 @@ const MEDICINE_LIMITS = { medicine: 100, frequency: 50, instructions: 500 };
       badgeCell,
       statusCell
     );
-    const activate = () => selectPatient(patient);
+    const activate = async () => {
+      // Switching patients while audio is live, or while an unprocessed clip is
+      // in memory, is confirmed first: patient A's audio must never end up
+      // under patient B.
+      if (String(patient.id) !== String(selectedPatient && selectedPatient.id)) {
+        const proceed = await confirmPatientSwitchForRecording();
+        if (!proceed) return;
+      }
+      selectPatient(patient);
+    };
     row.addEventListener('click', activate);
     row.addEventListener('keydown', event => {
       if (event.key === 'Enter' || event.key === ' ') {
@@ -1128,6 +1424,12 @@ const MEDICINE_LIMITS = { medicine: 100, frequency: 50, instructions: 500 };
     // TODO(BACKEND): Validate the completion transition server-side.
     if (statusFor(selectedPatient) === 'completed') { status.textContent = 'This consultation is already completed.'; return; }
     if (statusFor(selectedPatient) !== 'in_consultation') { status.textContent = 'Start the consultation before completing it.'; return; }
+    // Recording is not a lifecycle action, and an open microphone cannot be
+    // carried into a finalized record. Stop it first — no guard is weakened.
+    if (rec.state === REC.RECORDING || rec.state === REC.REQUESTING) {
+      status.textContent = 'Stop the recording before completing the consultation.';
+      return;
+    }
     // Nothing invalid may reach a finalized record.
     if (window.doctorValidateClinical && !window.doctorValidateClinical()) {
       const rx = window.doctorFirstPrescriptionIssue && window.doctorFirstPrescriptionIssue();
@@ -1162,6 +1464,9 @@ const MEDICINE_LIMITS = { medicine: 100, frequency: 50, instructions: 500 };
       status.textContent = rx ? rx.message : 'Fix the highlighted clinical fields before completing the consultation.';
       return;
     }
+    // Confirmed and re-validated: an unprocessed clip has nowhere to go in a
+    // read-only record, so it is released rather than silently kept.
+    if (rec.recording) discardScribeRecording();
     // Same canonical record: the shared store stamps
     // consultationCompletedAt and sets completed for every portal. The local
     // duration/timer logic is preserved untouched.

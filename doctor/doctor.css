@@ -213,10 +213,38 @@ dd { margin: 0.2rem 0 0; font-weight: 700; font-size: 0.95rem; overflow-wrap: an
 .scribe-btn-icon svg { width: 100%; height: 100%; }
 /* Secondary sources read as outline actions; nothing but Generate is filled. */
 .scribe-controls .btn-secondary { background: #ffffff; }
-.scribe-btn-record { border-style: dashed; color: var(--doctor-muted); }
+/* Recording is a REAL action in this phase, so it no longer wears the dashed
+   "seat" treatment; the mic + a soft record outline carry it. */
+.scribe-panel .scribe-btn-record { border-color: #e9b6b6; color: #991b1b; background: #fffafa; }
 /* The strongest control in the section. */
 .scribe-btn-generate { font-weight: 800; margin-left: auto; }
 .scribe-controls button[disabled] { opacity: 0.55; cursor: not-allowed; box-shadow: none; transform: none; }
+/* ── RECORDER ────────────────────────────────────────────────────────────
+   Its own compact row, so the two transcript sources and the primary Generate
+   action keep their hierarchy instead of sharing one row with a stop button.
+   State is carried by text and shape as well as colour. */
+.scribe-recorder { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; }
+.scribe-recorder-row { display: flex; align-items: center; gap: 0.5rem; }
+.scribe-panel .scribe-recorder .btn-secondary,
+.scribe-panel .scribe-recorder .btn-stop {
+  display: inline-flex; align-items: center; gap: 0.4rem;
+  padding: 0.4rem 0.85rem; min-height: 36px; font-size: 0.82rem; background: #ffffff;
+}
+.scribe-panel .scribe-btn-stop { background: #fef2f2; border-color: #fca5a5; color: #991b1b; font-weight: 700; }
+.scribe-panel .scribe-btn-stop:hover:not([disabled]) { background: #fee2e2; }
+.scribe-rec-indicator {
+  width: 0.6rem; height: 0.6rem; border-radius: 50%; background: #dc2626;
+  box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.16); animation: scribe-rec-pulse 1.2s ease-in-out infinite;
+}
+@keyframes scribe-rec-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+@media (prefers-reduced-motion: reduce) { .scribe-rec-indicator { animation: none; } }
+.scribe-rec-timer { font-variant-numeric: tabular-nums; font-weight: 800; font-size: 0.92rem; color: #991b1b; min-width: 3.4rem; }
+.scribe-recorded-actions { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+.scribe-rec-status { margin: 0.35rem 0 0; width: 100%; font-size: 0.78rem; line-height: 1.5; color: var(--doctor-muted); }
+.scribe-recorder[data-state='recorded'] .scribe-rec-status { color: #065f46; }
+.scribe-recorder[data-state='processing'] .scribe-rec-status { color: var(--accent-dark); }
+.scribe-recorder[data-state='error'] .scribe-rec-status { color: #991b1b; }
+.scribe-panel .scribe-recorder button[disabled] { opacity: 0.55; cursor: not-allowed; box-shadow: none; transform: none; }
 /* Stands in for the recording seat until transcription exists. */
 .scribe-disclaimer { margin: 0.6rem 0 0; color: var(--doctor-muted); font-size: 0.75rem; line-height: 1.5; }
 .scribe-transcript { margin-top: 0.9rem; }
