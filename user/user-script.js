@@ -1081,20 +1081,17 @@ function _finalizeBooking() {
     }
   }
 
-  // Sequential IDs derived from the WHOLE effective store so they never
-  // collide with seed records (apt301–306) or previously added bookings.
+  // Identity is minted by the SHARED contract helper (AppointmentContract.
+  // generateIdentity), not here, so Admin cannot drift. It scans the WHOLE
+  // effective store so IDs never collide with seed records (apt301–306) or previously added bookings.
   // TODO(BACKEND): book-appointment.php returns the real reference_no +
   // appointment_id instead of this frontend counter.
-  var _seq = 0;
-  var _scan = function (a) {
-    var m = /^apt(\d+)$/.exec(String(a.appointmentId || a.id || ''));
-    if (m) _seq = Math.max(_seq, parseInt(m[1], 10));
-  };
-  if (window.SharedMockAppointments) window.SharedMockAppointments.getAll().forEach(_scan);
-  if (typeof mockAppointmentsData !== 'undefined') mockAppointmentsData.forEach(function (a) { _scan({ appointmentId: a.id }); });
-  var nextNum = _seq + 1;
-  var aptId = 'apt' + String(nextNum).padStart(3, '0');
-  var refNo = 'VHS-' + payload.appointment_date.replace(/-/g, '') + '-' + String(nextNum).padStart(4, '0');
+  var _idRecords = [];
+  if (window.SharedMockAppointments) _idRecords = _idRecords.concat(window.SharedMockAppointments.getAll() || []);
+  if (typeof mockAppointmentsData !== 'undefined') _idRecords = _idRecords.concat(mockAppointmentsData || []);
+  var _identity = window.AppointmentContract.generateIdentity(_idRecords, payload.appointment_date);
+  var aptId = _identity.appointmentId;
+  var refNo = _identity.referenceNo;
 
   var _petDisplay = (_pendingBookingDisplay && _pendingBookingDisplay.petDisplay) || '';
   var _petName = _petDisplay ? _petDisplay.replace(/\s*\([^)]*\)$/, '').trim() : '';
@@ -1105,12 +1102,19 @@ function _finalizeBooking() {
   }
   var _petObj = mockPetsData.find(function(p) { return String(p.id) === String(payload.pet_id); });
   var _user = _getSessionUser();
-  // Store the canonical catalog VALUE (FK-ready). serviceLabel() resolves
-  // the display label on every portal, so records stay readable even if the
-  // service is later renamed, re-priced, or deactivated.
-  var _serviceValue = payload.service;
-  // TODO(BACKEND): persist service_id alongside the value; snapshot
-  // price_at_booking on the appointment at creation time.
+  // Store BOTH canonical service keys: `serviceId` is the machine identifier
+  // the backend will key on, `service` carries the catalog VALUE (never the
+  // display label). serviceLabel() derives the label on every portal, so
+  // records stay readable even if the service is later renamed or re-priced.
+  // canonicalService() accepts a value OR a label, so a legacy caller passing
+  // 'Consultation' still resolves to serviceId 1 / value 'consultation'.
+  var _svc = (window.SharedMockUsers && window.SharedMockUsers.canonicalService)
+    ? window.SharedMockUsers.canonicalService(payload.service)
+    : null;
+  var _serviceValue = _svc ? _svc.value : payload.service;
+  // TODO(BACKEND): snapshot price_at_booking on the appointment at creation
+  // time. serviceId is already resolved client-side and is what the API
+  // should accept as the authoritative foreign key.
 
   // Build one canonical appointment and WRITE THROUGH the shared store so
   // Clerk (and any other reader) sees the same record after refresh.
@@ -1121,6 +1125,7 @@ function _finalizeBooking() {
     referenceNo: refNo,
     userId: (_user.id || _user.userId || (window.SharedMockUsers ? window.SharedMockUsers.currentUserId : null)),
     petId: payload.pet_id,
+    serviceId: _svc ? _svc.serviceId : null,
     service: _serviceValue,
     appointmentDate: payload.appointment_date,
     appointmentTime: payload.appointment_time,
@@ -2736,14 +2741,13 @@ function submitCancel(e) {
     if (!result.ok) { showToast('This appointment can no longer be cancelled.', 'error'); return; }
     if (reason) store.update(rec.appointmentId, { notes: (rec.notes ? rec.notes + ' | ' : '') + 'Cancelled — ' + reason });
     if (window.AuditLog) window.AuditLog.add({ actor: _userAuditActor(), action: 'appointment_canceled', entityType: 'appointment', entityId: rec.appointmentId, referenceNo: rec.referenceNo || '', description: _userAuditActor().actorName + ' cancelled appointment ' + (rec.referenceNo || ''), metadata: { reason: reason || '' } });
-  } else {
-    // No shared store: legacy local behaviour.
-    var appt = mockAppointmentsData.find(function(a) { return a.id === apptId; });
-    if (appt) {
-      appt.status = 'canceled';
-      appt.notes = (appt.notes ? appt.notes + ' | ' : '') + 'Cancelled — ' + reason;
-    }
   }
+  // There is no legacy fallback path any more. `mockAppointmentsData` is a
+  // DERIVED projection of SharedMockAppointments.all() (rebuilt by
+  // _syncFromStore()), and its `id` is exactly the appointmentId that
+  // store.byId() looks up. So when rec is null, no second local search could
+  // ever find it — the old branch was provably a no-op and is removed rather
+  // than left to imply a second, conflicting lifecycle.
   closeModal('cancelModal');
   showToast('Appointment cancelled.', 'warning');
   _syncFromStore();

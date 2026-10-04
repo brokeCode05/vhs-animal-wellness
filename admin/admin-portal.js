@@ -622,18 +622,14 @@ function submitAdminBooking(e) {
     if (_takenNow.indexOf(_toHHMM(time)) !== -1) { showToast('That slot is already booked.', 'error'); return; }
   }
 
-  // Sequential IDs derived from the whole effective store — same scheme as
-  // User booking, so records never collide.
+  // Identity is minted by the SHARED contract helper (AppointmentContract.
+  // generateIdentity) — the exact call the User portal makes, so the two can
+  // never drift apart and records never collide.
   // TODO(BACKEND): POST book-appointment.php replaces this write-through and
   // returns the DB-assigned reference_no / appointment_id.
-  var _seq = 0;
-  window.SharedMockAppointments.getAll().forEach(function (a) {
-    var m = /^apt(\d+)$/.exec(String(a.appointmentId || a.id || ''));
-    if (m) _seq = Math.max(_seq, parseInt(m[1], 10));
-  });
-  var nextNum = _seq + 1;
-  var aptId = 'apt' + String(nextNum).padStart(3, '0');
-  var refNo = 'VHS-' + date.replace(/-/g, '') + '-' + String(nextNum).padStart(4, '0');
+  var _identity = window.AppointmentContract.generateIdentity(window.SharedMockAppointments.getAll() || [], date);
+  var aptId = _identity.appointmentId;
+  var refNo = _identity.referenceNo;
 
   // Identity is resolved strictly by ID: owner by userId, pet by petId.
   var owner = window.SharedMockUsers
@@ -648,7 +644,11 @@ function submitAdminBooking(e) {
     referenceNo: refNo,
     userId: userId,
     petId: petId,
-    service: service,
+    // Canonical service keys: serviceId is the machine identifier the backend
+    // will key on; service carries the catalog VALUE, never the display label.
+    // svc.value keeps that true even if a legacy caller passed a label.
+    serviceId: svc ? svc.serviceId : null,
+    service: svc ? svc.value : service,
     appointmentDate: date,
     appointmentTime: time,
     notes: notes,

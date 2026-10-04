@@ -647,3 +647,103 @@ mechanical swaps.
 **Do not mark KAN-63 Done on the basis of this audit** — it assessed frontend/mock
 scheduling only, which is complete. Backend readiness is a separate question that
 Batch B has to answer first.
+
+---
+
+## 16. Batch A resolution
+
+**Applied:** frontend-only. No backend/PHP touched, no portal redesigned, no
+refactor beyond the five items recommended in §15 Batch A.
+
+### 16.1 Status table
+
+| # | Batch A item | Audit ref | Status | Where it landed |
+|---|---|---|---|---|
+| 1 | Align cache-buster versions | F-P1-7 | **DONE** | `appointment-contract.js` now `?v=2.8.0` on all 7 pages (was 2.5.0 on 5 admin pages, 2.8.0 on user/doctor). A repo-wide sweep also found `document-render.js` skewed at 1.0.0/1.1.0; aligned to 1.1.0. **Every** shared file now loads at exactly one version across all pages. |
+| 2 | Move ID minting into one shared helper | F-P1-3 | **DONE** | `AppointmentContract.nextSequence(records)` + `AppointmentContract.generateIdentity(records, dateStr)` in `shared/appointment-contract.js`. Both `user/user-script.js` and `admin/admin-portal.js` now call it; the duplicated algorithms are deleted. |
+| 3 | Doctor draft status derives from the store | F-P1-4 | **DONE** | `draft.status` removed from the clinical draft entirely. `statusFor()` in `doctor/doctor.js` reads only `SharedMockAppointments`. The “Continue Consultation” adopt-lifecycle workaround is deleted. |
+| 4 | Delete the legacy cancel branch | F-P1-5 | **DONE** | Removed from `submitCancel()`. It was **provably a no-op**: `mockAppointmentsData` is a derived projection of `SharedMockAppointments.all()`, so its `id` is exactly the `appointmentId` that `store.byId()` looks up. Removal is behaviour-identical in every case. |
+| 5 | Remove Doctor hardcoded pet-history arrays | F-P2-5 | **DONE** | Moved verbatim out of `doctor/doctor.js` into `shared/mock-clinical.js` as seeded EMR data. `doctor.js` now calls `SharedMockClinical.getEmr(petId)`. |
+
+### 16.2 Findings re-verified before editing
+
+All eight findings named in Batch A were re-checked against source (not line
+numbers) before any edit. All eight **confirmed**; none rejected. Two were
+refined during the work:
+
+- **F-P1-7** was worse than described in one respect: the skew was not only
+  `appointment-contract.js`. Every shared file needed its own consistency pass,
+  so each changed file received a fresh cache-buster and the whole set was
+  re-audited — which surfaced a **second** skew the audit had not named,
+  `document-render.js` at 1.0.0 (doctor) vs 1.1.0 (user/admin). Both are now
+  aligned; the post-fix check reports zero skewed shared files.
+- **F-P1-2** (`VETERINARIAN`) turned out to be a **pure duplicate** of a doctor
+  already seeded in `shared/mock-doctors.js`, so it was deletable rather than
+  merely hardcoded.
+
+### 16.3 Additional seams closed during Batch A
+
+Two identity boundaries were added so that Batch A items 3–5 have somewhere
+real to sit. Neither implements authentication; both only isolate the existing
+mock identity so a session can replace it in one place.
+
+| Concern | Before | After | Mock-identity marker |
+|---|---|---|---|
+| Owner identity | `var CURRENT_USER_ID = 1` readable as domain truth | Every portal reads `SharedMockUsers.currentUserId` / `.currentUser()` / `.resolveOwner()`. The constant is **retained** as the one private mock source inside `shared/mock-users.js` and is now unreadable from any portal. | `identityMode: 'mock'` |
+| Staff identity | `const VETERINARIAN = { id: 'vet-001', ... }` literal in `doctor/doctor.js` | `SharedMockDoctors.currentStaff()` (literal deleted; fallback kept only if the roster is absent) | `identityMode: 'mock'` |
+| Clinical data | hardcoded array in `doctor/doctor.js`; drafts in a `Map` | `shared/mock-clinical.js` (EMR + persisted drafts) | `identityMode: 'mock'` |
+
+`currentStaff()` returns **two** distinct fields on purpose: `role`
+(`Doctor`, the roster *account* role auth will assert) and `clinicalTitle`
+(`Veterinarian`, the *professional title* printed on a signed clinical record).
+Collapsing them would have silently changed the generated consultation document.
+
+### 16.4 Canonical service representation (F-P1-1)
+
+- `serviceId` — canonical machine key. Now written by **both** User and Admin
+  booking paths.
+- `service` — the catalog **value** (`consultation`), never the display label.
+- Label — derived at render time via `SharedMockUsers.serviceLabel()`.
+
+Historical seeds that store a label (`'Consultation'`, `'Vaccination'`) were
+**deliberately not rewritten**. `SharedMockUsers.canonicalService(valueOrLabel)`
+normalises either form, so `'Consultation'` and `'consultation'` resolve to the
+same `serviceId` and cannot become two logical services. Verified in-browser.
+
+### 16.5 Verification performed
+
+| Check | Result |
+|---|---|
+| User booking succeeds; `serviceId` resolved | PASS (`apt902` / `VHS-20261013-0902`, `serviceId: 2`) |
+| Admin booking succeeds; `serviceId` resolved | PASS (`apt901` / `VHS-20261016-0901`, `serviceId: 1`) |
+| Both mint from one shared source | PASS — replaying `generateIdentity` against the pre-write store state reproduces the admin record exactly |
+| Reschedule preserves ID + reference | PASS — date moved, `appointmentId`/`referenceNo` unchanged, no duplicate |
+| Legacy label-stored records render | PASS — all 7 seed records display correctly |
+| Consultation draft survives reload | PASS — SOAP text + `startedAt` intact after a full page reload |
+| Lifecycle canonical; Complete reachable after reload | PASS — previously permanently blocked |
+| Smart Scheduling regressions | PASS — 28/28, 17/17, 12/12, 40/40 |
+| Vetti lint | PASS |
+| `node --check` on all changed JS | PASS |
+| New direct `localStorage` in portal UI files | NONE |
+| Backend/PHP files changed | NONE |
+| Browser console | No new errors |
+
+One pre-existing console warning remains in Admin and is **not** from Batch A:
+`shared/dashboard-shared.js` logs `loadAppointments fallback to shared mock` when
+the PHP endpoint cannot be reached (the QA server is a plain static server that
+cannot execute PHP). That file was not modified.
+
+### 16.6 Still open after Batch A
+
+The **shape** changed, not the fundamental gaps. The following remain and are
+Batch B / backend work, not frontend defects:
+
+- **No identity layer exists.** The two boundaries added here are marked
+  `identityMode: 'mock'`. They make the swap a one-line change; they are not a
+  session. See F-P0-1, F-P0-2.
+- **No backend clinical record.** `shared/mock-clinical.js` is a replaceable
+  mock seam, not a schema. Draft-vs-finalised semantics and the consultation
+  record shape are specified in `docs/VHS_CLINICAL_CONTRACT.md`, with endpoints
+  marked **CONTRACT NEEDED / TBD**.
+- **Cross-tab staleness** (F-*, §8.3) is unchanged — `SharedMockAppointments`
+  still snapshots storage at load and has no `storage` listener.

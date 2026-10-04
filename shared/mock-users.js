@@ -289,8 +289,19 @@
   global.SharedMockUsers = {
     users: function () { return _allUsers(); },
     byId: function (id) { return byId(_allUsers(), 'userId', id); },
+    // ── IDENTITY BOUNDARY (mock) ──────────────────────────────────────
+    // CURRENT_USER_ID is a DEMO CONSTANT, not authentication. Every reader
+    // goes through currentUserId()/resolveOwner() below so that replacing the
+    // mock with a real session is a change to THIS boundary only — no portal
+    // reads the constant directly, and no portal invents its own owner.
+    // TODO(BACKEND): resolve from the authenticated session/token; the
+    // hardcoded id below is deleted at that point, not before.
+    identityMode: 'mock',
     currentUserId: CURRENT_USER_ID,
     currentUser: function () { return Object.assign({}, byId(_allUsers(), 'userId', CURRENT_USER_ID)); },
+    // Explicit alias for "who is the owner right now", for callers that should
+    // not read as though the id were a domain fact.
+    resolveOwner: function () { return this.currentUser(); },
 
     pets: function () { return _allPets(); },
     petById: function (id) { return byId(_allPets(), 'petId', id); },
@@ -404,6 +415,18 @@
       var v = String(value || '').trim().toLowerCase();
       var hit = _effectiveServices().find(function (s) { return s.value === v || s.label.toLowerCase() === v; });
       return hit ? Object.assign({}, hit) : null;
+    },
+    // CANONICAL SERVICE REPRESENTATION (single normalizer for every writer).
+    // Legacy records stored the display label ("Consultation"); current writes
+    // store the catalog value ("consultation"). Both resolve to ONE logical
+    // service here, so they can never fork into two services downstream.
+    // Returns { serviceId, value, label } or null when unresolvable.
+    // TODO(BACKEND): the API returns service_id; the value/label pair is
+    // display sugar the frontend resolves, never persists.
+    canonicalService: function (valueOrLabel) {
+      var hit = this.serviceByValue(valueOrLabel);
+      if (!hit) return null;
+      return { serviceId: hit.serviceId, value: hit.value, label: hit.label };
     },
     // True when the service value/label is referenced by any appointment.
     // TODO(BACKEND): enforced server-side with FK/integrity checks.

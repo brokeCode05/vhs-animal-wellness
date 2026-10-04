@@ -59,6 +59,11 @@
       userId: firstDefined(src.userId, src.user_id, (src.pet && src.pet.ownerId), (src.pet && src.pet.owner_id)) || null,
       petId: firstDefined(src.petId, src.pet_id) || null,
       assignedVetId: firstDefined(src.assignedVetId, src.assigned_vet_id, src.staffId, src.staff_id),
+      // Canonical service identity. `serviceId` is the machine key the backend
+      // will key on; `service` carries the catalog value (never the display
+      // label) for records written by the current portals. Legacy records that
+      // stored a label still resolve through SharedMockUsers.serviceByValue().
+      serviceId: firstDefined(src.serviceId, src.service_id) || null,
       service: firstDefined(src.service, src.vet_service) || '',
       appointmentDate: firstDefined(src.appointmentDate, src.appointment_date, src.date) || null,
       appointmentTime: timeToHHMM(firstDefined(src.appointmentTime, src.appointment_time, src.time)),
@@ -116,12 +121,44 @@
     };
   }
 
+  // ── APPOINTMENT IDENTITY (single source for both booking portals) ─────────
+  // Identity GENERATION only — no persistence, no store access, no backend
+  // assumption. The API will own id/reference assignment at cutover; until
+  // then User and Admin call these so the two can never drift apart.
+  //
+  // nextSequence(): highest numeric "apt<N>" in the supplied records, +1.
+  // Accepts canonical rows (appointmentId) and legacy display rows (id), so a
+  // caller can pass whatever it already had.
+  // generateIdentity(): the visible formats the product already ships —
+  //   appointmentId  apt001
+  //   referenceNo     VHS-20261007-0901
+  function nextSequence(records) {
+    var max = 0;
+    (records || []).forEach(function (a) {
+      if (!a) return;
+      var m = /^apt(\d+)$/.exec(String(a.appointmentId || a.id || ''));
+      if (m) max = Math.max(max, parseInt(m[1], 10));
+    });
+    return max + 1;
+  }
+
+  function generateIdentity(records, dateStr) {
+    var n = nextSequence(records);
+    return {
+      sequence: n,
+      appointmentId: 'apt' + String(n).padStart(3, '0'),
+      referenceNo: 'VHS-' + String(dateStr || '').replace(/-/g, '') + '-' + String(n).padStart(4, '0')
+    };
+  }
+
   global.AppointmentContract = {
     STATUSES: STATUSES,
     normalizeStatus: normalizeStatus,
     fromLegacy: fromLegacy,
     toLegacyDisplay: toLegacyDisplay,
     timeToHHMM: timeToHHMM,
+    nextSequence: nextSequence,
+    generateIdentity: generateIdentity,
     // Canonical 24h HH:MM -> display 12h with AM/PM (e.g. 15:30 -> 3:30 PM).
     // Input that is already 12h passes through unchanged.
     timeTo12h: function (value) {

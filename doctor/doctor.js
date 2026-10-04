@@ -38,63 +38,13 @@ const MEDICINE_LIMITS = { medicine: 100, frequency: 50, instructions: 500 };
   // 1. Shared appointment records: window.SharedMockAppointments (loaded via
   //    shared/mock-appointments.js) — the SAME canonical dataset the User and
   //    Clerk portals render, normalized through appointment-contract.js.
-  // 2. Pet/EMR data: DOCTOR_EMR below, keyed by petId (clinical history is
-  //    not part of the appointment record).
-  // 3. Consultation records: drafts Map keyed by appointmentId (see below).
-  // TODO(BACKEND): Replace the shared mock source with get_appointments.php
-  // (filtered by staff_id and today's date) once the endpoint exists.
-  function DOCTOR_EMR_DEFAULT(petName) {
-    return {
-      pet_age: '',
-      ai_triage: 'Routine',
-      ai_summary: '',
-      visits: []
-    };
-  }
-  // Doctor EMR is keyed by the SHARED petIds (shared/mock-users.js):
-  // 1 Luna, 2 Buddy, 3 Mochi, 4 Max, 5 Milo. Ownership lives in the shared
-  // pet records, never inferred from names.
-  const DOCTOR_EMR = {
-    1: { // Luna — Cat, Persian (owner: Maria Santos, userId 1)
-      pet_age: '3 years',
-      ai_triage: 'Urgent',
-      ai_summary: 'Vomiting and reduced appetite over 24 hours in a young adult cat. Same-day assessment recommended; check hydration and consider dietary history.',
-      visits: [
-        { date: '2026-06-12', title: 'Veterinary note', note: 'Routine examination recorded; owner reported normal appetite and activity.' },
-        { date: '2026-03-10', title: 'Vaccination', note: 'Rabies vaccination recorded.' }
-      ]
-    },
-    2: { // Buddy — Dog, Golden Retriever (owner: Maria Santos, userId 1)
-      pet_age: '5 years',
-      ai_triage: 'Emergency',
-      ai_summary: 'Acute breathing difficulty in a middle-aged dog. Immediate veterinarian evaluation required; prepare for possible oxygen support and thoracic imaging.',
-      visits: [
-        { date: '2026-07-21', title: 'Veterinary note', note: 'Follow-up examination recorded; no new concerns reported at that visit.' },
-        { date: '2026-02-05', title: 'Vaccination', note: 'Rabies vaccination recorded.' }
-      ]
-    },
-    3: { // Mochi — Cat, Siamese (owner: Maria Santos, userId 1)
-      pet_age: '2 years',
-      ai_triage: 'Routine',
-      ai_summary: 'Young adult dog presenting for routine wellness examination; no reported concerns. Review vaccination schedule and weight trend.',
-      visits: []
-    },
-    4: { // Max — Dog, Labrador retriever (owner: Sam Reyes, userId 2)
-      pet_age: '5 years',
-      ai_triage: 'Emergency',
-      ai_summary: 'Acute breathing difficulty in a middle-aged dog. Immediate veterinarian evaluation required; prepare for possible oxygen support and thoracic imaging.',
-      visits: [
-        { date: '2026-07-21', title: 'Veterinary note', note: 'Follow-up examination recorded; no new concerns reported at that visit.' },
-        { date: '2026-02-05', title: 'Vaccination', note: 'Rabies vaccination recorded.' }
-      ]
-    },
-    5: { // Milo — Dog, Aspin (owner: Jamie Cruz, userId 3)
-      pet_age: '2 years',
-      ai_triage: 'Routine',
-      ai_summary: 'Young adult dog presenting for routine wellness examination; no reported concerns. Review vaccination schedule and weight trend.',
-      visits: []
-    }
-  };
+  // 2. Pet/EMR + consultation drafts: window.SharedMockClinical (loaded via
+  //    shared/mock-clinical.js), keyed by petId and appointmentId. Clinical
+  //    data is NOT part of the appointment record and is not owned by this UI.
+  // TODO(BACKEND): Replace the shared mock sources with the appointments and
+  // clinical endpoints once they exist. See docs/VHS_CLINICAL_CONTRACT.md.
+  // Pet/EMR seed moved to SharedMockClinical.getEmr(petId). Clinical history is
+  // not part of the appointment record.
 
   // Portal-only extras must NOT collide with shared appointment IDs.
   // (User keeps its own historical fixtures locally; Doctor keeps EMR
@@ -108,7 +58,9 @@ const MEDICINE_LIMITS = { medicine: 100, frequency: 50, instructions: 500 };
     ? window.SharedMockAppointments.todays(DOCTOR_TEST_DATE)
     : []
   ).map(function (appt) {
-    var emr = DOCTOR_EMR[appt.petId] || DOCTOR_EMR_DEFAULT(appt.pet ? appt.pet.name : '');
+    var emr = (window.SharedMockClinical && window.SharedMockClinical.getEmr)
+      ? window.SharedMockClinical.getEmr(appt.petId)
+      : { pet_age: '', ai_triage: 'Routine', ai_summary: '', visits: [] };
     return Object.assign({}, appt, emr);
   });
 
@@ -166,7 +118,14 @@ const MEDICINE_LIMITS = { medicine: 100, frequency: 50, instructions: 500 };
   let selectedPatient = null;
   let medicineSequence = 0;
   // TODO(BACKEND): Veterinarian identity comes from the authenticated session.
-  const VETERINARIAN = { id: 'vet-001', name: 'Dr. Santos', role: 'Veterinarian' };
+  // Identity comes from the shared roster, not from a literal in this file —
+  // mock-doctors.js seeded this exact doctor FROM the old constant, so nothing
+  // about the demo changes; there is now one source instead of two.
+  // MOCK identity: there is no login. TODO(BACKEND): an authenticated staff
+  // session replaces SharedMockDoctors.currentStaff(); only that changes.
+  const VETERINARIAN = (window.SharedMockDoctors && window.SharedMockDoctors.currentStaff)
+    ? window.SharedMockDoctors.currentStaff()
+    : { id: 'vet-001', name: 'Dr. Santos', role: 'Veterinarian', clinicalTitle: 'Veterinarian' };
   // Display-side service label resolution: records may store the canonical
   // catalog VALUE (wound_repair); the queue/record UI always shows the
   // shared catalog LABEL (Wound Repair). Idempotent for label-stored rows.
@@ -193,7 +152,10 @@ const MEDICINE_LIMITS = { medicine: 100, frequency: 50, instructions: 500 };
   // cross-portal change) are always reflected here.
   // TODO(BACKEND): GET /appointments/:id returns the live status instead.
   function statusFor(patient) {
-    const draft = draftFor(patient);
+    // ONE lifecycle source: the shared AppointmentStore. The consultation draft
+    // used to carry its own `status` copy that could disagree with the store
+    // (and was lost on reload, stranding the Complete button). Clinical drafts
+    // now hold notes and timestamps only — never a competing status.
     if (window.SharedMockAppointments && patient.appointmentId) {
       const rec = window.SharedMockAppointments.byId(patient.appointmentId);
       if (rec) {
@@ -201,10 +163,8 @@ const MEDICINE_LIMITS = { medicine: 100, frequency: 50, instructions: 500 };
           ? window.AppointmentContract.normalizeStatus(rec.status)
           : rec.status;
         if (s === 'checked_in' || s === 'in_consultation' || s === 'completed' || s === 'canceled') return s;
-        return draft.status || 'upcoming';
       }
     }
-    if (draft.status) return draft.status;
     return patient.checkedIn ? 'checked_in' : 'upcoming';
   }
   // Time-based greeting for the patients view; other views keep their titles.
@@ -304,8 +264,26 @@ const MEDICINE_LIMITS = { medicine: 100, frequency: 50, instructions: 500 };
   }
 
   function draftFor(patient) {
-    if (!drafts.has(patient.id)) drafts.set(patient.id, { fields: {}, medicines: [emptyMedicine()], labs: [], reviewed: false, saved: false, status: '', startedAt: null, completedAt: null, durationMinutes: null, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() });
-    return drafts.get(patient.id);
+    // Hot working copy. It is HYDRATED from SharedMockClinical the first time a
+    // patient is opened, so a reload restores the consultation instead of
+    // losing it — the previous in-memory Map silently discarded all of it.
+    // Mutations are pushed back through persistDraft() at the edit checkpoints
+    // (captureDraft / markChanged / start / end / save), never straight to
+    // storage: this file must not own clinical persistence.
+    const key = String(patient && patient.id != null ? patient.id : '');
+    if (!drafts.has(key)) {
+      const restored = (window.SharedMockClinical && window.SharedMockClinical.ensureConsultationDraft)
+        ? window.SharedMockClinical.ensureConsultationDraft(key)
+        : { fields: {}, medicines: [emptyMedicine()], labs: [], reviewed: false, saved: false, startedAt: null, completedAt: null, durationMinutes: null, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() };
+      drafts.set(key, restored);
+    }
+    return drafts.get(key);
+  }
+  // Single write-through for clinical working state. No localStorage here.
+  function persistDraft(patient, draft) {
+    if (!window.SharedMockClinical || !window.SharedMockClinical.saveConsultationDraft) return draft;
+    const key = String(patient && patient.id != null ? patient.id : '');
+    return window.SharedMockClinical.saveConsultationDraft(key, draft || {});
   }
   // Elapsed minutes between two timestamps, for the consultation record.
   function durationBetween(startIso, endIso) {
@@ -325,10 +303,12 @@ const MEDICINE_LIMITS = { medicine: 100, frequency: 50, instructions: 500 };
     draft.labs = Array.from(form.querySelectorAll('[name="labs"]:checked'), input => input.value);
     draft.reviewed = document.getElementById('reviewed').checked;
     draft.updatedAt = new Date().toISOString();
+    persistDraft(selectedPatient, draft);
   }
   function markChanged() {
     const draft = draftFor(selectedPatient);
     draft.saved = false;
+    persistDraft(selectedPatient, draft);
     // Any clinical edit invalidates the prior review acknowledgement.
     document.getElementById('reviewed').checked = false;
     captureDraft();
@@ -501,11 +481,11 @@ const MEDICINE_LIMITS = { medicine: 100, frequency: 50, instructions: 500 };
     document.getElementById('context-name').textContent = patient.name;
     document.getElementById('context-appointment').textContent = `${patient.species} · ${patient.breed} · ${patient.dateDisplay}, ${patient.time} · ${svcLabel(patient.service)}`;
     const timerLine = document.getElementById('context-timer');
-    if (draft.status === 'in_consultation' && draft.startedAt) {
+    if (statusFor(patient) === 'in_consultation' && draft.startedAt) {
       const startClock = new Date(draft.startedAt).toLocaleTimeString('en-GB', { hour: 'numeric', minute: '2-digit' });
       timerLine.hidden = false;
       timerLine.replaceChildren(
-        element('span', STATUS_LABELS[draft.status], `appt-status in_consultation`),
+        element('span', STATUS_LABELS.in_consultation, `appt-status in_consultation`),
         element('span', ` · Started ${startClock} · `),
         element('span', formatElapsed(draft.startedAt), 'timer-value')
       );
@@ -568,11 +548,14 @@ const MEDICINE_LIMITS = { medicine: 100, frequency: 50, instructions: 500 };
         // and Complete is permanently blocked with "start first", with no
         // Start button left to press.
         const draft = draftFor(patient);
-        if (draft.status !== 'in_consultation' && draft.status !== 'completed') {
+        // The status now comes from the shared store, so there is nothing to
+        // adopt here: if the store says in_consultation, statusFor() agrees and
+        // Complete is reachable. The draft only needs its start timestamp.
+        if (!draft.startedAt) {
           const store = window.SharedMockAppointments;
           const rec = store && patient.appointmentId ? store.byId(patient.appointmentId) : null;
-          draft.status = 'in_consultation';
-          draft.startedAt = (rec && rec.consultationStartedAt) || draft.startedAt || new Date().toISOString();
+          draft.startedAt = (rec && rec.consultationStartedAt) || new Date().toISOString();
+          persistDraft(patient, draft);
         }
         renderRecordActions(patient);
         navigate('notes');
@@ -637,7 +620,7 @@ const MEDICINE_LIMITS = { medicine: 100, frequency: 50, instructions: 500 };
   function startConsultation(patient) {
     const draft = draftFor(patient);
     if (statusFor(patient) !== 'checked_in') return;
-    if (draft.status === 'in_consultation' || draft.status === 'completed') return;
+    if (statusFor(patient) === 'in_consultation' || statusFor(patient) === 'completed') return;
     // Same record, same lifecycle: the shared store stamps
     // consultationStartedAt and sets in_consultation for every portal.
     // TODO(BACKEND): PATCH /appointments/:id/status { in_consultation }.
@@ -646,11 +629,11 @@ const MEDICINE_LIMITS = { medicine: 100, frequency: 50, instructions: 500 };
     if (store && patient.appointmentId && !result.ok) return; // guard rejected the transition
     if (window.AuditLog) window.AuditLog.add({ actor: { actorType: 'Doctor', actorId: VETERINARIAN.id, actorName: VETERINARIAN.name }, action: 'consultation_started', entityType: 'appointment', entityId: patient.appointmentId, referenceNo: patient.referenceNo || '', description: VETERINARIAN.name + ' started consultation for ' + patient.name });
     captureDraft();
-    draft.status = 'in_consultation';
     draft.startedAt = (result && result.appointment && result.appointment.consultationStartedAt) || new Date().toISOString();
     draft.completedAt = null;
     draft.durationMinutes = null;
     draft.updatedAt = draft.startedAt;
+    persistDraft(patient, draft);
     renderQueue();
     selectPatient(patient);
     document.getElementById('save-status').textContent = `Consultation started for ${patient.name}. Timer is running.`;
@@ -662,7 +645,7 @@ const MEDICINE_LIMITS = { medicine: 100, frequency: 50, instructions: 500 };
     const now = new Date();
     patients.forEach(patient => {
       const draft = draftFor(patient);
-      if (draft.status !== 'in_consultation' || !draft.startedAt) return;
+      if (statusFor(patient) !== 'in_consultation' || !draft.startedAt) return;
       const elapsed = formatElapsed(draft.startedAt, now);
       document.querySelectorAll(`[data-elapsed-for="${patient.id}"]`).forEach(node => { node.textContent = elapsed; });
     });
@@ -678,7 +661,7 @@ const MEDICINE_LIMITS = { medicine: 100, frequency: 50, instructions: 500 };
   form.addEventListener('input', event => {
     if (event.target.id === 'reviewed') {
       captureDraft();
-      draftFor(selectedPatient).saved = false;
+      { const d = draftFor(selectedPatient); d.saved = false; persistDraft(selectedPatient, d); }
       document.getElementById('draft-state').textContent = 'Unsaved draft';
       document.getElementById('save-status').textContent = '';
     } else markChanged();
@@ -726,7 +709,7 @@ const MEDICINE_LIMITS = { medicine: 100, frequency: 50, instructions: 500 };
       document.getElementById('reviewed').focus();
       return;
     }
-    draftFor(selectedPatient).saved = true;
+    { const d = draftFor(selectedPatient); d.saved = true; persistDraft(selectedPatient, d); }
     document.getElementById('draft-state').textContent = 'Saved on this device';
     // TODO(BACKEND): Persist the consultation through the consultation endpoint
     // and enable front-desk handoff once the API exists.
@@ -739,8 +722,8 @@ const MEDICINE_LIMITS = { medicine: 100, frequency: 50, instructions: 500 };
     const draft = draftFor(selectedPatient);
     const status = document.getElementById('save-status');
     // TODO(BACKEND): Validate the completion transition server-side.
-    if (draft.status === 'completed') { status.textContent = 'This consultation is already completed.'; return; }
-    if (draft.status !== 'in_consultation' || statusFor(selectedPatient) !== 'in_consultation') { status.textContent = 'Start the consultation before completing it.'; return; }
+    if (statusFor(selectedPatient) === 'completed') { status.textContent = 'This consultation is already completed.'; return; }
+    if (statusFor(selectedPatient) !== 'in_consultation') { status.textContent = 'Start the consultation before completing it.'; return; }
     // Nothing invalid may reach a finalized record.
     if (window.doctorValidateClinical && !window.doctorValidateClinical()) {
       const rx = window.doctorFirstPrescriptionIssue && window.doctorFirstPrescriptionIssue();
@@ -763,11 +746,11 @@ const MEDICINE_LIMITS = { medicine: 100, frequency: 50, instructions: 500 };
     const store = window.SharedMockAppointments;
     if (store && selectedPatient.appointmentId) store.setStatus(selectedPatient.appointmentId, 'completed');
     if (window.AuditLog) window.AuditLog.add({ actor: { actorType: 'Doctor', actorId: VETERINARIAN.id, actorName: VETERINARIAN.name }, action: 'consultation_completed', entityType: 'appointment', entityId: selectedPatient.appointmentId, referenceNo: selectedPatient.referenceNo || '', description: VETERINARIAN.name + ' completed consultation for ' + selectedPatient.name });
-    draft.status = 'completed';
     draft.completedAt = new Date().toISOString();
     draft.durationMinutes = durationBetween(draft.startedAt, draft.completedAt);
     draft.saved = true;
     draft.updatedAt = draft.completedAt;
+    persistDraft(selectedPatient, draft);
     // Phase 5: finalization creates the client-facing documents
     // (summary, prescription, lab request). Internal SOAP narrative
     // stays Doctor-only and is never stored in the shared layer.
@@ -812,7 +795,7 @@ const MEDICINE_LIMITS = { medicine: 100, frequency: 50, instructions: 500 };
       veterinarianId: VETERINARIAN.id,
       patient: { name: patient.name, species: patient.species, breed: patient.breed, age: patient.age, owner: patient.owner },
       appointment: { date: patient.date, dateDisplay: patient.dateDisplay, time: patient.time, service: patient.service, reason: patient.reason },
-      status: draft.status || statusFor(patient),
+      status: statusFor(patient),
       startedAt: draft.startedAt,
       completedAt: draft.completedAt,
       duration: draft.durationMinutes,
@@ -835,7 +818,7 @@ const MEDICINE_LIMITS = { medicine: 100, frequency: 50, instructions: 500 };
         instructions: String(m.instructions || '').trim(),
       })),
       labRequests: draft.labs.map(name => ({ test: name, notes: '' })),
-      veterinarian: { name: VETERINARIAN.name, role: VETERINARIAN.role },
+      veterinarian: { name: VETERINARIAN.name, role: VETERINARIAN.clinicalTitle || VETERINARIAN.role },
       createdAt: draft.createdAt,
       updatedAt: draft.updatedAt
     };
