@@ -8,7 +8,7 @@
   <link rel="stylesheet" href="../admin/admin-style.css?v=3.4.4">
   <link rel="stylesheet" href="../shared/dashboard-theme.css?v=3.4.6">
   <link rel="stylesheet" href="../shared/dashboard-icons.css">
-  <link rel="stylesheet" href="doctor.css?v=3.4.8">
+  <link rel="stylesheet" href="doctor.css?v=3.4.9">
   <script src="../shared/appointment-contract.js?v=2.8.0"></script>
   <script src="../shared/mock-users.js?v=2.13.0"></script>
   <script src="../shared/mock-doctors.js?v=2.9.0"></script>
@@ -18,7 +18,8 @@
   <script src="../shared/audit-store.js?v=1.0.0"></script>
   <script src="../shared/document-store.js?v=1.0.3"></script>
   <script src="../shared/document-render.js?v=1.1.0"></script>
-  <script src="doctor.js?v=2.16.0" defer></script>
+  <script src="doctor-scribe.js?v=1.0.0"></script>
+  <script src="doctor.js?v=2.17.0" defer></script>
 </head>
 <body class="doctor-portal">
   <a class="skip-link" href="#workspace">Skip to current view</a>
@@ -78,6 +79,29 @@
             <div class="ai-body"><strong>AI-assisted summary</strong><span>Assistive draft — verify against your own examination.</span></div>
             <p id="ai-summary"></p>
           </div>
+          <!-- AI Scribe: a compact clinical tool that FILLS the SOAP fields below.
+               It never owns them, and it never adds a second SOAP form. -->
+          <section class="scribe-panel" id="scribe-section" aria-labelledby="scribe-heading">
+            <div class="scribe-head">
+              <h3 class="scribe-title" id="scribe-heading">AI Scribe</h3>
+              <p class="scribe-status" id="scribe-status" role="status" data-state="ready">Ready</p>
+            </div>
+            <p class="scribe-subtitle" id="scribe-subtitle">Convert consultation notes or transcript into a structured SOAP draft for review.</p>
+            <div class="scribe-controls">
+              <button type="button" class="btn-secondary" id="scribe-record">Start Recording</button>
+              <button type="button" class="btn-secondary" id="scribe-paste-toggle" aria-expanded="false" aria-controls="scribe-transcript-wrap">Paste Transcript</button>
+              <button type="button" class="btn-primary" id="scribe-generate">Generate SOAP Draft</button>
+              <button type="button" class="btn-secondary btn-small" id="scribe-cancel" hidden>Cancel</button>
+            </div>
+            <div class="scribe-transcript" id="scribe-transcript-wrap" hidden>
+              <label class="form-label" for="scribe-transcript">Consultation transcript / notes</label>
+              <textarea class="form-textarea" id="scribe-transcript" name="scribeTranscript" rows="4" maxlength="8000" placeholder="Paste or type the consultation transcript, then generate a SOAP draft."></textarea>
+              <p class="helper">Kept with this draft on this device. Nothing is recorded, transcribed or sent anywhere.</p>
+            </div>
+            <p class="scribe-warning" id="scribe-warning" hidden>Regenerating replaces the SOAP fields below with a new draft. Your edits to them will be lost.</p>
+            <p class="scribe-note" id="scribe-note">Assistive draft only &mdash; review and edit every field. Nothing is saved or finalized until you do.</p>
+            <p class="scribe-lock" id="scribe-lock" hidden></p>
+          </section>
           <div class="soap-grid">
             <div class="soap-block"><h3><span class="soap-letter">S</span><span class="soap-name">Subjective</span><span class="soap-hint">owner history &amp; symptoms</span></h3><label class="form-label" for="subjective">What the owner reports</label><textarea class="form-textarea" id="subjective" name="subjective" rows="3" maxlength="1000" placeholder="Record the owner's concerns and history."></textarea></div>
             <div class="soap-block"><h3><span class="soap-letter">O</span><span class="soap-name">Objective</span><span class="soap-hint">measured findings</span></h3><div class="vitals-grid"><div><label class="form-label" for="weight">Weight (kg)</label><input class="form-input" id="weight" name="weight" type="text" inputmode="decimal" autocomplete="off" spellcheck="false" placeholder="0.0"></div><div><label class="form-label" for="temperature">Temp. (°C)</label><input class="form-input" id="temperature" name="temperature" type="text" inputmode="decimal" autocomplete="off" spellcheck="false" placeholder="00.0"></div><div><label class="form-label" for="heart-rate">Heart rate (bpm)</label><input class="form-input" id="heart-rate" name="heartRate" type="text" inputmode="numeric" autocomplete="off" spellcheck="false" placeholder="000"></div></div><label class="form-label" for="exam">Examination findings</label><textarea class="form-textarea" id="exam" name="exam" rows="3" maxlength="1000" placeholder="Enter observed clinical findings."></textarea></div>

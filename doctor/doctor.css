@@ -161,6 +161,50 @@ dd { margin: 0.2rem 0 0; font-weight: 700; font-size: 0.95rem; overflow-wrap: an
 .soap-hint { font-size: 0.75rem; color: var(--doctor-muted); }
 .vitals-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.65rem; margin-bottom: 1rem; }
 
+/* ===== AI SCRIBE ===== */
+/* A compact clinical tool that sits directly above the SOAP fields and fills
+   them. It reuses the same surfaces as .ai-strip: the shared violet shell
+   tokens for the panel, the Doctor gold accent for the status chip and the one
+   primary action. No mascot, no chat window, no glows — it has to read as part
+   of the consultation form, not as a separate product surface. */
+.scribe-panel {
+  padding: 0.9rem 1rem; margin-bottom: 1.5rem;
+  background: var(--vhs-shell-soft); border: 1px solid var(--doctor-border);
+  border-left: 3px solid var(--vhs-shell-light); border-radius: 0.35rem;
+}
+.scribe-head { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; flex-wrap: wrap; }
+.scribe-title { font-size: 1.05rem; font-weight: 800; color: #3b2d4a; margin: 0; }
+/* Same pill recipe as .appt-status / .severity, one tone per state. */
+.scribe-status {
+  margin: 0; padding: 0.3rem 0.7rem; border-radius: 14px; font-size: 0.72rem;
+  font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em; white-space: nowrap;
+  background: #f3f4f6; color: #4b5563; border: 1px solid #d1d5db;
+}
+.scribe-status[data-state='transcript_ready'] { background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%); color: #1e40af; border-color: #93c5fd; }
+.scribe-status[data-state='draft_generated'] { background: var(--accent-badge-bg); color: var(--accent-dark); border-color: var(--accent-badge-border); }
+.scribe-status[data-state='unsaved_changes'] { background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%); color: #92400e; border-color: #f0c33c; }
+.scribe-status[data-state='recording'] { background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%); color: #991b1b; border-color: #f87171; }
+.scribe-subtitle { margin: 0.4rem 0 0.85rem; font-size: 0.85rem; color: var(--doctor-muted); }
+.scribe-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 0.6rem; }
+.scribe-controls .btn-primary, .scribe-controls .btn-secondary { padding: 0.45rem 0.95rem; min-height: 38px; font-size: 0.85rem; }
+.scribe-controls button[disabled] { opacity: 0.55; cursor: not-allowed; box-shadow: none; transform: none; }
+.scribe-transcript { margin-top: 0.9rem; }
+.scribe-transcript .form-textarea { margin-top: 0.3rem; min-height: 90px; }
+.scribe-transcript[hidden] { display: none; }
+/* Regeneration guard: a warning line, never a blocking modal. */
+.scribe-warning {
+  margin: 0.85rem 0 0; padding: 0.55rem 0.7rem; border-radius: 0.3rem;
+  background: #fff7ed; border-left: 3px solid #b45309; color: #7c2d12; font-size: 0.8rem; line-height: 1.5;
+}
+.scribe-warning[hidden] { display: none; }
+.scribe-note { margin: 0.6rem 0 0; color: var(--doctor-muted); font-size: 0.8rem; line-height: 1.5; }
+.scribe-lock { margin: 0.6rem 0 0; color: var(--doctor-muted); font-size: 0.8rem; }
+.scribe-lock[hidden] { display: none; }
+@media (max-width: 600px) {
+  .scribe-panel { padding: 0.75rem; }
+  .scribe-head { align-items: flex-start; }
+}
+
 /* ===== PRESCRIPTIONS & LAB REQUESTS ===== */
 .medicine-row {
   /* align-items: start, not end: a field-level error grows its own group

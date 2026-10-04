@@ -186,7 +186,160 @@ every call site.
 
 ---
 
-## 7. Unresolved backend decisions
+## 7. AI Scribe boundary
+
+**Status:** frontend + mock generator only. **No speech-to-text, no microphone
+capture, no LLM call, no network request, no endpoint.** What exists today is a
+working, reviewable SOAP-draft workflow whose generator is a local,
+deterministic function.
+
+```
+Doctor UI (doctor/doctor.js)
+  → window.DoctorScribe            ← the adapter; the only thing the UI knows
+       → mock generator NOW
+       → transcription + AI backend LATER   ← same call site, new body
+  → SharedMockClinical             ← draft persistence, unchanged
+```
+
+`doctor/doctor-scribe.js` owns every rule about what a draft may contain.
+`doctor/doctor.js` owns none of them: it reads the transcript, calls the adapter
+and writes the returned strings into the **existing** SOAP fields. Swapping the
+mock for the real service therefore changes one file, not the consultation
+workflow.
+
+### 7.1 Adapter interface (`window.DoctorScribe`)
+
+| Operation | Signature | Purpose |
+|---|---|---|
+| `normalizeTranscript(input)` | `(string \| {transcript}) → {text, charCount, wordCount, isEmpty}` | Normalises line endings/space. Never rewrites the Doctor's wording. |
+| `validateScribeInput(input)` | `→ {ok, code, message, charCount, wordCount}` | The single gate both the UI and the generator use, so the wording the Doctor reads and the rule that runs cannot disagree. `code` ∈ `ok` / `empty` / `too_short` / `too_long`. |
+| `generateSoapDraft(input)` | `→ result` (synchronous mock) | The mock generator. Same input ⇒ same output. |
+| `createSoapDraft(input)` | `→ Promise<result>` | The seam the UI calls. Resolves on the microtask queue today; awaits the future endpoint instead. **The call site does not change.** |
+| `getScribeStatus(state)` | `→ {state, label}` | One place decides the indicator: `ready` / `recording` / `transcript_ready` / `draft_generated` / `unsaved_changes`. |
+| `recording` | `{supported: false, mode, message}` | The UI reads this before implying anything about audio. |
+
+Also exported: `SOAP_FIELDS`, `FIELD_LIMITS`, `NOT_PROVIDED`, `engine: 'mock'`,
+`identityMode: 'mock'`, `version`.
+
+### 7.2 Transcript input shape (current)
+
+```js
+DoctorScribe.generateSoapDraft({
+  transcript: "Owner reports …\nWeight 4.2 kg, temperature 39.1 degrees …",
+  appointmentId: 'apt902',
+  petId: '4',
+  patient: { appointmentId, petId, name, species },  // pass-through identity only
+  nowIso: '2026-10-04T00:00:00.000Z'                  // optional; keeps results reproducible
+})
+```
+
+Identity fields are echoed into `meta.patient` for traceability. **No clinical
+content is derived from them.**
+
+### 7.3 SOAP output shape (current)
+
+```js
+{
+  ok: true,
+  soap: { subjective, exam, assessment, plan },   // the EXISTING textarea ids
+  fields: ['subjective', 'exam', 'assessment', 'plan'],
+  filled: [...],        // sections the transcript covered
+  missing: [...],       // sections written as NOT_PROVIDED
+  unclassified: [...],  // lines the transcript did not place (never guessed into a section)
+  dropped: {field: n},  // lines omitted because the field limit was reached
+  meta: { engine: 'mock', generator: 'doctor-scribe-mock', version, deterministic: true,
+          recording: 'unavailable', generatedAt, transcriptChars, segmentCount, patient }
+}
+```
+
+`exam` is the Objective textarea. `FIELD_LIMITS` equals the `maxlength` already
+declared on each SOAP textarea, so a generated value can never trip
+`doctorValidateClinical()`.
+
+**What the mock generator will not do:** it only moves the Doctor's own
+sentences between sections using routing vocabulary. It never proposes a
+diagnosis, a medication, a dosage, or a treatment decision; a section the
+transcript does not cover is emitted as `NOT_PROVIDED` (`"Not provided."`). It
+cannot write prescriptions or lab requests — those controls are outside its
+reach entirely.
+
+### 7.4 Draft vs. final
+
+AI output is **always a draft**. Generating fills the four SOAP textareas and
+nothing else: it does not set `saved`, does not tick the review
+acknowledgement, does not complete the consultation, and creates no document. A
+clinical edit — including one made to generated text — routes through the
+existing `markChanged()`, which clears the saved flag **and** the acknowledgement.
+
+Persisted on the consultation draft (`vhs_mock_consultation_drafts_v1`, via
+`SharedMockClinical.saveConsultationDraft` — no new key, no `localStorage` in
+`doctor.js` or `doctor-scribe.js`):
+
+```js
+draft.scribe = {
+  transcript,            // the notes the draft came from
+  transcriptAtGenerate,  // staleness check for the indicator
+  generatedAt,           // when the last draft was produced
+  engine,                // 'mock' today
+  soap,                  // snapshot of what was written (regeneration guard)
+  patient                // appointmentId/petId linkage, pass-through
+}
+```
+
+The finalized consultation document (§6.3) is unaffected: it is built by
+`buildConsultation()` from the Doctor's saved SOAP fields.
+
+### 7.5 Doctor approval responsibility
+
+The veterinarian remains the sole author of the record. AI Scribe may not start
+a consultation, end one, complete an appointment, approve a SOAP note, or sign a
+document. Regeneration is destructive to hand edits, so it is never silent: if
+any generated SOAP field has been edited (or the transcript has changed since
+generation), the first press of **Generate SOAP Draft** only arms an explicit
+**Confirm Regenerate** step. Lifecycle gating reads the canonical
+`statusFor()`:
+
+| Appointment status | AI Scribe |
+|---|---|
+| `confirmed` | locked |
+| `checked_in` | locked |
+| `in_consultation` | enabled |
+| `completed` | read-only |
+
+### 7.6 Future recording / transcription boundary
+
+`DoctorScribe.recording.supported` is `false` in Phase 1 and the **Start
+Recording** button states that no microphone audio is captured or transcribed —
+it must never imply otherwise. The placement, control and status value
+(`recording`) already exist for the real integration.
+
+When it arrives, the expected chain is:
+
+```
+Doctor UI
+  → DoctorScribe (unchanged)
+  → transcription / AI backend            ← CONTRACT NEEDED / TBD
+  → SOAP draft response (§7.3 shape)
+  → Doctor review / edit / save
+```
+
+Unknowns the backend must settle — all **CONTRACT NEEDED / TBD**, none
+guessed here: route and method; whether transcription happens in-browser or
+server-side; consent and retention for recorded audio; whether a transcript is
+stored server-side or stays device-local; maximum duration/size; authentication
+and per-doctor authorization; error and timeout behaviour.
+
+### 7.7 Failure and fallback
+
+The adapter contains its failures: `createSoapDraft()` resolves with
+`{ok: false, error: {message}}` instead of throwing, and the UI writes that
+message under the controls and leaves every SOAP field untouched. The Doctor can
+always type the note by hand — AI Scribe is never required. A backend
+integration must preserve exactly this fallback.
+
+---
+
+## 8. Unresolved backend decisions
 
 Everything here is **open**. None is settled by the frontend.
 
@@ -200,14 +353,17 @@ Everything here is **open**. None is settled by the frontend.
 | 6 | Prescription pricing snapshot — captured at booking or at issue? | **TBD** |
 | 7 | Retention: who may delete a consultation record? | **TBD** |
 | 8 | Do drafts carry an `updatedAt` conflict check (optimistic locking)? | **TBD** — mock overwrites unconditionally |
+| 9 | AI Scribe transcription + SOAP draft service (§7.6) | **CONTRACT NEEDED / TBD** |
 
 ---
 
-## 8. Explicit non-goals for this document
+## 9. Explicit non-goals for this document
 
 - It does **not** fix the final clinical schema. §7 is a list of decisions the
   backend has to make, not a design.
 - It does **not** invent REST routes. Unapproved endpoints are marked
   `CONTRACT NEEDED / TBD` rather than guessed.
-- It does **not** cover AI Scribe, diagnosis logic, or any generated content.
+- It does **not** design the AI Scribe backend. §7 documents the boundary the
+  frontend needs; diagnosis logic, prescription generation and any clinical
+  decision remain the veterinarian's alone.
 - It does **not** change any behaviour currently implemented in the mock.
