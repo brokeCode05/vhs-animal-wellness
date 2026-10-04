@@ -43,7 +43,7 @@
 (function (global) {
   'use strict';
 
-  var VERSION = '3.0.0';
+  var VERSION = '3.1.0';
 
   // The EXISTING consultation controls, in SOAP order. `exam` is the Objective
   // textarea; the three vitals are the structured inputs the Scribe can fill
@@ -377,6 +377,39 @@ function tidyResidual(text, capitalize) {
     });
   }
 
+  // ── structured result -> flat `apply` map ────────────────────────────────
+  // THE ONE place a structured SOAP result becomes form values. Both the mock
+  // generator (generateSoapDraft) and the future backend path
+  // (normalizeBackendResponse) call this, so the two can never disagree about
+  // how a vital or a section reaches a control.
+  //
+  // Every value is a string because the controls are: a null vital becomes
+  // '' — blanked, never left stale — so an applied result is always a clean
+  // draft rather than a mix of old and new. `objective.findings` fills `exam`.
+  // No trimming, no clamping and no range judgement happen here: those belong
+  // to the portal's own validators, which must not be weakened.
+  function buildApplyMap(soap) {
+    var s = soap && typeof soap === 'object' ? soap : {};
+    var o = s.objective && typeof s.objective === 'object' ? s.objective : {};
+    var vital = function (value) {
+      return value === null || value === undefined ? '' : String(value);
+    };
+    var text = function (value) {
+      return value === null || value === undefined ? '' : String(value);
+    };
+    // Key order is the form's own order, so a snapshot, a JSON comparison and
+    // the write loop all read the same way.
+    return {
+      subjective: text(s.subjective),
+      weight: vital(o.weightKg),
+      temperature: vital(o.temperatureC),
+      heartRate: vital(o.heartRateBpm),
+      exam: text(o.findings),
+      assessment: text(s.assessment),
+      plan: text(s.plan)
+    };
+  }
+
   // ── generateSoapDraft ─────────────────────────────────────────────────────
   // Sync on purpose: the mock generator needs no I/O. createSoapDraft() below
   // is the Promise-returning entry point the UI uses, so the future async
@@ -443,18 +476,10 @@ function tidyResidual(text, capitalize) {
       return objectiveVitals[VITAL_KEYS[field]] === null;
     });
 
-    // The flat map the UI writes. Vitals the transcript never stated are
-    // blanked rather than left stale, so a regenerated draft is a clean draft
-    // and never a mix of old and new. Text sections always carry a value.
-    var apply = {
-      subjective: soap.subjective,
-      weight: objectiveVitals.weightKg === null ? '' : String(objectiveVitals.weightKg),
-      temperature: objectiveVitals.temperatureC === null ? '' : String(objectiveVitals.temperatureC),
-      heartRate: objectiveVitals.heartRateBpm === null ? '' : String(objectiveVitals.heartRateBpm),
-      exam: soap.objective.findings,
-      assessment: soap.assessment,
-      plan: soap.plan
-    };
+    // The flat map the UI writes, built by the SAME helper the future backend
+    // path uses (buildApplyMap), so the mock generator and a real service
+    // cannot drift apart in how a structured result reaches the controls.
+    var apply = buildApplyMap(soap);
 
     // generatedAt is metadata about the run, never part of the clinical text.
     // The caller may pass nowIso to keep the result reproducible in tests.
@@ -677,50 +702,205 @@ function tidyResidual(text, capitalize) {
   // When the Laravel endpoint exists it answers conceptually:
   //   { success, transcription: { text, language, durationSeconds },
   //     soap: { subjective, objective: { weightKg, temperatureC,
-  //             heartRateBpm, findings }, assessment, plan },
+  //             heartRateBpm, findings | examinationFindings },
+  //             assessment, plan, uncertainties: [] },
   //     warnings: [], providerMeta: { … } }
   // No provider name and no endpoint URL is hardcoded anywhere: providerMeta is
   // passed through untouched so the backend stays the only thing that knows who
   // transcribed the audio.
   // TODO(BACKEND): route, auth, upload limits and error codes are CONTRACT
   // NEEDED / TBD — see docs/VHS_CLINICAL_CONTRACT.md §7.11 / §8.
+
+  // The internal property name for the Objective findings is `findings`. A
+  // backend may spell it either way, so BOTH are accepted and normalized into
+  // `findings`; the internal model and the `exam` binding are never renamed.
+  var FINDINGS_ALIASES = ['examinationFindings', 'findings'];
+
+  // The four sections a SOAP object must have at least one of for us to know we
+  // are actually looking at a SOAP note rather than an unrecognised payload.
+  var SOAP_SECTION_KEYS = ['subjective', 'objective', 'assessment', 'plan'];
+  // The narrative sections a backend may spell differently or leave absent.
+  var SOAP_TEXT_KEYS = ['subjective', 'assessment', 'plan'];
+
+  function isPlainObject(value) {
+    return !!value && typeof value === 'object' && !Array.isArray(value);
+  }
+
+  function isBlank(value) { return value === null || value === undefined; }
+
+  // Keeps only usable strings from a warnings/uncertainties array. A warning
+  // the Doctor cannot read is not a warning, and a non-string entry is a shape
+  // fault rather than content.
+  function normalizeWarningList(list) {
+    if (!Array.isArray(list)) return [];
+    var out = [];
+    list.forEach(function (entry) {
+      if (typeof entry === 'string' && entry.trim()) out.push(entry.trim());
+    });
+    return dedupe(out);
+  }
+
+  // FAIL CLOSED, never silently blank the clinical fields. A response that
+  // claims a SOAP note but cannot be mapped safely is an error the Doctor sees;
+  // it is never turned into four empty textareas, which would read as "nothing
+  // was found" rather than "the answer was not understood".
+  function validateSoapShape(s) {
+    if (!isPlainObject(s)) {
+      return { code: 'unsupported_soap_shape', message: 'The AI response did not contain a SOAP note.' };
+    }
+    var recognized = SOAP_SECTION_KEYS.filter(function (key) {
+      return Object.prototype.hasOwnProperty.call(s, key);
+    });
+    if (!recognized.length) {
+      return { code: 'unsupported_soap_shape', message: 'The AI response did not contain a recognisable SOAP note.' };
+    }
+    if ('objective' in s && !isPlainObject(s.objective)) {
+      return { code: 'unsupported_soap_shape', message: 'The AI response returned an Objective section this portal cannot read.' };
+    }
+    // A text section must be text or absent. An object or number here is a
+    // shape fault, not content to coerce.
+    var textFault = SOAP_TEXT_KEYS.filter(function (key) {
+      var value = s[key];
+      return !isBlank(value) && typeof value !== 'string';
+    });
+    if (textFault.length) {
+      return { code: 'unsupported_soap_shape', message: 'The AI response returned a malformed ' + textFault[0] + ' section.' };
+    }
+    var o = s.objective || {};
+    var objectiveTextFault = FINDINGS_ALIASES.filter(function (key) {
+      return !isBlank(o[key]) && typeof o[key] !== 'string';
+    });
+    if (objectiveTextFault.length) {
+      return { code: 'unsupported_soap_shape', message: 'The AI response returned malformed examination findings.' };
+    }
+    return null;
+  }
+
+  // A vital must be a real number, and heart rate must be a WHOLE number,
+  // because the consultation form's own gate accepts digits only for heart
+  // rate. Coercing 125.5 to "125" would invent a precision the service did not
+  // report, so a malformed vital is rejected instead.
+  function validateVitals(o) {
+    var faults = [
+      { key: 'weightKg', label: 'Weight', integer: false },
+      { key: 'temperatureC', label: 'Temperature', integer: false },
+      { key: 'heartRateBpm', label: 'Heart rate', integer: true }
+    ];
+    for (var i = 0; i < faults.length; i++) {
+      var f = faults[i];
+      var value = o[f.key];
+      if (isBlank(value)) continue;
+      if (typeof value !== 'number' || !isFinite(value) || value < 0) {
+        return { code: 'invalid_vital', message: 'The AI response returned an unusable ' + f.label + ' value.' };
+      }
+      if (f.integer && Math.floor(value) !== value) {
+        return { code: 'invalid_vital', message: 'The AI response returned a heart rate that is not a whole number.' };
+      }
+    }
+    return null;
+  }
+
+  // Field limits are the SAME caps the SOAP textareas already declare, so an
+  // applied value can never trip doctorValidateClinical(). Over-long text is
+  // rejected rather than truncated: cutting a clinical sentence in half is a
+  // data change, and silently dropping the tail is worse than failing.
+  function validateFieldLimits(soap) {
+    var limits = [['subjective', soap.subjective], ['exam', soap.objective.findings],
+      ['assessment', soap.assessment], ['plan', soap.plan]];
+    for (var i = 0; i < limits.length; i++) {
+      var value = limits[i][1];
+      if (value.length > FIELD_LIMITS[limits[i][0]]) {
+        return {
+          code: 'field_too_long',
+          message: 'The AI response\'s ' + limits[i][0] + ' is longer than the ' + FIELD_LIMITS[limits[i][0]] + '-character limit for that field.'
+        };
+      }
+    }
+    return null;
+  }
+
   function normalizeBackendResponse(payload) {
     var p = payload && typeof payload === 'object' ? payload : {};
-    if (p.success !== true) {
+    // An EXPLICIT failure is reported as-is. A payload with no `success` flag is
+    // not assumed to be a failure either: a service may answer with the bare
+    // SOAP object, and refusing it here would be refusing it before it was ever
+    // read. validateSoapShape() below is what decides whether a payload is
+    // something this portal can safely map.
+    if (p.success === false) {
       var reason = typeof p.message === 'string' && p.message.trim()
         ? p.message.trim()
         : 'The consultation AI service could not process this recording.';
-      return { ok: false, error: { code: p.code || 'backend_error', message: reason } };
+      // Every failure carries `soap: null` and `apply: null`, so no caller can
+      // ever find a partial result where a complete one was expected — the UI
+      // cannot half-apply a draft from a rejected response.
+      return { ok: false, error: { code: p.code || 'backend_error', message: reason }, soap: null, apply: null };
     }
-    var t = p.transcription && typeof p.transcription === 'object' ? p.transcription : {};
-    var s = p.soap && typeof p.soap === 'object' ? p.soap : {};
-    var o = s.objective && typeof s.objective === 'object' ? s.objective : {};
-    var text = typeof t.text === 'string' ? t.text : '';
-    var warnings = Array.isArray(p.warnings)
-      ? p.warnings.filter(function (w) { return typeof w === 'string' && w.trim(); })
-      : [];
+    var t = isPlainObject(p.transcription) ? p.transcription : {};
+    // The SOAP note is read from the documented envelope's `soap`, or from the
+    // payload root when the service returns the bare SOAP object. Anything else
+    // falls through to validateSoapShape() and is refused.
+    var s = isPlainObject(p.soap) ? p.soap : p;
+
+    var shapeFault = validateSoapShape(s);
+    if (shapeFault) return { ok: false, error: shapeFault, apply: null, soap: null };
+    var o = isPlainObject(s.objective) ? s.objective : {};
+
+    // findings: either spelling normalizes into the ONE internal property.
+    var findingsValue = '';
+    for (var i = 0; i < FINDINGS_ALIASES.length; i++) {
+      if (!isBlank(o[FINDINGS_ALIASES[i]])) { findingsValue = String(o[FINDINGS_ALIASES[i]]); break; }
+    }
+
     var soap = {
-      subjective: String(s.subjective == null ? '' : s.subjective),
+      subjective: isBlank(s.subjective) ? '' : String(s.subjective),
       objective: {
-        weightKg: o.weightKg == null ? null : o.weightKg,
-        temperatureC: o.temperatureC == null ? null : o.temperatureC,
-        heartRateBpm: o.heartRateBpm == null ? null : o.heartRateBpm,
-        findings: String(o.findings == null ? '' : o.findings)
+        weightKg: isBlank(o.weightKg) ? null : o.weightKg,
+        temperatureC: isBlank(o.temperatureC) ? null : o.temperatureC,
+        heartRateBpm: isBlank(o.heartRateBpm) ? null : o.heartRateBpm,
+        findings: findingsValue
       },
-      assessment: String(s.assessment == null ? '' : s.assessment),
-      plan: String(s.plan == null ? '' : s.plan)
+      assessment: isBlank(s.assessment) ? '' : String(s.assessment),
+      plan: isBlank(s.plan) ? '' : String(s.plan)
     };
+
+    var vitalFault = validateVitals(o);
+    if (vitalFault) return { ok: false, error: vitalFault, apply: null, soap: null };
+    var limitFault = validateFieldLimits(soap);
+    if (limitFault) return { ok: false, error: limitFault, apply: null, soap: null };
+
+    // `uncertainties` is folded into the EXISTING warnings channel rather than
+    // given a new field or a new panel: one list, one place to read later.
+    // `uncertainties` sits beside the sections wherever the SOAP object is, so
+    // it is read from the same place the sections were.
+    var warnings = normalizeWarningList(p.warnings)
+      .concat(normalizeWarningList(s.uncertainties));
+
+    var text = typeof t.text === 'string' ? t.text : '';
     return {
       ok: true,
+      error: null,
       transcription: {
         text: text,
         language: typeof t.language === 'string' ? t.language : null,
         durationSeconds: typeof t.durationSeconds === 'number' ? t.durationSeconds : null
       },
       soap: soap,
-      warnings: warnings,
+      // Same flat, string-valued map the mock generator produces, built by the
+      // same helper, so the UI's apply loop and draft snapshot are unchanged.
+      apply: buildApplyMap(soap),
+      fields: APPLY_TARGETS.slice(),
+      warnings: dedupe(warnings),
       // Passthrough only. This module never names a provider.
-      providerMeta: (p.providerMeta && typeof p.providerMeta === 'object') ? p.providerMeta : {}
+      providerMeta: isPlainObject(p.providerMeta) ? p.providerMeta : {},
+      meta: {
+        engine: 'backend',
+        generator: 'doctor-scribe-backend',
+        version: VERSION,
+        deterministic: false,
+        generatedAt: new Date().toISOString(),
+        // Identity only. The backend owns the joins; nothing is derived here.
+        patient: sanitizePatient(isPlainObject(p.patient) ? p.patient : null)
+      }
     };
   }
 
@@ -784,6 +964,7 @@ function tidyResidual(text, capitalize) {
     buildRecording: buildRecording,
     validateRecording: validateRecording,
     normalizeBackendResponse: normalizeBackendResponse,
+    buildApplyMap: buildApplyMap,
     processRecording: processRecording,
     generateSoapDraft: generateSoapDraft,
     createSoapDraft: createSoapDraft,

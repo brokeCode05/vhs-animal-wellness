@@ -258,11 +258,15 @@ workflow.
 | `createSoapDraft(input)` | `→ Promise<result>` | The seam the UI calls. Resolves on the microtask queue today; awaits the future endpoint instead. **The call site does not change.** |
 | `getScribeStatus(state)` | `→ {state, label}` | One place decides the indicator: `ready` / `recording` / `transcript_ready` / `draft_generated` / `saved` / `unsaved_changes`. |
 | `buildPreConsultationSummary(context)` | `→ string` | The "AI-assisted summary" strip. Grounded in appointment data only (§7.2). |
-| `recording` | `{supported: false, mode, message}` | The UI reads this before implying anything about audio. |
+| `normalizeBackendResponse(payload)` | `→ {ok, error\|null, soap, apply, warnings, transcription, providerMeta, meta}` | Normalizes a future backend answer (§7.11 I) into the **same** structured `soap` + flat `apply` pair the mock generator returns. Fails closed. |
+| `buildApplyMap(soap)` | `→ {subjective, weight, temperature, heartRate, exam, assessment, plan}` | The single structured-result → form-values mapping. Both the mock generator and `normalizeBackendResponse()` use it, so the two cannot drift. All values are strings. |
+| `recording` | `{supported, mode, storage, transcription, message}` | The UI reads this before implying anything about audio. `supported` describes the BUILD (the capture seam ships); the browser's own capability is probed at runtime and disables the control. |
 
 Also exported: `SOAP_FIELDS`, `VITAL_FIELDS`, `APPLY_TARGETS`, `FIELD_LIMITS`,
-`NOT_PROVIDED`, `MAX_TRANSCRIPT_CHARS`, `engine: 'mock'`, `identityMode: 'mock'`,
-`version`.
+`NOT_PROVIDED`, `MAX_TRANSCRIPT_CHARS`, `RECORDING_STATES`,
+`RECORDING_MIME_CANDIDATES`, `getRecordingStatus`, `describeRecordingError`,
+`pickRecordingMimeType`, `buildRecording`, `validateRecording`,
+`processRecording`, `engine: 'mock'`, `identityMode: 'mock'`, `version`.
 
 ### 7.2 Pre-consultation summary — source rules
 
@@ -297,7 +301,7 @@ of the summary.
 | Typed into the transcript box | current | Plain text, up to `MAX_TRANSCRIPT_CHARS`. |
 | Pasted into the transcript box | current | An empty box takes the paste natively (bounded by `maxlength`). Over existing text it asks first (§7.6), and a confirmed paste **replaces** the transcript exactly as an upload does. Over `MAX_TRANSCRIPT_CHARS` it is refused. |
 | `.txt` file upload | current | Read in the browser with `FileReader`. `.txt` only, 64 KB / `MAX_TRANSCRIPT_CHARS` limits, friendly rejection otherwise. Nothing is uploaded. |
-| Recorded audio → transcription | **CONTRACT NEEDED / TBD** | `recording.supported` is `false`; the control states that no audio is captured. |
+| Recorded audio → transcription | **CONTRACT NEEDED / TBD** | Capture is real (§7.11); transcription is not connected. `recording.transcription` is `'not-connected'` and `processRecording()` returns an empty transcription with an explicit warning. |
 
 All sources write the same textarea, so the generator has one input shape.
 
@@ -609,6 +613,35 @@ response is expected conceptually as:
   warnings: [],
   providerMeta: { … } }
 ```
+
+**Two spellings of the examination findings are accepted, and both normalize
+into the ONE internal property `soap.objective.findings`.** A backend may send
+`objective.examinationFindings` or `objective.findings`; the internal model and
+the `exam` control binding are never renamed, and the flat map always carries
+`exam`. Reading only one spelling silently discarded the other — an examination
+note that vanished with no error, which reads on screen as "no findings".
+
+**A backend `uncertainties: string[]` maps into the existing `warnings[]`
+result channel** — one list, not a new field and not a new panel. Entries are
+trimmed, non-strings are dropped, and duplicates are removed. Surfacing those
+warnings to the Doctor is a separate, deliberate UI decision (§7.10 keeps manual
+SOAP entry the fallback in the meantime).
+
+**`normalizeBackendResponse()` fails closed rather than blanking the form.** It
+returns `{ok: false, error, soap: null, apply: null}` for anything it cannot map
+safely, so a rejected response can never be half-applied over the Doctor's
+existing draft:
+
+| `error.code` | Cause |
+|---|---|
+| `backend_error` | The service reported `success: false`. Its own `message` is shown. |
+| `unsupported_soap_shape` | No recognisable SOAP note; a non-object `objective`; a section that is not text. |
+| `invalid_vital` | A vital is not a finite non-negative number, or `heartRateBpm` is fractional (the form's heart-rate control accepts whole numbers only). |
+| `field_too_long` | A section exceeds the existing `FIELD_LIMITS`/`maxlength` cap. Text is **refused, never truncated** — cutting a clinical sentence is a data change. |
+
+Nothing here weakens the portal's own validation: clinical range judgement
+(`VITAL_SANITY`) and the syntax gate stay in `doctor.js` and still run on Save
+and Complete. The adapter only refuses to hand the form a value it cannot write.
 
 `normalizeBackendResponse()` accepts exactly this shape, fails closed when
 `success !== true`, and never invents content for missing sections.
