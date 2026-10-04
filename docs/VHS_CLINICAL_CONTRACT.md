@@ -622,10 +622,12 @@ the `exam` control binding are never renamed, and the flat map always carries
 note that vanished with no error, which reads on screen as "no findings".
 
 **A backend `uncertainties: string[]` maps into the existing `warnings[]`
-result channel** — one list, not a new field and not a new panel. Entries are
-trimmed, non-strings are dropped, and duplicates are removed. Surfacing those
-warnings to the Doctor is a separate, deliberate UI decision (§7.10 keeps manual
-SOAP entry the fallback in the meantime).
+result channel** — one list, not a new field and not a new panel. It is read
+from every position it can sensibly sit: beside the sections (the bare SOAP
+object) and at the envelope root, next to `warnings`. Entries are trimmed,
+non-strings are dropped, and the merged list is deduplicated. Surfacing those
+warnings to the Doctor is a separate, deliberate UI decision (§7.10 keeps
+manual SOAP entry the fallback in the meantime).
 
 **`normalizeBackendResponse()` fails closed rather than blanking the form.** It
 returns `{ok: false, error, soap: null, apply: null}` for anything it cannot map

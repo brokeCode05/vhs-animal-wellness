@@ -870,10 +870,14 @@ function tidyResidual(text, capitalize) {
 
     // `uncertainties` is folded into the EXISTING warnings channel rather than
     // given a new field or a new panel: one list, one place to read later.
-    // `uncertainties` sits beside the sections wherever the SOAP object is, so
-    // it is read from the same place the sections were.
+    // `uncertainties` is read from BOTH places it can sensibly sit: beside the
+    // sections (the bare SOAP object) and at the envelope root (next to
+    // `warnings`, which is where the documented envelope puts it). Reading only
+    // one would drop the list silently, which is the exact failure this
+    // normalizer exists to prevent.
     var warnings = normalizeWarningList(p.warnings)
-      .concat(normalizeWarningList(s.uncertainties));
+      .concat(normalizeWarningList(s.uncertainties))
+      .concat(normalizeWarningList(p.uncertainties));
 
     var text = typeof t.text === 'string' ? t.text : '';
     return {
