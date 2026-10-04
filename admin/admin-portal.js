@@ -451,6 +451,16 @@ document.addEventListener('change', function(e) {
   if (e.target.id === 'adminBookDate') {
     refreshAdminTimeSlots();
   }
+  if (e.target.id === 'adminBookService') {
+    // Availability is per SERVICE (doctor capacity and capacityPerSlot differ
+    // per service), so changing the service must recompute the slot list. The
+    // date handler alone left the dropdown showing whatever was rendered for
+    // the previous service — e.g. all clinic hours when the date was picked
+    // before the service — which let Admin offer a slot the engine refuses and
+    // the User portal hides. The previously chosen time is deliberately NOT
+    // preserved: it may not be bookable under the new service.
+    refreshAdminTimeSlots();
+  }
   if (e.target.id === 'adminRescheduleDate') {
     _populateAdminRescheduleSlots();
   }
@@ -508,6 +518,10 @@ function _renderAdminSlotOptions(timeSelect, slots, prefilledTime) {
       }).join('')
     : '<option value="">No available slots that day</option>';
   if (prefilledTime) timeSelect.value = prefilledTime;
+  // #adminBookTime is wrapped in a custom dropdown, whose closed-state label
+  // is a SEPARATE copy of the selection. Without this the trigger can keep
+  // advertising a time that the freshly rendered list no longer contains.
+  if (typeof timeSelect._cdRefresh === 'function') timeSelect._cdRefresh();
 }
 
 function refreshAdminTimeSlots(prefilledTime) {
