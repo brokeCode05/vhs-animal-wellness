@@ -156,14 +156,17 @@
     return MOCK_APPOINTMENTS.concat(ADDED);
   }
 
+  // Same medium as the ADDED layer above: localStorage, so a reschedule or
+  // status change made in User is visible in Admin/Doctor tabs on this origin
+  // (sessionStorage is per-tab, which silently split the portals apart).
   var CHECKIN_OVERRIDES_KEY = 'vhs_mock_checkin_overrides_v1';
   var OVERRIDES = (function () {
-    try { return JSON.parse(sessionStorage.getItem(CHECKIN_OVERRIDES_KEY) || '{}') || {}; }
+    try { return JSON.parse(localStorage.getItem(CHECKIN_OVERRIDES_KEY) || '{}') || {}; }
     catch (e) { return {}; }
   })();
 
   function _saveOverrides() {
-    try { sessionStorage.setItem(CHECKIN_OVERRIDES_KEY, JSON.stringify(OVERRIDES)); } catch (e) { /* storage unavailable */ }
+    try { localStorage.setItem(CHECKIN_OVERRIDES_KEY, JSON.stringify(OVERRIDES)); } catch (e) { /* storage unavailable */ }
   }
 
   function effective(base) {
@@ -286,9 +289,10 @@
     },
 
     // ── CHECK-IN STATE (frontend-only, shared by all portals) ────────────────
-    // Status overrides live in sessionStorage so a check-in survives page
-    // navigation/refresh within the tab while staying frontend-only. The base
-    // records are never mutated; all readers see the effective state.
+    // Status overrides live in localStorage so a check-in survives page
+    // navigation/refresh and is shared by every portal tab on this origin,
+    // while staying frontend-only. The base records are never mutated; all
+    // readers see the effective state.
     // TODO(BACKEND): Replace with GET by referenceNo; status + checkedInAt
     // come from the database. Check-in is a server-side transition
     // (update_appointment_status.php + write checked_in_at); delete this
