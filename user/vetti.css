@@ -642,25 +642,33 @@ body.vetti-active .chatbot-container { display: none; }
   box-shadow: 0 12px 32px rgba(36, 32, 51, 0.18);
 }
 
-/* Mascot and headings are ONE block. On a phone they sit side by side so
+/* Mascot and headings are ONE block, side by side at EVERY breakpoint, so
    Vetti reads as introducing herself rather than hovering above her own
-   name; the wrapper is a plain column above 600px, which is the layout
-   that shipped. */
+   name. Only her size and the type scale change on a phone — the
+   composition does not. Keep this in the base rule, not a media query:
+   that is exactly where it was lost before. */
 .vetti-welcome-head {
   display: flex;
-  flex-direction: column;
-  gap: 0.55rem;
+  flex-direction: row;
+  align-items: center;
+  gap: 0.7rem;
   min-width: 0;
 }
 
-.vetti-welcome-headings { min-width: 0; }
+.vetti-welcome-headings {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  min-width: 0;
+}
 
 /* Vetti is present in the welcome. The same transparent-PNG treatment
    as the header: no frame, no card, a light shadow only. */
 .vetti-welcome-mascot {
   width: 4.5rem;
   height: 4.5rem;
-  align-self: flex-start;
+  flex: 0 0 auto;
+  align-self: center;
 }
 .vetti-welcome-mascot img {
   width: 100%;
@@ -1647,21 +1655,12 @@ body.vetti-active .chatbot-container { display: none; }
     border-radius: var(--radius, 0.75rem);
   }
 
-  /* [ mascot ]  WELCOME TO THE VHS PORTAL
-                 Hi Ana, I'm Vetti.
-     Vetti stands BESIDE her own name instead of floating above it. */
-  .vetti-welcome-head {
-    flex-direction: row;
-    align-items: center;
-    gap: 0.7rem;
-  }
+  /* Same side-by-side composition as every other breakpoint — only the
+     mascot and the type scale down here. */
   .vetti-welcome-mascot {
     width: 2.75rem;
     height: 2.75rem;
-    flex: 0 0 auto;
-    align-self: center;
   }
-  .vetti-welcome-headings { display: flex; flex-direction: column; gap: 0.1rem; }
   .vetti-welcome-title { font-size: 1.1rem; }
   .vetti-welcome-lead { font-size: 0.82rem; line-height: 1.45; }
   .vetti-welcome-steps { gap: 0.4rem; margin-top: 0.15rem; }
