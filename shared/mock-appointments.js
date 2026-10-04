@@ -174,6 +174,52 @@
     return o ? Object.assign({}, base, o) : base;
   }
 
+  // ── RESCHEDULE AVAILABILITY GUARD ───────────────────────────────────
+  // SmartScheduling is the ONE availability authority. It understands
+  // requiresDoctor, Doctor capacity and per-service capacityPerSlot, so a
+  // Doctor-required visit and a grooming visit may share a wall-clock time.
+  //
+  // Dependency direction is deliberately lazy: the store asks for the engine
+  // AT CALL TIME and only if it loaded, so neither module requires the other
+  // at parse time and script order stays irrelevant. An appointment whose
+  // service cannot be resolved FAILS CLOSED — an unknown booking must not
+  // quietly consume a Doctor slot.
+  //
+  // Only when the engine is absent (a portal that never loads it) does this
+  // fall back to the old universal one-appointment-per-time rule, so that
+  // page keeps working exactly as it did.
+  function _slotGuard(appt, newDate, canonicalTime, excludeId) {
+    var sched = window.SmartScheduling;
+    var users = window.SharedMockUsers;
+    if (sched && typeof sched.validateAppointmentRequest === 'function') {
+      if (!users || typeof users.serviceByValue !== 'function') return { ok: false, error: 'invalid_service' };
+      var svc = users.serviceByValue(appt.service);
+      if (!svc) return { ok: false, error: 'invalid_service' };
+      var result = sched.validateAppointmentRequest({
+        serviceId: svc.serviceId,
+        date: newDate,
+        time: canonicalTime,
+        excludeAppointmentId: excludeId
+      });
+      if (result.ok) return { ok: true, source: 'smart-scheduling' };
+      // 'slot_taken' is the code the existing User/Admin toasts already
+      // render; the engine's other reasons pass through so a closed-day or
+      // retired-service request is not mislabelled as "already booked".
+      return {
+        ok: false,
+        error: result.reason || 'slot_taken',
+        source: 'smart-scheduling'
+      };
+    }
+    var store = window.SharedMockAppointments;
+    var available = store && typeof store.isSlotAvailable === 'function'
+      ? store.isSlotAvailable(newDate, canonicalTime, excludeId)
+      : true;
+    return available
+      ? { ok: true, source: 'legacy' }
+      : { ok: false, error: 'slot_taken', source: 'legacy' };
+  }
+
   global.SharedMockAppointments = {
     // ── TEST-DATE FIXTURE ──────────────────────────────────────────────
     // Frozen clinic day used by the Sep 26 fixtures and the cross-portal
@@ -257,9 +303,15 @@
       if (s !== 'confirmed' && s !== 'pending') return { ok: false, error: 'invalid_status' };
       var canonicalTime = (window.AppointmentContract ? window.AppointmentContract.timeToHHMM(newTime) : newTime);
       if (!newDate || !canonicalTime) return { ok: false, error: 'invalid' };
-      // Slot availability from EFFECTIVE store records only (old slot of this
-      // very appointment must not block itself while it still holds it).
-      if (!this.isSlotAvailable(newDate, canonicalTime, id)) return { ok: false, error: 'slot_taken' };
+      // Availability is decided by SmartScheduling — the SAME engine that
+      // built the dropdown, so what the owner was offered and what the
+      // submit accepts cannot disagree. The previous check here treated ANY
+      // appointment at the same wall-clock time as a universal conflict, so a
+      // slot SmartScheduling correctly offered (a Doctor-required service
+      // sharing time with grooming) was rejected on submit.
+      // excludeAppointmentId keeps this appointment from blocking itself.
+      var guard = _slotGuard(eff, newDate, canonicalTime, id);
+      if (!guard.ok) return { ok: false, error: guard.error };
       var result = this.update(id, {
         appointmentDate: newDate,
         appointmentTime: canonicalTime,
@@ -272,6 +324,9 @@
     // ── SLOT AVAILABILITY (frontend-demo mode) ────────────────────────
     // Derived from the EFFECTIVE store records — never a portal-local booked
     // array that could drift from the canonical state.
+    // Superseded for RESCHEDULE validation by SmartScheduling, which knows
+    // about Doctor capacity and per-service capacity. Kept for the simple
+    // "is this exact wall-clock time occupied at all" question.
     // TODO(BACKEND): GET /appointments/slots?date=... replaces this check.
     takenSlots: function (dateStr, excludeAppointmentId) {
       return this.all()
