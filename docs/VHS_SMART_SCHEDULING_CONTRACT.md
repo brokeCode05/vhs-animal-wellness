@@ -34,7 +34,7 @@ It is **not** machine learning. There is no model, no training, no inference and
 
 All consumers call the **same** engine instance. There is no second copy of scheduling logic in the UI.
 
-**Five call sites, one engine.** `_smartSchedulingSlots()` (User), `_adminSchedulingSlots()` (Admin booking), `_populateAdminRescheduleSlots()` (Admin reschedule), `VettiData.getAvailableSlots()` (Vetti), `_slotGuard()` (reschedule mutation). Admin booking additionally calls `validateAppointmentRequest()` on submit — see §11.
+**Five call sites, one engine.** `_smartSchedulingSlots()` (User), `_adminSchedulingSlots()` (Admin booking), `_populateAdminRescheduleSlots()` (Admin reschedule), `VettiData.getAvailableSlots()` (Vetti), `_slotGuard()` (reschedule mutation). Both booking surfaces (`submitAdminBooking()` and `_finalizeBooking()`) additionally call `validateAppointmentRequest()` on submit — see §11.
 
 ### 2.1 Admin booking degraded mode
 
@@ -173,17 +173,19 @@ Both portals pass the id: the User reschedule modal (`user/user-script.js`) and 
 |---|---|
 | Reschedule (all portals) | `SharedMockAppointments.reschedule()` → `_slotGuard(...)` |
 | **Admin booking** | `submitAdminBooking()`, after field checks and **before** any id/reference is minted |
-| User booking | *(gap)* — `SharedMockAppointments.add()` only rejects duplicate id/reference; the engine guards the dropdown, not the submit |
+| **User booking** | `_finalizeBooking()`, as the first statement — **before** any id/reference is minted |
 
-- Rejected ⇒ **no mutation**, **no audit entry at all** (not even a success one), and the portal shows its mapped error.
+Both booking submits revalidate on the same seam and in the same order, so a stale form cannot write a taken slot on either surface. `SharedMockAppointments.add()` itself remains an unvalidated append primitive: the two booking portals own the guard, not the store.
+
+- Rejected ⇒ **no mutation**, **no minted id or reference**, **no audit entry at all** (not even a success one), and the portal shows its mapped error.
 - Accepted ⇒ the record is written/mutated as before; `appointmentId`, `referenceNo`, owner, pet and lifecycle are untouched.
-- If the engine is unavailable, Admin booking degrades to the legacy exact-time store check (`takenSlots`) and still refuses a taken slot — it never silently allows an unverified one.
+- If the engine is unavailable, both booking submits degrade to the legacy exact-time store check (`takenSlots`) and still refuse a taken slot — neither ever silently allows an unverified one.
 
-Reason codes map to portal copy exactly as in the reschedule handler: `slot_taken` / `doctor_conflict` / `resource_capacity_reached` ⇒ "That slot is already booked."; every other reason renders `describeReason(reason)` so a closed-day or off-hours request is not mislabelled as a booking conflict.
+**Conflict copy differs by surface, by design.** All surfaces derive the *same reason code* from the one engine. Admin booking and the reschedule handlers collapse `slot_taken` / `doctor_conflict` / `resource_capacity_reached` into "That slot is already booked."; the User booking submit renders `describeReason(reason)` for every code ("The veterinarian is already booked at that time.", "That time is already fully booked for this service."). Only the wording differs — the decision never does.
+
+**User refusal keeps the form usable.** `_finalizeBooking()` reopens the booking wizard at the date/time step via `_reopenBookingWizard()`, restoring the pet, service and date already chosen and repopulating the slot dropdown from the engine, so the taken slot has already disappeared by the time the owner looks. The engine's ranked `alternatives` are kept in `_pendingBookingAlternatives` for the UI to offer; they are engine-provided slots only and no time is ever invented locally.
 
 The dropdown and the submit therefore cannot disagree — they are one engine, evaluated twice.
-
-**Known gap (not part of this change):** the User booking *submit* path is still dropdown-guarded only. `add()` performs no availability check, so a User form left open long enough can write a slot that is taken. Closing this means giving the User submit the same `validateAppointmentRequest()` call Admin booking now has; it is listed in §17.
 
 ---
 
@@ -238,5 +240,5 @@ The Admin booking cutover is already complete on the mock side. Its remaining le
 4. Per-date blackout/holiday handling beyond weekday/weekend.
 5. Whether a cancelled appointment should free a slot retroactively for history.
 6. Authoritative cut-off and concurrency/conflict resolution under simultaneous submits.
-7. Whether the User booking submit adopts Admin's engine revalidation (§11) — the recommended answer is yes, at the same seam.
 7. Whether `slot_taken` survives as a public code or is retired in favour of the three specific codes.
+8. Whether the portal copy should converge on one shared conflict wording, or keep Admin's generic message beside the User portal's `describeReason()` text (§11).

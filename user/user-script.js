@@ -875,6 +875,32 @@ function _refreshBookSlots() {
  * ==========================================================================
  */
 var _pendingBookingPayload = null;
+// Engine-ranked alternatives from the LAST refused booking submit, kept as
+// returned by SmartScheduling. They are engine-provided slots only; nothing
+// here invents a time. Exposed so the booking UI can offer them.
+var _pendingBookingAlternatives = null;
+
+// Put the wizard back on the date/time step with the choices already made, so
+// a refused submit leaves the owner able to pick a different slot instead of
+// stranded on a closed modal. Reuses openBookModal() so the pet and service
+// selects are repopulated exactly as they are for a fresh booking.
+function _reopenBookingWizard(payload) {
+  openBookModal();
+  _wizardStep = 2;
+  _renderWizard();
+  if (!payload) return;
+  var petSel = document.getElementById('pet_id');
+  var svcSel = document.getElementById('service_id');
+  var dateIn = document.getElementById('appointment_date');
+  if (petSel) petSel.value = String(payload.pet_id);
+  if (svcSel) svcSel.value = String(payload.service);
+  if (dateIn) {
+    dateIn.value = payload.appointment_date;
+    // Repopulate the slot dropdown from the engine: it now reflects whatever
+    // took the slot while the owner was on the OTP step.
+    _refreshBookSlots();
+  }
+}
 var _pendingBookingDisplay = null; // pet/service labels captured pre-reset
 
 async function submitBooking(e) {
@@ -988,6 +1014,50 @@ function _finalizeBooking() {
   var payload = _pendingBookingPayload;
   if (!payload) return;
 
+  // ── FINAL-SAVE REVALIDATION (SmartScheduling) ───────────────────────────
+  // The slot dropdown was filled by this same engine earlier, but the owner
+  // sits on the OTP step in between, and another front-desk tab (or another
+  // owner) can book the slot meanwhile. Availability is therefore re-checked
+  // here, immediately BEFORE any appointment id or reference number is minted
+  // and before the record or its audit row is written, so a stale slot
+  // produces no appointment, no id, no reference and no audit entry.
+  //
+  // SmartScheduling stays the single scheduling decision source: this is the
+  // same validateAppointmentRequest() call the Admin submit and the reschedule
+  // _slotGuard() use. There is deliberately no second validator here.
+  var _sched = window.SmartScheduling;
+  var _svcForCheck = (window.SharedMockUsers && typeof window.SharedMockUsers.serviceByValue === 'function')
+    ? window.SharedMockUsers.serviceByValue(payload.service)
+    : null;
+  if (_sched && typeof _sched.validateAppointmentRequest === 'function' && _svcForCheck) {
+    var _check = _sched.validateAppointmentRequest({
+      serviceId: _svcForCheck.serviceId,
+      date: payload.appointment_date,
+      time: payload.appointment_time
+    });
+    if (!_check.ok) {
+      // Keep the engine's own ranked alternatives for the UI. They come
+      // straight from the engine, so no time is invented here.
+      _pendingBookingAlternatives = _check.alternatives || [];
+      showToast(_sched.describeReason
+        ? _sched.describeReason(_check.reason)
+        : 'Could not save the booking. Please try again.', 'error');
+      _reopenBookingWizard(payload);
+      return;
+    }
+  } else {
+    // Engine or service unresolvable: degrade to the legacy exact-time store
+    // check rather than silently allowing an unverified slot.
+    var _toHHMM = window.AppointmentContract ? window.AppointmentContract.timeToHHMM : function (v) { return v; };
+    var _taken = (window.SharedMockAppointments ? window.SharedMockAppointments.takenSlots(payload.appointment_date) : []) || [];
+    if (_taken.indexOf(_toHHMM(payload.appointment_time)) !== -1) {
+      _pendingBookingAlternatives = null;
+      showToast('That slot is already booked.', 'error');
+      _reopenBookingWizard(payload);
+      return;
+    }
+  }
+
   // Sequential IDs derived from the WHOLE effective store so they never
   // collide with seed records (apt301–306) or previously added bookings.
   // TODO(BACKEND): book-appointment.php returns the real reference_no +
@@ -1057,6 +1127,7 @@ function _finalizeBooking() {
 
   _pendingBookingPayload = null;
   _pendingBookingDisplay = null;
+  _pendingBookingAlternatives = null;   // a completed booking supersedes any earlier refusal
   _showBookingSuccess(savedRef, { id: savedId, reference_no: savedRef });
 }
 
