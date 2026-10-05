@@ -759,6 +759,29 @@
     safeRemove(sessionStorage, SS_SHOWN);
   }
 
+  // ── 7. RESPONSE LANGUAGE (UI preference) ────────────────────────────
+  // localStorage = the language Vetti's FUTURE replies should use.
+  // buildContext() reads it, so every AI request context carries it; the
+  // deterministic resolver ignores it today. Stable by design: stored
+  // once and never inferred from the language of a typed message, so one
+  // message in another language can never flip it. Backend-ready: a
+  // profile-backed getter can replace these internals without touching
+  // any caller.
+  var LS_LANG = 'vetti.responseLanguage';
+  var LANG_DEFAULT = 'en';
+
+  function normalizeLanguage(value) {
+    return value === 'taglish' ? 'taglish' : LANG_DEFAULT;
+  }
+
+  function getResponseLanguage() {
+    return normalizeLanguage(safeGet(localStorage, LS_LANG));
+  }
+
+  function setResponseLanguage(lang) {
+    safeSet(localStorage, LS_LANG, normalizeLanguage(lang));
+  }
+
   global.VettiState = {
     ASSET_DIR: ASSET_DIR,
     CHAT_AVATAR: CHAT_AVATAR,
@@ -777,6 +800,8 @@
     introShownThisSession: introShownThisSession,
     markIntroShown: markIntroShown,
     clearIntroShown: clearIntroShown,
-    resetIntro: resetIntro
+    resetIntro: resetIntro,
+    getResponseLanguage: getResponseLanguage,
+    setResponseLanguage: setResponseLanguage
   };
 })(window);

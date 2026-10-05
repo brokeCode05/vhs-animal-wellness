@@ -124,19 +124,112 @@ body.vetti-active .chatbot-container { display: none; }
   overflow-wrap: anywhere;
 }
 
-.vetti-replay {
+/* ── HEADER MENU (⋮) — New Conversation / Settings / What Vetti Can Do ──
+   The popover anchors to this wrapper (position: relative), so it opens
+   hard-right under the button and can never cover the greeting or spill
+   past the header's right gutter. */
+.vetti-menu {
+  position: relative;
   flex: 0 0 auto;
-  background: none;
-  border: 0;
-  padding: 0.25rem 0;
-  font: inherit;
-  font-size: 0.82rem;
+}
+
+.vetti-menu-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  padding: 0;
+  border: 1px solid var(--vhs-shell-border, rgba(60, 31, 120, 0.14));
+  border-radius: var(--radius-sm, 0.5rem);
+  background: var(--vhs-neutral-surface, #FFFFFF);
   color: var(--vhs-shell, #6546A8);
   cursor: pointer;
-  text-decoration: underline;
-  text-underline-offset: 3px;
+  transition: background var(--transition), border-color var(--transition);
 }
-.vetti-replay:hover { color: var(--vhs-shell-light, #8a6bd0); }
+
+.vetti-menu-btn:hover {
+  background: var(--vhs-shell-soft, rgba(60, 31, 120, 0.06));
+  border-color: var(--vhs-shell-light, #8a6bd0);
+}
+
+.vetti-menu-pop {
+  position: absolute;
+  top: calc(100% + 0.4rem);
+  right: 0;
+  z-index: 30;                /* under the welcome (40) and tour (45) layers */
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  min-width: 13rem;
+  max-width: calc(100vw - 1.5rem);
+  padding: 0.3rem;
+  border: 1px solid var(--vhs-shell-border, rgba(60, 31, 120, 0.14));
+  border-radius: var(--radius-sm, 0.5rem);
+  background: var(--vhs-neutral-surface, #FFFFFF);
+  box-shadow: 0 12px 26px rgba(36, 32, 51, 0.16);
+}
+
+.vetti-menu-pop[hidden] { display: none; }
+
+.vetti-menu-item {
+  appearance: none;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: 0.88rem;
+  line-height: 1.3;
+  text-align: left;
+  padding: 0.55rem 0.65rem;
+  border-radius: 0.35rem;
+  color: var(--vhs-neutral-text, #242033);
+  cursor: pointer;
+}
+
+.vetti-menu-item:hover {
+  background: var(--vhs-shell-soft, rgba(60, 31, 120, 0.06));
+  color: var(--vhs-shell-dark, #3C1F78);
+}
+
+/* Settings dialog content — rendered inside the shared VHS modal. */
+.vetti-settings-group {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  text-align: left;
+}
+
+.vetti-settings-legend {
+  padding: 0;
+  margin-bottom: 0.35rem;
+  font-size: 0.92rem;
+  font-weight: 600;
+  color: var(--vhs-neutral-text, #242033);
+}
+
+.vetti-settings-hint {
+  margin: 0 0 0.7rem;
+  font-size: 0.8rem;
+  line-height: 1.5;
+  color: var(--vhs-neutral-muted, #756F82);
+}
+
+.vetti-settings-option {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.45rem 0.1rem;
+  font-size: 0.9rem;
+  color: var(--vhs-neutral-text, #242033);
+  cursor: pointer;
+}
+
+.vetti-settings-option + .vetti-settings-option { margin-top: 0.15rem; }
+
+.vetti-settings-option input {
+  margin: 0;
+  accent-color: var(--vhs-shell, #6546A8);
+}
 
 /* Active-pet selector — a compact dropdown, never a context bar.
    What reads on screen is "Pet  [ Luna ]". The short caption is NOT the
@@ -1354,17 +1447,6 @@ body.vetti-active .chatbot-container { display: none; }
   border-color: var(--vhs-shell-light, #8a6bd0);
 }
 
-/* The one secondary item in the rail. It shares the prompt pill's shape so
-   the row stays one row, but a dashed edge and quieter ink mark it as a
-   help action rather than something to ask. */
-.vetti-chip-utility {
-  margin-left: 0.35rem;
-  border-style: dashed;
-  background: transparent;
-  color: var(--vhs-neutral-muted, #756F82);
-}
-.vetti-chip-utility:hover { color: var(--vhs-shell, #6546A8); }
-
 /* Arrows: only when the track can scroll, disabled at each end, hidden on
    mobile. They sit in reserved gutters so they never cover a chip. */
 .vetti-carousel-btn {
@@ -1442,10 +1524,6 @@ body.vetti-active .chatbot-container { display: none; }
   .vetti-carousel-rail.is-scrollable::before,
   .vetti-carousel-rail.is-scrollable::after { opacity: 0; }
 
-  /* Above the phone breakpoint the rail's own header button is the better
-     home for replay, so the rail's copy stands down entirely — it must not
-     even occupy width, or the desktop track would start scrolling. */
-  .vetti-chip-utility { display: none; }
 }
 
 /* ── COMPOSER ───────────────────────────────────────────────────────── */
@@ -1557,7 +1635,7 @@ body.vetti-active .chatbot-container { display: none; }
 /* ── FOCUS (visible, keyboard only) ────────────────────────────────── */
 
 .vetti-shell :focus-visible,
-.vetti-replay:focus-visible {
+.vetti-menu-btn:focus-visible {
   outline: 2px solid var(--vhs-shell, #6546A8);
   outline-offset: 2px;
   border-radius: var(--radius-sm, 0.5rem);
@@ -1627,10 +1705,6 @@ body.vetti-active .chatbot-container { display: none; }
      at every width, and hands the pixels to the thread instead. It is
      still there from 601px up. */
   .vetti-warm-line { display: none; }
-
-  /* Replay is not a primary action. On a phone it lives in the rail
-     instead (see .vetti-chip-utility), so it leaves the header entirely. */
-  .vetti-replay { display: none; }
 
   .vetti-header-tools {
     flex: 0 0 auto;            /* content-sized; a shrunken box let the
@@ -1997,7 +2071,7 @@ body.vetti-active .chatbot-container { display: none; }
 @media print {
   .vetti-composer-area,
   .vetti-scroll-down,
-  .vetti-replay,
+  .vetti-menu,
   .vetti-welcome,
   .vetti-tour { display: none; }
   #section-vetti.active { height: auto; max-height: none; }

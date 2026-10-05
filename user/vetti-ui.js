@@ -74,6 +74,7 @@
     petFormOpen: false,
     busy: false,
     booted: false,
+    epoch: 0,                // bumped by New Conversation to void in-flight replies
     presenceState: 'idle',
     presenceMotion: '',
     presenceReturn: 0,
@@ -109,7 +110,9 @@
     dom.greeting = el('vettiGreeting');
     dom.warmLine = el('vettiWarmLine');
     dom.petSelectorHost = el('vettiPetSelector');
-    dom.replay = el('vettiReplayIntro');
+    dom.menu = el('vettiMenu');
+    dom.menuBtn = el('vettiMenuBtn');
+    dom.menuPop = el('vettiMenuPop');
     dom.presence = el('vettiHeaderMascotFrame');
     dom.presenceFrame = el('vettiHeaderMascotFrame');
     dom.presenceImg = el('vettiHeaderMascot');
@@ -650,13 +653,6 @@
             + ' title="' + esc(s) + '">'
             + '<span class="vetti-chip-label">' + esc(s) + '</span></button>';
         }).join('')
-      // One secondary item, LAST in the row: replay is a help action, not a
-      // suggestion. It shares the rail's single swipeable row so it never
-      // claims its own line, and CSS hides it above 768px where the header
-      // button is still the better home for it.
-      + '    <button type="button" class="vetti-chip vetti-chip-utility"'
-      + '            data-vetti-replay="1" title="Replay welcome">'
-      + '      <span class="vetti-chip-label">Replay welcome</span></button>'
       + '  </div>'
       + '  <button type="button" class="vetti-carousel-btn vetti-carousel-next"'
       + '          data-vetti-scroll="1" aria-label="Scroll suggestions right"'
@@ -777,7 +773,6 @@
     if (dom.warmLine) {
       dom.warmLine.textContent = State.warmLine(ownerId(), (activePet() || {}).name || '');
     }
-    if (dom.replay) dom.replay.hidden = State.isFirstTime();
   }
 
   // ── THE ONE-TIME WELCOME LAYER ───────────────────────────────────────
@@ -1199,7 +1194,6 @@
     // RETURNING USER: ONE opening line naming what Vetti can do for the
     // pet this account is actually working with. The header already says
     // "Good afternoon, Maria.", so repeating it in the thread was noise.
-    if (dom.replay) dom.replay.hidden = false;
     if (pets().length) {
       setPresence('idle');
       renderOpening('Here whenever you need me. I can show you ' + activePet().name
@@ -1352,7 +1346,11 @@
       services: serviceCatalog(),
       serviceGroups: serviceGroups(),
       suggestionsWithPet: DEFAULT_SUGGESTIONS_WITH_PET,
-      suggestionsNoPet: DEFAULT_SUGGESTIONS_NO_PET
+      suggestionsNoPet: DEFAULT_SUGGESTIONS_NO_PET,
+      // Future AI request context: the saved preference rides along.
+      // Today's deterministic resolver ignores it; the Gemini controller
+      // will read it when composing the request.
+      responseLanguage: State.getResponseLanguage()
     };
   }
 
@@ -1433,12 +1431,17 @@
     hideCarousel();
     scrollToBottom(true);
 
+    var epoch = ui.epoch;
     ui.busy = true;
     showThinking();
 
     // Fixed, short delay purely so the thinking state is legible. It is
     // not a network call and not model latency.
     window.setTimeout(function () {
+      // A New Conversation reset during the delay voids this reply, so
+      // a stale answer can never land in the fresh thread.
+      if (epoch !== ui.epoch) return;
+
       // Clear the placeholder BEFORE rendering the answer, so the two are
       // never on screen together.
       clearThinking();
@@ -1541,6 +1544,146 @@
     else if (!on && !ui.busy && !ui.thinking && !ui.saving) setPresence('idle');
   }
 
+  // ── HEADER MENU (New Conversation / Settings / What Vetti Can Do) ───
+  // One overflow home for secondary actions, so the header line stays
+  // [ mascot | greeting | pet selector | ⋮ ] at every breakpoint.
+
+  function menuOpen() {
+    return !!(dom.menuPop && !dom.menuPop.hidden);
+  }
+
+  function openMenu() {
+    if (!dom.menuPop || !dom.menuBtn) return;
+    dom.menuPop.hidden = false;
+    dom.menuBtn.setAttribute('aria-expanded', 'true');
+    var items = dom.menuPop.querySelectorAll('[role="menuitem"]');
+    if (items.length) items[0].focus();
+  }
+
+  function closeMenu(returnFocus) {
+    if (!dom.menuPop || dom.menuPop.hidden) return;
+    dom.menuPop.hidden = true;
+    dom.menuBtn.setAttribute('aria-expanded', 'false');
+    if (returnFocus && dom.menuBtn) dom.menuBtn.focus();
+  }
+
+  // ── NEW CONVERSATION ────────────────────────────────────────────────
+  // Clears only what the conversation OWNS: the thread DOM and the
+  // transient flags on top of it. The account, pets, appointments, the
+  // active pet and every storage flag (seenIntro, introShown, warm lines,
+  // response language) are untouched — showOpening() then rebuilds the
+  // normal start state from them. Never resetIntro(), never a reload.
+
+  function hasConversationContent() {
+    if (!dom.canvas) return false;
+    // Meaningful = the owner has actually spoken (rail chips call send()
+    // too). The opening turn alone is the start state, not a conversation.
+    return !!dom.canvas.querySelector('.vetti-row-user');
+  }
+
+  function newConversation() {
+    if (!dom.canvas) return;
+    if (!hasConversationContent()) { resetConversation(); return; }
+    if (typeof confirmAction === 'function') {
+      confirmAction(
+        'Start a new conversation? This clears the chat on screen. '
+        + 'Your account, pets, appointments and settings stay as they are.',
+        resetConversation,
+        { title: 'New Conversation' }
+      );
+    } else {
+      resetConversation();
+    }
+  }
+
+  function resetConversation() {
+    // Void any reply still waiting on its delay, so a stale answer can
+    // never appear in the fresh thread.
+    ui.epoch += 1;
+    ui.busy = false;
+    ui.thinking = false;
+    ui.saving = false;
+    ui.petFormOpen = false;
+    ui.lastSuggestions = [];
+    closeTurn();
+    clearThinking();
+    closeMenu(false);
+    if (dom.canvas) dom.canvas.innerHTML = '';
+    setPresence('idle');
+    showOpening();
+    if (dom.input) dom.input.focus();
+  }
+
+  // ── SETTINGS (Response Language) ────────────────────────────────────
+  // One preference, built on the shared VHS modal engine so it looks and
+  // behaves like every other portal dialog. Stored by vetti-state.js and
+  // surfaced through buildContext(); no deterministic reply reads it yet,
+  // and the future AI request context will.
+
+  function openSettings() {
+    if (typeof _createModal !== 'function' || !dom.menuBtn) return;
+    var current = State.getResponseLanguage();
+    var message = ''
+      + '<fieldset class="vetti-settings-group">'
+      + '<legend class="vetti-settings-legend">Response Language</legend>'
+      + '<p class="vetti-settings-hint">Vetti will reply in the language you pick here. '
+      + 'You can still type in English, Tagalog or Taglish.</p>'
+      + '<label class="vetti-settings-option">'
+      + '<input type="radio" name="vettiResponseLanguage" value="en"'
+      + (current === 'en' ? ' checked' : '') + '><span>English</span></label>'
+      + '<label class="vetti-settings-option">'
+      + '<input type="radio" name="vettiResponseLanguage" value="taglish"'
+      + (current === 'taglish' ? ' checked' : '') + '><span>Taglish</span></label>'
+      + '</fieldset>';
+
+    var modal = _createModal({
+      title: 'Settings',
+      icon: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" '
+          + 'stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'
+          + '<line x1="4" y1="21" x2="4" y2="14"></line><line x1="4" y1="10" x2="4" y2="3"></line>'
+          + '<line x1="12" y1="21" x2="12" y2="12"></line><line x1="12" y1="8" x2="12" y2="3"></line>'
+          + '<line x1="20" y1="21" x2="20" y2="16"></line><line x1="20" y1="12" x2="20" y2="3"></line>'
+          + '<line x1="1" y1="14" x2="7" y2="14"></line><line x1="9" y1="8" x2="15" y2="8"></line>'
+          + '<line x1="17" y1="16" x2="23" y2="16"></line></svg>',
+      message: message,
+      footer: {
+        html: '<button type="button" class="vhs-btn vhs-btn-primary" id="vettiSettingsSave">Save</button>'
+            + '<button type="button" class="vhs-btn vhs-btn-ghost" id="vettiSettingsCancel">Cancel</button>'
+      }
+    });
+
+    var overlay = modal.overlay;
+
+    // The shared engine closes on Escape and on an overlay click without
+    // touching focus, so mirror both paths: focus goes back to the menu
+    // button that opened this dialog.
+    function restoreFocus() {
+      document.removeEventListener('keydown', onKey);
+      overlay.removeEventListener('click', onOverlayClick);
+      if (dom.menuBtn) dom.menuBtn.focus();
+    }
+    function onKey(e) { if (e.key === 'Escape') restoreFocus(); }
+    function onOverlayClick(e) { if (e.target === overlay) restoreFocus(); }
+    document.addEventListener('keydown', onKey);
+    overlay.addEventListener('click', onOverlayClick);
+
+    overlay.querySelector('#vettiSettingsSave').addEventListener('click', function () {
+      var picked = overlay.querySelector('input[name="vettiResponseLanguage"]:checked');
+      State.setResponseLanguage(picked ? picked.value : 'en');
+      if (typeof showToast === 'function') showToast('Response language saved.', 'success');
+      restoreFocus();
+      modal.close();
+    });
+    overlay.querySelector('#vettiSettingsCancel').addEventListener('click', function () {
+      restoreFocus();
+      modal.close();
+    });
+
+    // Initial focus moves INTO the dialog, onto the current choice.
+    var checked = overlay.querySelector('input[name="vettiResponseLanguage"]:checked');
+    if (checked) checked.focus();
+  }
+
   // ── Wiring ────────────────────────────────────────────────────────────
   function bindComposer() {
     if (!dom.composer) return;
@@ -1574,14 +1717,12 @@
       // it responds while it is up.
       if (dom.welcome && !dom.welcome.hidden && !target.closest('#vettiWelcome')) return;
 
+      // A click outside the header menu closes it. The toggle itself is
+      // handled with the other data-vetti-action names below.
+      if (menuOpen() && !target.closest('#vettiMenu')) closeMenu(false);
+
       var prompt = target.closest('[data-vetti-prompt]');
       if (prompt) { send(prompt.getAttribute('data-vetti-prompt')); return; }
-
-      // "Replay welcome" lives in the rail on a phone and in the header on
-      // a desktop — CSS decides which one is shown. Both call the SAME
-      // replayIntro(), so relocating it changed where it lives and nothing
-      // about what it does.
-      if (target.closest('[data-vetti-replay]')) { replayIntro(); return; }
 
       // A row in the pet list is a real selector: it does what the header
       // dropdown does, so the list is never a dead read-out.
@@ -1599,6 +1740,18 @@
           Tools.openMyPets();
         } else if (name === 'open-services') {
           Tools.openServices();
+        } else if (name === 'toggle-menu') {
+          if (menuOpen()) closeMenu(false);
+          else openMenu();
+        } else if (name === 'new-conversation') {
+          closeMenu(true);
+          newConversation();
+        } else if (name === 'settings') {
+          closeMenu(true);
+          openSettings();
+        } else if (name === 'what-vetti-can-do') {
+          closeMenu(true);
+          replayIntro();
         }
         return;
       }
@@ -1668,7 +1821,36 @@
       }
     });
 
-    if (dom.replay) dom.replay.addEventListener('click', replayIntro);
+    // The header menu's keyboard behavior: arrows walk the items, and
+    // focus leaving the popover (Tab, click-away to a focusable target)
+    // closes it quietly. Escape is handled at the document level below so
+    // it works from the button too, and it hands focus back.
+    if (dom.menuPop) {
+      dom.menuPop.addEventListener('keydown', function (e) {
+        var items = Array.prototype.slice.call(dom.menuPop.querySelectorAll('[role="menuitem"]'));
+        if (!items.length) return;
+        var i = items.indexOf(document.activeElement);
+        if (e.key === 'ArrowDown') {
+          e.preventDefault();
+          items[(i + 1) % items.length].focus();
+        } else if (e.key === 'ArrowUp') {
+          e.preventDefault();
+          items[(i - 1 + items.length) % items.length].focus();
+        } else if (e.key === 'Home') {
+          e.preventDefault();
+          items[0].focus();
+        } else if (e.key === 'End') {
+          e.preventDefault();
+          items[items.length - 1].focus();
+        }
+      });
+      dom.menuPop.addEventListener('focusout', function (e) {
+        if (!dom.menuPop.contains(e.relatedTarget)) closeMenu(false);
+      });
+    }
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape' && menuOpen()) closeMenu(true);
+    });
 
     // Delegated onto the HOST, never bound to the <select> itself.
     // renderPetSelector() rebuilds that element from innerHTML every time
