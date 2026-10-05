@@ -1,6 +1,11 @@
 # Credentials — never commit these
 php_files/config.php
 
+# Local environment files — never commit real values
+.env
+.env.*
+!.env.example
+
 # User uploads — these are runtime data, not source code
 user/pet_photos/*
 user/profile_photos/*

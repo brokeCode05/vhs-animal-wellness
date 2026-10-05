@@ -4,6 +4,8 @@ header('Content-Type: application/json');
 error_reporting(0);
 ini_set('display_errors', 0);
 
+require_once __DIR__ . '/config.php';
+
 // ─────────────────────────────────────────────────────────────────────────────
 //  SMS_OTP_ENABLED — set to true once Semaphore account is approved & credited.
 //  While false, OTP send is skipped and a bypass token is returned so the
@@ -40,7 +42,14 @@ if (!SMS_OTP_ENABLED) {
 }
 
 // ── Live SMS send via Semaphore ───────────────────────────────────────────────
-$apikey = 'e33a38c1825f4bb6b54f1e72b45c9593';
+$apikey = getenv('SEMAPHORE_API_KEY');
+if (!$apikey && defined('SEMAPHORE_API_KEY')) {
+    $apikey = SEMAPHORE_API_KEY;
+}
+if ($apikey === '') {
+    echo json_encode(['status' => 'error', 'message' => 'SMS service is not configured.']);
+    exit;
+}
 $params = [
     'apikey'     => $apikey,
     'number'     => $number,

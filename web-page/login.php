@@ -185,7 +185,15 @@ $dev_otp = null;
 define('SMS_LOGIN_ENABLED', false); // flip to true when Semaphore is live
 
 if (SMS_LOGIN_ENABLED && !empty($phone)) {
-    $apikey = getenv('SEMAPHORE_API_KEY') ?: 'e33a38c1825f4bb6b54f1e72b45c9593';
+    $apikey = getenv('SEMAPHORE_API_KEY');
+    if (!$apikey && defined('SEMAPHORE_API_KEY')) {
+        $apikey = SEMAPHORE_API_KEY;
+    }
+    if ($apikey === '') {
+        echo json_encode(['status' => 'error', 'message' => 'SMS service is not configured.']);
+        mysqli_close($conn);
+        exit;
+    }
     $params = [
         'apikey'     => $apikey,
         'number'     => $phone,
