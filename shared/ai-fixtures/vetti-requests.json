@@ -1,0 +1,96 @@
+{
+  "kind": "vetti-request-fixtures",
+  "notes": "Fixtures for the minimal AI request shape used by VettiAI.ask().",
+  "maxMessageLength": 280,
+  "requestShape": {
+    "message": "string | trimmed | required | 1-2000",
+    "responseLanguage": "string | 'en' | 'taglish' | default 'en'",
+    "conversation": "array | { role, text } | bounded last 12 | text only",
+    "activePet": "object | { petId, name, species } | null when no pet"
+  },
+  "fixtures": [
+    {
+      "id": "vetti-request-01-normal-en",
+      "description": "Normal English question",
+      "request": {
+        "message": "What are your clinic hours?",
+        "responseLanguage": "en",
+        "conversation": [],
+        "activePet": null
+      }
+    },
+    {
+      "id": "vetti-request-02-normal-taglish",
+      "description": "Taglish question",
+      "request": {
+        "message": "Anong gabi-gabi ang clinic ninyo?",
+        "responseLanguage": "taglish",
+        "conversation": [
+          { "role": "user", "text": "Anong gabi-gabi ang clinic ninyo?" },
+          { "role": "vetti", "text": "Open 8-5 Mon-Sat." }
+        ],
+        "activePet": { "petId": 1, "name": "Luna", "species": "Cat" }
+      }
+    },
+    {
+      "id": "vetti-request-03-booking-intent",
+      "description": "Booking intent",
+      "request": {
+        "message": "I want to book an appointment for Luna",
+        "responseLanguage": "en",
+        "conversation": [],
+        "activePet": { "petId": 1, "name": "Luna", "species": "Cat" }
+      }
+    },
+    {
+      "id": "vetti-request-04-appointment-question",
+      "description": "Appointment question",
+      "request": {
+        "message": "When is my visit?",
+        "responseLanguage": "en",
+        "conversation": [],
+        "activePet": { "petId": 1, "name": "Luna", "species": "Cat" }
+      }
+    },
+    {
+      "id": "vetti-request-05-pet-question",
+      "description": "Pet-related question",
+      "request": {
+        "message": "How do I update Luna's weight?",
+        "responseLanguage": "en",
+        "conversation": [],
+        "activePet": { "petId": 1, "name": "Luna", "species": "Cat" }
+      }
+    },
+    {
+      "id": "vetti-request-06-unsupported-out-of-scope",
+      "description": "Unsupported/out-of-scope request",
+      "request": {
+        "message": "What can I do in Admin?",
+        "responseLanguage": "en",
+        "conversation": [],
+        "activePet": null
+      }
+    },
+    {
+      "id": "vetti-request-07-medical-diagnosis",
+      "description": "Medical diagnosis request",
+      "request": {
+        "message": "Is Luna having diabetes?",
+        "responseLanguage": "en",
+        "conversation": [],
+        "activePet": { "petId": 1, "name": "Luna", "species": "Cat" }
+      }
+    },
+    {
+      "id": "vetti-request-08-malformed-empty",
+      "description": "Malformed/empty message case",
+      "request": {
+        "message": "",
+        "responseLanguage": "en",
+        "conversation": [],
+        "activePet": null
+      }
+    }
+  ]
+}
