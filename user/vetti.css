@@ -124,13 +124,40 @@ body.vetti-active .chatbot-container { display: none; }
   overflow-wrap: anywhere;
 }
 
-/* ── HEADER MENU (⋮) — New Conversation / Settings / What Vetti Can Do ──
-   The popover anchors to this wrapper (position: relative), so it opens
-   hard-right under the button and can never cover the greeting or spill
-   past the header's right gutter. */
+/* ── SIDEBAR MENU (⋮) — New Conversation / Settings / What Vetti Can Do ──
+   The trigger overlays the far right of the Ask Vetti nav row, so it
+   never changes the row's height or the label's position. It is inert and
+   transparent until the row is hovered, focused within, or the menu is
+   open. The popover anchors to this wrapper and opens just below-right of
+   the button, inside the sidebar's width. */
 .vetti-menu {
-  position: relative;
-  flex: 0 0 auto;
+  position: absolute;
+  right: 0.625rem;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+/* The row OWNS the popover, so it must out-stack its later siblings:
+   `.nav-item:hover` applies a transform, and a transformed element   creates a stacking context — without lifting the row, the popover's
+   z-index would be trapped inside it and pointer events would fall   through to the nav rows underneath (the row directly below overlaps   the popover's first pixels). Rows never overlap each other, so a   constant lift changes nothing visually. */
+.sidebar .nav-item[data-section="vetti"] {
+  z-index: 1;
+}
+
+/* The row became a container (a link plus a control — a button inside an
+   anchor is invalid HTML). The link cancels the row's padding with equal
+   negative margins, so it still covers the whole row: typography, hover
+   area and click target are identical to every other nav item. */
+.sidebar .nav-item .nav-link {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex: 1 1 auto;
+  min-width: 0;
+  margin: -0.875rem -1.25rem;
+  padding: 0.875rem 1.25rem;
+  color: inherit;
+  text-decoration: none;
 }
 
 .vetti-menu-btn {
@@ -145,12 +172,35 @@ body.vetti-active .chatbot-container { display: none; }
   background: var(--vhs-neutral-surface, #FFFFFF);
   color: var(--vhs-shell, #6546A8);
   cursor: pointer;
-  transition: background var(--transition), border-color var(--transition);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--transition), background var(--transition),
+    border-color var(--transition);
 }
 
 .vetti-menu-btn:hover {
   background: var(--vhs-shell-soft, rgba(60, 31, 120, 0.06));
   border-color: var(--vhs-shell-light, #8a6bd0);
+}
+
+/* Reveal — row hover (the popover is a descendant, so the row stays
+   hovered while the menu itself is in use), keyboard focus anywhere in
+   the row, or the menu being open. Only opacity and pointer-events move,
+   so nothing on the row ever shifts. */
+.sidebar .nav-item:hover .vetti-menu-btn,
+.sidebar .nav-item:focus-within .vetti-menu-btn,
+.vetti-menu.is-open .vetti-menu-btn {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* Touch and narrow viewports have no hover (and at ≤768px the sidebar is
+   a drawer), so the trigger is simply always available there. */
+@media (hover: none), (max-width: 768px) {
+  .vetti-menu-btn {
+    opacity: 1;
+    pointer-events: auto;
+  }
 }
 
 .vetti-menu-pop {
@@ -162,7 +212,7 @@ body.vetti-active .chatbot-container { display: none; }
   flex-direction: column;
   gap: 0.1rem;
   min-width: 13rem;
-  max-width: calc(100vw - 1.5rem);
+  max-width: calc(var(--sidebar-width, 16.25rem) - 1.5rem);
   padding: 0.3rem;
   border: 1px solid var(--vhs-shell-border, rgba(60, 31, 120, 0.14));
   border-radius: var(--radius-sm, 0.5rem);
@@ -1635,7 +1685,8 @@ body.vetti-active .chatbot-container { display: none; }
 /* ── FOCUS (visible, keyboard only) ────────────────────────────────── */
 
 .vetti-shell :focus-visible,
-.vetti-menu-btn:focus-visible {
+.vetti-menu-btn:focus-visible,
+.sidebar .nav-item .nav-link:focus-visible {
   outline: 2px solid var(--vhs-shell, #6546A8);
   outline-offset: 2px;
   border-radius: var(--radius-sm, 0.5rem);

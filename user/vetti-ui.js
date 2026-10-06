@@ -1544,9 +1544,9 @@
     else if (!on && !ui.busy && !ui.thinking && !ui.saving) setPresence('idle');
   }
 
-  // ── HEADER MENU (New Conversation / Settings / What Vetti Can Do) ───
-  // One overflow home for secondary actions, so the header line stays
-  // [ mascot | greeting | pet selector | ⋮ ] at every breakpoint.
+  // ── SIDEBAR MENU (New Conversation / Settings / What Vetti Can Do) ──
+  // One overflow home for secondary actions, hung on the Ask Vetti nav
+  // row so the workspace header keeps only the greeting and pet selector.
 
   function menuOpen() {
     return !!(dom.menuPop && !dom.menuPop.hidden);
@@ -1556,6 +1556,7 @@
     if (!dom.menuPop || !dom.menuBtn) return;
     dom.menuPop.hidden = false;
     dom.menuBtn.setAttribute('aria-expanded', 'true');
+    if (dom.menu) dom.menu.classList.add('is-open');
     var items = dom.menuPop.querySelectorAll('[role="menuitem"]');
     if (items.length) items[0].focus();
   }
@@ -1564,6 +1565,7 @@
     if (!dom.menuPop || dom.menuPop.hidden) return;
     dom.menuPop.hidden = true;
     dom.menuBtn.setAttribute('aria-expanded', 'false');
+    if (dom.menu) dom.menu.classList.remove('is-open');
     if (returnFocus && dom.menuBtn) dom.menuBtn.focus();
   }
 
@@ -1717,7 +1719,7 @@
       // it responds while it is up.
       if (dom.welcome && !dom.welcome.hidden && !target.closest('#vettiWelcome')) return;
 
-      // A click outside the header menu closes it. The toggle itself is
+      // A click outside the sidebar menu closes it. The toggle itself is
       // handled with the other data-vetti-action names below.
       if (menuOpen() && !target.closest('#vettiMenu')) closeMenu(false);
 
@@ -1741,6 +1743,10 @@
         } else if (name === 'open-services') {
           Tools.openServices();
         } else if (name === 'toggle-menu') {
+          // The wrapper carries the action too, so a press lands on it even
+          // before the row's hover reveal has been style-recalculated.
+          // Padding inside the open popover is not a toggle target though.
+          if (target.closest('#vettiMenuPop')) return;
           if (menuOpen()) closeMenu(false);
           else openMenu();
         } else if (name === 'new-conversation') {
@@ -1821,7 +1827,7 @@
       }
     });
 
-    // The header menu's keyboard behavior: arrows walk the items, and
+    // The sidebar menu's keyboard behavior: arrows walk the items, and
     // focus leaving the popover (Tab, click-away to a focusable target)
     // closes it quietly. Escape is handled at the document level below so
     // it works from the button too, and it hands focus back.
