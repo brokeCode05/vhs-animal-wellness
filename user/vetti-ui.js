@@ -40,6 +40,11 @@
   'use strict';
 
   var State = global.VettiState;
+  // The answer controller seam (vetti-ai.js). send() asks VettiAI for
+  // every reply; behind it the deterministic resolver stays both the
+  // default provider and the fallback, so this file never learns what
+  // produced an answer. Loads after vetti-state.js, before this file.
+  var AI = global.VettiAI;
   var Onboarding = global.VettiOnboarding;
   // Vetti reads clinic data ONLY through VettiData and asks the portal to
   // act ONLY through VettiTools. This module deliberately names no mock
@@ -53,6 +58,13 @@
   // fixed identity beside every normal message. It is deliberately NOT a
   // state expression, so assistant identity never flickers between the
   // header mascot's faces.
+
+  // Thinking-state floor for send(): VettiAI.ask() resolves the answer
+  // (deterministic resolver today, a real provider later — same call
+  // site), and this keeps the "Let me check that for you…" beat legible
+  // before it lands. It is UX only — no longer where the answer comes
+  // from.
+  var MIN_THINK_MS = 240;
 
   // §L: expressions that are worth a beat, then settle back to idle.
   // Without this the header mascot can sit in "Success" or "Concerned" long
@@ -1435,53 +1447,65 @@
     ui.busy = true;
     showThinking();
 
-    // Fixed, short delay purely so the thinking state is legible. It is
-    // not a network call and not model latency.
-    window.setTimeout(function () {
-      // A New Conversation reset during the delay voids this reply, so
-      // a stale answer can never land in the fresh thread.
-      if (epoch !== ui.epoch) return;
+    // The answer comes from the AI controller seam: VettiAI.ask()
+    // resolves the answer promise — the deterministic resolver by
+    // default, a real backend later, same call site — and validates it
+    // against the existing render contract, falling back to the
+    // resolver on any failure. The floor below only keeps the thinking
+    // state legible; the delay is no longer where the answer is built.
+    var started = Date.now();
+    var ctx = buildContext();
+    AI.ask({ message: message }, ctx).then(function (answer) {
+      var elapsed = Date.now() - started;
+      window.setTimeout(function () {
+        // A New Conversation reset while waiting voids this reply, so
+        // a stale answer can never land in the fresh thread.
+        if (epoch !== ui.epoch) return;
 
-      // Clear the placeholder BEFORE rendering the answer, so the two are
-      // never on screen together.
-      clearThinking();
+        // Clear the placeholder BEFORE rendering the answer, so the two are
+        // never on screen together.
+        clearThinking();
 
-      var ctx = buildContext();
-      var answer = State.resolve(message, ctx);
+        setPresence(State.restingState(answer.state));
 
-      setPresence(State.restingState(answer.state));
+        renderVetti(answer.text);
 
-      renderVetti(answer.text);
+        // Structured output. One intent can carry at most one payload, so
+        // each line here is a branch rather than a pile of blocks.
+        if (answer.petCards) renderBlock(petListMarkup(answer.petCards), 'vetti-card-block');
+        else if (answer.petCard) renderBlock(petCardMarkup(answer.petCard), 'vetti-card-block');
+        if (answer.appointments) {
+          renderBlock(appointmentListMarkup(appointmentsFor()), 'vetti-card-block');
+        } else if (answer.appointment) {
+          renderBlock(singleAppointmentMarkup(answer.appointment), 'vetti-card-block');
+        }
+        if (answer.capabilities) {
+          renderBlock(capabilityListMarkup(), 'vetti-card-block');
+        }
+        if (answer.service) {
+          renderBlock(serviceDetailMarkup(answer.service), 'vetti-card-block');
+        } else if (answer.serviceGroup) {
+          renderBlock(serviceGroupMarkup(answer.serviceGroup), 'vetti-card-block');
+        } else if (answer.serviceCategories) {
+          renderBlock(serviceCategoriesMarkup(serviceGroups()));
+        }
 
-      // Structured output. One intent can carry at most one payload, so
-      // each line here is a branch rather than a pile of blocks.
-      if (answer.petCards) renderBlock(petListMarkup(answer.petCards), 'vetti-card-block');
-      else if (answer.petCard) renderBlock(petCardMarkup(answer.petCard), 'vetti-card-block');
-      if (answer.appointments) {
-        renderBlock(appointmentListMarkup(appointmentsFor()), 'vetti-card-block');
-      } else if (answer.appointment) {
-        renderBlock(singleAppointmentMarkup(answer.appointment), 'vetti-card-block');
-      }
-      if (answer.capabilities) {
-        renderBlock(capabilityListMarkup(), 'vetti-card-block');
-      }
-      if (answer.service) {
-        renderBlock(serviceDetailMarkup(answer.service), 'vetti-card-block');
-      } else if (answer.serviceGroup) {
-        renderBlock(serviceGroupMarkup(answer.serviceGroup), 'vetti-card-block');
-      } else if (answer.serviceCategories) {
-        renderBlock(serviceCategoriesMarkup(serviceGroups()));
-      }
+        // Manual fallbacks. KAN-50 owns the real mutations, so every one of
+        // these hands off to the portal's own UI rather than pretending the
+        // change was made in conversation.
+        runAction(answer);
 
-      // Manual fallbacks. KAN-50 owns the real mutations, so every one of
-      // these hands off to the portal's own UI rather than pretending the
-      // change was made in conversation.
-      runAction(answer);
+        // A completed exchange feeds the controller's bounded history.
+        // Recorded only AFTER the epoch check above, so turns from a
+        // reset thread can never leak into the fresh one.
+        AI.recordTurn('user', message);
+        AI.recordTurn('vetti', answer.text);
 
-      renderCarousel(answer.suggestions);
-      ui.busy = false;
-      scrollToBottom(true);
-    }, 420);
+        renderCarousel(answer.suggestions);
+        ui.busy = false;
+        scrollToBottom(true);
+      }, Math.max(0, MIN_THINK_MS - elapsed));
+    });
   }
 
   // ── Active pet ────────────────────────────────────────────────────────
@@ -1602,6 +1626,10 @@
     // Void any reply still waiting on its delay, so a stale answer can
     // never appear in the fresh thread.
     ui.epoch += 1;
+    // The controller's bounded history dies with the thread. The
+    // language preference and every account/pet/appointment record are
+    // untouched — history is conversation scratch, not stored state.
+    AI.clearHistory();
     ui.busy = false;
     ui.thinking = false;
     ui.saving = false;
