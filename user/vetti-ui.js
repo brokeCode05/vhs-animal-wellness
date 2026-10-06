@@ -1333,7 +1333,14 @@
         openPetForm();
         return;
       case 'openBooking':
-        Tools.startBooking({ pet: activePet() });
+        // The validated booking context rides along so the portal's own
+        // wizard can prefill pet/service/date. The pet is resolved HERE
+        // — an exact canonical match or the active pet, null when the
+        // context is absent/unknown — so the portal never guesses.
+        Tools.startBooking({
+          pet: Tools.resolveBookingPet(answer.bookingContext, pets(), activePet()),
+          bookingContext: answer.bookingContext
+        });
         return;
       case 'openReschedule':
         Tools.prepareReschedule(answer.appointment);

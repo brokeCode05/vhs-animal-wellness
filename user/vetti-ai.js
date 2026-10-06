@@ -198,6 +198,39 @@
       }
     }
 
+    // Optional openBooking booking context: the UI may prefill the
+    // existing booking wizard with context the conversation already
+    // carries. Only these keys survive; the rest is ignored. Every key
+    // is optional, so a partial or empty context always opens the wizard
+    // normally. Ids may arrive as strings or numbers and are normalized
+    // to the canonical string form the booking selects compare against;
+    // preferredTime keeps its exact slot label (or numeric hour string).
+    if (answer.action === 'openBooking' && isPlainObject(answer.bookingContext)) {
+      var allowedBookingKeys = ['petId', 'serviceId', 'preferredDate',
+        'preferredTime', 'timePreference'];
+      var cleaned = {};
+      var k;
+      for (k = 0; k < allowedBookingKeys.length; k++) {
+        var key = allowedBookingKeys[k];
+        var value = answer.bookingContext[key];
+        if (value === undefined || value === null || value === '') continue;
+        if (key === 'petId' || key === 'serviceId') {
+          if (typeof value === 'string' && value.trim() !== '') cleaned[key] = value.trim();
+          else if (typeof value === 'number' && isFinite(value)) cleaned[key] = String(value);
+          continue;
+        }
+        if (typeof value === 'string' && value.trim() !== '') cleaned[key] = value.trim();
+        else if (key === 'preferredTime' && typeof value === 'number' && isFinite(value)) {
+          cleaned[key] = String(value);
+        }
+      }
+      if (Object.keys(cleaned).length) {
+        answer.bookingContext = cleaned;
+      } else {
+        delete answer.bookingContext;
+      }
+    }
+
     // Structured payloads: type-check the fields the render blocks
     // read. Wrong types are a shape fault, not content to coerce.
     var k;

@@ -637,7 +637,7 @@ function _renderServiceCardsFromCatalog() {
   };
 }
 
-function openBookModal(serviceName) {
+function openBookModal(serviceName, bookingHandoff) {
   // Booking needs a petId — guide instead of failing mid-wizard.
   if (window.VHSPetOnboarding && window.VHSPetOnboarding.requirePet()) return;
 
@@ -689,7 +689,139 @@ function openBookModal(serviceName) {
   }
 
   _setBookDateConstraints();
+
+  // Conversational booking context from Vetti (optional handoff). Each
+  // field is RESOLVED before it is applied: an unknown pet/service or an
+  // invalid date stays blank and the wizard behaves exactly as before.
+  var handoffCtx = _bookingHandoffContext(bookingHandoff);
+  if (handoffCtx) _prefillBookingFields(bookingHandoff, handoffCtx);
+
+  // Existing dependent refresh, in the normal order: pet, service and
+  // date are all set by now, so the slot list is rebuilt from Smart
+  // Scheduling once, exactly as a manual walk through the wizard does.
   _refreshBookSlots();
+
+  // Preferred time is applied only AFTER the refresh above confirmed the
+  // exact slot is currently available; an unavailable or invented time
+  // is never selected.
+  if (handoffCtx) _prefillBookingTime(handoffCtx);
+}
+
+// ─── VETTI BOOKING CONTEXT PREFILL ───────────────────────────────────────
+// The handoff startBooking() passes: { pet, bookingContext }. Returns the
+// validated bookingContext object, or null — a plain portal
+// openBookModal() call never enters the prefill path at all.
+function _bookingHandoffContext(handoff) {
+  if (!handoff || typeof handoff !== 'object') return null;
+  var ctx = handoff.bookingContext;
+  if (!ctx || typeof ctx !== 'object' || Array.isArray(ctx)) return null;
+  return ctx;
+}
+
+// True when a <select> actually offers a value. This is the guard that
+// keeps prefill honest: a value the form does not present is never
+// assigned (an unassigned value leaves the control on its placeholder).
+function _hasSelectOption(sel, value) {
+  if (!sel || !sel.options) return false;
+  var target = String(value);
+  for (var i = 0; i < sel.options.length; i++) {
+    if (String(sel.options[i].value) === target) return true;
+  }
+  return false;
+}
+
+// Resolve preferredDate to a YYYY-MM-DD string the date input accepts.
+// Accepts 'today', 'tomorrow' or an explicit YYYY-MM-DD; the literal
+// words never reach the input. Returns null when the value is malformed,
+// not a real calendar date, or outside the SAME [today, today+30] window
+// _setBookDateConstraints() puts on the input.
+function _resolveBookingDate(value) {
+  if (typeof value !== 'string') return null;
+  var v = value.trim().toLowerCase();
+  if (!v) return null;
+  var today = new Date();
+  var resolved;
+  if (v === 'today') {
+    resolved = new Date(today.getTime());
+  } else if (v === 'tomorrow') {
+    resolved = new Date(today.getTime());
+    resolved.setDate(resolved.getDate() + 1);
+  } else {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(v)) return null;
+    resolved = new Date(v + 'T12:00:00');
+    if (isNaN(resolved.getTime())) return null;
+    // Round-trip rejects impossible dates (2026-02-31) that a lenient
+    // parser would silently roll over into March.
+    if (resolved.toISOString().split('T')[0] !== v) return null;
+  }
+  var iso = resolved.toISOString().split('T')[0];
+  var min = today.toISOString().split('T')[0];
+  var maxDate = new Date(today.getTime());
+  maxDate.setDate(today.getDate() + 30);
+  var max = maxDate.toISOString().split('T')[0];
+  if (iso < min || iso > max) return null;
+  return iso;
+}
+
+// Apply ONLY the safely resolved parts of the conversational context.
+// Order is pet → service → date; the caller then refreshes slots.
+function _prefillBookingFields(handoff, ctx) {
+  // PET — the pet Vetti resolved (exact canonical match, or the active
+  // pet when the context names none). Unknown/ambiguous contexts resolved
+  // to null upstream, so the select stays on "Choose a pet": no guessing.
+  var petSel = document.getElementById('pet_id');
+  var pet = handoff && handoff.pet;
+  if (petSel && pet && typeof pet === 'object') {
+    var pid = (pet.petId !== undefined && pet.petId !== null) ? pet.petId : pet.id;
+    if (pid !== undefined && pid !== null && _hasSelectOption(petSel, pid)) {
+      petSel.value = String(pid);
+    }
+  }
+
+  // SERVICE — only an EXACT match against an ACTIVE catalog service is
+  // applied. Medical services are never fuzzy-matched; an unknown id or
+  // an inactive service leaves the select blank.
+  if (ctx.serviceId !== undefined && ctx.serviceId !== null && ctx.serviceId !== '') {
+    var svcSel = document.getElementById('service_id');
+    var users = window.SharedMockUsers;
+    var svc = null;
+    if (svcSel && users && typeof users.serviceByValue === 'function') {
+      svc = users.serviceByValue(String(ctx.serviceId))
+        || (typeof users.serviceById === 'function' ? users.serviceById(ctx.serviceId) : null);
+    }
+    // _hasSelectOption restricts the hit to what the select offers —
+    // i.e. the ACTIVE services a new booking may book.
+    if (svcSel && svc && _hasSelectOption(svcSel, svc.value)) {
+      svcSel.value = svc.value;
+    }
+  }
+
+  // DATE — a validated calendar date only; 'today'/'tomorrow' were
+  // already resolved to YYYY-MM-DD by _resolveBookingDate().
+  if (ctx.preferredDate !== undefined && ctx.preferredDate !== null && ctx.preferredDate !== '') {
+    var dateIn = document.getElementById('appointment_date');
+    var iso = _resolveBookingDate(ctx.preferredDate);
+    if (dateIn && iso) {
+      dateIn.value = iso;
+      // Real inputs re-check against min/max; if the input refused the
+      // value, leave it blank rather than hold an invalid date.
+      if (dateIn.value !== iso) dateIn.value = '';
+    }
+  }
+}
+
+// Preferred time: selected only when the REFRESHED slot list — the
+// engine's own answer for this date/service — still contains the exact
+// label. A bare time preference ('morning'/'afternoon'/'evening') never
+// invents a slot: the select stays on "Select time" and the preference
+// is preserved on the context for the owner to act on in step 2.
+function _prefillBookingTime(ctx) {
+  if (ctx.preferredTime === undefined || ctx.preferredTime === null || ctx.preferredTime === '') return;
+  var timeSelect = document.getElementById('time_slot');
+  var want = String(ctx.preferredTime);
+  if (timeSelect && _hasSelectOption(timeSelect, want)) {
+    timeSelect.value = want;
+  }
 }
 
 // ─── WIZARD NAVIGATION ──────────────────────────────────────────────────────

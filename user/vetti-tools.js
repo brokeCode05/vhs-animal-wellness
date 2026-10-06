@@ -48,13 +48,39 @@
 
   // ── BOOKING ───────────────────────────────────────────────────────
 
+  // Pure resolution of the pet the booking wizard may prefill.
+  // Never guesses:
+  //   - no booking context          → null (wizard opens untouched)
+  //   - context without a petId     → the conversation's active pet
+  //   - context with a petId        → the EXACT canonical match in
+  //     `pets`, or null when unknown/ambiguous — the select then stays
+  //     unselected rather than assuming the wrong animal.
+  function resolveBookingPet(bookingContext, pets, activePet) {
+    if (!bookingContext || typeof bookingContext !== 'object' || Array.isArray(bookingContext)) {
+      return null;
+    }
+    var pid = bookingContext.petId;
+    if (pid === undefined || pid === null || pid === '') return activePet || null;
+    var list = Array.isArray(pets) ? pets : [];
+    var hits = list.filter(function (p) {
+      if (!p || typeof p !== 'object') return false;
+      var id = (p.petId !== undefined && p.petId !== null) ? p.petId : p.id;
+      return id !== undefined && id !== null && String(id) === String(pid);
+    });
+    return hits.length === 1 ? hits[0] : null;
+  }
+
   // Opens the portal's own booking wizard. It re-checks for a pet
   // itself, so a zero-pet owner is guided rather than dropped into an
   // empty form.
+  //
+  // The handoff ({ pet, bookingContext }) is passed as a normal
+  // argument to openBookModal(serviceName, bookingHandoff); without a
+  // bookingContext the wizard opens exactly as it always did.
   function startBooking(context) {
     var open = fn('openBookModal');
     if (open) {
-      open();
+      open(undefined, context || null);
       return { ok: true, handledBy: 'booking-wizard' };
     }
     // No wizard on this page: send the owner to the screen that owns the
@@ -164,6 +190,7 @@
 
   global.VettiTools = {
     startBooking: startBooking,
+    resolveBookingPet: resolveBookingPet,
     prepareReschedule: prepareReschedule,
     prepareCancellation: prepareCancellation,
     openAppointmentDetails: openAppointmentDetails,
