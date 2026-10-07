@@ -60,7 +60,13 @@
       return null;
     }
     var pid = bookingContext.petId;
-    if (pid === undefined || pid === null || pid === '') return activePet || null;
+    if (pid === undefined || pid === null || pid === '') {
+      // The phrase explicitly named a pet that could NOT be resolved —
+      // never substitute the active pet for a reference we failed to
+      // identify. The pet selector stays blank for manual choice.
+      if (bookingContext.petUnresolved === true) return null;
+      return activePet || null;
+    }
     var list = Array.isArray(pets) ? pets : [];
     var hits = list.filter(function (p) {
       if (!p || typeof p !== 'object') return false;

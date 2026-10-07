@@ -286,13 +286,20 @@
         // deterministic booking tools. Until then Vetti routes to the
         // portal's own booking flow rather than pretending to book.
         var who = (ctx.activePet && ctx.activePet.name) || 'your pet';
-        return {
+        var reply = {
           text: 'I can help you get started with an appointment for ' + who + '. '
               + 'Vetti booking is not connected yet, so I\u2019ll open the existing '
               + 'booking flow for now.',
           action: 'openBooking',
           suggestions: ['What services do you offer?', 'Show my appointments']
         };
+        // High-confidence conversational context rides ALONG the same
+        // action so the existing wizard can prefill. Nothing here books,
+        // holds a slot or claims availability; with nothing safe to
+        // extract the reply is the plain openBooking it always was.
+        var bookingContext = extractBookingContext(ctx.query, ctx);
+        if (bookingContext) reply.bookingContext = bookingContext;
+        return reply;
       }
     },
     {
@@ -597,6 +604,232 @@
     return String(text || '').toLowerCase().replace(/[^a-z0-9]+/g, '');
   }
 
+  // ── DETERMINISTIC BOOKING-CONTEXT EXTRACTION ───────────────────────
+  // Small, high-confidence phrase extraction for the BOOKING intent only.
+  // It reads the already-normalized query and the SAME ctx the reply
+  // sees — the pets, the active pet and the active service catalog — so
+  // no lookup table is duplicated here. Every rule is exact-match and
+  // anything uncertain is OMITTED, never guessed: no fuzzy medical
+  // matching, no invented ids, no "next tuesday", no slot invention.
+  // The result only ever rides on action openBooking and only PREFILLS
+  // the existing wizard — availability, Smart Scheduling, review and
+  // explicit confirmation stay exactly where they are.
+
+  function escapeRegex(text) {
+    return String(text).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  }
+
+  // Whole-phrase containment: the phrase must sit on non-alphanumeric
+  // edges, so "luna" never matches "lunas" and "spay" never "spayed".
+  function hasPhrase(text, phrase) {
+    var p = String(phrase || '').toLowerCase().trim();
+    if (!p) return false;
+    var re = new RegExp('(^|[^a-z0-9])' + escapeRegex(p) + '([^a-z0-9]|$)', 'i');
+    return re.test(String(text || ''));
+  }
+
+  // A local calendar day offset from today, in the portal's own
+  // YYYY-MM-DD form — the same toISOString day the booking date input
+  // uses for its min/max window.
+  function bookingDayIso(offset) {
+    var d = new Date();
+    d.setDate(d.getDate() + offset);
+    return d.toISOString().split('T')[0];
+  }
+
+  // A real calendar date — a round-trip rejects 2026-02-31.
+  function isRealIsoDate(iso) {
+    var parsed = new Date(iso + 'T12:00:00');
+    return !isNaN(parsed.getTime()) && parsed.toISOString().split('T')[0] === iso;
+  }
+
+  // ── NARROW BOOKING-VERB GUARD (no intent-table reordering) ─────────
+  // "schedule" is booking language when spoken as a verb — "schedule
+  // vaccination tomorrow". Inside a medical noun phrase — "vaccination
+  // schedule" — it is reminder/info language, and the intent that owns
+  // that subject should answer. The guard only narrows WHICH cue claims
+  // the booking intent; intent order is untouched.
+  var SCHEDULE_REMINDER_NOUNS = {
+    vaccination: 1, vaccinations: 1, vaccine: 1, vaccines: 1,
+    shot: 1, shots: 1, bakuna: 1, booster: 1, boosters: 1,
+    immunization: 1, immunisation: 1, reminder: 1, reminders: 1
+  };
+
+  function scheduleIsReminderNoun(q, ctx) {
+    var idx = q.indexOf('schedule');
+    if (idx === -1) return false;
+    var re = /schedule/g;
+    var m;
+    while ((m = re.exec(q))) {
+      // Every occurrence must sit behind a medical/service noun; a bare
+      // imperative ("schedule tomorrow") or any verbal use keeps the
+      // existing booking behaviour.
+      var before = q.slice(0, m.index);
+      var prev = before.match(/([a-z][a-z'-]*)\s*$/i);
+      if (!prev) return false;
+      var word = prev[1].toLowerCase().replace(/'s$/, '');
+      if (SCHEDULE_REMINDER_NOUNS[word]) continue;
+      var services = Array.isArray(ctx.services) ? ctx.services : [];
+      var serviceWord = services.some(function (s) {
+        if (!s) return false;
+        var words = (String(s.label || '') + ' ' + String(s.value || ''))
+          .toLowerCase().split(/[^a-z0-9]+/);
+        return words.indexOf(word) !== -1;
+      });
+      if (!serviceWord) return false;
+    }
+    return true;
+  }
+
+  // ── EXPLICIT-BUT-UNRESOLVED PET REFERENCE ──────────────────────────
+  // A pet-shaped token after a booking verb or "for" that is not a
+  // known pet, not service language and not a stopword/date word is a
+  // pet the owner explicitly named and we could NOT identify. The
+  // extractor records ONLY that signal — never a fuzzy match, never an
+  // invented id — so the wizard can keep the pet selector blank instead
+  // of silently substituting the active pet.
+  var PET_REFERENCE_STOPWORDS = {
+    a: 1, an: 1, the: 1, my: 1, our: 1, your: 1, his: 1, her: 1, its: 1,
+    this: 1, that: 1, these: 1, those: 1, another: 1, one: 1,
+    pet: 1, pets: 1, appointment: 1, appointments: 1, visit: 1, visits: 1,
+    vet: 1, it: 1, them: 1, him: 1, me: 1, us: 1, we: 1, you: 1, i: 1,
+    today: 1, tomorrow: 1, tonight: 1, later: 1, morning: 1, afternoon: 1,
+    evening: 1, night: 1, noon: 1, at: 1, on: 1, in: 1, for: 1,
+    please: 1, soon: 1, now: 1, asap: 1, time: 1, slot: 1, date: 1,
+    and: 1, or: 1, with: 1, as: 1, next: 1, last: 1, this: 1,
+    week: 1, weeks: 1, weekend: 1, weekends: 1, month: 1, months: 1,
+    day: 1, days: 1, weekday: 1, weekdays: 1,
+    monday: 1, tuesday: 1, wednesday: 1, thursday: 1,
+    friday: 1, saturday: 1, sunday: 1,
+    book: 1, booking: 1, schedule: 1
+  };
+
+  function hasUnresolvedPetReference(text, pets, services) {
+    var re = /\b(?:book|booking|schedule|for)\s+([a-z][a-z'-]*)/g;
+    var m;
+    while ((m = re.exec(text))) {
+      var token = m[1].toLowerCase().replace(/'(s)?$/, '');
+      if (PET_REFERENCE_STOPWORDS[token]) continue;
+      // Service vocabulary ("vaccination", "blood", "grooming") is
+      // service language, not a pet name.
+      var serviceWord = services.some(function (s) {
+        if (!s) return false;
+        var words = (String(s.label || '') + ' ' + String(s.value || ''))
+          .toLowerCase().split(/[^a-z0-9]+/);
+        return words.indexOf(token) !== -1;
+      });
+      if (serviceWord) continue;
+      // A known pet name is the main matcher's job — resolvable or, when
+      // two pets share it, confidently ambiguous (both handled there).
+      var knownName = pets.some(function (p) {
+        return p && typeof p.name === 'string' &&
+          p.name.toLowerCase().replace(/'(s)?$/, '') === token;
+      });
+      if (knownName) continue;
+      return true;
+    }
+    return false;
+  }
+
+  // Returns a PARTIAL bookingContext, or null when nothing safe was
+  // found. Partial context is valid; null keeps the plain openBooking.
+  function extractBookingContext(query, ctx) {
+    var text = String(query || '');
+    if (!text || !ctx) return null;
+    var found = {};
+
+    // PET — an exact, case-insensitive whole-name match against the pets
+    // in context, and only when exactly ONE pet matches. With no pet
+    // named, an explicit "my (current) pet" resolves to the active pet.
+    // Unknown names, or two pets that could match, omit the petId.
+    var pets = Array.isArray(ctx.pets) ? ctx.pets : [];
+    var petHits = {};
+    pets.forEach(function (p) {
+      if (!p || typeof p.name !== 'string') return;
+      if (!hasPhrase(text, p.name)) return;
+      var id = (p.petId !== undefined && p.petId !== null) ? p.petId : p.id;
+      if (id !== undefined && id !== null) petHits[String(id)] = p;
+    });
+    var petIds = Object.keys(petHits);
+    if (petIds.length === 1) {
+      found.petId = petIds[0];
+    } else if (!petIds.length && ctx.activePet &&
+        (hasPhrase(text, 'my pet') || hasPhrase(text, 'my current pet'))) {
+      var activeId = (ctx.activePet.petId !== undefined && ctx.activePet.petId !== null)
+        ? ctx.activePet.petId : ctx.activePet.id;
+      if (activeId !== undefined && activeId !== null) found.petId = String(activeId);
+    }
+
+    // SERVICE — an exact whole-phrase match on an ACTIVE catalog label
+    // or canonical value, and only when exactly ONE service matches.
+    // Partial wording ("grooming") and competing matches ("dog grooming
+    // and cat grooming") omit rather than pick. ctx.services is the same
+    // active catalog the wizard offers, so an inactive service can never
+    // be extracted and nothing is invented.
+    var services = Array.isArray(ctx.services) ? ctx.services : [];
+    var svcHits = {};
+    services.forEach(function (s) {
+      if (!s || s.serviceId === undefined || s.serviceId === null) return;
+      if ((typeof s.label === 'string' && hasPhrase(text, s.label)) ||
+          (typeof s.value === 'string' && hasPhrase(text, s.value))) {
+        svcHits[String(s.serviceId)] = s;
+      }
+    });
+    var svcIds = Object.keys(svcHits);
+    if (svcIds.length === 1) found.serviceId = svcIds[0];
+
+    // EXPLICIT PET NAMED BUT UNRESOLVED → record the signal so the
+    // active-pet fallback is suppressed and the pet selector stays
+    // blank. Service/date context still extracts normally around it.
+    if (!found.petId && hasUnresolvedPetReference(text, pets, services)) {
+      found.petUnresolved = true;
+    }
+
+    // DATE — "today", "tomorrow", or an explicit YYYY-MM-DD already in
+    // the text, resolved to a real date. Two DIFFERENT dates in one
+    // message omit. Phrases like "next tuesday" match nothing here.
+    var dates = {};
+    if (hasPhrase(text, 'today')) dates[bookingDayIso(0)] = true;
+    if (hasPhrase(text, 'tomorrow')) dates[bookingDayIso(1)] = true;
+    var isoMatches = text.match(/\b\d{4}-\d{2}-\d{2}\b/g) || [];
+    isoMatches.forEach(function (iso) {
+      if (isRealIsoDate(iso)) dates[iso] = true;
+    });
+    var dateKeys = Object.keys(dates);
+    if (dateKeys.length === 1) found.preferredDate = dateKeys[0];
+
+    // TIME PREFERENCE — exactly one of morning/afternoon/evening, kept
+    // as a PREFERENCE only. It never selects or implies a slot.
+    var prefs = {};
+    ['morning', 'afternoon', 'evening'].forEach(function (pref) {
+      if (hasPhrase(text, pref)) prefs[pref] = true;
+    });
+    var prefKeys = Object.keys(prefs);
+    if (prefKeys.length === 1) found.timePreference = prefKeys[0];
+
+    // EXACT TIME — only through the EXISTING shared parser and formatter
+    // (AppointmentContract), and only for one unambiguous "H:MM AM/PM"
+    // in the text. Without the contract loaded, or with more than one
+    // time, it is omitted; vague wording ("around lunch") never parses.
+    var contract = global.AppointmentContract;
+    if (contract && typeof contract.timeToHHMM === 'function' &&
+        typeof contract.timeTo12h === 'function') {
+      var timeMatches = text.match(/\b\d{1,2}:\d{2}\s*(?:am|pm)\b/gi) || [];
+      if (timeMatches.length === 1) {
+        var tm = timeMatches[0].match(/(\d{1,2}):(\d{2})\s*(am|pm)/i);
+        if (tm) {
+          var hour = parseInt(tm[1], 10), minute = parseInt(tm[2], 10);
+          if (hour >= 1 && hour <= 12 && minute <= 59) {
+            var hhmm = contract.timeToHHMM(hour + ':' + tm[2] + ' ' + tm[3].toUpperCase());
+            if (hhmm) found.preferredTime = contract.timeTo12h(hhmm);
+          }
+        }
+      }
+    }
+
+    return Object.keys(found).length ? found : null;
+  }
+
   // "I want to book Luna an appointment" \u2014 the booking prompt always names
   // the pet the owner is actually working with, so the rail stays relevant
   // after a pet is selected.
@@ -634,6 +867,14 @@
       var intent = INTENTS[i];
       for (var k = 0; k < intent.keywords.length; k++) {
         if (q.indexOf(intent.keywords[k]) !== -1) {
+          // Narrow booking-verb guard: "schedule" only claims the
+          // booking intent when it is spoken as scheduling language,
+          // never inside a medical noun phrase like "vaccination
+          // schedule" — that defers to the informational intent below.
+          if (intent.id === 'booking' && intent.keywords[k] === 'schedule' &&
+              scheduleIsReminderNoun(q, context)) {
+            continue;
+          }
           var answer = intent.reply(context) || {};
           return {
             id: intent.id,
@@ -641,6 +882,10 @@
             text: answer.text || '',
             suggestions: answer.suggestions || [],
             action: answer.action || '',
+            // Only the booking intent ever sets this; every other answer
+            // carries null, so booking context can never ride along on
+            // openReschedule/openCancel/unrelated actions.
+            bookingContext: answer.bookingContext || null,
             petCard: answer.petCard || null,
             petCards: answer.petCards || null,
             appointments: answer.appointments || false,

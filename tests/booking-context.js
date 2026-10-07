@@ -259,8 +259,9 @@ ok('vaccination is an active canonical service', !!svcByValue('vaccination') &&
 /* ── index.html script wiring ────────────────────────────────────── */
 var html = fs.readFileSync(path.join(ROOT, 'user/index.html'), 'utf8');
 ok('index.html cache-busts user-script.js', /user-script\.js\?v=4\.5\.0/.test(html));
-ok('index.html cache-busts vetti-tools.js', /vetti-tools\.js\?v=5\.1\.0/.test(html));
-ok('index.html cache-busts vetti-ai.js', /vetti-ai\.js\?v=5\.2\.0/.test(html));
+ok('index.html cache-busts vetti-tools.js', /vetti-tools\.js\?v=5\.2\.0/.test(html));
+ok('index.html cache-busts vetti-state.js', /vetti-state\.js\?v=5\.3\.0/.test(html));
+ok('index.html cache-busts vetti-ai.js', /vetti-ai\.js\?v=5\.3\.0/.test(html));
 ok('index.html cache-busts vetti-ui.js', /vetti-ui\.js\?v=5\.2\.0/.test(html));
 ok('index.html loads vetti-tools before vetti-ui',
   html.indexOf('vetti-tools.js') < html.indexOf('vetti-ui.js'));
@@ -353,6 +354,10 @@ async function main() {
   ok('U10 ambiguous petId → null',
     T.resolveBookingPet({ petId: '1' }, [{ petId: 1 }, { petId: 1 }], luna) === null);
   ok('U11 array context → null', T.resolveBookingPet([1, 2], PETS, luna) === null);
+  ok('U11b unresolved explicit pet blocks the active-pet fallback',
+    T.resolveBookingPet({ serviceId: 'vaccination', petUnresolved: true }, PETS, luna) === null);
+  ok('U11c no signal + no petId still falls back to the active pet',
+    T.resolveBookingPet({ serviceId: 'vaccination' }, PETS, luna) === luna);
 
   /* ── unit: date resolver ───────────────────────────────────────── */
   ok('U12 today resolves to an actual date',
@@ -463,6 +468,18 @@ async function main() {
   ok('K review/confirm still required (wizard stays on step 1)',
     el('wizardSubmitBtn').style.display === 'none' &&
     el('wizardNextBtn').style.display === '', el('wizardSubmitBtn').style.display);
+
+  /* ── X. unknown explicit pet → blank pet, context still prefills ─ */
+  await askBooking({ serviceId: 'vaccination', petUnresolved: true,
+    preferredDate: isoOf(addDays(1)) });
+  var fx = fields();
+  ok('X1 unknown-pet signal leaves the pet selector blank', fx.pet === '', fx.pet);
+  ok('X1 service and date still prefill around it',
+    fx.service === 'vaccination' && fx.date === isoOf(addDays(1)), fx);
+  ok('X1 slots refreshed after the prefill (Smart Scheduling)',
+    fx.timeOptions > 1, fx.timeOptions);
+  ok('X1 no slot selected; wizard still on step 1 (review required)',
+    fx.time === '' && el('wizardSubmitBtn').style.display === 'none', fx);
 
   /* ── M. New Conversation / settings / menu unaffected ──────────── */
   function actionTarget(name) {

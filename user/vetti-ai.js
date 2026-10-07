@@ -207,13 +207,19 @@
     // preferredTime keeps its exact slot label (or numeric hour string).
     if (answer.action === 'openBooking' && isPlainObject(answer.bookingContext)) {
       var allowedBookingKeys = ['petId', 'serviceId', 'preferredDate',
-        'preferredTime', 'timePreference'];
+        'preferredTime', 'timePreference', 'petUnresolved'];
       var cleaned = {};
       var k;
       for (k = 0; k < allowedBookingKeys.length; k++) {
         var key = allowedBookingKeys[k];
         var value = answer.bookingContext[key];
         if (value === undefined || value === null || value === '') continue;
+        if (key === 'petUnresolved') {
+          // Boolean signal only: an explicitly named pet could not be
+          // resolved, so the UI must NOT fall back to the active pet.
+          if (value === true) cleaned[key] = true;
+          continue;
+        }
         if (key === 'petId' || key === 'serviceId') {
           if (typeof value === 'string' && value.trim() !== '') cleaned[key] = value.trim();
           else if (typeof value === 'number' && isFinite(value)) cleaned[key] = String(value);
