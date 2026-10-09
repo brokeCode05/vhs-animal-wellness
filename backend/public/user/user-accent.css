@@ -1,0 +1,51 @@
+/* ============================================================
+   USER ACCENT — brand purple (logo purple #563aa4 family)
+   Loaded after shared/dashboard-theme.css
+   ============================================================ */
+
+:root {
+  /* User role accent - lavender-purple #7757D9 family (secondary accent:
+     actions, tabs, focus, small highlights). Shell stays VHS violet. */
+  --accent: #7757D9;
+  --accent-dark: #5C3FB8;
+  --accent-deep: #4A31A0;
+  --accent-light: #a58ae8;
+  --accent-hover: #8568e0;
+  --accent-hover-dark: #6a4cc4;
+  --accent-soft: rgba(119, 87, 217, 0.12);
+  --accent-soft-2: rgba(92, 63, 184, 0.08);
+  --accent-border: rgba(92, 63, 184, 0.18);
+  --accent-shadow: rgba(74, 49, 160, 0.3);
+  --accent-glow: rgba(165, 138, 232, 0.16);
+  --accent-shimmer: rgba(219, 210, 248, 0.85);
+  --accent-bg: #f4f1fc;
+  --accent-bg-2: #ece7fa;
+  --accent-bg-3: #faf9fe;
+  --accent-bg-4: #f1edfc;
+  --accent-badge-bg: #eae4f9;
+  --accent-badge-bg-2: #dcd2f4;
+  --accent-badge-border: #c3b4ec;
+  --accent-sched-bg: #f0ecfb;
+  --accent-sched-bg-2: #e5def8;
+}
+
+/* Button overrides — match purple accent */
+.btn-primary {
+  background: linear-gradient(135deg, #7757D9 0%, #5C3FB8 100%) !important;
+  color: white !important;
+  box-shadow: 0 4px 14px rgba(92, 63, 184, 0.3) !important;
+}
+.btn-primary:hover {
+  background: linear-gradient(135deg, #8568e0 0%, #7757D9 100%) !important;
+  box-shadow: 0 6px 20px rgba(92, 63, 184, 0.38) !important;
+}
+.btn-secondary {
+  background: #ffffff !important;
+  color: #475569 !important;
+  border: 1.5px solid #e2e8f0 !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06) !important;
+}
+.btn-secondary:hover {
+  background: #f8fafc !important;
+  border-color: #cbd5e1 !important;
+}

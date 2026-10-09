@@ -1,0 +1,341 @@
+/* ============================================================
+   VHS UNIFIED ADMIN PORTAL — accent + shell additions
+   Base structure comes from admin/admin-style.css (imported by
+   the portal pages via admin-style link) — this file ONLY:
+     1. Sets the temporary Admin indigo accent variables
+        (compatible with the VHS purple; final role colors are
+        standardized later from the logo).
+     2. Styles the grouped sidebar (OPERATIONS / ADMINISTRATION).
+     3. Styles the clean placeholder state for pages whose
+        functionality is not built yet.
+   No redesign, no glassmorphism, no decorative clutter.
+   ============================================================ */
+
+@import url('./admin-style.css?v=3.4.4');
+
+/* ── Temporary Admin accent (blue/indigo, VHS-compatible) ───────── */
+:root {
+  /* Admin role accent - teal-blue #2F8098 family (secondary accent:
+     check-in/action controls, editable controls, filters, focus).
+     Shell stays VHS violet. */
+  --accent: #2F8098;
+  --accent-dark: #236374;
+  --accent-deep: #1B4A58;
+  --accent-light: #7FB8C6;
+  --accent-hover: #3A93AC;
+  --accent-hover-dark: #2A7080;
+  --accent-soft: rgba(47, 128, 152, 0.12);
+  --accent-soft-2: rgba(35, 99, 116, 0.09);
+  --accent-border: rgba(35, 99, 116, 0.18);
+  --accent-shadow: rgba(27, 74, 88, 0.28);
+  --accent-glow: rgba(127, 184, 198, 0.18);
+  --accent-shimmer: rgba(215, 233, 238, 0.85);
+  --accent-bg: #eef5f7;
+  --accent-bg-2: #e2edf0;
+  --accent-bg-3: #f5fafb;
+  --accent-bg-4: #e8f1f4;
+  --accent-badge-bg: #d9e9ee;
+  --accent-badge-bg-2: #c6dde4;
+  --accent-badge-border: #9cc4cf;
+  --accent-sched-bg: #e4eff2;
+  --accent-sched-bg-2: #d5e5ea;
+}
+
+/* Buttons follow the indigo accent (match the accent pattern used
+   by the other portals; gradients only, no glow). */
+.btn-primary {
+  background: linear-gradient(135deg, #2F8098 0%, #236374 100%) !important;
+  color: white !important;
+  box-shadow: 0 4px 14px rgba(47, 128, 152, 0.3) !important;
+}
+.btn-primary:hover {
+  background: linear-gradient(135deg, #3A93AC 0%, #2F8098 100%) !important;
+  box-shadow: 0 6px 20px rgba(47, 128, 152, 0.38) !important;
+}
+.btn-secondary {
+  background: #ffffff !important;
+  color: #475569 !important;
+  border: 1.5px solid #e2e8f0 !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06) !important;
+}
+.btn-secondary:hover {
+  background: #f8fafc !important;
+  border-color: #cbd5e1 !important;
+}
+
+/* ── Grouped sidebar (OPERATIONS / ADMINISTRATION) ──────────────── */
+.sidebar-nav .nav-group {
+  margin: 1.1rem 0 0.4rem;
+  padding: 0 1rem;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #9ca3af;
+  display: block;
+  user-select: none;
+}
+.sidebar-nav .nav-group:first-child {
+  margin-top: 0.4rem;
+}
+
+/* ── Clean placeholder state for not-yet-implemented pages ─────── */
+.placeholder-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 4rem 1.5rem;
+  background: #fff;
+  border: 1px solid var(--border, #e2e8f0);
+  border-radius: 1.25rem;
+}
+.placeholder-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 64px;
+  height: 64px;
+  border-radius: 1rem;
+  background: var(--accent-soft);
+  color: var(--accent-dark);
+  margin-bottom: 1.25rem;
+}
+.placeholder-title {
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: #111827;
+  margin: 0 0 0.4rem;
+}
+.placeholder-text {
+  font-size: 0.92rem;
+  color: #6b7280;
+  max-width: 460px;
+  margin: 0 0 1.25rem;
+  line-height: 1.55;
+}
+.placeholder-list {
+  text-align: left;
+  font-size: 0.85rem;
+  color: #4b5563;
+  background: var(--accent-bg);
+  border: 1px solid var(--accent-border);
+  border-radius: 0.75rem;
+  padding: 1rem 1.25rem 1rem 2.25rem;
+  margin: 0 0 1.25rem;
+  max-width: 480px;
+}
+.placeholder-list li {
+  margin: 0.35rem 0;
+}
+.placeholder-badge {
+  display: inline-block;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--accent-dark);
+  background: var(--accent-badge-bg);
+  border: 1px solid var(--accent-badge-border);
+  border-radius: 999px;
+  padding: 0.25rem 0.75rem;
+  margin-bottom: 1rem;
+}
+
+/* ── Portal identity (navbar brand subtitle) ───────────────────── */
+.navbar-brand {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.brand-subtitle {
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: #6b7280;
+  border-left: 1px solid #d1d5db;
+  padding-left: 0.5rem;
+  margin-left: 0.1rem;
+  white-space: nowrap;
+}
+@media (max-width: 768px) {
+  .brand-subtitle { display: none; }
+}
+
+/* ── Transition banner (old Clerk pages during the merge) ──────── */
+.merge-banner {
+  position: fixed;
+  left: 50%;
+  bottom: 1.25rem;
+  transform: translateX(-50%);
+  z-index: 3000;
+  background: #111827;
+  color: #f9fafb;
+  font-size: 0.85rem;
+  padding: 0.65rem 1.1rem;
+  border-radius: 999px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  max-width: calc(100vw - 2rem);
+}
+.merge-banner a {
+  color: #c4b5fd;
+  font-weight: 600;
+  text-decoration: underline;
+  white-space: nowrap;
+}
+
+/* ── Semantic action buttons (Phase 2A polish) ────────────────────
+   One consistent meaning across tables (existing VHS palette only):
+     View → neutral · Edit → accent · Activate → success (green)
+     Deactivate → danger (red) · Save → .btn-primary (accent)
+     Cancel → .btn-secondary (neutral)
+   Action cells wrap cleanly instead of overflowing at 100% zoom;
+   doctor cells keep their inline nowrap (unchanged behavior). */
+.compact-table td.action-cell {
+  white-space: normal;
+}
+.action-cell .btn-small {
+  display: inline-flex;
+  margin: 0.2rem 0.3rem 0.2rem 0;
+}
+.btn-small.btn-view {
+  color: #475569;
+  border-color: #e2e8f0;
+  background: #ffffff;
+}
+.btn-small.btn-view:hover {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+  color: #475569;
+  transform: none;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+.btn-small.btn-edit {
+  color: var(--accent-dark);
+  border-color: var(--accent-badge-border);
+  background: var(--accent-bg);
+}
+.btn-small.btn-edit:hover {
+  background: linear-gradient(135deg, #2F8098 0%, #236374 100%);
+  color: #ffffff;
+  border-color: transparent;
+  transform: none;
+  box-shadow: 0 3px 10px rgba(47, 128, 152, 0.3);
+}
+.btn-small.btn-success {
+  color: #15803d;
+  border-color: #bbf7d0;
+  background: #f0fdf4;
+}
+.btn-small.btn-success:hover {
+  background: linear-gradient(135deg, #22c55e 0%, #15803d 100%);
+  color: #ffffff;
+  border-color: transparent;
+  transform: none;
+  box-shadow: 0 3px 10px rgba(21, 128, 61, 0.3);
+}
+.btn-small.btn-danger {
+  color: #b91c1c;
+  border-color: #fecaca;
+  background: #fef2f2;
+}
+.btn-small.btn-danger:hover {
+  background: linear-gradient(135deg, #ef4444 0%, #b91c1c 100%);
+  color: #ffffff;
+  border-color: transparent;
+  transform: none;
+  box-shadow: 0 3px 10px rgba(185, 28, 28, 0.3);
+}
+
+/* Clients & Pets density: keep all columns + actions visible without
+   horizontal scrolling at common desktop widths (1280 / 1024). */
+@media (max-width: 1440px) {
+  #clientsTable th, #clientsTable td,
+  #petsTable th, #petsTable td {
+    padding: 0.85rem 0.9rem;
+  }
+}
+/* Narrow desktops: secondary columns move out of the table (values stay
+   available in the profile modals) and action buttons stack vertically,
+   so everything stays reachable without horizontal scrolling. */
+@media (max-width: 1200px) {
+  #clientsTableHead th:nth-child(5), #clientsTable td:nth-child(5),
+  #petsTableHead th:nth-child(8), #petsTable td:nth-child(8) {
+    display: none;
+  }
+  #clientsTable td.action-cell .btn-small,
+  #petsTable td.action-cell .btn-small {
+    display: flex;
+    width: 100%;
+    justify-content: center;
+    margin: 0.2rem 0;
+  }
+}
+/* Very narrow desktop shells: contact email also yields to the
+   profile modal (name + phone remain in the row). */
+@media (max-width: 1024px) {
+  #clientsTableHead th:nth-child(3), #clientsTable td:nth-child(3) {
+    display: none;
+  }
+  #clientsTableHead th, #clientsTable td,
+  #petsTableHead th, #petsTable td {
+    padding: 0.7rem 0.6rem;
+    font-size: 0.875rem;
+  }
+}
+/* ===== AUDIT LOG (Phase 4.1): stacked cards on narrow screens =====
+   Desktop/tablet keep the 5-column table; below 640px each entry
+   renders as a stacked block using data-label captions. */
+@media (max-width: 640px) {
+  .audit-table-wrap thead {
+    display: none;
+  }
+  .audit-table-wrap tr {
+    display: block;
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 0.75rem;
+    margin: 0 0 0.75rem;
+    padding: 0.75rem 0.9rem;
+  }
+  .audit-table-wrap td {
+    display: block;
+    border: none;
+    padding: 0.15rem 0;
+    white-space: normal;
+  }
+  .audit-table-wrap td::before {
+    content: attr(data-label);
+    display: block;
+    font-size: 0.68rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #6b7280;
+    margin-bottom: 0.1rem;
+  }
+}
+/* ===== APPOINTMENT DETAILS (Phase 5): narrow-width usability =====
+   Check In / Reschedule / Cancel stack full-width below 480px so
+   they stay readable and reachable; long detail values wrap. */
+@media (max-width: 480px) {
+  #appointmentDetailsActions {
+    flex-direction: column;
+  }
+  #appointmentDetailsActions .btn-primary,
+  #appointmentDetailsActions .btn-small,
+  #appointmentDetailsActions .btn-secondary {
+    width: 100%;
+    text-align: center;
+  }
+  #appointmentDetailsBody > div > div {
+    flex-wrap: wrap;
+  }
+  #appointmentDetailsBody span:last-child {
+    word-break: break-word;
+  }
+}

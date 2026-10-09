@@ -1,0 +1,1166 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" type="image/png" href="../web-page/image/vhs-assets/vhs-logo.png">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+    <meta http-equiv="Pragma" content="no-cache" />
+    <meta http-equiv="Expires" content="0" />
+    <title>My Dashboard - VHS</title>
+    <link rel="stylesheet" href="user-style.css?v=3.5.1" />
+    <link rel="stylesheet" href="../shared/dashboard-theme.css?v=3.4.6" />
+    <link rel="stylesheet" href="user-accent.css?v=2.5.0" />
+    <link rel="stylesheet" href="../shared/vhs-ui.css?v=2.6.0" />
+    <link rel="stylesheet" href="pet-onboarding.css?v=1.0.1" />
+  </head>
+  <body>
+    <!-- TOP NAVBAR -->
+    <nav class="top-navbar">
+      <button
+        class="hamburger-menu"
+        id="hamburgerMenu"
+        aria-label="Toggle menu"
+      >
+        <span></span><span></span><span></span>
+      </button>
+      <div class="navbar-brand">
+        <img
+          src="../web-page/image/vhs-assets/vhs-logo.png"
+          alt="VHS Logo"
+          class="navbar-logo"
+        />
+        <span class="brand-name">VHS User</span>
+        <span class="brand-subtitle">Pet Care Portal</span>
+      </div>
+    </nav>
+
+    <div class="main-wrapper">
+      <!-- SIDEBAR -->
+      <aside class="sidebar" id="sidebar">
+        <!-- Sidebar User Profile -->
+        <div class="sidebar-profile">
+          <div class="sidebar-avatar" id="sidebarAvatar">
+            <img
+              id="sidebarAvatarImg"
+              src=""
+              alt="Profile"
+              style="
+                display: none;
+                width: 100%;
+                height: 100%;
+                object-fit: cover;
+                border-radius: 50%;
+              "
+            />
+            <span id="sidebarAvatarInitials" class="sidebar-avatar-initials" style="display:none;">VHS</span>
+            <span id="sidebarAvatarEmoji" style="display:flex;align-items:center;justify-content:center;"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M6 21v-2a6 6 0 0 1 12 0v2"/></svg></span>
+          </div>
+          <div class="sidebar-user-info">
+            <span class="sidebar-user-name">Pet Owner</span>
+            <span class="sidebar-user-role">Pet Owner</span>
+          </div>
+        </div>
+        <nav class="sidebar-nav">
+          <a
+            href="#"
+            class="nav-item active"
+            data-section="dashboard"
+            onclick="showSection('dashboard')"
+          >
+            <span class="icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg></span>
+            <span class="label">Dashboard</span>
+          </a>
+          <a
+            href="#"
+            class="nav-item"
+            data-section="appointments"
+            onclick="showSection('appointments')"
+          >
+            <span class="icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><path d="M9 16l2 2 4-4"/></svg></span>
+            <span class="label">My Appointments</span>
+            <span class="badge-count" id="apptBadge" style="display: none"
+              >0</span
+            >
+          </a>
+          <a
+            href="#"
+            class="nav-item"
+            data-section="pets"
+            onclick="showSection('pets')"
+          >
+            <span class="icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="4" r="2"/><circle cx="18" cy="7" r="2"/><circle cx="5" cy="7" r="2"/><path d="M12 22c-3.5 0-6-2-6-4.5 0-2 1.5-3 3-3.5.5-.2 1.2-.3 1.8-.3h2.4c.6 0 1.3.1 1.8.3 1.5.5 3 1.5 3 3.5 0 2.5-2.5 4.5-6 4.5z"/></svg></span>
+            <span class="label">My Pets</span>
+          </a>
+          <a
+            href="#"
+            class="nav-item"
+            data-section="documents"
+            onclick="showSection('documents')"
+          >
+            <span class="icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></span>
+            <span class="label">My Documents</span>
+          </a>
+          <a
+            href="#"
+            class="nav-item"
+            data-section="profile"
+            onclick="showSection('profile')"
+          >
+            <span class="icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></span>
+            <span class="label">My Profile</span>
+          </a>
+          <a
+            href="#"
+            class="nav-item"
+            data-section="clinic"
+            onclick="showSection('clinic')"
+          >
+            <span class="icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg></span>
+            <span class="label">Clinic Info</span>
+          </a>
+          <a
+            href="#"
+            class="nav-item"
+            data-section="services"
+            onclick="showSection('services')"
+          >
+            <span class="icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/><path d="M9 12h6"/><path d="M12 9v6"/></svg></span>
+            <span class="label">Services</span>
+          </a>
+          <a href="#" class="nav-item nav-item-logout" id="logoutBtn">
+            <span class="icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg></span>
+            <span class="label">Logout</span>
+          </a>
+        </nav>
+      </aside>
+
+      <!-- MAIN CONTENT -->
+      <main class="main-content">
+        <!-- ===== DASHBOARD OVERVIEW ===== -->
+        <section id="section-dashboard" class="page-section active">
+          <div class="page-header">
+            <h1>Welcome back!</h1>
+            <p class="page-subtitle">
+              Here's a quick overview of your account.
+            </p>
+          </div>
+
+          <!-- First-pet onboarding: shown only when the signed-in owner has
+               zero pets (i.e. right after signup). Markup is rendered by
+               pet-onboarding.js so the card never appears for owners who
+               already have pets. -->
+          <div id="firstPetGate" hidden></div>
+
+          <!-- Announcements — Laravel/MySQL-backed active clinic notices -->
+          <div class="content-section dashboard-announcements">
+            <div class="announcement-carousel" id="announcementCarousel">
+              <div class="announcement-track" id="announcementTrack">
+                <div class="announcement-slide">
+                  <span class="announcement-badge info">Info</span>
+                  <div class="announcement-slide-body">
+                    <strong>Loading clinic announcements…</strong>
+                    <p>Please wait.</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="announcement-dots" id="announcementDots"></div>
+          </div>
+
+          <!-- Upcoming Appointments -->
+          <!-- Metric stat cards (Upcoming Appointments / Registered Pets /
+               Completed Visits / Pending Confirmation) were removed in the
+               Phase 3.2 dashboard cleanup — low-value space for a pet owner,
+               and the area is reserved for the future Vetty workspace. -->
+          <div class="content-section">
+            <div class="section-header">
+              <h2 class="section-title">Upcoming Appointments</h2>
+              <button class="btn-primary" onclick="openBookModal()">
+                + Book Appointment
+              </button>
+            </div>
+            <div class="table-wrapper">
+              <table class="compact-table">
+                <thead>
+                  <tr>
+                    <th>Pet</th>
+                    <th>Service</th>
+                    <th>Date & Time</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="dashApptBody">
+                  <tr class="empty-row">
+                    <td
+                      colspan="5"
+                      style="
+                        text-align: center;
+                        padding: 2rem;
+                        color: var(--text-muted, #888);
+                      "
+                    >
+                      No upcoming appointments. Book one to get started!
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- My Pets Quick View -->
+          <div class="content-section">
+            <div class="section-header">
+              <h2 class="section-title">My Pets</h2>
+              <button class="btn-secondary" onclick="showSection('pets')">
+                View All →
+              </button>
+            </div>
+            <div class="pets-grid" id="dashPetsGrid">
+              <p style="color: var(--text-muted, #888); padding: 1rem 0">
+                No pets registered yet. Add your first pet!
+              </p>
+            </div>
+          </div>
+        </section>
+
+        <!-- ===== MY APPOINTMENTS ===== -->
+        <section id="section-appointments" class="page-section">
+          <div class="page-header">
+            <h1>My Appointments</h1>
+            <p class="page-subtitle">Manage and track all your pet appointments.</p>
+          </div>
+
+          <div class="section-header" style="margin-bottom:1rem">
+            <div class="appt-tabs" id="apptTabs">
+              <button class="appt-tab active" data-tab="upcoming" onclick="switchApptTab('upcoming')">Upcoming</button>
+              <button class="appt-tab" data-tab="past" onclick="switchApptTab('past')">Past History</button>
+            </div>
+            <button class="btn-primary" onclick="openBookModal()">+ Book Appointment</button>
+          </div>
+
+          <div id="apptUpcoming" class="appt-tab-content active"></div>
+          <div id="apptPast" class="appt-tab-content"></div>
+        </section>
+
+        <!-- ===== MY PETS ===== -->
+        <section id="section-pets" class="page-section">
+          <div class="page-header">
+            <h1>My Pets</h1>
+            <p class="page-subtitle">View and manage your registered pets.</p>
+          </div>
+
+          <div class="section-header" style="margin-bottom: 1.5rem">
+            <span></span>
+            <button class="btn-primary" onclick="openAddPetModal()">
+              + Add New Pet
+            </button>
+          </div>
+
+          <div class="pets-full-grid" id="petsGrid">
+            <p style="color: var(--text-muted, #888); padding: 1rem 0">
+              No pets registered yet. Click "Add New Pet" to get started!
+            </p>
+          </div>
+        </section>
+
+        <!-- ===== MY PROFILE ===== -->
+        <section id="section-profile" class="page-section">
+          <div class="page-header">
+            <h1>My Profile</h1>
+            <p class="page-subtitle">Manage your account information.</p>
+          </div>
+
+          <div class="content-section profile-card">
+            <!-- Top-right Edit button -->
+            <div class="profile-card-header">
+              <span></span>
+              <button
+                class="btn-primary"
+                id="editProfileBtn"
+                onclick="toggleEditProfile()"
+              >
+                Edit Profile
+              </button>
+            </div>
+
+            <!-- Avatar -->
+            <div class="avatar-upload-wrap">
+              <div class="avatar-preview" id="avatarPreview">
+                <img
+                  id="avatarPreviewImg"
+                  src=""
+                  alt="Profile"
+                  style="
+                    display: none;
+                    width: 100%;
+                    height: 100%;
+                    object-fit: cover;
+                    border-radius: 50%;
+                  "
+                />
+                <span id="avatarPreviewEmoji" style="display:flex;align-items:center;justify-content:center;"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></span>
+              </div>
+              <div
+                class="avatar-upload-actions"
+                id="avatarActions"
+                style="display: none"
+              >
+                <div class="btn-row">
+                  <label
+                    class="btn-primary"
+                    for="avatarInput"
+                    style="cursor: pointer; font-family: inherit"
+                    >Upload Photo</label
+                  >
+                  <input
+                    type="file"
+                    id="avatarInput"
+                    accept="image/*"
+                    style="display: none"
+                    onchange="handleAvatarUpload(event)"
+                  />
+                  <button class="btn-secondary" onclick="removeAvatar()">
+                    Remove
+                  </button>
+                </div>
+                <p class="avatar-hint">JPG, PNG or GIF &middot; Max 5MB</p>
+              </div>
+            </div>
+
+            <!-- Account Info -->
+            <div class="profile-fields">
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1rem;">
+                <div class="form-group" style="position:relative;">
+                  <label class="form-label">Last Name</label>
+                  <input
+                    type="text"
+                    class="form-input"
+                    id="profileLastName"
+                    value=""
+                    maxlength="50"
+                    disabled
+                  />
+                </div>
+                <div class="form-group">
+                  <label class="form-label">First Name</label>
+                  <input
+                    type="text"
+                    class="form-input"
+                    id="profileFirstName"
+                    value=""
+                    maxlength="50"
+                    disabled
+                  />
+                </div>
+              </div>
+              <div class="form-row">
+                <div class="form-group">
+                  <label class="form-label">Middle Name</label>
+                  <input
+                    type="text"
+                    class="form-input"
+                    id="profileMiddleName"
+                    value=""
+                    maxlength="50"
+                    disabled
+                  />
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Email Address</label>
+                  <input
+                    type="email"
+                    class="form-input"
+                    id="profileEmail"
+                    value=""
+                    maxlength="254"
+                    disabled
+                  />
+                </div>
+              </div>
+              <div class="form-row">
+                <div class="form-group">
+                  <label class="form-label">Contact Number</label>
+                  <input
+                    type="tel"
+                    class="form-input"
+                    id="profilePhone"
+                    value=""
+                    maxlength="11"
+                    inputmode="numeric"
+                    disabled
+                  />
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Address</label>
+                  <input
+                    type="text"
+                    class="form-input"
+                    id="profileAddress"
+                    value=""
+                    maxlength="250"
+                    disabled
+                  />
+                </div>
+              </div>
+            </div>
+
+            <!-- Change Password (shown in edit mode) -->
+            <div id="passwordSection" style="display: none">
+              <hr class="profile-divider" />
+              <h3 class="section-title" style="margin-bottom: 1rem">
+                Change Password
+              </h3>
+              <form id="passwordForm" onsubmit="changePassword(event)">
+                <div class="form-row">
+                  <div class="form-group">
+                    <label class="form-label">Current Password</label>
+                    <input
+                      type="password"
+                      class="form-input"
+                      id="currentPassword"
+                      placeholder="Enter current password"
+                    />
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">New Password</label>
+                    <input
+                      type="password"
+                      class="form-input"
+                      id="newPassword"
+                      placeholder="Enter new password"
+                    />
+                  </div>
+                </div>
+                <div class="form-row">
+                  <div class="form-group">
+                    <label class="form-label">Confirm New Password</label>
+                    <input
+                      type="password"
+                      class="form-input"
+                      id="confirmPassword"
+                      placeholder="Re-enter new password"
+                    />
+                  </div>
+                  <div class="form-group"></div>
+                </div>
+              </form>
+            </div>
+
+            <!-- Save / Cancel -->
+            <div class="form-actions hidden" id="profileFormActions">
+              <button type="button" class="btn-primary" onclick="saveProfile()">
+                Save Changes
+              </button>
+              <button
+                type="button"
+                class="btn-secondary"
+                onclick="cancelEditProfile()"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </section>
+
+        <!-- ===== CLINIC INFO ===== -->
+        <section id="section-clinic" class="page-section">
+          <div class="page-header">
+            <h1>Clinic Information</h1>
+            <p class="page-subtitle">
+              Everything you need to know about VHS Animal Wellness Center.
+            </p>
+          </div>
+
+          <div class="clinic-grid">
+            <div class="content-section">
+              <h2 class="section-title">Contact &amp; Location</h2>
+              <div class="clinic-info-list">
+                <div class="clinic-info-item">
+                  <span class="clinic-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg></span>
+                  <div>
+                    <strong>Address</strong>
+                    <p id="clinicAddress">
+                      834 Aurora Blvd cor Driod St, Kaunlaran, Cubao, Quezon
+                      City, 1111
+                    </p>
+                  </div>
+                </div>
+                <div class="clinic-info-item">
+                  <span class="clinic-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.61 3.4 2 2 0 0 1 3.6 1.22h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.82a16 16 0 0 0 6.29 6.29l.96-.96a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg></span>
+                  <div>
+                    <strong>Phone</strong>
+                    <p id="clinicPhone">0917 108 4174</p>
+                  </div>
+                </div>
+                <div class="clinic-info-item">
+                  <span class="clinic-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg></span>
+                  <div>
+                    <strong>Email</strong>
+                    <p id="clinicEmail">vhs.animalwellness@gmail.com</p>
+                  </div>
+                </div>
+                <div class="clinic-info-item">
+                  <span class="clinic-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg></span>
+                  <div>
+                    <strong>Website</strong>
+                    <p>
+                      <a href="../web-page/index.html" target="_blank"
+                        id="clinicWebsite">www.vhsclinic.com</a
+                      >
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="content-section">
+              <h2 class="section-title">Operating Hours</h2>
+              <div class="hours-table" id="clinicHoursList">
+                <div class="hours-row">
+                  <span>Monday – Thursday</span
+                  ><span class="hours-time">9:00 AM – 6:00 PM</span>
+                </div>
+                <div class="hours-row">
+                  <span>Friday – Sunday</span
+                  ><span class="hours-time">10:00 AM – 7:00 PM</span>
+                </div>
+                <div class="hours-row holiday">
+                  <span>Holidays</span
+                  ><span class="hours-time">By appointment only</span>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </section>
+
+        <!-- ===== SERVICES ===== -->
+        <section id="section-services" class="page-section">
+          <div class="page-header">
+            <h1>Available Services</h1>
+            <p class="page-subtitle">
+              Browse all services offered at VHS Animal Wellness Center.
+            </p>
+          </div>
+          <div id="userServicesGrid">
+            <!-- Rendered by user-script.js from the shared service catalog
+                              reload/navigation. TODO(BACKEND): GET /api/services. -->
+          </div>
+        </section>
+        <section id="section-documents" class="page-section">
+          <div class="page-header">
+            <h1>My Documents</h1>
+            <p class="page-subtitle">
+              Finalized documents issued for your pets' completed consultations.
+            </p>
+          </div>
+          <div id="userDocsList">
+            <!-- Scoped to the signed-in user by shared/document-store.js
+                 (SharedDocuments.forUser). No cross-user data is rendered.
+                 TODO(BACKEND): GET /documents?user_id=me. -->
+          </div>
+          <!-- Document viewer (print-style) -->
+          <div class="modal-overlay" id="userDocViewerModal">
+            <div class="modal-content" style="max-width:720px;max-height:88vh;overflow-y:auto;">
+              <div class="modal-header">
+                <h2 class="modal-title">Document Preview</h2>
+                <button class="modal-close" onclick="closeUserDocViewer()">&times;</button>
+              </div>
+              <div id="userDocViewerBody" style="border:1px solid #e5e7eb;border-radius:0.75rem;padding:1.5rem;background:#fff;"></div>
+              <div style="display:flex;gap:0.75rem;margin-top:1rem;">
+                <button type="button" class="btn-secondary" id="userDocPrint">Print</button>
+                <button type="button" class="btn-primary" onclick="closeUserDocViewer()">Done</button>
+              </div>
+            </div>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <!-- ===== MODALS ===== -->
+
+    <!-- Book Appointment Wizard Modal -->
+    <!--
+      BACKEND HANDOFF: Book Appointment Wizard
+      Target Endpoint: POST ../php_files/book-appointment.php
+      Encoding: application/json
+      Expected Payload: { user_id, pet_id, service, appointment_date,
+        appointment_time, visit_reason, visit_reason_custom, notes }
+      Response: { status: "success", message: "...", reference_no: "VHS-..." }
+    -->
+    <div class="modal-overlay" id="bookModal">
+      <div class="modal-content" style="max-width:560px;">
+        <div class="modal-header">
+          <h2 class="modal-title">Book Appointment</h2>
+          <button class="modal-close" onclick="closeModal('bookModal')">&times;</button>
+        </div>
+
+        <!-- Wizard Progress -->
+        <div class="wizard-steps" id="wizardSteps">
+          <div class="wizard-step active" data-step="1"><span class="wizard-step-num">1</span> Pet & Service</div>
+          <div class="wizard-step" data-step="2"><span class="wizard-step-num">2</span> Date & Time</div>
+          <div class="wizard-step" data-step="3"><span class="wizard-step-num">3</span> Review & Book</div>
+        </div>
+
+        <form id="bookForm" onsubmit="submitBooking(event)">
+
+          <!-- Step 1: Pet & Service -->
+          <div class="wizard-panel active" id="wizardStep1">
+            <div class="form-group" style="margin-bottom:1rem;">
+              <label class="form-label">Select Pet <span class="required">*</span></label>
+              <select class="form-select" id="pet_id" name="pet_id" required>
+                <option value="">Choose a pet</option>
+              </select>
+            </div>
+            <div class="form-group" style="margin-bottom:1rem;">
+              <label class="form-label">Service <span class="required">*</span></label>
+              <!-- Options rendered from the shared service catalog
+                   Clerk and Doctor exactly. TODO(BACKEND): serve from a
+                   vet_services table. -->
+              <select class="form-select" id="service_id" name="service_id" required>
+                <option value="">Choose a service</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Step 2: Date & Time -->
+          <div class="wizard-panel" id="wizardStep2">
+            <div class="form-group" style="margin-bottom:1rem;">
+              <label class="form-label">Appointment Date <span class="required">*</span></label>
+              <input type="date" class="form-input" id="appointment_date" name="appointment_date" required onchange="onBookDateChange()" />
+              <p class="form-hint" style="font-size:0.75rem;color:var(--text-dim);margin-top:0.3rem;">You can book up to 30 days in advance.</p>
+            </div>
+            <div class="form-group" style="margin-bottom:1rem;">
+              <label class="form-label">Time Slot <span class="required">*</span></label>
+              <select class="form-select" id="time_slot" name="time_slot" required>
+                <option value="">Select a date first</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Step 3: Notes & Review -->
+          <div class="wizard-panel" id="wizardStep3">
+            <div class="form-group" style="margin-bottom:1rem;">
+              <label class="form-label">Additional Notes / Symptoms <span style="font-weight:400;color:var(--text-dim);">(Optional)</span></label>
+              <select class="form-select" id="visit_reason" name="visit_reason">
+                <option value="">Select context</option>
+                <!-- Canonical visit contexts (frozen). TODO(BACKEND): keep
+                     these values stable for Vetty + the appointments table. -->
+                <option value="Routine check-up">Routine check-up</option>
+                <option value="Scheduled procedure">Scheduled procedure</option>
+                <option value="Showing mild symptoms">Showing mild symptoms</option>
+                <option value="Follow-up visit">Follow-up visit</option>
+                <option value="Other">Other</option>
+              </select>
+              <input type="text" class="form-input" id="visit_reason_custom" name="visit_reason_custom" maxlength="150" placeholder="Please describe symptoms or notes..." style="display:none;margin-top:0.5rem;" />
+            </div>
+            <div class="form-group" style="margin-bottom:1rem;">
+              <label class="form-label">Additional Notes <span style="font-weight:400;color:var(--text-dim);">(Optional)</span></label>
+              <textarea class="form-textarea" id="bookNotes" name="notes" rows="2" maxlength="500" placeholder="Any special instructions or concerns..."></textarea>
+            </div>
+
+            <!-- Booking Summary -->
+            <div class="book-summary" id="bookSummary"></div>
+          </div>
+
+          <!-- Wizard Navigation -->
+          <div class="wizard-nav">
+            <div class="wizard-nav-left">
+              <button type="button" class="btn-secondary" id="wizardBackBtn" style="display:none;" onclick="wizardNav(-1)">Back</button>
+              <button type="button" class="btn-secondary wizard-cancel-btn" onclick="closeModal('bookModal')">Cancel</button>
+            </div>
+            <div class="wizard-nav-right">
+              <button type="button" class="btn-primary" id="wizardNextBtn" onclick="wizardNav(1)">Next</button>
+              <button type="submit" class="btn-primary" id="wizardSubmitBtn" style="display:none;">Confirm Booking</button>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- OTP Verification Modal -->
+    <div class="modal-overlay" id="otpModal">
+      <div class="modal-content" style="max-width:440px;">
+        <div class="modal-header">
+          <h2 class="modal-title">Enter Verification Code</h2>
+          <button class="modal-close" onclick="closeOtpModal()">&times;</button>
+        </div>
+        <p class="otp-subtext">A 6-digit verification code has been sent to your registered phone / email.</p>
+        <div class="otp-inputs" id="otpInputs">
+          <input type="tel" class="otp-box" maxlength="1" inputmode="numeric" pattern="[0-9]" autocomplete="one-time-code" />
+          <input type="tel" class="otp-box" maxlength="1" inputmode="numeric" pattern="[0-9]" />
+          <input type="tel" class="otp-box" maxlength="1" inputmode="numeric" pattern="[0-9]" />
+          <input type="tel" class="otp-box" maxlength="1" inputmode="numeric" pattern="[0-9]" />
+          <input type="tel" class="otp-box" maxlength="1" inputmode="numeric" pattern="[0-9]" />
+          <input type="tel" class="otp-box" maxlength="1" inputmode="numeric" pattern="[0-9]" />
+        </div>
+        <div class="otp-timer" id="otpTimer">Resend code in <span id="otpCountdown">0:59</span></div>
+        <div class="form-actions" style="justify-content:center;gap:0.75rem;">
+          <button type="button" class="btn-primary" id="otpVerifyBtn" onclick="verifyOtp()">Verify & Confirm</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Booking Success Confirmation Modal -->
+    <div class="modal-overlay" id="bookingSuccessModal">
+      <div class="modal-content" style="max-width:460px;text-align:center;">
+        <div class="modal-header" style="justify-content:center;">
+          <h2 class="modal-title">Appointment Successfully Booked!</h2>
+        </div>
+        <div class="success-icon-wrap">
+          <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9 12l2 2 4-4"/></svg>
+        </div>
+        <p class="success-ref-label">Reference ID</p>
+        <p class="success-ref-value" id="successRefNo">—</p>
+        <p class="success-qr-hint" style="margin-top:0.75rem;">Show this Reference Number at the front desk. On arrival, scan the clinic's check-in QR at reception to check in.</p>
+        <div class="form-actions" style="justify-content:center;gap:0.75rem;flex-wrap:wrap;">
+          <button type="button" class="btn-secondary" onclick="printSuccessRef()">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+            Download / Print
+          </button>
+          <button type="button" class="btn-primary" onclick="closeSuccessAndScroll()">View My Appointments</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Add / Edit Pet Modal -->
+    <!--
+      BACKEND HANDOFF: Add / Edit Pet Modal
+      Target Endpoint: POST ../api/pets/save_pet.php
+      Form Encoding: multipart/form-data (supports pet_photo file upload)
+      All name attributes match the PHP/MySQL column names.
+    -->
+    <div class="modal-overlay" id="petModal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2 class="modal-title" id="petModalTitle">Add New Pet</h2>
+          <button class="modal-close" onclick="closeModal('petModal')">&times;</button>
+        </div>
+        <form id="petForm" action="../api/pets/save_pet.php" method="POST" enctype="multipart/form-data" onsubmit="submitPet(event)">
+
+          <!-- Pet Photo -->
+          <div class="form-group">
+            <label class="form-label">Pet Photo</label>
+            <div class="pet-photo-preview" id="petPhotoPreview" onclick="document.getElementById('pet_photo').click()">
+              <span class="upload-icon"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg></span>
+              <span>Click to upload photo</span>
+            </div>
+            <input type="file" id="pet_photo" name="pet_photo" accept="image/*" style="display:none" onchange="previewPetPhoto(this)" />
+          </div>
+
+          <!-- Pet Name + Species -->
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Pet Name <span class="required">*</span></label>
+              <input type="text" class="form-input" id="pet_name" name="pet_name" maxlength="50" placeholder="e.g. Luna" required />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Species <span class="required">*</span></label>
+              <select class="form-select" id="species" name="species" required onchange="onSpeciesChange()">
+                <option value="">Select species</option>
+                <option value="Dog">Dog</option>
+                <option value="Cat">Cat</option>
+                <option value="Bird">Bird</option>
+                <option value="Rabbit">Rabbit</option>
+                <option value="Other">Other</option>
+              </select>
+              <input type="text" class="form-input other-species-input" id="species_custom" name="species_custom" maxlength="50" placeholder="Please specify species..." style="display:none;margin-top:0.5rem;" />
+            </div>
+          </div>
+
+          <!-- Breed (cascading) + Age -->
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Breed</label>
+              <select class="form-select" id="breed" name="breed" onchange="onBreedChange()">
+                <option value="">Select breed</option>
+              </select>
+              <input type="text" class="form-input other-breed-input" id="breed_custom" name="breed_custom" maxlength="60" placeholder="Please specify breed..." style="display:none;margin-top:0.5rem;" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Age (years)</label>
+              <input type="number" class="form-input" id="age" name="age" placeholder="e.g. 3" min="0" max="50" step="1" />
+            </div>
+          </div>
+
+          <!-- Gender + Weight -->
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Gender</label>
+              <select class="form-select" id="gender" name="gender">
+                <option value="">Select gender</option>
+                <option value="Male">Male</option>
+                <option value="Female">Female</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Weight (kg)</label>
+              <input type="number" class="form-input" id="weight_kg" name="weight_kg" step="0.1" placeholder="e.g. 4.5" min="0" max="200" />
+            </div>
+          </div>
+
+          <!-- Color + Reproductive Status -->
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Color / Markings</label>
+              <input type="text" class="form-input" id="color" name="color" maxlength="60" placeholder="e.g. White with grey patches" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Reproductive Status</label>
+              <select class="form-select" id="reproductive_status" name="reproductive_status">
+                <option value="">Select status</option>
+                <option value="Intact">Intact (Not yet altered)</option>
+                <option value="Spayed">Spayed (Female — Kapon)</option>
+                <option value="Neutered">Neutered (Male — Kapon)</option>
+                <option value="Not Sure">Not Sure / Needs Assessment</option>
+              </select>
+              <p class="form-hint" style="font-size:0.75rem;color:var(--text-dim);margin-top:0.3rem;">Spayed/Neutered = Kapon. Select "Not Sure" if unsure — our vet can assess during the visit.</p>
+            </div>
+          </div>
+
+          <!-- Microchip -->
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Microchip ID <span style="font-weight:400;color:var(--text-dim);">(Optional)</span></label>
+              <input type="text" class="form-input" id="microchip_id" name="microchip_id" maxlength="30" placeholder="e.g. PH-001-2023-LUNA" />
+            </div>
+            <div class="form-group"></div>
+          </div>
+
+          <!-- Allergies + Chronic Conditions -->
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Allergies</label>
+              <input type="text" class="form-input" id="allergies" name="allergies" maxlength="200" placeholder="e.g. Chicken, certain flea treatments" />
+              <p class="form-hint" style="font-size:0.75rem;color:var(--text-dim);margin-top:0.3rem;">Leave blank or type "None known yet" if unsure.</p>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Chronic Conditions</label>
+              <input type="text" class="form-input" id="chronic_conditions" name="chronic_conditions" maxlength="200" placeholder="e.g. Hip dysplasia, diabetes" />
+              <p class="form-hint" style="font-size:0.75rem;color:var(--text-dim);margin-top:0.3rem;">Leave blank or type "None known yet" if unsure.</p>
+            </div>
+          </div>
+
+          <!-- Additional Notes -->
+          <div class="form-group">
+            <label class="form-label">Additional Notes</label>
+            <textarea class="form-textarea" id="medical_notes" name="medical_notes" rows="2" maxlength="500" placeholder="Any other notes about your pet..."></textarea>
+          </div>
+
+          <input type="hidden" id="user_id" name="user_id" value="" />
+
+          <div class="form-actions" style="justify-content:space-between;">
+            <button type="button" class="btn-pet-delete" id="petDeleteBtn" style="display:none;" onclick="confirmDeletePet()">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+              Delete Pet
+            </button>
+            <div style="display:flex;gap:0.6rem;margin-left:auto;">
+              <button type="button" class="btn-secondary" onclick="closeModal('petModal')">Cancel</button>
+              <button type="submit" class="btn-primary" id="petSubmitBtn">Save Pet</button>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- View Appointment Details & QR Intake Modal -->
+    <div class="modal-overlay" id="viewApptModal">
+      <div class="modal-content" style="max-width:520px;">
+        <div class="modal-header">
+          <h2 class="modal-title">Appointment Details</h2>
+          <button class="modal-close" onclick="closeModal('viewApptModal')">
+            &times;
+          </button>
+        </div>
+
+        <!-- Appointment Summary -->
+        <div class="appt-detail-summary" id="apptDetails"></div>
+
+        <div class="form-actions" style="margin-top: 1.25rem;">
+          <button class="btn-secondary" onclick="closeModal('viewApptModal')">Close</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Confirm Modal (reusable) -->
+    <div class="confirm-modal-overlay" id="confirmModal">
+      <div class="confirm-modal">
+        <div class="confirm-icon" id="confirmIcon"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></div>
+        <h3 class="confirm-title" id="confirmTitle">Confirm Action</h3>
+        <p class="confirm-message" id="confirmMessage">Are you sure?</p>
+        <div class="confirm-actions">
+          <button class="btn-confirm-ok" id="confirmOkBtn">Confirm</button>
+          <button class="btn-confirm-cancel" onclick="closeConfirm()">
+            Cancel
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Reschedule Appointment Modal -->
+    <div class="modal-overlay" id="rescheduleModal">
+      <div class="modal-content" style="max-width:500px;">
+        <div class="modal-header">
+          <h2 class="modal-title">Reschedule Appointment</h2>
+          <button class="modal-close" onclick="closeModal('rescheduleModal')">&times;</button>
+        </div>
+        <div id="rescheduleInfo" class="reschedule-info"></div>
+        <form id="rescheduleForm" onsubmit="submitReschedule(event)">
+          <input type="hidden" id="rescheduleApptId" />
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1rem;">
+            <div class="form-group">
+              <label class="form-label">New Date <span class="required">*</span></label>
+              <input type="date" class="form-input" id="rescheduleDate" required onchange="_onRescheduleDateChange()" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">New Time <span class="required">*</span></label>
+              <select class="form-select" id="rescheduleTime" required>
+                <option value="">Select time</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-group" style="margin-bottom:1.25rem;">
+            <label class="form-label">Reason for Rescheduling</label>
+            <select class="form-select" id="rescheduleReason">
+              <option value="">Select reason</option>
+              <option value="Schedule Conflict">Schedule Conflict</option>
+              <option value="Work / Personal Emergency">Work / Personal Emergency</option>
+              <option value="Pet Health Changed">Pet Health Changed</option>
+              <option value="Transportation Issue">Transportation Issue</option>
+              <option value="Other">Other</option>
+            </select>
+            <input type="text" class="form-input other-reason-input" id="rescheduleReasonOther" placeholder="Please specify reason..." style="display:none;margin-top:0.5rem;" />
+          </div>
+          <div class="form-actions">
+            <button type="submit" class="btn-primary">Confirm Reschedule</button>
+            <button type="button" class="btn-secondary" onclick="closeModal('rescheduleModal')">Cancel</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Cancel Appointment Modal -->
+    <div class="modal-overlay" id="cancelModal">
+      <div class="modal-content" style="max-width:480px;">
+        <div class="modal-header">
+          <h2 class="modal-title">Cancel Appointment</h2>
+          <button class="modal-close" onclick="closeModal('cancelModal')">&times;</button>
+        </div>
+        <div id="cancelInfo" class="cancel-info"></div>
+        <div class="cancel-warning">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+          <span>This action cannot be undone. The appointment slot will be released.</span>
+        </div>
+        <form id="cancelForm" onsubmit="submitCancel(event)">
+          <input type="hidden" id="cancelApptId" />
+          <div class="form-group" style="margin-bottom:1.25rem;">
+            <label class="form-label">Reason for Cancellation <span class="required">*</span></label>
+            <select class="form-select" id="cancelReason" required>
+              <option value="">Select reason</option>
+              <option value="Schedule Conflict">Schedule Conflict</option>
+              <option value="No Longer Needed">No Longer Needed</option>
+              <option value="Found Alternative Clinic">Found Alternative Clinic</option>
+              <option value="Pet Recovered">Pet Recovered</option>
+              <option value="Other">Other</option>
+            </select>
+            <input type="text" class="form-input other-reason-input" id="cancelReasonOther" placeholder="Please specify reason..." style="display:none;margin-top:0.5rem;" />
+          </div>
+          <div class="cancel-modal-actions">
+            <button type="button" class="btn-cancel-keep" onclick="closeModal('cancelModal')">Keep Appointment</button>
+            <button type="submit" class="btn-cancel-confirm">Confirm Cancellation</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- 2-Hour Cutoff Info Modal -->
+    <div class="modal-overlay" id="cutoffModal">
+      <div class="modal-content" style="max-width:440px;">
+        <div class="modal-header">
+          <h2 class="modal-title">Action Restricted</h2>
+          <button class="modal-close" onclick="closeModal('cutoffModal')">&times;</button>
+        </div>
+        <div class="cutoff-info">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+          <span>Changes cannot be made within <span id="cutoffWindowText">2 hours</span> of your appointment time. Please call the clinic directly or send a message to the receptionist to request an emergency change.</span>
+        </div>
+        <p style="font-size:0.82rem;color:var(--text-dim);margin-bottom:1rem;line-height:1.6;">You may contact us at <strong>0917 108 4174</strong> or visit the clinic front desk for urgent rescheduling or cancellation requests.</p>
+        <div class="form-actions">
+          <button class="btn-secondary" onclick="closeModal('cutoffModal')">Understood</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Medical History Modal -->
+    <div class="modal-overlay" id="medHistoryModal">
+      <div class="modal-content" style="max-width: 680px;">
+        <div class="modal-header">
+          <div>
+            <h2 class="modal-title" id="medHistModalTitle">Medical History</h2>
+            <p class="page-subtitle" id="medHistModalSubtitle" style="margin-top:0.25rem;font-size:0.85rem;"></p>
+          </div>
+          <button class="modal-close" onclick="closeModal('medHistoryModal')">&times;</button>
+        </div>
+        <div id="medHistoryTimeline" class="med-history-scroll"></div>
+        <div class="form-actions" style="margin-top:1.25rem;">
+          <button class="btn-primary" onclick="printPetHistory()">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+            Print / Export PDF
+          </button>
+          <button class="btn-secondary" onclick="closeModal('medHistoryModal')">Close</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Full Pet Profile Modal -->
+    <div class="modal-overlay" id="petProfileModal">
+      <div class="modal-content" style="max-width:750px;">
+        <div class="modal-header">
+          <div>
+            <h2 class="modal-title" id="profileModalTitle">Pet Profile</h2>
+            <p class="page-subtitle" id="profileModalSubtitle" style="margin-top:0.25rem;font-size:0.85rem;"></p>
+          </div>
+          <button class="modal-close" onclick="closeModal('petProfileModal')">&times;</button>
+        </div>
+
+        <!-- Pet Info Header -->
+        <div id="profilePetHeader" class="profile-pet-header"></div>
+
+        <!-- Sub-tabs -->
+        <div class="profile-tabs" id="profileTabs">
+          <button class="profile-tab active" data-tab="profile-medical" onclick="switchProfileTab('profile-medical')">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+            Medical History
+          </button>
+          <button class="profile-tab" data-tab="profile-vaccines" onclick="switchProfileTab('profile-vaccines')">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m18 2 4 4"/><path d="m17 7 3-3"/><path d="M19 9 8.7 19.3c-1 1-2.5 1-3.4 0l-.6-.6c-1-1-1-2.5 0-3.4L15 5"/><path d="m9 11 4 4"/><path d="m5 19-3 3"/><path d="m14 4 6 6"/></svg>
+            Vaccination Passport
+          </button>
+        </div>
+
+        <!-- Tab: Medical History -->
+        <div class="profile-tab-content active" id="tab-profile-medical">
+          <div id="profileTimeline" class="med-history-scroll"></div>
+        </div>
+
+        <!-- Tab: Vaccination Passport -->
+        <div class="profile-tab-content" id="tab-profile-vaccines">
+          <div id="profileVaccineTable"></div>
+        </div>
+
+        <div class="form-actions" style="margin-top:1.25rem;">
+          <button class="btn-primary" id="profileExportMedBtn" onclick="printPetHistory()">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+            Export Medical PDF
+          </button>
+          <button class="btn-primary" id="profileExportVaxBtn" onclick="printVaccineCertificate()" style="display:none;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+            Export Vaccine Certificate
+          </button>
+          <button class="btn-secondary" onclick="closeModal('petProfileModal')">Close</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Toast Container -->
+    <div class="toast-container" id="toastContainer"></div>
+
+    <!-- ===== VHS ASSISTANT CHATBOT ===== -->
+    <div id="chatbotContainer" class="chatbot-container">
+      <!-- Chatbot Bubble Button -->
+      <button id="chatbotBubble" class="chatbot-bubble" aria-label="Open Chat">
+        <svg class="chatbot-icon" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+        </svg>
+        <svg class="chatbot-close-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="18" y1="6" x2="6" y2="18" />
+          <line x1="6" y1="6" x2="18" y2="18" />
+        </svg>
+      </button>
+
+      <!-- Chatbot Window -->
+      <div id="chatbotWindow" class="chatbot-window">
+        <!-- Chatbot Header -->
+        <div class="chatbot-header">
+          <div class="chatbot-header-info">
+            <div class="chatbot-avatar">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z" />
+              </svg>
+            </div>
+            <div>
+              <h3 class="chatbot-title">VHS Assistant</h3>
+              <p class="chatbot-status">Online</p>
+            </div>
+          </div>
+          <button id="chatbotClose" class="chatbot-close-btn" aria-label="Close Chat">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="18" y1="6" x2="6" y2="18" />
+              <line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
+          </button>
+        </div>
+
+        <!-- Chatbot Messages Area -->
+        <div id="chatbotMessages" class="chatbot-messages">
+          <div class="chatbot-message bot-message">
+            <div class="message-avatar">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z" />
+              </svg>
+            </div>
+            <div class="message-content">
+              <p>Welcome to VHS Animal Wellness Center! How can I help you today? Try asking about our hours, services, or how to book an appointment.</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Chatbot Input Area -->
+        <div class="chatbot-input-area">
+          <input type="text" id="chatbotInput" class="chatbot-input" placeholder="Type your message..." aria-label="Chat message input" />
+          <button id="chatbotSend" class="chatbot-send-btn" aria-label="Send message">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="22" y1="2" x2="11" y2="13" />
+              <polygon points="22 2 15 22 11 13 2 9 22 2" />
+            </svg>
+          </button>
+        </div>
+
+        <!-- Chatbot Footer -->
+        <div class="chatbot-footer">
+          <p>Automated Help • Demo</p>
+        </div>
+      </div>
+    </div>
+    <!-- END VHS ASSISTANT CHATBOT -->
+
+    <!-- Clinic QR Self Check-in (Advisor Revision Sprint 1) -->
+    <!-- Opened via the clinic check-in QR entry point (?v=1&clinic-checkin / #clinic-checkin). -->
+    <!-- TODO(BACKEND): the QR must encode a server-issued, short-lived/rotating token; the
+         server validates the session, token validity/expiration, anti-replay, appointment
+         ownership, date/time eligibility and the confirmed → checked_in transition. -->
+    <div class="modal-overlay" id="checkinOverlay">
+      <div class="modal-content ci-modal">
+        <div class="modal-header">
+          <h2 class="modal-title">Clinic Check-in</h2>
+          <button class="modal-close" id="checkinCloseTop" data-ci-close>&times;</button>
+        </div>
+        <div id="checkinBody" class="ci-body"></div>
+      </div>
+    </div>
+
+    <!-- Advisor revision: qrcodejs retired — the check-in QR belongs to the clinic (Admin), not the user. -->
+    <script src="../shared/vhs-ui.js?v=2.6.0"></script>
+    <script src="../shared/clinic-settings.js?v=1.1.0"></script>
+    <script src="../shared/appointment-contract.js?v=2.8.0"></script>
+    <script src="../shared/audit-store.js?v=1.0.0"></script>
+    <script src="../shared/document-store.js?v=1.0.5"></script>
+    <script src="../shared/document-render.js?v=1.2.0"></script>
+    <script src="../shared/live-data.js?v=1.1.0"></script>
+    <script src="user-script.js?v=3.14.1"></script>
+    <script src="pet-onboarding.js?v=1.0.1"></script>
+    <script src="checkin-script.js?v=1.0.0"></script>
+  </body>
+</html>

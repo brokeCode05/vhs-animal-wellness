@@ -1,0 +1,236 @@
+[
+  {
+    "id": 1,
+    "value": "consultation",
+    "label": "Consultation",
+    "category": "Preventive & Wellness",
+    "source_display_price": "₱300.00 – ₱2,000.00",
+    "approved_price": 300,
+    "pricing_note": "Defense/local seed uses the lowest published display price; replace with clinic-approved single booking price before production."
+  },
+  {
+    "id": 2,
+    "value": "vaccination",
+    "label": "Vaccination",
+    "category": "Preventive & Wellness",
+    "source_display_price": "Contact us for pricing",
+    "approved_price": 0,
+    "pricing_note": "Defense/local seed uses 0.00 because the frozen frontend says Contact us for pricing; replace before production."
+  },
+  {
+    "id": 3,
+    "value": "deworming",
+    "label": "Deworming",
+    "category": "Preventive & Wellness",
+    "source_display_price": "₱300.00 – ₱1,000.00",
+    "approved_price": 300,
+    "pricing_note": "Defense/local seed uses the lowest published display price; replace with clinic-approved single booking price before production."
+  },
+  {
+    "id": 4,
+    "value": "feline_executive_preventive_care",
+    "label": "Feline Executive Preventive Care",
+    "category": "Preventive & Wellness",
+    "source_display_price": "₱3,999.00 – ₱6,999.00",
+    "approved_price": 3999,
+    "pricing_note": "Defense/local seed uses the lowest published display price; replace with clinic-approved single booking price before production."
+  },
+  {
+    "id": 5,
+    "value": "health_certificate",
+    "label": "Health Certificate",
+    "category": "Preventive & Wellness",
+    "source_display_price": "₱200.00 – ₱600.00",
+    "approved_price": 200,
+    "pricing_note": "Defense/local seed uses the lowest published display price; replace with clinic-approved single booking price before production."
+  },
+  {
+    "id": 6,
+    "value": "microchipping",
+    "label": "Microchipping",
+    "category": "Preventive & Wellness",
+    "source_display_price": "₱900.00",
+    "approved_price": 900,
+    "pricing_note": "Defense/local seed uses the lowest published display price; replace with clinic-approved single booking price before production."
+  },
+  {
+    "id": 7,
+    "value": "blood_test",
+    "label": "Blood Test",
+    "category": "Diagnostics",
+    "source_display_price": "₱900.00 – ₱3,000.00",
+    "approved_price": 900,
+    "pricing_note": "Defense/local seed uses the lowest published display price; replace with clinic-approved single booking price before production."
+  },
+  {
+    "id": 8,
+    "value": "fecalysis",
+    "label": "Fecalysis",
+    "category": "Diagnostics",
+    "source_display_price": "₱350.00",
+    "approved_price": 350,
+    "pricing_note": "Defense/local seed uses the lowest published display price; replace with clinic-approved single booking price before production."
+  },
+  {
+    "id": 9,
+    "value": "microscopy",
+    "label": "Microscopy",
+    "category": "Diagnostics",
+    "source_display_price": "₱500.00",
+    "approved_price": 500,
+    "pricing_note": "Defense/local seed uses the lowest published display price; replace with clinic-approved single booking price before production."
+  },
+  {
+    "id": 10,
+    "value": "urinalysis",
+    "label": "Urinalysis",
+    "category": "Diagnostics",
+    "source_display_price": "₱500.00 – ₱850.00",
+    "approved_price": 500,
+    "pricing_note": "Defense/local seed uses the lowest published display price; replace with clinic-approved single booking price before production."
+  },
+  {
+    "id": 11,
+    "value": "spay",
+    "label": "Spay",
+    "category": "Surgery & Procedures",
+    "source_display_price": "₱650.00 – ₱6,000.00",
+    "approved_price": 650,
+    "pricing_note": "Defense/local seed uses the lowest published display price; replace with clinic-approved single booking price before production."
+  },
+  {
+    "id": 12,
+    "value": "castration",
+    "label": "Castration",
+    "category": "Surgery & Procedures",
+    "source_display_price": "₱500.00 – ₱5,000.00",
+    "approved_price": 500,
+    "pricing_note": "Defense/local seed uses the lowest published display price; replace with clinic-approved single booking price before production."
+  },
+  {
+    "id": 13,
+    "value": "caesarean_section",
+    "label": "Caesarean Section (CS)",
+    "category": "Surgery & Procedures",
+    "source_display_price": "₱10,000.00 – ₱35,000.00",
+    "approved_price": 10000,
+    "pricing_note": "Defense/local seed uses the lowest published display price; replace with clinic-approved single booking price before production."
+  },
+  {
+    "id": 14,
+    "value": "cystotomy",
+    "label": "Cystotomy",
+    "category": "Surgery & Procedures",
+    "source_display_price": "₱4,000.00 – ₱7,000.00",
+    "approved_price": 4000,
+    "pricing_note": "Defense/local seed uses the lowest published display price; replace with clinic-approved single booking price before production."
+  },
+  {
+    "id": 15,
+    "value": "cherry_eye_correction",
+    "label": "Cherry Eye Correction",
+    "category": "Surgery & Procedures",
+    "source_display_price": "₱5,000.00 – ₱35,000.00",
+    "approved_price": 5000,
+    "pricing_note": "Defense/local seed uses the lowest published display price; replace with clinic-approved single booking price before production."
+  },
+  {
+    "id": 16,
+    "value": "wound_repair",
+    "label": "Wound Repair",
+    "category": "Surgery & Procedures",
+    "source_display_price": "₱1,500.00 – ₱3,000.00",
+    "approved_price": 1500,
+    "pricing_note": "Defense/local seed uses the lowest published display price; replace with clinic-approved single booking price before production."
+  },
+  {
+    "id": 17,
+    "value": "dental_prophylaxis_kapon",
+    "label": "Dental Prophylaxis + Kapon",
+    "category": "Surgery & Procedures",
+    "source_display_price": "₱2,500.00 – ₱7,500.00",
+    "approved_price": 2500,
+    "pricing_note": "Defense/local seed uses the lowest published display price; replace with clinic-approved single booking price before production."
+  },
+  {
+    "id": 18,
+    "value": "u_catheterization",
+    "label": "U Catheterization",
+    "category": "Surgery & Procedures",
+    "source_display_price": "₱3,500.00",
+    "approved_price": 3500,
+    "pricing_note": "Defense/local seed uses the lowest published display price; replace with clinic-approved single booking price before production."
+  },
+  {
+    "id": 19,
+    "value": "euthanasia",
+    "label": "Euthanasia",
+    "category": "Surgery & Procedures",
+    "source_display_price": "₱1,000.00 – ₱3,000.00",
+    "approved_price": 1000,
+    "pricing_note": "Defense/local seed uses the lowest published display price; replace with clinic-approved single booking price before production."
+  },
+  {
+    "id": 20,
+    "value": "whelping_assistance",
+    "label": "Whelping Assistance",
+    "category": "Surgery & Procedures",
+    "source_display_price": "₱3,500.00 – ₱4,000.00",
+    "approved_price": 3500,
+    "pricing_note": "Defense/local seed uses the lowest published display price; replace with clinic-approved single booking price before production."
+  },
+  {
+    "id": 21,
+    "value": "dog_grooming",
+    "label": "Dog Grooming",
+    "category": "Pet Care",
+    "source_display_price": "₱100.00 – ₱1,200.00",
+    "approved_price": 100,
+    "pricing_note": "Defense/local seed uses the lowest published display price; replace with clinic-approved single booking price before production."
+  },
+  {
+    "id": 22,
+    "value": "cat_grooming",
+    "label": "Cat Grooming",
+    "category": "Pet Care",
+    "source_display_price": "₱100.00 – ₱800.00",
+    "approved_price": 100,
+    "pricing_note": "Defense/local seed uses the lowest published display price; replace with clinic-approved single booking price before production."
+  },
+  {
+    "id": 23,
+    "value": "boarding",
+    "label": "Boarding",
+    "category": "Pet Care",
+    "source_display_price": "₱680.00 – ₱1,380.00",
+    "approved_price": 680,
+    "pricing_note": "Defense/local seed uses the lowest published display price; replace with clinic-approved single booking price before production."
+  },
+  {
+    "id": 24,
+    "value": "confinement",
+    "label": "Confinement",
+    "category": "Pet Care",
+    "source_display_price": "₱950.00 – ₱2,000.00",
+    "approved_price": 950,
+    "pricing_note": "Defense/local seed uses the lowest published display price; replace with clinic-approved single booking price before production."
+  },
+  {
+    "id": 25,
+    "value": "chemotherapy",
+    "label": "Chemotherapy",
+    "category": "Specialized Care",
+    "source_display_price": "₱1.00",
+    "approved_price": 1,
+    "pricing_note": "Defense/local seed uses the lowest published display price; replace with clinic-approved single booking price before production."
+  },
+  {
+    "id": 26,
+    "value": "home_service",
+    "label": "Home Service",
+    "category": "Specialized Care",
+    "source_display_price": "₱1.00 – ₱500.00",
+    "approved_price": 1,
+    "pricing_note": "Defense/local seed uses the lowest published display price; replace with clinic-approved single booking price before production."
+  }
+]
