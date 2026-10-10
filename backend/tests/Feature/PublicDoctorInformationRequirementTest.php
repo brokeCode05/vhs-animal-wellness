@@ -21,7 +21,7 @@ class PublicDoctorInformationRequirementTest extends TestCase
             'phone' => '+639111111111',
         ]);
 
-        DoctorProfile::query()->create([
+        DoctorProfile::forceCreate([
             'user_id' => $user->id,
             'display_name' => 'Dr. Test Veterinarian',
             'specialization' => 'Companion Animal Medicine',

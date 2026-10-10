@@ -28,7 +28,7 @@ class FinalFunctionalRegressionTest extends TestCase
             'email_verified_at' => now(),
         ]);
 
-        $doctor = DoctorProfile::query()->create([
+        $doctor = DoctorProfile::forceCreate([
             'user_id' => $doctorUser->id,
             'display_name' => 'Dr. Functional Test',
             'account_status' => 'active',
@@ -50,7 +50,7 @@ class FinalFunctionalRegressionTest extends TestCase
             'email_verified_at' => now(),
         ]);
 
-        $pet = Pet::query()->create([
+        $pet = Pet::forceCreate([
             'owner_id' => $owner->id,
             'name' => 'Milo',
             'species' => 'Dog',

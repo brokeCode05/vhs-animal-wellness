@@ -26,7 +26,7 @@ class EmailVerificationRegressionTest extends TestCase
             'email_verified_at' => now(),
         ]);
 
-        $doctor = DoctorProfile::query()->create([
+        $doctor = DoctorProfile::forceCreate([
             'user_id' => $doctorUser->id,
             'display_name' => 'Dr. Example',
             'specialization' => 'General Practice',
@@ -64,7 +64,7 @@ class EmailVerificationRegressionTest extends TestCase
             'email_verified_at' => now(),
         ]);
 
-        $doctor = DoctorProfile::query()->create([
+        $doctor = DoctorProfile::forceCreate([
             'user_id' => $doctorUser->id,
             'display_name' => 'Dr. Example',
             'account_status' => 'active',
