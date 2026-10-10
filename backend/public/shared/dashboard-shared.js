@@ -98,7 +98,9 @@ function initLogout() {
 
     confirmAction('Are you sure you want to logout?', function() {
 
-      sessionStorage.clear();
+      // End the Laravel session server-side; VHSAuth also drops the local
+      // identity cache (only identity keys - other app data is kept).
+      if (window.VHSAuth) window.VHSAuth.logout().catch(function() {});
 
       var loader = document.createElement('div');
 
@@ -108,7 +110,7 @@ function initLogout() {
 
       document.body.appendChild(loader);
 
-      setTimeout(function() { window.location.href = '../web-page/index.html'; }, 1000);
+      setTimeout(function() { window.location.href = '/auth'; }, 1000);
 
     }, {
 

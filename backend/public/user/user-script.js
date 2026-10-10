@@ -147,16 +147,34 @@ window.addEventListener("resize", () => {
 // brand-new account with no pets) can be reviewed without a backend.
 // TODO(BACKEND): remove — the authenticated session is the only identity source.
 function _demoIdentityOverride() {
-  try {
-    var m = /[?&]as=(\d+)/.exec(window.location.search || '');
-    return m ? m[1] : null;
-  } catch (e) {
-    return null;
-  }
+  // Demo identity override (?as=<id>) is disabled in the integrated runtime:
+  // the authenticated session from /api/auth/me is the only identity source.
+  return null;
 }
 
 // The signed-in account. Session first, then the frontend-demo identity.
 function _getSessionUser() {
+  // Integrated runtime: the authenticated session cached by VHSAuth from
+  // /api/auth/me is authoritative. Mocks stay available for domain data and
+  // for static (non-Laravel) hosting only - never as identity.
+  if (window.VHSAuth) {
+    var sessionUser = window.VHSAuth.currentUser();
+    if (sessionUser && (sessionUser.id || sessionUser.userId)) {
+      return {
+        id: sessionUser.id || sessionUser.userId,
+        userId: sessionUser.userId || sessionUser.id,
+        name: sessionUser.name || sessionUser.fullName || '',
+        firstName: sessionUser.firstName || sessionUser.first_name || '',
+        lastName: sessionUser.lastName || sessionUser.last_name || '',
+        middleName: sessionUser.middleName || sessionUser.middle_name || '',
+        phone: sessionUser.phone || '',
+        email: sessionUser.email || '',
+        address: sessionUser.address || '',
+        role: sessionUser.role || ''
+      };
+    }
+    return {}; // no session: the portal guard is already redirecting to /auth
+  }
   var demoId = _demoIdentityOverride();
   if (demoId && window.SharedMockUsers) {
     var demoUser = window.SharedMockUsers.byId(demoId);
@@ -184,6 +202,21 @@ function _getSessionUser() {
     return { id: shared.userId, userId: shared.userId, name: shared.name, firstName: shared.firstName, lastName: shared.lastName, phone: shared.phone, email: shared.email, role: shared.role };
   }
   return {};
+}
+
+// Pets for the signed-in owner, read from the Laravel session-scoped API.
+// Replaces the legacy physical endpoint (user/get_pets_user.php), which the
+// PHP built-in dev server resolves to a 404 under /user/.
+function _fetchUserPets() {
+  return fetch('/api/users/me/pets', {
+    credentials: 'same-origin',
+    headers: { Accept: 'application/json' }
+  })
+    .then(function (r) {
+      if (!r.ok) throw new Error('pets ' + r.status);
+      return r.json();
+    })
+    .then(function (j) { return (j && j.data && j.data.pets) || []; });
 }
 
 // The owner every pet / appointment read is scoped to. Pet onboarding,
@@ -304,7 +337,8 @@ function initLogout() {
 
       () => {
 
-        sessionStorage.clear();
+        // End the Laravel session, then drop only the identity cache.
+        if (window.VHSAuth) window.VHSAuth.logout().catch(function() {});
 
         const loader = document.createElement("div");
 
@@ -344,7 +378,7 @@ function initLogout() {
 
         setTimeout(() => {
 
-          window.location.href = "../web-page/index.html";
+          window.location.href = "/auth";
 
         }, 1200);
 
@@ -1710,8 +1744,7 @@ function openEditPetModal(id) {
   // Try backend
   var userId = user.id || user.userId;
   if (!userId) { showToast('Session expired.', 'error'); return; }
-  fetch('get_pets_user.php?user_id=' + userId)
-    .then(function (r) { return r.json(); })
+  _fetchUserPets()
     .then(function (pets) {
       var p = pets.find(function (x) { return x.id === id; });
       _populate(p);
@@ -2988,8 +3021,7 @@ function loadPets() {
 
   if (grid) grid.innerHTML = '<p style="color:#888;padding:1rem 0">Loading pets...</p>';
 
-  fetch('get_pets_user.php?user_id=' + userId)
-    .then(function (r) { return r.json(); })
+  _fetchUserPets()
     .then(function (pets) {
       _renderPetCards(pets, grid, dashGrid, petCount);
     })

@@ -1732,16 +1732,22 @@ const MEDICINE_LIMITS = { medicine: 100, frequency: 50, instructions: 500 };
     return window.SharedMockDoctors ? window.SharedMockDoctors.currentDoctor() : null;
   }
   const _doctorRecord = _currentDoctor();
-  if (_doctorRecord) {
+  // Identity display comes from the authenticated session (/api/auth/me);
+  // the mock doctor record only carries domain state (availability, ids).
+  const _authUser = window.VHSAuth ? window.VHSAuth.currentUser() : null;
+  const _display = _authUser
+    ? { name: _authUser.name || _authUser.fullName || '', role: _authUser.role || '' }
+    : (_doctorRecord ? { name: _doctorRecord.name, role: _doctorRecord.role } : null);
+  if (_display) {
     const greeting = document.getElementById('view-title');
-    if (greeting && _doctorRecord.name) {
-      greeting.textContent = 'Good morning, ' + _doctorRecord.name.replace(/^Dr\.?\s*/i, 'Dr. ');
+    if (greeting && _display.name) {
+      greeting.textContent = 'Good morning, ' + _display.name.replace(/^Dr\.?\s*/i, 'Dr. ');
     }
     const sidebarName = document.querySelector('.sidebar-user-name');
-    if (sidebarName && _doctorRecord.name) sidebarName.textContent = _doctorRecord.name;
+    if (sidebarName && _display.name) sidebarName.textContent = _display.name;
     const sidebarRole = document.querySelector('.sidebar-user-role');
-    if (sidebarRole && _doctorRecord.role) {
-      sidebarRole.textContent = _doctorRecord.role === 'Doctor' ? 'Veterinarian' : _doctorRecord.role;
+    if (sidebarRole && _display.role) {
+      sidebarRole.textContent = _display.role === 'Doctor' ? 'Veterinarian' : _display.role;
     }
   }
   // Availability select writes through the shared store, so Admin → Doctor

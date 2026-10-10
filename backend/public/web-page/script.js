@@ -446,10 +446,6 @@ if (loginForm) {
     const email = document.getElementById("loginEmail")?.value.trim();
     const password = document.getElementById("loginPassword")?.value;
 
-    const formData = new FormData();
-    formData.append("email2", email);
-    formData.append("password1", password);
-
     const submitBtn = loginForm.querySelector('[type="submit"]');
     if (submitBtn) {
       submitBtn.disabled = true;
@@ -457,35 +453,23 @@ if (loginForm) {
     }
 
     try {
-      // FIX: Use the correct path relative to your directory structure.
-      // If the script is in web-page/ and the php file is in php_files/, use ../php_files/login.php
-      const response = await fetch("login.php", {
-        method: "POST",
-        body: formData,
-      });
+      // Same-origin Laravel session: POST /api/auth/login, CSRF handled by
+      // the shared session adapter. An OTP challenge is never bypassed.
+      const r = await window.VHSAuth.login(email, password);
 
-      const text = await response.text();
-      let data;
-      try {
-        data = JSON.parse(text);
-      } catch {
-        data = null;
-      }
-
-      if (data && data.status === "email_not_verified") {
-        _showEmailNotVerifiedAlert(data.email);
-      } else if (data && data.status === "otp_required") {
-        _showLoginOtpStep(data.phone, data.dev_otp, data.phone_verified);
-      } else if (data && data.status === "Login successful") {
-        _completeLogin(data);
+      if (r.data && r.data.otp_required) {
+        _showLoginOtpStep(r.data.identifier, r.data.channel || "email");
+      } else if (r.data && r.data.user) {
+        _completeLogin(r.data.user);
+      } else if (r.status === 403) {
+        _showEmailNotVerifiedAlert(email);
       } else {
-        const msg = data ? data.status : text;
-        showAlert(msg, "error", "Login Failed");
+        showAlert(r.message || "Login failed.", "error", "Login Failed");
       }
     } catch (error) {
       console.error("Connection error:", error);
       showAlert(
-        "Could not connect to the server. Please check the path to login.php.",
+        "Could not connect to the server. Please try again.",
         "error",
         "Connection Error",
       );
@@ -531,14 +515,12 @@ function _showEmailNotVerifiedAlert(email) {
 
 // ── SMS OTP step (first-time phone verify OR recurring 2FA) ───────────────────
 
-function _showLoginOtpStep(maskedPhone, devOtp, phoneVerified) {
-  const isFirstTime = !phoneVerified || parseInt(phoneVerified) === 0;
-  const title = isFirstTime ? "Phone Verification" : "SMS Verification";
+function _showLoginOtpStep(identifier, channel) {
+  const isEmail = (channel || "email") === "email";
+  const title = isEmail ? "Email Verification" : "SMS Verification";
   const subtitle =
-    isFirstTime ?
-      `Complete your account setup by verifying your phone number.<br>A 6-digit code was sent to <strong>${maskedPhone}</strong>.`
-    : `A 6-digit code was sent to <strong>${maskedPhone}</strong>.<br>Enter it below to complete login.`;
-  const btnLabel = isFirstTime ? "Verify & Complete Setup" : "Verify & Login";
+    `A 6-digit code was sent to <strong>${identifier}</strong>.<br>Enter it below to complete login.`;
+  const btnLabel = "Verify & Login";
 
   const overlay = document.createElement("div");
   overlay.id = "_loginOtpOverlay";
@@ -565,13 +547,6 @@ function _showLoginOtpStep(maskedPhone, devOtp, phoneVerified) {
     </div>`;
   document.body.appendChild(overlay);
   requestAnimationFrame(() => overlay.classList.add("show"));
-
-  // Dev mode: auto-fill OTP
-  if (devOtp) {
-    const inp = overlay.querySelector("#_loginOtpInput");
-    if (inp) inp.value = devOtp;
-    console.log("[Dev Mode] Login OTP:", devOtp);
-  }
 
   // Digits only
   overlay
@@ -607,19 +582,15 @@ function _showLoginOtpStep(maskedPhone, devOtp, phoneVerified) {
       btn.disabled = true;
       btn.textContent = "Verifying...";
 
-      const fd = new FormData();
-      fd.append("login_otp", code);
-
       try {
-        const res = await fetch("login.php", { method: "POST", body: fd });
-        const data = await res.json();
+        const r = await window.VHSAuth.verifyLoginOtp(identifier, channel, code);
 
-        if (data && data.status === "Login successful") {
+        if (r.ok && r.data && r.data.user) {
           overlay.classList.remove("show");
           setTimeout(() => overlay.remove(), 300);
-          _completeLogin(data);
+          _completeLogin(r.data.user);
         } else {
-          errEl.textContent = data ? data.status : "Verification failed.";
+          errEl.textContent = r.message || "Verification failed.";
           errEl.style.display = "";
           btn.disabled = false;
           btn.textContent = btnLabel;
@@ -633,30 +604,10 @@ function _showLoginOtpStep(maskedPhone, devOtp, phoneVerified) {
     });
 }
 
-function _completeLogin(data) {
-  sessionStorage.setItem(
-    "user",
-    JSON.stringify({
-      id: data.id,
-      firstName: data.first_name,
-      lastName: data.last_name,
-      middleName: data.middle_name,
-      email: data.email,
-      phone: data.phone,
-      address: data.address,
-      role: data.role,
-      phoneVerified: data.phone_verified || 0,
-    }),
-  );
-  sessionStorage.setItem(
-    "vhs_user",
-    JSON.stringify({
-      id: data.id,
-      fullName: data.first_name + " " + data.last_name,
-      email: data.email,
-      role: data.role,
-    }),
-  );
+function _completeLogin(user) {
+  // The backend session is the identity; sessionStorage only caches it for UI
+  // and the portal guard re-verifies it against /api/auth/me on every load.
+  window.VHSAuth.remember(user);
 
   const loader = document.createElement("div");
   loader.className = "page-loader";
@@ -665,12 +616,8 @@ function _completeLogin(data) {
   document.body.appendChild(loader);
 
   setTimeout(() => {
-    if (data.role === "admin") window.location.href = "../admin/index.html";
-    else if (data.role === "clerk")
-      // Admin is canonical: the standalone Clerk portal is no longer
-      // maintained, so former clerk accounts land in the Admin portal.
-      window.location.href = "../admin/index.html";
-    else window.location.href = "../user/index.html";
+    // Role destination comes from the backend identity, never from form state.
+    window.location.href = window.VHSAuth.portalForRole(user.role);
   }, 1000);
 }
 
