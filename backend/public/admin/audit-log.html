@@ -73,18 +73,13 @@
     <main class="main-content">
       <div class="page-header">
         <h1>Audit Log</h1>
-        <p class="page-subtitle">Server-side activity and authenticated request trail across the portals.</p>
+        <p class="page-subtitle">Read-only activity trail of actions performed across the portals.</p>
       </div>
 
-      <div style="display:flex;gap:0.75rem;margin-bottom:1rem;flex-wrap:wrap;">
-        <button type="button" class="btn-secondary" id="showSemanticAudit" aria-pressed="true">Activity Audit</button>
-        <button type="button" class="btn-secondary" id="showAccessAudit" aria-pressed="false">Access Log</button>
-      </div>
-
-      <!-- Audit trail: read-only table over the shared
+      <!-- Audit trail (frontend demo): read-only table over the shared
            audit store (shared/audit-store.js). No create/update/delete
            controls — filters are view-side only. -->
-      <section class="content-section" id="semanticAuditSection">
+      <section class="content-section">
         <div class="filter-bar">
           <select class="form-select" style="width:auto;" id="auditFilterActor" aria-label="Filter by actor type">
             <option value="all">All Actors</option>
@@ -94,7 +89,6 @@
           </select>
           <select class="form-select" style="width:auto;" id="auditFilterCategory" aria-label="Filter by category">
             <option value="all">All Categories</option>
-            <option value="authentication">Authentication</option>
             <option value="appointments">Appointments</option>
             <option value="consultations">Consultations</option>
             <option value="doctors">Doctors</option>
@@ -117,54 +111,11 @@
           </table>
         </div>
         <p style="font-size:0.8rem;color:#6b7280;margin:0.75rem 0 0;">
-          Audit entries are loaded from the clinic database and reflect server-side recorded actions.
-          The frontend is never treated as the authoritative audit source.
-        </p>
-      </section>
-
-      <section class="content-section" id="accessAuditSection" style="display:none;">
-        <div style="margin-bottom:0.85rem;">
-          <h2 class="section-title" style="margin-bottom:0.25rem;">Authenticated Access Log</h2>
-          <p style="font-size:0.85rem;color:#6b7280;margin:0;">
-            Request-level trail of backend actions. Request bodies, passwords, OTPs and medical text are not stored here.
-          </p>
-        </div>
-
-        <div class="filter-bar">
-          <select class="form-select" style="width:auto;" id="accessFilterActor" aria-label="Filter access log by actor type">
-            <option value="all">All Actors</option>
-            <option value="Admin">Admin</option>
-            <option value="Doctor">Doctor</option>
-            <option value="User">User</option>
-          </select>
-
-          <select class="form-select" style="width:auto;" id="accessFilterMethod" aria-label="Filter access log by request method">
-            <option value="all">All Methods</option>
-            <option value="GET">GET</option>
-            <option value="POST">POST</option>
-            <option value="PATCH">PATCH</option>
-            <option value="DELETE">DELETE</option>
-          </select>
-
-          <input type="date" class="form-input" style="width:auto;" id="accessFilterDate" aria-label="Filter access log by date">
-          <button type="button" class="btn-secondary" id="accessFilterClear">Clear Filters</button>
-          <span id="accessCount" style="margin-left:auto;font-size:0.85rem;color:#6b7280;"></span>
-        </div>
-
-        <div class="table-wrapper audit-table-wrap">
-          <table class="compact-table">
-            <thead>
-              <tr><th>Date &amp; Time</th><th>Actor</th><th>Method</th><th>Endpoint</th><th>Result</th></tr>
-            </thead>
-            <tbody id="accessTableBody">
-              <tr><td colspan="5" style="text-align:center;color:#888;">Open Access Log to load entries…</td></tr>
-            </tbody>
-          </table>
-        </div>
-
-        <p style="font-size:0.8rem;color:#6b7280;margin:0.75rem 0 0;">
-          Every authenticated Laravel data request is recorded server-side except the log-viewer endpoints themselves,
-          which are excluded to prevent self-generating log loops.
+          Demo mode: entries are frontend-only records of actions performed in this browser.
+          TODO(BACKEND): audit entries will be generated server-side — each action becomes an API request,
+          Laravel performs the transaction, and the backend writes the authoritative audit_log record
+          (e.g. Check In → status transaction → audit record; Start Consultation → status transaction → audit record;
+          Service edit → service transaction → audit record). The frontend is never trusted as the final audit source.
         </p>
       </section>
     </main>
@@ -173,9 +124,8 @@
   <script src="../shared/vhs-ui.js?v=2.6.0"></script>
   <script src="../shared/clinic-settings.js?v=1.1.0"></script>
   <script src="../shared/audit-store.js?v=1.0.0"></script>
-  <script src="audit-log-renderer.js?v=1.1.0"></script>
-  <script src="../shared/live-data.js?v=1.1.0"></script>
+  <script src="audit-log-renderer.js?v=1.0.1"></script>
   <script src="../shared/dashboard-shared.js?v=2.11.1"></script>
-  <script src="admin-portal.js?v=2.14.0"></script>
+  <script src="admin-portal.js?v=2.22.0"></script>
 </body>
 </html>

@@ -427,7 +427,7 @@
       <div class="chatbot-header"><div class="chatbot-header-info"><div class="chatbot-avatar"><svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z"/></svg></div><div><h3 class="chatbot-title">VHS Assistant</h3><p class="chatbot-status">Online</p></div></div><button id="chatbotClose" class="chatbot-close-btn" aria-label="Close Chat"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>
       <div id="chatbotMessages" class="chatbot-messages"><div class="chatbot-message bot-message"><div class="message-avatar"><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z"/></svg></div><div class="message-content"><p>Welcome to VHS Animal Wellness Center. How can I help you today?</p></div></div></div>
       <div class="chatbot-input-area"><input type="text" id="chatbotInput" class="chatbot-input" placeholder="Type your message..." aria-label="Chat message input"><button id="chatbotSend" class="chatbot-send-btn" aria-label="Send message"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg></button></div>
-      <div class="chatbot-footer"><p>Automated Help &bull; Demo</p></div>
+      <div class="chatbot-footer"><p>Powered by AI &bull; Available 24/7</p></div>
     </div>
   </div>
 
@@ -446,12 +446,12 @@
     <div class="modal-content modal-booking">
       <button class="modal-close" id="closeModal">&times;</button>
       <form id="loginForm" class="booking-form hidden" method="post">
-        <h2>Log In</h2><p class="modal-subtitle">Clients use email; clinic staff use Employee ID</p>
+        <h2>Log In</h2><p class="modal-subtitle">Access your account to book an appointment</p>
         <div class="form-section">
-          <div class="form-group"><label for="loginEmail">Email / Employee ID <span class="required">*</span></label><input type="text" id="loginEmail" name="email2" placeholder="Email or VHS-DOC-0001" autocomplete="username" required /></div>
+          <div class="form-group"><label for="loginEmail">Email Address <span class="required">*</span></label><input type="email" id="loginEmail" name="email2" placeholder="example@gmail.com" required></div>
           <div class="form-group"><label for="loginPassword">Password <span class="required">*</span></label><input type="password" id="loginPassword" name="password1" placeholder="Enter your password" required></div>
           <div class="form-group"><div id="loginError" class="error-message" style="display:none;"></div></div>
-          <div class="form-group"><a href="/auth" class="forgot-password">Forgot password?</a></div>
+          <div class="form-group"><a href="#" class="forgot-password">Forgot password?</a></div>
         </div>
         <div class="form-actions"><button type="submit" class="btn btn-primary btn-submit">Log In</button></div>
         <div class="form-footer"><p>Don't have an account? <a href="#" class="switch-form" data-target="signupBtn">Sign up here</a></p></div>
@@ -469,10 +469,10 @@
   </div>
 
   <script src="../shared/vhs-ui.js"></script>
-  <script src="../shared/live-data.js?v=1.1.0"></script>
+  <script src="../shared/mock-users.js?v=2.13.0"></script>
   <script src="website-services.js"></script>
   <script src="../shared/signup-wizard.js?v=1.1.0"></script>
-  <script src="script.js?v=4.2.0"></script>
+  <script src="script.js"></script>
   <script>
   /* ── Service Detail Modal ── */
   (function(){

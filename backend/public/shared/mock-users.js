@@ -164,6 +164,64 @@
     { serviceId: 26, value: 'home_service',                        label: 'Home Service',                       group: 'Specialized Care',      price: '₱1.00 – ₱500.00' }
   ];
 
+  // ── SCHEDULING METADATA (canonical, keyed by serviceId) ────────────────
+  // Frontend foundation for SmartScheduling. Kept as a table beside the
+  // catalog rather than inside each row so the catalog stays readable;
+  // every EFFECTIVE service is merged with it, so SmartScheduling, the User
+  // booking form, Admin and Vetti all read the same fields.
+  //
+  //   durationMinutes  configured service duration — AUTHORITATIVE for now.
+  //                    Historical consultation length is an operational
+  //                    signal only and is deliberately not used here.
+  //   requiresDoctor   true when the service needs a Doctor present. The
+  //                    clinic currently has ONE active Doctor, so this
+  //                    resource has capacity 1; raising activeDoctors raises
+  //                    capacity without touching the scheduler.
+  //   capacityPerSlot  how many of THIS service may share one time slot.
+  //
+  // `active` is NOT listed here: it already exists on the catalog (an
+  // Admin override sets active:false to retire a service from new bookings).
+  // Absent means active.
+  var SERVICE_SCHEDULING = {
+    1:  { durationMinutes: 30,  requiresDoctor: true,  capacityPerSlot: 1 }, // consultation
+    2:  { durationMinutes: 15,  requiresDoctor: true,  capacityPerSlot: 1 }, // vaccination
+    3:  { durationMinutes: 15,  requiresDoctor: true,  capacityPerSlot: 1 }, // deworming
+    4:  { durationMinutes: 60,  requiresDoctor: true,  capacityPerSlot: 1 }, // feline exec preventive
+    5:  { durationMinutes: 15,  requiresDoctor: true,  capacityPerSlot: 1 }, // health certificate
+    6:  { durationMinutes: 15,  requiresDoctor: true,  capacityPerSlot: 1 }, // microchipping
+    7:  { durationMinutes: 30,  requiresDoctor: true,  capacityPerSlot: 1 }, // blood test
+    8:  { durationMinutes: 20,  requiresDoctor: true,  capacityPerSlot: 1 }, // fecalysis
+    9:  { durationMinutes: 20,  requiresDoctor: true,  capacityPerSlot: 1 }, // microscopy
+    10: { durationMinutes: 20,  requiresDoctor: true,  capacityPerSlot: 1 }, // urinalysis
+    11: { durationMinutes: 90,  requiresDoctor: true,  capacityPerSlot: 1 }, // spay
+    12: { durationMinutes: 60,  requiresDoctor: true,  capacityPerSlot: 1 }, // castration
+    13: { durationMinutes: 120, requiresDoctor: true,  capacityPerSlot: 1 }, // caesarean section
+    14: { durationMinutes: 120, requiresDoctor: true,  capacityPerSlot: 1 }, // cystotomy
+    15: { durationMinutes: 60,  requiresDoctor: true,  capacityPerSlot: 1 }, // cherry eye correction
+    16: { durationMinutes: 60,  requiresDoctor: true,  capacityPerSlot: 1 }, // wound repair
+    17: { durationMinutes: 120, requiresDoctor: true,  capacityPerSlot: 1 }, // dental prophylaxis
+    18: { durationMinutes: 45,  requiresDoctor: true,  capacityPerSlot: 1 }, // u catheterization
+    19: { durationMinutes: 30,  requiresDoctor: true,  capacityPerSlot: 1 }, // euthanasia
+    20: { durationMinutes: 90,  requiresDoctor: true,  capacityPerSlot: 1 }, // whelping assistance
+    21: { durationMinutes: 90,  requiresDoctor: false, capacityPerSlot: 2 }, // dog grooming
+    22: { durationMinutes: 90,  requiresDoctor: false, capacityPerSlot: 2 }, // cat grooming
+    23: { durationMinutes: 60,  requiresDoctor: false, capacityPerSlot: 2 }, // boarding
+    24: { durationMinutes: 60,  requiresDoctor: false, capacityPerSlot: 2 }, // confinement
+    25: { durationMinutes: 60,  requiresDoctor: true,  capacityPerSlot: 1 }, // chemotherapy
+    26: { durationMinutes: 60,  requiresDoctor: false, capacityPerSlot: 2 }  // home service
+  };
+
+  // Applied to EVERY service (seed, override and Admin-created) so consumers
+  // never have to guess a missing field.
+  function _withScheduling(service) {
+    return Object.assign({
+      durationMinutes: 60,
+      requiresDoctor: true,
+      capacityPerSlot: 1,
+      active: true
+    }, SERVICE_SCHEDULING[service.serviceId] || {}, service);
+  }
+
   function byId(list, key, id) {
     return list.find(function (x) { return String(x[key]) === String(id); }) || null;
   }
@@ -192,8 +250,8 @@
   function _effectiveServices() {
     return SERVICES.map(function (s) {
       var o = SVC_DEMO.overrides[s.serviceId];
-      return o ? Object.assign({}, s, o) : Object.assign({}, s);
-    }).concat(SVC_DEMO.added.map(function (s) { return Object.assign({}, s); }));
+      return _withScheduling(o ? Object.assign({}, s, o) : s);
+    }).concat(SVC_DEMO.added.map(function (s) { return _withScheduling(s); }));
   }
   var DEMO = (function () {
     try { return JSON.parse(localStorage.getItem(STORE_KEY) || '{}') || {}; }
@@ -231,8 +289,19 @@
   global.SharedMockUsers = {
     users: function () { return _allUsers(); },
     byId: function (id) { return byId(_allUsers(), 'userId', id); },
+    // ── IDENTITY BOUNDARY (mock) ──────────────────────────────────────
+    // CURRENT_USER_ID is a DEMO CONSTANT, not authentication. Every reader
+    // goes through currentUserId()/resolveOwner() below so that replacing the
+    // mock with a real session is a change to THIS boundary only — no portal
+    // reads the constant directly, and no portal invents its own owner.
+    // TODO(BACKEND): resolve from the authenticated session/token; the
+    // hardcoded id below is deleted at that point, not before.
+    identityMode: 'mock',
     currentUserId: CURRENT_USER_ID,
     currentUser: function () { return Object.assign({}, byId(_allUsers(), 'userId', CURRENT_USER_ID)); },
+    // Explicit alias for "who is the owner right now", for callers that should
+    // not read as though the id were a domain fact.
+    resolveOwner: function () { return this.currentUser(); },
 
     pets: function () { return _allPets(); },
     petById: function (id) { return byId(_allPets(), 'petId', id); },
@@ -346,6 +415,18 @@
       var v = String(value || '').trim().toLowerCase();
       var hit = _effectiveServices().find(function (s) { return s.value === v || s.label.toLowerCase() === v; });
       return hit ? Object.assign({}, hit) : null;
+    },
+    // CANONICAL SERVICE REPRESENTATION (single normalizer for every writer).
+    // Legacy records stored the display label ("Consultation"); current writes
+    // store the catalog value ("consultation"). Both resolve to ONE logical
+    // service here, so they can never fork into two services downstream.
+    // Returns { serviceId, value, label } or null when unresolvable.
+    // TODO(BACKEND): the API returns service_id; the value/label pair is
+    // display sugar the frontend resolves, never persists.
+    canonicalService: function (valueOrLabel) {
+      var hit = this.serviceByValue(valueOrLabel);
+      if (!hit) return null;
+      return { serviceId: hit.serviceId, value: hit.value, label: hit.label };
     },
     // True when the service value/label is referenced by any appointment.
     // TODO(BACKEND): enforced server-side with FK/integrity checks.

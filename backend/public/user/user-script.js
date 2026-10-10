@@ -146,46 +146,52 @@ window.addEventListener("resize", () => {
 // logged-in owner so account states that depend on the account itself (e.g. a
 // brand-new account with no pets) can be reviewed without a backend.
 // TODO(BACKEND): remove — the authenticated session is the only identity source.
-function _demoIdentityOverride() { return null; }
-
-// Authenticated Laravel session is the only runtime identity source.
-function _getSessionUser() {
-  var stored = null;
+function _demoIdentityOverride() {
   try {
-    stored = JSON.parse(
-      sessionStorage.getItem("user") ||
-      sessionStorage.getItem("vhs_user") ||
-      "null"
-    );
+    var m = /[?&]as=(\d+)/.exec(window.location.search || '');
+    return m ? m[1] : null;
   } catch (e) {
-    console.error("Could not read authenticated user session:", e);
+    return null;
   }
-  if (!stored && window.VHSLiveData && window.VHSLiveData.state) {
-    stored = window.VHSLiveData.state.me || null;
-  }
-  if (!stored && window.VHSUsers && window.VHSUsers.currentUser) {
-    stored = window.VHSUsers.currentUser() || null;
-  }
-  if (!stored) return {};
-
-  var id = stored.id || stored.userId || stored.user_id || null;
-  var rawName = String(stored.name || stored.fullName || stored.full_name || '').trim();
-  var parts = rawName ? rawName.split(/\s+/) : [];
-  var firstName = stored.firstName || stored.first_name || parts[0] || '';
-  var lastName = stored.lastName || stored.last_name || (parts.length > 1 ? parts.slice(1).join(' ') : '');
-  return Object.assign({}, stored, {
-    id: id,
-    userId: id,
-    firstName: firstName,
-    middleName: stored.middleName || stored.middle_name || '',
-    lastName: lastName,
-    name: rawName || [firstName, lastName].filter(Boolean).join(' ')
-  });
 }
 
+// The signed-in account. Session first, then the frontend-demo identity.
+function _getSessionUser() {
+  var demoId = _demoIdentityOverride();
+  if (demoId && window.SharedMockUsers) {
+    var demoUser = window.SharedMockUsers.byId(demoId);
+    if (demoUser) {
+      return {
+        id: demoUser.userId, userId: demoUser.userId, name: demoUser.name,
+        firstName: demoUser.firstName, lastName: demoUser.lastName,
+        phone: demoUser.phone, email: demoUser.email, role: demoUser.role
+      };
+    }
+  }
+  // TODO(BACKEND): the authenticated session is the real identity source;
+  // the shared mock user is the frontend-demo fallback so the portal always
+  // has one explicit current owner (never "Guest").
+  var shared = (typeof SharedMockUsers !== 'undefined') ? SharedMockUsers.currentUser() : null;
+  try {
+    var stored = JSON.parse(
+      sessionStorage.getItem("vhs_user") ||
+        sessionStorage.getItem("user") ||
+        "null"
+    );
+    if (stored && (stored.id || stored.userId)) return stored;
+  } catch (e) { /* fall through to shared mock identity */ }
+  if (shared) {
+    return { id: shared.userId, userId: shared.userId, name: shared.name, firstName: shared.firstName, lastName: shared.lastName, phone: shared.phone, email: shared.email, role: shared.role };
+  }
+  return {};
+}
+
+// The owner every pet / appointment read is scoped to. Pet onboarding,
+// My Pets and the appointment lists all resolve it through here.
 function _currentOwnerId() {
   var user = _getSessionUser();
-  return user.id || user.userId || null;
+  return user.id || user.userId ||
+    (window.SharedMockUsers ? window.SharedMockUsers.currentUserId : null);
 }
 
 
@@ -298,8 +304,6 @@ function initLogout() {
 
       () => {
 
-        // End the Laravel session as well as clearing the browser display cache.
-        fetch('../api/auth/logout', { method: 'POST', headers: { 'Accept': 'application/json' }, keepalive: true }).catch(function () {});
         sessionStorage.clear();
 
         const loader = document.createElement("div");
@@ -358,45 +362,8 @@ function initLogout() {
 
 
 function loadUserAppointments() {
-  fetch('/api/appointments', { headers: { 'Accept': 'application/json' } })
-    .then(function(r) {
-      if (r.status === 401) throw new Error('SESSION_EXPIRED');
-      if (!r.ok) throw new Error('HTTP ' + r.status);
-      return r.json();
-    })
-    .then(function(data) {
-      var rows = data && data.data && Array.isArray(data.data.appointments)
-        ? data.data.appointments
-        : [];
-      mockAppointmentsData = rows.map(function(a) {
-        return {
-          id: a.id || a.appointment_id,
-          appointmentId: a.appointmentId || a.appointment_id || a.id,
-          reference_no: a.reference_no || a.referenceNo || '',
-          pet_id: a.pet_id || a.petId,
-          pet_name: a.pet_name || '',
-          pet_type: a.pet_type || '',
-          pet_breed: a.pet_breed || '',
-          service: a.serviceLabelAtBooking || a.service_label_at_booking || a.service || '',
-          date: a.date || a.appointment_date,
-          time: a.time || a.appointment_time,
-          visit_reason: a.visit_context || a.visitContext || '',
-          custom_visit_reason: a.custom_visit_context || a.customVisitContext || '',
-          notes: a.notes || '',
-          status: a.status || 'confirmed',
-          vet_name: a.vet_name || 'Unassigned'
-        };
-      });
-      renderAppointmentCards();
-    })
-    .catch(function(err) {
-      console.error('Failed to load appointments:', err);
-      mockAppointmentsData = [];
-      renderAppointmentCards();
-      if (err && err.message === 'SESSION_EXPIRED') {
-        showToast('Your session expired. Please log in again.', 'error');
-      }
-    });
+  // Use mock data for rendering the new card-based appointments view
+  renderAppointmentCards();
 }
 
 
@@ -670,7 +637,7 @@ function _renderServiceCardsFromCatalog() {
   };
 }
 
-function openBookModal(serviceName) {
+function openBookModal(serviceName, bookingHandoff) {
   // Booking needs a petId — guide instead of failing mid-wizard.
   if (window.VHSPetOnboarding && window.VHSPetOnboarding.requirePet()) return;
 
@@ -722,7 +689,139 @@ function openBookModal(serviceName) {
   }
 
   _setBookDateConstraints();
+
+  // Conversational booking context from Vetti (optional handoff). Each
+  // field is RESOLVED before it is applied: an unknown pet/service or an
+  // invalid date stays blank and the wizard behaves exactly as before.
+  var handoffCtx = _bookingHandoffContext(bookingHandoff);
+  if (handoffCtx) _prefillBookingFields(bookingHandoff, handoffCtx);
+
+  // Existing dependent refresh, in the normal order: pet, service and
+  // date are all set by now, so the slot list is rebuilt from Smart
+  // Scheduling once, exactly as a manual walk through the wizard does.
   _refreshBookSlots();
+
+  // Preferred time is applied only AFTER the refresh above confirmed the
+  // exact slot is currently available; an unavailable or invented time
+  // is never selected.
+  if (handoffCtx) _prefillBookingTime(handoffCtx);
+}
+
+// ─── VETTI BOOKING CONTEXT PREFILL ───────────────────────────────────────
+// The handoff startBooking() passes: { pet, bookingContext }. Returns the
+// validated bookingContext object, or null — a plain portal
+// openBookModal() call never enters the prefill path at all.
+function _bookingHandoffContext(handoff) {
+  if (!handoff || typeof handoff !== 'object') return null;
+  var ctx = handoff.bookingContext;
+  if (!ctx || typeof ctx !== 'object' || Array.isArray(ctx)) return null;
+  return ctx;
+}
+
+// True when a <select> actually offers a value. This is the guard that
+// keeps prefill honest: a value the form does not present is never
+// assigned (an unassigned value leaves the control on its placeholder).
+function _hasSelectOption(sel, value) {
+  if (!sel || !sel.options) return false;
+  var target = String(value);
+  for (var i = 0; i < sel.options.length; i++) {
+    if (String(sel.options[i].value) === target) return true;
+  }
+  return false;
+}
+
+// Resolve preferredDate to a YYYY-MM-DD string the date input accepts.
+// Accepts 'today', 'tomorrow' or an explicit YYYY-MM-DD; the literal
+// words never reach the input. Returns null when the value is malformed,
+// not a real calendar date, or outside the SAME [today, today+30] window
+// _setBookDateConstraints() puts on the input.
+function _resolveBookingDate(value) {
+  if (typeof value !== 'string') return null;
+  var v = value.trim().toLowerCase();
+  if (!v) return null;
+  var today = new Date();
+  var resolved;
+  if (v === 'today') {
+    resolved = new Date(today.getTime());
+  } else if (v === 'tomorrow') {
+    resolved = new Date(today.getTime());
+    resolved.setDate(resolved.getDate() + 1);
+  } else {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(v)) return null;
+    resolved = new Date(v + 'T12:00:00');
+    if (isNaN(resolved.getTime())) return null;
+    // Round-trip rejects impossible dates (2026-02-31) that a lenient
+    // parser would silently roll over into March.
+    if (resolved.toISOString().split('T')[0] !== v) return null;
+  }
+  var iso = resolved.toISOString().split('T')[0];
+  var min = today.toISOString().split('T')[0];
+  var maxDate = new Date(today.getTime());
+  maxDate.setDate(today.getDate() + 30);
+  var max = maxDate.toISOString().split('T')[0];
+  if (iso < min || iso > max) return null;
+  return iso;
+}
+
+// Apply ONLY the safely resolved parts of the conversational context.
+// Order is pet → service → date; the caller then refreshes slots.
+function _prefillBookingFields(handoff, ctx) {
+  // PET — the pet Vetti resolved (exact canonical match, or the active
+  // pet when the context names none). Unknown/ambiguous contexts resolved
+  // to null upstream, so the select stays on "Choose a pet": no guessing.
+  var petSel = document.getElementById('pet_id');
+  var pet = handoff && handoff.pet;
+  if (petSel && pet && typeof pet === 'object') {
+    var pid = (pet.petId !== undefined && pet.petId !== null) ? pet.petId : pet.id;
+    if (pid !== undefined && pid !== null && _hasSelectOption(petSel, pid)) {
+      petSel.value = String(pid);
+    }
+  }
+
+  // SERVICE — only an EXACT match against an ACTIVE catalog service is
+  // applied. Medical services are never fuzzy-matched; an unknown id or
+  // an inactive service leaves the select blank.
+  if (ctx.serviceId !== undefined && ctx.serviceId !== null && ctx.serviceId !== '') {
+    var svcSel = document.getElementById('service_id');
+    var users = window.SharedMockUsers;
+    var svc = null;
+    if (svcSel && users && typeof users.serviceByValue === 'function') {
+      svc = users.serviceByValue(String(ctx.serviceId))
+        || (typeof users.serviceById === 'function' ? users.serviceById(ctx.serviceId) : null);
+    }
+    // _hasSelectOption restricts the hit to what the select offers —
+    // i.e. the ACTIVE services a new booking may book.
+    if (svcSel && svc && _hasSelectOption(svcSel, svc.value)) {
+      svcSel.value = svc.value;
+    }
+  }
+
+  // DATE — a validated calendar date only; 'today'/'tomorrow' were
+  // already resolved to YYYY-MM-DD by _resolveBookingDate().
+  if (ctx.preferredDate !== undefined && ctx.preferredDate !== null && ctx.preferredDate !== '') {
+    var dateIn = document.getElementById('appointment_date');
+    var iso = _resolveBookingDate(ctx.preferredDate);
+    if (dateIn && iso) {
+      dateIn.value = iso;
+      // Real inputs re-check against min/max; if the input refused the
+      // value, leave it blank rather than hold an invalid date.
+      if (dateIn.value !== iso) dateIn.value = '';
+    }
+  }
+}
+
+// Preferred time: selected only when the REFRESHED slot list — the
+// engine's own answer for this date/service — still contains the exact
+// label. A bare time preference ('morning'/'afternoon'/'evening') never
+// invents a slot: the select stays on "Select time" and the preference
+// is preserved on the context for the owner to act on in step 2.
+function _prefillBookingTime(ctx) {
+  if (ctx.preferredTime === undefined || ctx.preferredTime === null || ctx.preferredTime === '') return;
+  var timeSelect = document.getElementById('time_slot');
+  var want = String(ctx.preferredTime);
+  if (timeSelect && _hasSelectOption(timeSelect, want)) {
+    timeSelect.value = want;
+  }
 }
 
 // ─── WIZARD NAVIGATION ──────────────────────────────────────────────────────
@@ -793,9 +892,9 @@ function _renderBookSummary() {
   var ownerName = ((user.firstName || '') + ' ' + (user.lastName || '')).trim();
   var ownerPhone = user.phone || user.contact || '';
   var ownerEmail = user.email || '';
-  if (!ownerName) ownerName = 'Signed-in user';
-  if (!ownerPhone) ownerPhone = '—';
-  if (!ownerEmail) ownerEmail = '—';
+  if (!ownerName) ownerName = 'John Bryan Capellan';
+  if (!ownerPhone) ownerPhone = '0917-123-4567';
+  if (!ownerEmail) ownerEmail = 'user@example.com';
   var summary = document.getElementById('bookSummary');
   if (summary) {
     summary.innerHTML = '<div class="book-summary-title">Booking Summary</div>'
@@ -827,6 +926,62 @@ function onBookDateChange() {
   _refreshBookSlots();
 }
 
+// Availability is per SERVICE (requiresDoctor and capacityPerSlot differ per
+// service), so a service change must recompute the slot list. The 3-step wizard
+// normally picks the service in step 1 before the date in step 2, which is why
+// this was latent — but a service changed after a date (or a slot) is already
+// populated would otherwise keep offering the previous service's slots, which
+// is the same stale-dropdown defect Admin booking had.
+//
+// This reuses the SAME _refreshBookSlots() → _smartSchedulingSlots() →
+// SmartScheduling path as the date handler. There is no second validator here,
+// and final-submit revalidation is untouched.
+function onBookServiceChange() {
+  var timeSelect = document.getElementById('time_slot');
+  var previous = timeSelect ? timeSelect.value : '';
+  _refreshBookSlots();
+  // _refreshBookSlots() rebuilds the <select>, so an unavailable time is
+  // already cleared. Re-select the previous choice ONLY when it is still
+  // bookable under the new service, so a valid pick is never thrown away.
+  if (!previous || !timeSelect) return;
+  for (var i = 0; i < timeSelect.options.length; i++) {
+    if (timeSelect.options[i].value === previous) { timeSelect.value = previous; return; }
+  }
+}
+
+// One adapter from the User portal to the shared scheduling engine. Resolves
+// the service, asks SmartScheduling which slots are actually bookable, and
+// returns 12h slot labels for the existing <select> markup — the form is not
+// redesigned and the engine never returns UI.
+//
+// options: { serviceId?, excludeAppointmentId? }. With no service resolved
+// (nothing chosen yet, or the engine not loaded) this falls back to the
+// clinic's own configured hours, which is exactly what the form did before.
+function _smartSchedulingSlots(dateStr, options) {
+  var o = options || {};
+  var allHours = getVHSTimeSlots(dateStr);
+  var sched = window.SmartScheduling;
+  var users = window.SharedMockUsers;
+  if (!sched || typeof sched.getAvailableSlots !== 'function' ||
+      !users || typeof users.serviceByValue !== 'function') return allHours;
+
+  var serviceId = o.serviceId;
+  if (!serviceId) {
+    var sel = document.getElementById('service_id');
+    var svc = (sel && sel.value && users.serviceByValue(sel.value)) || null;
+    serviceId = svc ? svc.serviceId : null;
+  }
+  // Nothing to check capacity against yet — list the clinic's own hours.
+  if (!serviceId) return allHours;
+
+  var result = sched.getAvailableSlots({
+    serviceId: serviceId,
+    date: dateStr,
+    excludeAppointmentId: o.excludeAppointmentId || null
+  });
+  return result.ok ? result.slots.map(function (s) { return s.time; }) : [];
+}
+
 // ─── TIME SLOT LOGIC ─────────────────────────────────────────────────────────
 function _refreshBookSlots() {
   var dateInput = document.getElementById('appointment_date');
@@ -837,42 +992,13 @@ function _refreshBookSlots() {
     timeSelect.innerHTML = '<option value="">Select a date first</option>';
     return;
   }
-  var slots = getVHSTimeSlots(dateVal);
-  var store = window.SharedMockAppointments;
-  // Booked-slot filtering derives from the EFFECTIVE canonical records (not a
-  // portal-local copy) so User, Admin, and reschedules never diverge.
+  // Availability comes from the ONE shared scheduling engine, so the User
+  // form, Vetti and Admin can never disagree about what is bookable.
   // TODO(BACKEND): slot availability comes from the API's availability check.
-  var taken = store ? store.takenSlots(dateVal) : [];
-  var today = new Date();
-  var todayStr = today.getFullYear() + '-' + String(today.getMonth() + 1).padStart(2, '0') + '-' + String(today.getDate()).padStart(2, '0');
-  if (dateVal === todayStr) {
-    // Same-day bookable slots = strictly AFTER now (times are STARTS; the
-    // last slot of the day must remain selectable all day).
-    var now = new Date();
-    var nowMins = now.getHours() * 60 + now.getMinutes();
-    slots = slots.filter(function(slot) {
-      var parts = slot.trim().match(/(\d{1,2}):(\d{2})\s*(AM|PM)/i);
-      if (!parts) return true;
-      var h = parseInt(parts[1], 10);
-      var m = parseInt(parts[2], 10);
-      var ampm = parts[3].toUpperCase();
-      if (ampm === 'PM' && h !== 12) h += 12;
-      if (ampm === 'AM' && h === 12) h = 0;
-      return (h * 60 + m) > nowMins;
-    });
-  }
-  if (taken.length) {
-    var toHHMM = window.AppointmentContract ? window.AppointmentContract.timeToHHMM : function(v){return v;};
-    var takenSet = taken.map(function(t){ return String(toHHMM(t)); });
-    slots = slots.filter(function(slot) {
-      var parts = String(slot).trim().match(/(\d{1,2}):(\d{2})\s*(AM|PM)/i);
-      if (!parts) return true;
-      var h = parseInt(parts[1], 10);
-      if (parts[3].toUpperCase() === 'PM' && h !== 12) h += 12;
-      if (parts[3].toUpperCase() === 'AM' && h === 12) h = 0;
-      return takenSet.indexOf(String(h).padStart(2, '0') + ':' + parts[2]) === -1;
-    });
-  }
+  var slots = _smartSchedulingSlots(dateVal);
+  // Same-day bookable slots = strictly AFTER now (times are STARTS; the last
+  // slot of the day must remain selectable all day).
+  slots = _filterPastSlots(slots, dateVal);
   timeSelect.innerHTML = slots.length
     ? '<option value="">Select time</option>' + slots.map(function(s) {
         return '<option value="' + s + '">' + s + '</option>';
@@ -904,6 +1030,32 @@ function _refreshBookSlots() {
  * ==========================================================================
  */
 var _pendingBookingPayload = null;
+// Engine-ranked alternatives from the LAST refused booking submit, kept as
+// returned by SmartScheduling. They are engine-provided slots only; nothing
+// here invents a time. Exposed so the booking UI can offer them.
+var _pendingBookingAlternatives = null;
+
+// Put the wizard back on the date/time step with the choices already made, so
+// a refused submit leaves the owner able to pick a different slot instead of
+// stranded on a closed modal. Reuses openBookModal() so the pet and service
+// selects are repopulated exactly as they are for a fresh booking.
+function _reopenBookingWizard(payload) {
+  openBookModal();
+  _wizardStep = 2;
+  _renderWizard();
+  if (!payload) return;
+  var petSel = document.getElementById('pet_id');
+  var svcSel = document.getElementById('service_id');
+  var dateIn = document.getElementById('appointment_date');
+  if (petSel) petSel.value = String(payload.pet_id);
+  if (svcSel) svcSel.value = String(payload.service);
+  if (dateIn) {
+    dateIn.value = payload.appointment_date;
+    // Repopulate the slot dropdown from the engine: it now reflects whatever
+    // took the slot while the owner was on the OTP step.
+    _refreshBookSlots();
+  }
+}
 var _pendingBookingDisplay = null; // pet/service labels captured pre-reset
 
 async function submitBooking(e) {
@@ -928,7 +1080,6 @@ async function submitBooking(e) {
   // visit_reason keeps the canonical option value. No folding here.
   if (visitReason === 'Other' && !visitReasonCustom) {
     showToast('Please describe your reason for the visit.', 'warning');
-    if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Confirm Booking'; }
     return;
   }
 
@@ -936,26 +1087,6 @@ async function submitBooking(e) {
   if (!service) { showToast('Please select a service.', 'warning'); _wizardStep = 1; _renderWizard(); if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Confirm Booking'; } return; }
   if (!appDate) { showToast('Please select a date.', 'warning'); _wizardStep = 2; _renderWizard(); if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Confirm Booking'; } return; }
   if (!appTime) { showToast('Please select a time slot.', 'warning'); _wizardStep = 2; _renderWizard(); if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Confirm Booking'; } return; }
-
-  // Re-check server-wide availability immediately before sending an OTP.
-  // This closes the stale-page window where another user books the selected
-  // slot after this form originally loaded.
-  try {
-    var availabilityResponse = await fetch('/api/availability?date=' + encodeURIComponent(appDate), { headers: { 'Accept': 'application/json' } });
-    var availabilityData = await availabilityResponse.json();
-    if (!availabilityResponse.ok) throw new Error((availabilityData && availabilityData.message) || 'Availability could not be checked.');
-    var availableDisplay = availabilityData && availabilityData.data ? (availabilityData.data.display_slots || []) : [];
-    if (availableDisplay.indexOf(appTime) === -1) {
-      _refreshBookSlots();
-      showToast('That time is no longer available. Please choose another slot.', 'warning');
-      if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Confirm Booking'; }
-      return;
-    }
-  } catch (availabilityError) {
-    showToast(availabilityError.message || 'Could not confirm slot availability. Please try again.', 'error');
-    if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Confirm Booking'; }
-    return;
-  }
 
   _pendingBookingPayload = {
     user_id: parseInt(userId) || 0,
@@ -986,39 +1117,10 @@ var _otpSecondsLeft = 59;
 function openOtpModal() {
   var boxes = document.querySelectorAll('#otpInputs .otp-box');
   boxes.forEach(function(box) { box.value = ''; });
+  if (boxes.length) boxes[0].focus();
   _otpSecondsLeft = 59;
   _startOtpCountdown();
   openModal('otpModal');
-  if (boxes.length) boxes[0].focus();
-  _requestBookingOtp();
-}
-
-async function _requestBookingOtp() {
-  try {
-    var response = await fetch('../api/appointments/request_otp.php', {
-      method: 'POST',
-      headers: { 'Accept': 'application/json' }
-    });
-    var data = await response.json();
-    if (!response.ok || !data || !data.success) {
-      throw new Error((data && data.message) || 'Could not send the verification code.');
-    }
-
-    // Local-defense/dev mode only: Laravel can expose the generated OTP so the
-    // whole flow remains demonstrable even before production SMS credentials
-    // are configured. In production this field is never returned.
-    if (data.dev_otp) {
-      var boxes = document.querySelectorAll('#otpInputs .otp-box');
-      String(data.dev_otp).split('').slice(0, boxes.length).forEach(function(digit, index) {
-        boxes[index].value = digit;
-      });
-      console.log('[Dev Mode] Appointment OTP:', data.dev_otp);
-    }
-    showToast('Verification code sent.', 'info');
-  } catch (err) {
-    console.error('Appointment OTP request failed:', err);
-    showToast(err.message || 'Could not send the verification code.', 'error');
-  }
 }
 
 function closeOtpModal() {
@@ -1047,69 +1149,81 @@ function _resendOtp() {
   var timerEl = document.getElementById('otpTimer');
   if (timerEl) timerEl.innerHTML = 'Resend code in <span id="otpCountdown">0:59</span>';
   _startOtpCountdown();
-  _requestBookingOtp();
+  showToast('Verification code resent.', 'info');
 }
 
-async function verifyOtp() {
+function verifyOtp() {
   var boxes = document.querySelectorAll('#otpInputs .otp-box');
   var code = '';
   boxes.forEach(function(box) { code += box.value; });
-  if (!/^\d{6}$/.test(code)) {
+  if (code.length < 6) {
     showToast('Please enter the complete 6-digit code.', 'warning');
     return;
   }
-  if (!_pendingBookingPayload) {
-    showToast('Booking details are missing. Please start the booking again.', 'error');
-    closeOtpModal();
-    return;
-  }
-
-  var verifyBtn = document.querySelector('#otpModal button[onclick*="verifyOtp"]');
-  if (verifyBtn) { verifyBtn.disabled = true; verifyBtn.textContent = 'Verifying...'; }
-
-  try {
-    var response = await fetch('../api/appointments/verify_otp.php', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-      body: JSON.stringify({ otp_code: code, appointment_data: _pendingBookingPayload })
-    });
-    var data = await response.json();
-    if (!response.ok || !data || !data.success) {
-      throw new Error((data && data.message) || 'Verification failed.');
-    }
-
-    var refNo = data.reference_no || (data.appointment && (data.appointment.reference_no || data.appointment.referenceNo));
-    closeOtpModal();
-    _pendingBookingPayload = null;
-    _pendingBookingDisplay = null;
-    await Promise.resolve(loadUserAppointments());
-    _showBookingSuccess(refNo || 'Saved');
-  } catch (err) {
-    console.error('Appointment verification failed:', err);
-    showToast(err.message || 'Verification failed. Please try again.', 'error');
-  } finally {
-    if (verifyBtn) { verifyBtn.disabled = false; verifyBtn.textContent = 'Verify & Confirm'; }
-  }
+  // Mock mode: any 6 digits accepted
+  closeOtpModal();
+  _finalizeBooking();
 }
 
 function _finalizeBooking() {
   var payload = _pendingBookingPayload;
   if (!payload) return;
 
-  // Sequential IDs derived from the WHOLE effective store so they never
-  // collide with seed records (apt301–306) or previously added bookings.
+  // ── FINAL-SAVE REVALIDATION (SmartScheduling) ───────────────────────────
+  // The slot dropdown was filled by this same engine earlier, but the owner
+  // sits on the OTP step in between, and another front-desk tab (or another
+  // owner) can book the slot meanwhile. Availability is therefore re-checked
+  // here, immediately BEFORE any appointment id or reference number is minted
+  // and before the record or its audit row is written, so a stale slot
+  // produces no appointment, no id, no reference and no audit entry.
+  //
+  // SmartScheduling stays the single scheduling decision source: this is the
+  // same validateAppointmentRequest() call the Admin submit and the reschedule
+  // _slotGuard() use. There is deliberately no second validator here.
+  var _sched = window.SmartScheduling;
+  var _svcForCheck = (window.SharedMockUsers && typeof window.SharedMockUsers.serviceByValue === 'function')
+    ? window.SharedMockUsers.serviceByValue(payload.service)
+    : null;
+  if (_sched && typeof _sched.validateAppointmentRequest === 'function' && _svcForCheck) {
+    var _check = _sched.validateAppointmentRequest({
+      serviceId: _svcForCheck.serviceId,
+      date: payload.appointment_date,
+      time: payload.appointment_time
+    });
+    if (!_check.ok) {
+      // Keep the engine's own ranked alternatives for the UI. They come
+      // straight from the engine, so no time is invented here.
+      _pendingBookingAlternatives = _check.alternatives || [];
+      showToast(_sched.describeReason
+        ? _sched.describeReason(_check.reason)
+        : 'Could not save the booking. Please try again.', 'error');
+      _reopenBookingWizard(payload);
+      return;
+    }
+  } else {
+    // Engine or service unresolvable: degrade to the legacy exact-time store
+    // check rather than silently allowing an unverified slot.
+    var _toHHMM = window.AppointmentContract ? window.AppointmentContract.timeToHHMM : function (v) { return v; };
+    var _taken = (window.SharedMockAppointments ? window.SharedMockAppointments.takenSlots(payload.appointment_date) : []) || [];
+    if (_taken.indexOf(_toHHMM(payload.appointment_time)) !== -1) {
+      _pendingBookingAlternatives = null;
+      showToast('That slot is already booked.', 'error');
+      _reopenBookingWizard(payload);
+      return;
+    }
+  }
+
+  // Identity is minted by the SHARED contract helper (AppointmentContract.
+  // generateIdentity), not here, so Admin cannot drift. It scans the WHOLE
+  // effective store so IDs never collide with seed records (apt301–306) or previously added bookings.
   // TODO(BACKEND): book-appointment.php returns the real reference_no +
   // appointment_id instead of this frontend counter.
-  var _seq = 0;
-  var _scan = function (a) {
-    var m = /^apt(\d+)$/.exec(String(a.appointmentId || a.id || ''));
-    if (m) _seq = Math.max(_seq, parseInt(m[1], 10));
-  };
-  if (window.SharedMockAppointments) window.SharedMockAppointments.getAll().forEach(_scan);
-  if (typeof mockAppointmentsData !== 'undefined') mockAppointmentsData.forEach(function (a) { _scan({ appointmentId: a.id }); });
-  var nextNum = _seq + 1;
-  var aptId = 'apt' + String(nextNum).padStart(3, '0');
-  var refNo = 'VHS-' + payload.appointment_date.replace(/-/g, '') + '-' + String(nextNum).padStart(4, '0');
+  var _idRecords = [];
+  if (window.SharedMockAppointments) _idRecords = _idRecords.concat(window.SharedMockAppointments.getAll() || []);
+  if (typeof mockAppointmentsData !== 'undefined') _idRecords = _idRecords.concat(mockAppointmentsData || []);
+  var _identity = window.AppointmentContract.generateIdentity(_idRecords, payload.appointment_date);
+  var aptId = _identity.appointmentId;
+  var refNo = _identity.referenceNo;
 
   var _petDisplay = (_pendingBookingDisplay && _pendingBookingDisplay.petDisplay) || '';
   var _petName = _petDisplay ? _petDisplay.replace(/\s*\([^)]*\)$/, '').trim() : '';
@@ -1120,12 +1234,19 @@ function _finalizeBooking() {
   }
   var _petObj = mockPetsData.find(function(p) { return String(p.id) === String(payload.pet_id); });
   var _user = _getSessionUser();
-  // Store the canonical catalog VALUE (FK-ready). serviceLabel() resolves
-  // the display label on every portal, so records stay readable even if the
-  // service is later renamed, re-priced, or deactivated.
-  var _serviceValue = payload.service;
-  // TODO(BACKEND): persist service_id alongside the value; snapshot
-  // price_at_booking on the appointment at creation time.
+  // Store BOTH canonical service keys: `serviceId` is the machine identifier
+  // the backend will key on, `service` carries the catalog VALUE (never the
+  // display label). serviceLabel() derives the label on every portal, so
+  // records stay readable even if the service is later renamed or re-priced.
+  // canonicalService() accepts a value OR a label, so a legacy caller passing
+  // 'Consultation' still resolves to serviceId 1 / value 'consultation'.
+  var _svc = (window.SharedMockUsers && window.SharedMockUsers.canonicalService)
+    ? window.SharedMockUsers.canonicalService(payload.service)
+    : null;
+  var _serviceValue = _svc ? _svc.value : payload.service;
+  // TODO(BACKEND): snapshot price_at_booking on the appointment at creation
+  // time. serviceId is already resolved client-side and is what the API
+  // should accept as the authoritative foreign key.
 
   // Build one canonical appointment and WRITE THROUGH the shared store so
   // Clerk (and any other reader) sees the same record after refresh.
@@ -1136,6 +1257,7 @@ function _finalizeBooking() {
     referenceNo: refNo,
     userId: (_user.id || _user.userId || (window.SharedMockUsers ? window.SharedMockUsers.currentUserId : null)),
     petId: payload.pet_id,
+    serviceId: _svc ? _svc.serviceId : null,
     service: _serviceValue,
     appointmentDate: payload.appointment_date,
     appointmentTime: payload.appointment_time,
@@ -1165,6 +1287,7 @@ function _finalizeBooking() {
 
   _pendingBookingPayload = null;
   _pendingBookingDisplay = null;
+  _pendingBookingAlternatives = null;   // a completed booking supersedes any earlier refusal
   _showBookingSuccess(savedRef, { id: savedId, reference_no: savedRef });
 }
 
@@ -1244,7 +1367,7 @@ function _initOtpInputs() {
 
 
 function viewAppt(id) {
-  var appt = mockAppointmentsData.find(function(a) { return String(a.id) === String(id); });
+  var appt = mockAppointmentsData.find(function(a) { return a.id === id; });
   if (!appt) return;
 
   // Populate detail summary
@@ -1394,8 +1517,8 @@ var _currentPrintPet = null;
 function showMedicalHistory(petId) {
   if (window.VHSPetOnboarding && window.VHSPetOnboarding.requirePet()) return;
   // Resolve pet from loaded data (backend or mock)
-  var pet = _currentPets.find(function (p) { return String(p.id) === String(petId); });
-  if (!pet) pet = mockPetsData.find(function (p) { return String(p.id) === String(petId); });
+  var pet = _currentPets.find(function (p) { return p.id === petId; });
+  if (!pet) pet = mockPetsData.find(function (p) { return p.id === petId; });
   // Derive the live medical timeline from shared records (completed
   // appointments + finalized documents) before rendering. Ownership stays
   // ID-scoped: ownerId + petId, never name matching.
@@ -1580,18 +1703,17 @@ function openEditPetModal(id) {
   }
 
   // Try mock data first (for GitHub Pages / no session)
-  var mockPet = _currentPets.find(function (x) { return String(x.id) === String(id); })
-    || mockPetsData.find(function (x) { return String(x.id) === String(id); });
+  var mockPet = _currentPets.find(function (x) { return x.id === id; })
+    || mockPetsData.find(function (x) { return x.id === id; });
   if (mockPet) { _populate(mockPet); return; }
 
   // Try backend
   var userId = user.id || user.userId;
   if (!userId) { showToast('Session expired.', 'error'); return; }
-  fetch('/api/users/me/pets', { headers: { 'Accept': 'application/json' } })
-    .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
-    .then(function (data) {
-      var pets = data && data.data && Array.isArray(data.data.pets) ? data.data.pets : [];
-      var p = pets.find(function (x) { return String(x.id) === String(id); });
+  fetch('get_pets_user.php?user_id=' + userId)
+    .then(function (r) { return r.json(); })
+    .then(function (pets) {
+      var p = pets.find(function (x) { return x.id === id; });
       _populate(p);
     })
     .catch(function () { showToast('Failed to load pet data.', 'error'); });
@@ -1609,8 +1731,56 @@ function openEditPetModal(id) {
 // "No vaccination records yet." instead of invented doses.
 // TODO(BACKEND): profile details from get_pets.php?user_id=…; vaccines and
 // history from the pet medical-records endpoint (not a local fixture).
-const _petEmrFixtures = []; // Live runtime: no fabricated pet medical records.
-
+const _petEmrFixtures = [
+  {
+    id: 1,
+    name: 'Luna',
+    species: 'Cat',
+    breed: 'Persian',
+    age: 3,
+    gender: 'Female',
+    weight: 4.2,
+    color: 'White with grey patches',
+    reproductiveStatus: 'Spayed',
+    microchip: 'PH-001-2023-LUNA',
+    allergies: 'None known yet',
+    chronicConditions: 'None known yet',
+    notes: 'Indoor cat. Slight sensitivity to certain flea treatments.',
+    owner: { name: 'Maria Santos', phone: '0917-123-4567' },
+  },
+  {
+    id: 2,
+    name: 'Buddy',
+    species: 'Dog',
+    breed: 'Golden Retriever',
+    age: 5,
+    gender: 'Male',
+    weight: 31.5,
+    color: 'Golden blonde',
+    reproductiveStatus: 'Neutered',
+    microchip: 'PH-002-2021-BUDD',
+    allergies: 'None known yet',
+    chronicConditions: 'Mild hip dysplasia',
+    notes: 'Requires joint supplements. Avoid strenuous exercise.',
+    owner: { name: 'Maria Santos', phone: '0917-123-4567' },
+  },
+  {
+    id: 3,
+    name: 'Mochi',
+    species: 'Cat',
+    breed: 'Siamese',
+    age: 2,
+    gender: 'Male',
+    weight: 3.8,
+    color: 'Seal point (cream body, dark face/ears/tail)',
+    reproductiveStatus: 'Neutered',
+    microchip: '',
+    allergies: 'Sensitive to poultry-based diets',
+    chronicConditions: 'None known yet',
+    notes: '',
+    owner: { name: 'Maria Santos', phone: '0917-123-4567' },
+  },
+];
 
 // Pet profiles for the logged-in owner: shared identity + local EMR detail.
 // Derived from the SHARED pet store every time the owner scope changes, so
@@ -1681,79 +1851,7 @@ function __svcLabel(s) {
 // assembled from authoritative consultation/document data
 // (GET /api/pets/:id/medical-records), keeping the same item shape.
 function __medHistHydratePet(pet) {
-  if (!pet) return pet;
-
-  // Preferred source: Laravel/MySQL completed consultations.  This endpoint
-  // intentionally returns older completed consultations even when they
-  // pre-date consultation-summary document finalization.
-  if (window.VHSLiveData && typeof window.VHSLiveData.request === 'function') {
-    var live = window.VHSLiveData.request(
-      'GET',
-      '/api/pets/' + encodeURIComponent(pet.id) + '/medical-records'
-    );
-
-    var records = live && live.ok && live.data && live.data.data
-      ? live.data.data.records
-      : null;
-
-    if (Array.isArray(records)) {
-      var liveEvents = records.map(function (record) {
-        return {
-          date: record.date || '',
-          service: __svcLabel(record.service),
-          vet: record.veterinarian || '',
-          status: record.status || 'Completed',
-          ref: record.referenceNo || '',
-          docId: record.docId || null,
-          notes: record.notes || record.plan || '',
-          consultationId: record.consultationId || record.recordId || null,
-          derived: true,
-          backend: true
-        };
-      }).filter(function (record) {
-        return !!record.date;
-      }).sort(function (a, b) {
-        return new Date(b.date) - new Date(a.date);
-      });
-
-      // REQ012: structured vaccination records come from their own backend
-      // table. A Vaccination service alone is NOT treated as proof that a dose
-      // was administered.
-      var vaxResponse = window.VHSLiveData.request(
-        'GET',
-        '/api/pets/' + encodeURIComponent(pet.id) + '/vaccinations'
-      );
-      var vaxRows = vaxResponse && vaxResponse.ok && vaxResponse.data && vaxResponse.data.data
-        ? vaxResponse.data.data.vaccinations
-        : [];
-
-      var liveVaccines = Array.isArray(vaxRows) ? vaxRows.map(function (v) {
-        return {
-          vaccinationId: v.vaccinationId,
-          name: v.vaccineName || '',
-          date: v.administeredDate || '',
-          nextDue: v.nextDueDate || '',
-          batchNo: v.batchNo || '',
-          vet: v.veterinarian || '',
-          ref: v.referenceNo || '',
-          consultationId: v.consultationId || null,
-          appointmentId: v.appointmentId || null,
-          notes: v.notes || '',
-          derived: true,
-          backend: true
-        };
-      }) : [];
-
-      return Object.assign({}, pet, {
-        visits: liveEvents,
-        vaccines: liveVaccines
-      });
-    }
-  }
-
-  // Compatibility fallback for an unavailable backend endpoint.
-  if (!window.SharedMockAppointments || !window.SharedDocuments) return pet;
-
+  if (!pet || !window.SharedMockAppointments || !window.SharedDocuments) return pet;
   var me = _getSessionUser();
   var myId = me && (me.id || me.userId);
   var appts = window.SharedMockAppointments.all().filter(function (a) {
@@ -1770,7 +1868,7 @@ function __medHistHydratePet(pet) {
   var events = [];
   appts.forEach(function (a) {
     var d = summaryByAppt[String(a.appointmentId)];
-    if (!d) return;
+    if (!d) return; // pre-Phase-5 completions carry no finalized document — no fabricated history
     events.push({
       date: a.appointmentDate,
       service: __svcLabel(a.service),
@@ -1782,10 +1880,34 @@ function __medHistHydratePet(pet) {
       derived: true
     });
   });
+  // Descending by date (newest first) so a fresh consultation appears on top.
   events.sort(function (a, b) { return new Date(b.date) - new Date(a.date); });
 
-  // No structured backend response means no authoritative vaccine rows.
-  var derivedVaccines = [];
+  // Vaccination passport: only completed Vaccination consultations that have
+  // a finalized summary. The prototype records carry no structured vaccine
+  // data (name/batch/next-due), so no vaccine lines can be fabricated.
+  // TODO(BACKEND): a vaccination record model (vaccine, batch, next-due) on
+  // the consultation is required before this passport can list real doses.
+  var derivedVaccines = appts
+    .filter(function (a) {
+      return (window.SharedMockUsers && window.SharedMockUsers.serviceLabel)
+        ? String(window.SharedMockUsers.serviceLabel(a.service) || a.service).toLowerCase() === 'vaccination'
+        : String(a.service).toLowerCase() === 'vaccination';
+    })
+    .map(function (a) {
+      var d = summaryByAppt[String(a.appointmentId)];
+      return {
+        name: __svcLabel(a.service),
+        date: a.appointmentDate,
+        nextDue: '',
+        batchNo: '',
+        vet: d && d.veterinarian && d.veterinarian.name ? d.veterinarian.name : '',
+        ref: a.referenceNo || (d && d.referenceNo) || '',
+        docId: d ? d.docId : null,
+        derived: true
+      }
+    })
+    .sort(function (a, b) { return new Date(b.date) - new Date(a.date); });
 
   return Object.assign({}, pet, { visits: events, vaccines: derivedVaccines });
 }
@@ -1795,56 +1917,20 @@ function __medHistHydratePet(pet) {
 // No separate viewer, no duplicated clinical content. Ownership is re-checked
 // against the signed-in user at open time; only client-facing summary data is
 // rendered (the store never keeps subjective/objective narrative).
-window.openMedHistoryRecord = function (docId) {
-  if (!window.SharedDocuments) {
-    showToast('Records are unavailable right now. Please try again.', 'error');
-    return;
-  }
-
-  // The timeline already carries the finalized backend document ID.
-  // Fetch the exact record through the Laravel show endpoint so authorization
-  // is re-checked and the document-view audit event is recorded.
-  var doc = window.SharedDocuments.viewById
-    ? window.SharedDocuments.viewById(docId)
-    : window.SharedDocuments.byId(docId);
-
-  if (!doc) {
-    showToast('That medical record could not be found. Refresh and try again.', 'error');
-    return;
-  }
-
-  // Ownership re-check before rendering.
+function openMedHistoryRecord(docId) {
+  if (window.VHSPetOnboarding && window.VHSPetOnboarding.requirePet()) return;
   var me = _getSessionUser();
   var myId = me && (me.id || me.userId);
-  if (myId && String(doc.userId) !== String(myId)) {
-    showToast('That medical record belongs to another account.', 'error');
-    return;
-  }
-
-  if (!window.SharedDocumentRender) {
-    showToast('Record viewer is unavailable right now. Please try again.', 'error');
-    return;
-  }
-
-  // Avoid nested modals. Close the pet/history overlay first, then open the
-  // single document viewer at the body root.
-  closeModal('petProfileModal');
-  closeModal('medHistoryModal');
-
-  var viewer = _ensureUserDocViewerAtRoot();
-  var body = document.getElementById('userDocViewerBody');
-  var printBtn = document.getElementById('userDocPrint');
-
-  if (!viewer || !body || !printBtn) {
-    showToast('Document viewer is missing from this page.', 'error');
-    return;
-  }
-
-  body.innerHTML = window.SharedDocumentRender.render(doc);
-  printBtn.onclick = function () { window.print(); };
-  viewer.style.zIndex = '12000';
+  if (!window.SharedDocuments) { showToast('Records are unavailable right now. Please try again.', 'error'); return; }
+  var doc = window.SharedDocuments.byId(docId);
+  // Never fail silently: a dead View Record button looks like lost data.
+  if (!doc) { showToast('That record could not be found. It may have been removed — refresh and try again.', 'error'); return; }
+  if (!window.SharedDocumentRender) { showToast('Record viewer is unavailable right now. Please try again.', 'error'); return; }
+  if (myId && String(doc.userId) !== String(myId)) { showToast('That record belongs to another account.', 'error'); return; } // ownership re-check
+  document.getElementById('userDocViewerBody').innerHTML = window.SharedDocumentRender.render(doc);
+  document.getElementById('userDocPrint').onclick = function () { window.print(); };
   openModal('userDocViewerModal');
-};
+}
 
 // ─── PET MEDICAL HISTORY RENDERER ────────────────────────────────────────────
 
@@ -1902,7 +1988,7 @@ function renderPetHistory(pet, containerId) {
       + (visit.ref ? '<span class="med-timeline-ref">Ref: ' + escapeHtml(visit.ref) + '</span>' : '')
       + '</div>'
       + (visit.docId
-        ? '<div class="med-timeline-actions"><button type="button" class="btn-small btn-link" data-med-doc-id="' + escapeHtml(String(visit.docId)) + '">View Record</button></div>'
+        ? '<div class="med-timeline-actions"><button class="btn-small btn-link" onclick="openMedHistoryRecord(\'' + visit.docId + '\')">View Record</button></div>'
         : '')
       + '</div>'
       + '</div>'
@@ -1912,24 +1998,6 @@ function renderPetHistory(pet, containerId) {
   html += '</div>';
   container.innerHTML = html;
 }
-
-// Medical History cards are rebuilt dynamically. A delegated handler keeps
-// every View Record button functional after any re-render.
-document.addEventListener('click', function (event) {
-  var button = event.target.closest && event.target.closest('[data-med-doc-id]');
-  if (!button) return;
-
-  event.preventDefault();
-  event.stopPropagation();
-
-  var docId = button.getAttribute('data-med-doc-id');
-  if (!docId) {
-    showToast('This medical record has no document ID.', 'error');
-    return;
-  }
-
-  window.openMedHistoryRecord(docId);
-});
 
 
 function escapeHtml(text) {
@@ -1946,8 +2014,8 @@ var _activeProfileTab = 'profile-medical';
 
 function showPetProfile(petId) {
   if (window.VHSPetOnboarding && window.VHSPetOnboarding.requirePet()) return;
-  var pet = _currentPets.find(function (p) { return String(p.id) === String(petId); });
-  if (!pet) pet = mockPetsData.find(function (p) { return String(p.id) === String(petId); });
+  var pet = _currentPets.find(function (p) { return p.id === petId; });
+  if (!pet) pet = mockPetsData.find(function (p) { return p.id === petId; });
   if (!pet) return;
   // Same derived projection as the standalone history modal.
   pet = __medHistHydratePet(pet);
@@ -2029,57 +2097,12 @@ function switchProfileTab(tabId) {
 }
 
 
-
-function __refreshVaccinesForPet(pet) {
-  if (!pet || !window.VHSLiveData || typeof window.VHSLiveData.request !== 'function') {
-    return pet;
-  }
-
-  var result = window.VHSLiveData.request(
-    'GET',
-    '/api/pets/' + encodeURIComponent(pet.id) + '/vaccinations'
-  );
-
-  if (!result || !result.ok || !result.data || !result.data.data || !Array.isArray(result.data.data.vaccinations)) {
-    return pet;
-  }
-
-  pet.vaccines = result.data.data.vaccinations.map(function (v) {
-    return {
-      vaccinationId: v.vaccinationId,
-      name: v.vaccineName || '',
-      date: v.administeredDate || '',
-      nextDue: v.nextDueDate || '',
-      batchNo: v.batchNo || '',
-      vet: v.veterinarian || '',
-      ref: v.referenceNo || '',
-      consultationId: v.consultationId || null,
-      appointmentId: v.appointmentId || null,
-      notes: v.notes || '',
-      derived: true,
-      backend: true
-    };
-  });
-
-  return pet;
-}
-
 function renderVaccinePassport(pet) {
   var container = document.getElementById('profileVaccineTable');
   if (!container) return;
   if (!pet) { container.innerHTML = '<p class="med-hist-empty">No pet selected.</p>'; return; }
 
-  // Always refresh from Laravel when the Vaccination Passport is opened.
-  // This makes a just-completed Doctor vaccination visible immediately.
-  pet = __refreshVaccinesForPet(pet);
-  if (_currentProfilePet && String(_currentProfilePet.id) === String(pet.id)) {
-    _currentProfilePet = pet;
-  }
-  if (_currentPrintPet && String(_currentPrintPet.id) === String(pet.id)) {
-    _currentPrintPet = pet;
-  }
-
-  // Backend-derived only: never fabricate doses from appointment/service names.
+  // Derived-only: the hydrated pet (see __medHistHydratePet) carries
   // vaccination entries derived from completed Vaccination consultations
   // with finalized documents. Static placeholder vaccine lists are retired —
   // they presented authoritative-looking doses with no appointment/document
@@ -2227,10 +2250,6 @@ function printPetHistory() {
 function printVaccineCertificate() {
   var pet = _currentProfilePet || _currentPrintPet;
   if (!pet) return;
-
-  pet = __refreshVaccinesForPet(pet);
-  if (_currentProfilePet && String(_currentProfilePet.id) === String(pet.id)) _currentProfilePet = pet;
-  if (_currentPrintPet && String(_currentPrintPet.id) === String(pet.id)) _currentPrintPet = pet;
 
   var now = new Date();
   var datePrinted = now.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
@@ -2411,8 +2430,56 @@ function _syncFromStore() {
 }
 // Legacy User-portal fixtures retained for reference only — NOT rendered.
 // TODO(BACKEND): delete once real history comes from the API.
-var _legacyUserFixtures = []; // Live runtime: no seeded appointment fixtures.
-
+var _legacyUserFixtures = [
+  {
+    id: 'apt001', pet_id: 1, pet_name: 'Luna', pet_type: 'Cat', pet_breed: 'Persian',
+    service: 'General Consultation', date: '2026-09-15', time: '10:30 AM',
+    status: 'scheduled', notes: 'Annual wellness check',
+    reference_no: 'VHS-2026-0915-001'
+  },
+  {
+    id: 'apt002', pet_id: 2, pet_name: 'Buddy', pet_type: 'Dog', pet_breed: 'Golden Retriever',
+    service: 'Grooming', date: '2026-09-20', time: '02:00 PM',
+    status: 'scheduled', notes: 'Full groom package',
+    reference_no: 'VHS-2026-0920-002'
+  },
+  {
+    id: 'apt003', pet_id: 1, pet_name: 'Luna', pet_type: 'Cat', pet_breed: 'Persian',
+    service: 'Vaccination — FVRCP Booster', date: '2026-10-05', time: '11:00 AM',
+    status: 'pending', notes: '',
+    reference_no: 'VHS-2026-1005-003'
+  },
+  {
+    id: 'apt004', pet_id: 3, pet_name: 'Mochi', pet_type: 'Cat', pet_breed: 'Siamese',
+    service: 'Blood Test — CBC', date: '2026-08-28', time: '09:00 AM',
+    status: 'completed', notes: 'Routine bloodwork',
+    reference_no: 'VHS-2026-0828-004'
+  },
+  {
+    id: 'apt005', pet_id: 2, pet_name: 'Buddy', pet_type: 'Dog', pet_breed: 'Golden Retriever',
+    service: 'Dental Prophylaxis', date: '2026-07-10', time: '08:30 AM',
+    status: 'completed', notes: 'Dental cleaning under sedation',
+    reference_no: 'VHS-2026-0710-005'
+  },
+  {
+    id: 'apt006', pet_id: 1, pet_name: 'Luna', pet_type: 'Cat', pet_breed: 'Persian',
+    service: 'Deworming', date: '2026-06-01', time: '03:30 PM',
+    status: 'completed', notes: '',
+    reference_no: 'VHS-2026-0601-006'
+  },
+  {
+    id: 'apt007', pet_id: 3, pet_name: 'Mochi', pet_type: 'Cat', pet_breed: 'Siamese',
+    service: 'Consultation — Limping', date: '2026-05-15', time: '01:00 PM',
+    status: 'canceled', notes: 'Owner rescheduled then cancelled',
+    reference_no: 'VHS-2026-0515-007'
+  },
+  {
+    id: 'apt008', pet_id: 2, pet_name: 'Buddy', pet_type: 'Dog', pet_breed: 'Golden Retriever',
+    service: 'Vaccination — Rabies', date: '2026-11-05', time: '10:00 AM',
+    status: 'scheduled', notes: '',
+    reference_no: 'VHS-2026-1105-008'
+  }
+];
 
 
 // ─── APPOINTMENTS RENDERER ───────────────────────────────────────────────────
@@ -2620,7 +2687,7 @@ function _showCutoffModal() {
 // ─── RESCHEDULE ──────────────────────────────────────────────────────────────
 
 function openRescheduleModal(apptId) {
-  var appt = mockAppointmentsData.find(function(a) { return String(a.id) === String(apptId); });
+  var appt = mockAppointmentsData.find(function(a) { return a.id === apptId; });
   if (!appt) return;
   if (_isWithinTwoHours(appt.date, appt.time)) {
     _showCutoffModal();
@@ -2653,26 +2720,19 @@ function _populateRescheduleSlots(dateStr) {
   var timeSelect = document.getElementById('rescheduleTime');
   if (!timeSelect) return;
   var targetDate = dateStr || new Date().toISOString().split('T')[0];
-  var slots = getVHSTimeSlots(targetDate);
-  slots = _filterPastSlots(slots, targetDate);
-  // Hide slots already held by OTHER effective appointments (this
-  // appointment's own current slot stays selectable).
+  // Same shared engine as the booking form. excludeAppointmentId keeps this
+  // appointment from blocking its OWN current slot while it still holds it.
   // TODO(BACKEND): slot availability comes from the API availability check.
-  var store = window.SharedMockAppointments;
-  if (store) {
-    var apptId = document.getElementById('rescheduleApptId') ? document.getElementById('rescheduleApptId').value : null;
-    var taken = store.takenSlots(targetDate, apptId);
-    var toHHMM = window.AppointmentContract ? window.AppointmentContract.timeToHHMM : function(v){return v;};
-    var takenSet = taken.map(function(t){ return String(toHHMM(t)); });
-    slots = slots.filter(function(slot) {
-      var parts = String(slot).trim().match(/(\d{1,2}):(\d{2})\s*(AM|PM)/i);
-      if (!parts) return true;
-      var h = parseInt(parts[1], 10);
-      if (parts[3].toUpperCase() === 'PM' && h !== 12) h += 12;
-      if (parts[3].toUpperCase() === 'AM' && h === 12) h = 0;
-      return takenSet.indexOf(String(h).padStart(2, '0') + ':' + parts[2]) === -1;
-    });
-  }
+  var apptId = document.getElementById('rescheduleApptId') ? document.getElementById('rescheduleApptId').value : null;
+  var _store = window.SharedMockAppointments;
+  var _appt = (apptId && _store) ? _store.byId(apptId) : null;
+  var _svc = (_appt && window.SharedMockUsers && window.SharedMockUsers.serviceByValue)
+    ? window.SharedMockUsers.serviceByValue(_appt.service) : null;
+  var slots = _smartSchedulingSlots(targetDate, {
+    serviceId: _svc ? _svc.serviceId : null,
+    excludeAppointmentId: apptId || null
+  });
+  slots = _filterPastSlots(slots, targetDate);
   timeSelect.innerHTML = '<option value="">Select time</option>' + slots.map(function(s) {
     return '<option value="' + s + '">' + s + '</option>';
   }).join('');
@@ -2727,53 +2787,60 @@ function _getResolvedValue(selectId, otherInputId) {
   return sel.value;
 }
 
-async function submitReschedule(e) {
+function submitReschedule(e) {
   e.preventDefault();
   var apptId = document.getElementById('rescheduleApptId').value;
   var newDate = document.getElementById('rescheduleDate').value;
   var newTime = document.getElementById('rescheduleTime').value;
   var reason = _getResolvedValue('rescheduleReason', 'rescheduleReasonOther');
   if (!newDate || !newTime) { showToast('Please select a new date and time.', 'warning'); return; }
-
-  try {
-    var availabilityResponse = await fetch('/api/availability?date=' + encodeURIComponent(newDate) + '&exclude_id=' + encodeURIComponent(apptId), { headers: { 'Accept': 'application/json' } });
-    var availabilityData = await availabilityResponse.json();
-    if (!availabilityResponse.ok) throw new Error((availabilityData && availabilityData.message) || 'Availability could not be checked.');
-    var availableDisplay = availabilityData && availabilityData.data ? (availabilityData.data.display_slots || []) : [];
-    if (availableDisplay.indexOf(newTime) === -1) {
-      _populateRescheduleSlots(newDate);
-      throw new Error('That time is no longer available. Please choose another slot.');
+  var store = window.SharedMockAppointments;
+  // Canonical record lookup — the store is the source of truth, not the
+  // page-load display cache. Same appointmentId/referenceNo are preserved by
+  // the store; only date/time move.
+  // TODO(BACKEND): PATCH /appointments/:id { appointment_date, appointment_time }.
+  var rec = store ? (store.byId(apptId) || store.byReference(apptId)) : null;
+  if (rec && store) {
+    if (_isWithinTwoHours(rec.appointmentDate, rec.appointmentTime)) { _showCutoffModal(); return; }
+    var result = store.reschedule(rec.appointmentId, newDate, newTime);
+    if (!result.ok) {
+      // Conflict wording comes from the shared scheduling engine so the User
+      // portal explains a rejection exactly as Admin does.
+      var _taken = result.error === 'slot_taken' || result.error === 'doctor_conflict' ||
+                   result.error === 'resource_capacity_reached';
+      showToast(result.error === 'invalid_status'
+        ? 'Only confirmed appointments can be rescheduled.'
+        : _taken
+          ? 'That slot has just been taken. Please pick another time.'
+          : (window.SmartScheduling && window.SmartScheduling.describeReason
+              ? window.SmartScheduling.describeReason(result.error)
+              : 'Could not reschedule. Please try again.'), 'error');
+      return;
     }
-    var response = await fetch('../php_files/reschedule_appointment.php', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-      body: JSON.stringify({
-        id: apptId,
-        appointment_date: newDate,
-        appointment_time: newTime,
-        notes: reason ? 'Rescheduled — ' + reason : ''
-      })
-    });
-    var data = await response.json();
-    if (!response.ok || !data || data.status !== 'success') {
-      throw new Error((data && data.message) || 'Could not reschedule the appointment.');
-    }
+    if (reason) store.update(rec.appointmentId, { notes: (rec.notes ? rec.notes + ' | ' : '') + 'Rescheduled — ' + reason });
+    _syncFromStore();
+    if (window.AuditLog) window.AuditLog.add({ actor: _userAuditActor(), action: 'appointment_rescheduled', entityType: 'appointment', entityId: rec.appointmentId, referenceNo: rec.referenceNo || '', description: _userAuditActor().actorName + ' rescheduled ' + (rec.referenceNo || '') + ' to ' + newDate + ' ' + newTime, metadata: { appointmentDate: newDate, appointmentTime: newTime } });
     closeModal('rescheduleModal');
-    showToast('Appointment rescheduled to ' + _fmtApptDateShort(newDate) + ' at ' + newTime + '.', 'success');
-    loadUserAppointments();
-  } catch (err) {
-    console.error('Reschedule failed:', err);
-    var msg = err.message === 'cutoff_window'
-      ? 'Appointments can no longer be rescheduled inside the clinic cutoff window.'
-      : err.message;
-    showToast(msg || 'Could not reschedule. Please try again.', 'error');
+    showToast('Appointment rescheduled to ' + _fmtApptDateShort(newDate) + ' at ' + (_fmtApptTimeShort(result.appointment.appointmentTime) || newTime) + '.', 'success');
+    renderAppointmentCards();
+    return;
   }
+  // No shared store loaded: legacy local behaviour.
+  var appt = mockAppointmentsData.find(function(a) { return a.id === apptId; });
+  if (appt) {
+    appt.date = newDate;
+    appt.time = newTime;
+    appt.notes = (appt.notes ? appt.notes + ' | ' : '') + 'Rescheduled' + (reason ? ' — ' + reason : '');
+  }
+  closeModal('rescheduleModal');
+  showToast('Appointment rescheduled to ' + _fmtApptDateShort(newDate) + ' at ' + newTime + '.', 'success');
+  renderAppointmentCards();
 }
 
 // ─── CANCEL ──────────────────────────────────────────────────────────────────
 
 function openCancelModal(apptId) {
-  var appt = mockAppointmentsData.find(function(a) { return String(a.id) === String(apptId); });
+  var appt = mockAppointmentsData.find(function(a) { return a.id === apptId; });
   if (!appt) return;
   if (_isWithinCancelCutoff(appt.date, appt.time)) {
     _showCutoffModal();
@@ -2792,29 +2859,31 @@ function openCancelModal(apptId) {
   openModal('cancelModal');
 }
 
-async function submitCancel(e) {
+function submitCancel(e) {
   e.preventDefault();
   var apptId = document.getElementById('cancelApptId').value;
   var reason = _getResolvedValue('cancelReason', 'cancelReasonOther');
   if (!reason) { showToast('Please select a cancellation reason.', 'warning'); return; }
-
-  try {
-    var response = await fetch('../php_files/update_appointment_status.php', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-      body: JSON.stringify({ id: apptId, status: 'canceled', reason: reason })
-    });
-    var data = await response.json();
-    if (!response.ok || !data || data.status !== 'success') {
-      throw new Error((data && data.message) || 'Could not cancel the appointment.');
-    }
-    closeModal('cancelModal');
-    showToast('Appointment cancelled.', 'warning');
-    loadUserAppointments();
-  } catch (err) {
-    console.error('Cancellation failed:', err);
-    showToast(err.message || 'Could not cancel the appointment.', 'error');
+  var store = window.SharedMockAppointments;
+  var rec = store ? (store.byId(apptId) || store.byReference(apptId)) : null;
+  if (rec && store) {
+    // Cancellation goes through the guarded store transition so every portal
+    // sees the same canceled state. TODO(BACKEND): status endpoint.
+    var result = store.setStatus(rec.appointmentId, 'canceled');
+    if (!result.ok) { showToast('This appointment can no longer be cancelled.', 'error'); return; }
+    if (reason) store.update(rec.appointmentId, { notes: (rec.notes ? rec.notes + ' | ' : '') + 'Cancelled — ' + reason });
+    if (window.AuditLog) window.AuditLog.add({ actor: _userAuditActor(), action: 'appointment_canceled', entityType: 'appointment', entityId: rec.appointmentId, referenceNo: rec.referenceNo || '', description: _userAuditActor().actorName + ' cancelled appointment ' + (rec.referenceNo || ''), metadata: { reason: reason || '' } });
   }
+  // There is no legacy fallback path any more. `mockAppointmentsData` is a
+  // DERIVED projection of SharedMockAppointments.all() (rebuilt by
+  // _syncFromStore()), and its `id` is exactly the appointmentId that
+  // store.byId() looks up. So when rec is null, no second local search could
+  // ever find it — the old branch was provably a no-op and is removed rather
+  // than left to imply a second, conflicting lifecycle.
+  closeModal('cancelModal');
+  showToast('Appointment cancelled.', 'warning');
+  _syncFromStore();
+  renderAppointmentCards();
 }
 
 
@@ -2904,35 +2973,29 @@ function _renderPetCards(pets, grid, dashGrid, petCount) {
 
 
 function loadPets() {
+  var user = _getSessionUser();
+  var userId = user.id || user.userId;
+
   var grid = document.getElementById('petsGrid');
   var dashGrid = document.getElementById('dashPetsGrid');
   var petCount = document.getElementById('statPetCount');
 
+  // If no session (e.g. GitHub Pages), render mock data directly
+  if (!userId) {
+    _renderPetCards(mockPetsData, grid, dashGrid, petCount);
+    return;
+  }
+
   if (grid) grid.innerHTML = '<p style="color:#888;padding:1rem 0">Loading pets...</p>';
 
-  fetch('/api/users/me/pets', { headers: { 'Accept': 'application/json' } })
-    .then(function (r) {
-      if (r.status === 401) throw new Error('SESSION_EXPIRED');
-      if (!r.ok) throw new Error('HTTP ' + r.status);
-      return r.json();
-    })
-    .then(function (data) {
-      var pets = data && data.data && Array.isArray(data.data.pets)
-        ? data.data.pets
-        : [];
-      _currentPets = pets.slice();
-      mockPetsData.length = 0;
-      Array.prototype.push.apply(mockPetsData, pets);
+  fetch('get_pets_user.php?user_id=' + userId)
+    .then(function (r) { return r.json(); })
+    .then(function (pets) {
       _renderPetCards(pets, grid, dashGrid, petCount);
     })
-    .catch(function (err) {
-      console.error('Failed to load pets:', err);
-      _currentPets = [];
-      mockPetsData.length = 0;
-      _renderPetCards([], grid, dashGrid, petCount);
-      if (err && err.message === 'SESSION_EXPIRED') {
-        showToast('Your session expired. Please log in again.', 'error');
-      }
+    .catch(function () {
+      // Fallback to mock data on error
+      _renderPetCards(mockPetsData, grid, dashGrid, petCount);
     });
 }
 
@@ -2998,47 +3061,46 @@ function submitPet(e) {
 
   var editId = form.dataset.editId;
 
-  // Live mode: Laravel session determines the pet owner. Never trust a hidden
-  // user_id from the browser for a User account.
-  formData.delete('user_id');
-  if (editId) formData.set('pet_id', editId);
+  // Try backend first, then fall back to local state
+  var user = _getSessionUser();
+  var userId = user.id || user.userId;
 
-  fetch('/api/pets/save_pet.php', {
-    method: 'POST',
-    headers: { 'Accept': 'application/json' },
-    body: formData
-  })
-    .then(function (r) {
-      return r.text().then(function (text) {
+  if (userId) {
+    // Online mode: send to PHP backend, fall back to the shared mock store
+    // when that endpoint is not there (frontend-only demo / static hosting).
+    if (editId) formData.append('pet_id', editId);
+    fetch('../api/pets/save_pet.php', { method: 'POST', body: formData })
+      .then(function (r) { return r.text(); })
+      .then(function (data) {
         var json = null;
-        try { json = text ? JSON.parse(text) : null; } catch (err) { json = null; }
-        if (!r.ok) {
-          var message = json && (json.message || json.status)
-            ? (json.message || json.status)
-            : ('HTTP ' + r.status);
-          var error = new Error(message);
-          error.status = r.status;
-          throw error;
-        }
-        return json || { success: text.trim() === 'Success' };
-      });
-    })
-    .then(function (json) {
-      if (!json || !json.success) throw new Error((json && (json.message || json.status)) || 'Pet save failed.');
-      closeModal('petModal');
-      showToast(editId ? 'Pet updated successfully!' : 'Pet added successfully!', 'success');
-      loadPets();
-    })
-    .catch(function(err) {
-      console.error('Pet save failed:', err);
-      if (err && err.status === 401) {
-        showToast('Your session expired. Please log in again.', 'error');
-      } else {
-        showToast('Could not save the pet: ' + (err && err.message ? err.message : 'Please try again.'), 'error');
-      }
-    });
-}
+        try { json = JSON.parse(data); } catch (err) { json = null; }
 
+        if (json && json.success) {
+          // Real backend persisted it — read the pet list back from it.
+          closeModal('petModal');
+          showToast(editId ? 'Pet updated successfully!' : 'Pet added successfully!', 'success');
+          loadPets();
+        } else if (json && json.success === false) {
+          // A real rejection: the server answered and said no.
+          showToast('Error: ' + (json.message || data), 'error');
+        } else if (data.trim() === 'Success') {
+          closeModal('petModal');
+          showToast(editId ? 'Pet updated successfully!' : 'Pet added successfully!', 'success');
+          loadPets();
+        } else {
+          // Not an API response at all (404/501/HTML). The backend is not
+          // deployed, so write through the shared store like every other
+          // frontend-demo write.
+          _submitPetLocal(petData, editId);
+        }
+      })
+      .catch(function() {
+        _submitPetLocal(petData, editId);
+      });
+  } else {
+    _submitPetLocal(petData, editId);
+  }
+}
 
 // Local state fallback: write through the SHARED pet store, then re-render.
 // The store owns ownership (ownerId) and stable IDs, which is what every
@@ -3054,11 +3116,11 @@ function _submitPetLocal(petData, editId) {
     if (!stored.ok) {
       // Pet came from the PHP backend rather than the shared store — keep the
       // previous in-memory update path so nothing is silently dropped.
-      var idx = mockPetsData.findIndex(function(p) { return String(p.id) === String(numId) || String(p.id) === String(editId); });
+      var idx = mockPetsData.findIndex(function(p) { return p.id === numId || p.id === editId; });
       if (idx !== -1) {
         Object.assign(mockPetsData[idx], petData);
       } else {
-        var idx2 = _currentPets.findIndex(function(p) { return String(p.id) === String(numId) || String(p.id) === String(editId); });
+        var idx2 = _currentPets.findIndex(function(p) { return p.id === numId || p.id === editId; });
         if (idx2 !== -1) Object.assign(_currentPets[idx2], petData);
       }
     }
@@ -3124,30 +3186,23 @@ function confirmDeletePet() {
   var editId = form ? form.dataset.editId : null;
   if (!editId) return;
   var numId = parseInt(editId, 10);
-  var pet = mockPetsData.find(function(p) { return String(p.id) === String(numId) || String(p.id) === String(editId); });
+  var pet = mockPetsData.find(function(p) { return p.id === numId || p.id === editId; });
   var petName = pet ? pet.name : 'this pet';
   showConfirm(
     'Are you sure you want to delete <strong>' + escapeHtml(petName) + '</strong>? This action cannot be undone.',
     '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>',
     'Delete Pet',
     function() {
-      var fd = new FormData();
-      fd.append('pet_id', editId);
-      fetch('../api/pets/delete_pet.php', { method: 'POST', body: fd, headers: { 'Accept': 'application/json' } })
-        .then(function(r) { return r.json().then(function(data){ return { ok:r.ok, data:data }; }); })
-        .then(function(result) {
-          if (!result.ok || !result.data || result.data.success === false) {
-            throw new Error((result.data && result.data.message) || 'Could not delete pet.');
-          }
-          closeModal('petModal');
-          showToast(petName + ' has been removed.', 'warning');
-          loadPets();
-          if (window.SharedMockUsers && window.SharedMockUsers._refresh) window.SharedMockUsers._refresh();
-        })
-        .catch(function(err) {
-          console.error('Pet delete failed:', err);
-          showToast(err.message || 'Could not delete pet.', 'error');
-        });
+      // Backend: DELETE ../api/pets/delete_pet.php { pet_id: editId }
+      var idx = mockPetsData.findIndex(function(p) { return p.id === numId || p.id === editId; });
+      if (idx !== -1) mockPetsData.splice(idx, 1);
+      _currentPets = mockPetsData.slice();
+      closeModal('petModal');
+      showToast(petName + ' has been removed.', 'warning');
+      var grid = document.getElementById('petsGrid');
+      var dashGrid = document.getElementById('dashPetsGrid');
+      var petCount = document.getElementById('statPetCount');
+      _renderPetCards(mockPetsData, grid, dashGrid, petCount);
     }
   );
 }
@@ -3344,12 +3399,6 @@ function cancelEditProfile() {
 
 
 
-
-function changePassword(event) {
-  if (event) event.preventDefault();
-  saveProfile();
-}
-
 function saveProfile() {
 
   const current = document.getElementById("currentPassword").value;
@@ -3416,7 +3465,7 @@ function saveProfile() {
 
   fd.append("address", address);
 
-  if (newPass) { fd.append("current_password", current); fd.append("new_password", newPass); }
+  if (newPass) fd.append("new_password", newPass);
 
 
 
@@ -3604,67 +3653,77 @@ function autoLabelTables() {
 
 // ─── USER DATA ────────────────────────────────────────────────────────────────
 
-function _applyUserIdentity(user) {
-  if (!user) return;
-  var rawName = String(user.name || user.fullName || '').trim();
-  var parts = rawName ? rawName.split(/\s+/) : [];
-  var firstName = user.firstName || user.first_name || parts[0] || '';
-  var lastName = user.lastName || user.last_name || (parts.length > 1 ? parts.slice(1).join(' ') : '');
-  var middleName = user.middleName || user.middle_name || '';
-  var fullName = rawName || [firstName, lastName].filter(Boolean).join(' ');
-
-  var normalized = Object.assign({}, user, {
-    id: user.id || user.userId || user.user_id,
-    userId: user.id || user.userId || user.user_id,
-    firstName: firstName,
-    middleName: middleName,
-    lastName: lastName,
-    name: fullName,
-    fullName: fullName
-  });
-  try { sessionStorage.setItem('user', JSON.stringify(normalized)); } catch (e) {}
-
-  var welcomeEl = document.querySelector('#section-dashboard .page-header h1');
-  if (welcomeEl) welcomeEl.textContent = firstName ? ('Welcome back, ' + firstName + '!') : 'Welcome back!';
-  var sidebarName = document.querySelector('.sidebar-user-name');
-  if (sidebarName) sidebarName.textContent = fullName || 'Pet Owner';
-  var sidebarRole = document.querySelector('.sidebar-user-role');
-  if (sidebarRole) sidebarRole.textContent = 'Pet Owner';
-  var sInitials = document.getElementById('sidebarAvatarInitials');
-  if (sInitials) sInitials.textContent = _getInitials(fullName || 'Pet Owner');
-
-  var el = function(id) { return document.getElementById(id); };
-  if (el('profileLastName')) el('profileLastName').value = lastName;
-  if (el('profileFirstName')) el('profileFirstName').value = firstName;
-  if (el('profileMiddleName')) el('profileMiddleName').value = middleName;
-  if (el('profileEmail')) el('profileEmail').value = normalized.email || '';
-  if (el('profilePhone')) el('profilePhone').value = normalized.phone || '';
-  if (el('profileAddress')) el('profileAddress').value = normalized.address || '';
-  if (normalized.photo) _setAvatarDisplay(normalized.photo, true);
-}
-
 function loadUserData() {
-  var user = _getSessionUser();
-  if (user && (user.id || user.userId) && (user.firstName || user.first_name || user.name)) {
-    _applyUserIdentity(user);
+
+  // Fall back to the resolved identity so the portal never greets someone by
+  // a name that does not match the account it is rendering.
+
+  const user = _getSessionUser();
+
+  if (!user || (!user.firstName && !user.lastName)) return;
+
+
+  const fullName = `${user.firstName || ""} ${user.lastName || ""}`.trim();
+
+
+
+  const welcomeEl = document.querySelector(
+
+    "#section-dashboard .page-header h1",
+
+  );
+
+  if (welcomeEl) welcomeEl.textContent = `Welcome back, ${user.firstName}!`;
+
+
+
+  const sidebarName = document.querySelector(".sidebar-user-name");
+
+  if (sidebarName) sidebarName.textContent = fullName || "Pet Owner";
+
+
+
+  const sidebarRole = document.querySelector(".sidebar-user-role");
+
+  if (sidebarRole) sidebarRole.textContent = "Pet Owner";
+
+
+
+  const sInitials = document.getElementById("sidebarAvatarInitials");
+
+  if (sInitials) sInitials.textContent = _getInitials(fullName);
+
+
+
+  const el = (id) => document.getElementById(id);
+
+  if (el("profileLastName")) el("profileLastName").value = user.lastName || "";
+
+  if (el("profileFirstName"))
+
+    el("profileFirstName").value = user.firstName || "";
+
+  if (el("profileMiddleName"))
+
+    el("profileMiddleName").value = user.middleName || "";
+
+  if (el("profileEmail")) el("profileEmail").value = user.email || "";
+
+  if (el("profilePhone")) el("profilePhone").value = user.phone || "";
+
+  if (el("profileAddress")) el("profileAddress").value = user.address || "";
+
+
+
+  // Restore saved profile photo
+
+  if (user.photo) {
+
+    _setAvatarDisplay(user.photo, true);
+
   }
 
-  return fetch('/api/auth/me', { headers: { 'Accept': 'application/json' } })
-    .then(function(r) {
-      if (!r.ok) throw new Error('HTTP ' + r.status);
-      return r.json();
-    })
-    .then(function(data) {
-      var live = data && data.data ? data.data.user : null;
-      if (live) _applyUserIdentity(live);
-      return live;
-    })
-    .catch(function(err) {
-      console.error('Failed to refresh authenticated user:', err);
-      return null;
-    });
 }
-
 
 
 
@@ -4170,112 +4229,84 @@ if (chatbotInput) {
 (function initAnnouncementCarousel() {
 
   const track = document.getElementById("announcementTrack");
-  const dotsWrap = document.getElementById("announcementDots");
-  if (!track || !dotsWrap) return;
 
-  const SWIPE_INTERVAL = 3000;
+  const slides = track ? track.querySelectorAll(".announcement-slide") : [];
+
+  const dots = document.querySelectorAll(".announcement-dots .dot");
+
+  if (!track || !slides.length) return;
+
+
+
+  const SWIPE_INTERVAL = 3000; // 3 seconds per announcement
+
   let current = 0;
+
   let timer = null;
 
-  function announcementRequest() {
-    if (!window.VHSLiveData || typeof window.VHSLiveData.request !== 'function') {
-      return { ok: false, error: 'Announcement service unavailable.' };
-    }
-    return window.VHSLiveData.request('GET', '/api/announcements');
-  }
 
-  function renderAnnouncements(rows) {
-    const announcements = Array.isArray(rows) ? rows : [];
-
-    if (!announcements.length) {
-      track.innerHTML =
-        '<div class="announcement-slide">'
-        + '<span class="announcement-badge info">Info</span>'
-        + '<div class="announcement-slide-body">'
-        + '<strong>No clinic announcements</strong>'
-        + '<p>There are no active announcements at this time.</p>'
-        + '</div></div>';
-      dotsWrap.innerHTML = '';
-      return;
-    }
-
-    track.innerHTML = announcements.map(function (a) {
-      const type = a.badgeType === 'new' ? 'new' : 'info';
-      const label = type === 'new' ? 'New' : 'Info';
-      return '<div class="announcement-slide">'
-        + '<span class="announcement-badge ' + type + '">' + label + '</span>'
-        + '<div class="announcement-slide-body">'
-        + '<strong>' + escapeHtml(a.title || '') + '</strong>'
-        + '<p>' + escapeHtml(a.message || '') + '</p>'
-        + '</div></div>';
-    }).join('');
-
-    dotsWrap.innerHTML = announcements.length > 1
-      ? announcements.map(function (_, index) {
-          return '<button class="dot ' + (index === 0 ? 'active' : '') + '" data-slide="' + index + '" aria-label="Announcement ' + (index + 1) + '"></button>';
-        }).join('')
-      : '';
-  }
-
-  function slides() {
-    return track.querySelectorAll(".announcement-slide");
-  }
-
-  function dots() {
-    return dotsWrap.querySelectorAll(".dot");
-  }
-
-  function stopTimer() {
-    if (timer) {
-      clearInterval(timer);
-      timer = null;
-    }
-  }
-
-  function restartTimer() {
-    stopTimer();
-    if (slides().length > 1) timer = setInterval(nextSlide, SWIPE_INTERVAL);
-  }
 
   function showSlide(index) {
-    const currentSlides = slides();
-    if (!currentSlides.length) return;
-    current = (index + currentSlides.length) % currentSlides.length;
+
+    current = (index + slides.length) % slides.length;
+
     track.style.transform = "translateX(-" + current * 100 + "%)";
-    dots().forEach((d, i) => d.classList.toggle("active", i === current));
+
+    dots.forEach((d, i) => d.classList.toggle("active", i === current));
+
     restartTimer();
+
   }
+
+
 
   function nextSlide() {
+
     showSlide(current + 1);
+
   }
 
-  function wireDots() {
-    dots().forEach((dot) => {
-      dot.addEventListener("click", () => showSlide(parseInt(dot.dataset.slide, 10)));
-    });
+
+
+  function restartTimer() {
+
+    if (timer) clearInterval(timer);
+
+    timer = setInterval(nextSlide, SWIPE_INTERVAL);
+
   }
 
-  const result = announcementRequest();
-  const rows = result && result.ok && result.data && result.data.data
-    ? result.data.data.announcements
-    : [];
 
-  renderAnnouncements(rows);
-  wireDots();
-  current = 0;
-  track.style.transform = "translateX(0)";
+
+  dots.forEach((dot) => {
+
+    dot.addEventListener("click", () => showSlide(parseInt(dot.dataset.slide, 10)));
+
+  });
+
+
+
+  // Pause rotation while hovering the carousel
 
   const carousel = document.querySelector(".dashboard-announcements");
+
   if (carousel) {
-    carousel.addEventListener("mouseenter", stopTimer);
+
+    carousel.addEventListener("mouseenter", () => {
+
+      if (timer) clearInterval(timer);
+
+    });
+
     carousel.addEventListener("mouseleave", restartTimer);
+
   }
+
+
 
   restartTimer();
 
 })();
-
 
 // ============================================================
 // PHASE 5: MY DOCUMENTS - scoped finalized client-facing documents.
@@ -4312,63 +4343,17 @@ function _renderUserDocuments() {
   }).join('');
 }
 
-function _ensureUserDocViewerAtRoot() {
-  var viewer = document.getElementById('userDocViewerModal');
-  if (!viewer) return null;
-
-  // The viewer is declared inside #section-documents in the HTML.
-  // When Medical History is opened from My Pets, that whole section is hidden,
-  // so adding .show to the nested modal cannot make it visible.
-  // Move the existing modal to <body> so it can be opened from any section.
-  if (viewer.parentElement !== document.body) {
-    document.body.appendChild(viewer);
-  }
-
-  // Pet Profile is already open when View Record is clicked. Give the
-  // document viewer a slightly higher stacking level so it appears on top.
-  viewer.style.zIndex = '2200';
-
-  return viewer;
-}
-
 window.openUserDocument = function (docId) {
-  if (!window.SharedDocuments) {
-    showToast('Documents are unavailable right now. Please try again.', 'error');
-    return;
-  }
-
-  // Use the Laravel document show endpoint for the actual open action.
-  // The server re-checks document ownership and records `document_viewed`.
-  var d = window.SharedDocuments.viewById
-    ? window.SharedDocuments.viewById(docId)
-    : window.SharedDocuments.byId(docId);
-
-  if (!d) {
-    showToast('That document could not be found. Refresh the page and try again.', 'error');
-    return;
-  }
-
-  if (!window.SharedDocumentRender) {
-    showToast('Document viewer is unavailable right now. Please try again.', 'error');
-    return;
-  }
-
-  var viewer = _ensureUserDocViewerAtRoot();
-  if (!viewer) {
-    showToast('Document viewer is missing from this page.', 'error');
-    return;
-  }
-
+  var docs = window.SharedDocuments.forUser(_currentUserIdSafe());
+  // Ownership re-check at render time: only own documents are viewable.
+  var d = docs.find(function (x) { return x.docId === docId; });
+  if (!d || !window.SharedDocumentRender) return;
   document.getElementById('userDocViewerBody').innerHTML = window.SharedDocumentRender.render(d);
   document.getElementById('userDocPrint').onclick = function () { window.print(); }; // TODO(BACKEND): server-side PDF.
   openModal('userDocViewerModal');
 };
 
-window.closeUserDocViewer = function () {
-  closeModal('userDocViewerModal');
-  var viewer = document.getElementById('userDocViewerModal');
-  if (viewer) viewer.style.zIndex = '';
-};
+window.closeUserDocViewer = function () { closeModal('userDocViewerModal'); };
 
 // Re-render on section entry and after bookings refresh.
 var _origShowSection = window.showSection;

@@ -175,20 +175,6 @@ function closeAdminBookModal() {
   document.body.classList.remove('modal-open');
 }
 
-
-function _adminFindAppointment(idOrRef) {
-  var backend = window.VHSBackendAppointments || [];
-  var raw = backend.find(function(a) {
-    return String(a.id) === String(idOrRef) ||
-      String(a.appointment_id || '') === String(idOrRef) ||
-      String(a.reference_no || a.referenceNo || '') === String(idOrRef);
-  });
-  if (raw && window.AppointmentContract) return window.AppointmentContract.fromLegacy(raw);
-  if (raw) return raw;
-  var shared = window.SharedMockAppointments;
-  return shared ? (shared.byId(idOrRef) || shared.byReference(idOrRef)) : null;
-}
-
 // ─── CHECK-IN (frontend mock over the shared canonical state) ────────────────
 // Lookup resolves a Reference ID / QR value (the QR payload IS the reference
 // number — no camera scanning is implemented). Check-in flips the SAME
@@ -224,7 +210,7 @@ function _escapeCheckInHtml(s) {
   });
 }
 
-async function lookupCheckIn() {
+function lookupCheckIn() {
   var input = document.getElementById('checkInRefInput');
   var errEl = document.getElementById('checkInError');
   var resEl = document.getElementById('checkInResult');
@@ -235,65 +221,73 @@ async function lookupCheckIn() {
   actEl.style.display = 'none';
   var value = (input.value || '').trim();
   if (!value) { errEl.textContent = 'Enter a Reference ID or QR value.'; return; }
-
-  try {
-    var response = await fetch('../php_files/get_appointments.php?reference_no=' + encodeURIComponent(value), { headers: { 'Accept': 'application/json' } });
-    var data = await response.json();
-    var raw = data && data.status === 'success' && Array.isArray(data.appointments) ? data.appointments[0] : null;
-    if (!response.ok || !raw) { errEl.textContent = 'No appointment found for "' + value + '".'; return; }
-    window._adminCheckInAppointment = raw;
-    var a = window.AppointmentContract ? window.AppointmentContract.toLegacyDisplay(window.AppointmentContract.fromLegacy(raw)) : raw;
-    var rows = [
-      ['Reference ID', a.reference_no || '—'],
-      ['Owner', a.owner_name || '—'],
-      ['Pet', (a.pet_name || '—') + (a.pet_type ? ' (' + a.pet_type + (a.pet_breed ? ' / ' + a.pet_breed : '') + ')' : '')],
-      ['Service', a.service || '—'],
-      ['Date & Time', formatDateTime(a.date, a.time)],
-      ['Visit context', a.visit_reason || '—'],
-      ['Notes', a.notes || '—'],
-      ['Status', statusBadge(a.status)]
-    ];
-    resEl.innerHTML = '<div style="border:1px solid #e5e7eb;border-radius:0.75rem;overflow:hidden;">' +
-      rows.map(function(r) {
-        return '<div style="display:flex;justify-content:space-between;gap:1rem;padding:0.5rem 0.75rem;border-bottom:1px solid #f3f4f6;font-size:0.9rem;">' +
-          '<span style="color:#6b7280;flex-shrink:0;">' + r[0] + '</span>' +
-          '<span style="text-align:right;font-weight:500;color:#111827;">' + r[1] + '</span>' +
-          '</div>';
-      }).join('') + '</div>';
-    if (a.status === 'confirmed') {
-      actEl.style.display = 'flex';
-    } else if (a.status === 'checked_in') {
-      errEl.textContent = 'Already checked in.';
-    } else {
-      errEl.textContent = 'Check-in is not available for this appointment status (' + statusBadge(a.status) + ').';
+  var shared = window.SharedMockAppointments;
+  var appt = shared ? shared.lookup(value) : null;
+  if (!appt) { errEl.textContent = 'No appointment found for "' + value + '".'; return; }
+  var a = window.AppointmentContract.toLegacyDisplay(window.AppointmentContract.fromLegacy(appt));
+  var rows = [
+    ['Reference ID', a.reference_no || '—'],
+    ['Owner', a.owner_name || '—'],
+    ['Pet', (a.pet_name || '—') + (a.pet_type ? ' (' + a.pet_type + (a.pet_breed ? ' / ' + a.pet_breed : '') + ')' : '')],
+    ['Service', a.service || '—'],
+    ['Date & Time', formatDateTime(a.date, a.time)],
+    ['Visit context', a.visit_reason || '—'],
+    ['Notes', a.notes || '—'],
+    ['Status', statusBadge(a.status)]
+  ];
+  resEl.innerHTML = '<div style="border:1px solid #e5e7eb;border-radius:0.75rem;overflow:hidden;">' +
+    rows.map(function(r) {
+      return '<div style="display:flex;justify-content:space-between;gap:1rem;padding:0.5rem 0.75rem;border-bottom:1px solid #f3f4f6;font-size:0.9rem;">' +
+        '<span style="color:#6b7280;flex-shrink:0;">' + r[0] + '</span>' +
+        '<span style="text-align:right;font-weight:500;color:#111827;">' + r[1] + '</span>' +
+        '</div>';
+    }).join('') + '</div>';
+  if (a.status === 'confirmed') {
+    actEl.style.display = 'flex';
+  } else if (a.status === 'checked_in') {
+    var ciText = '';
+    if (a.checked_in_at) {
+      var ciDate = new Date(a.checked_in_at);
+      if (!isNaN(ciDate)) {
+        ciText = ' at ' + ciDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) +
+                 ', ' + ciDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+      }
     }
-  } catch (err) {
-    console.error('Check-in lookup failed:', err);
-    errEl.textContent = 'Could not look up the appointment.';
+    errEl.textContent = 'Already checked in' + ciText + '.';
+  } else {
+    errEl.textContent = 'Check-in is not available for this appointment status (' + statusBadge(a.status) + ').';
   }
 }
 
-async function checkInAppointment() {
+function checkInAppointment() {
+  var input = document.getElementById('checkInRefInput');
   var errEl = document.getElementById('checkInError');
-  var raw = window._adminCheckInAppointment;
-  var id = raw && (raw.id || raw.appointment_id || raw.appointmentId);
-  if (!id) { if (errEl) errEl.textContent = 'Appointment no longer available.'; return; }
-  try {
-    var response = await fetch('../php_files/update_appointment_status.php', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-      body: JSON.stringify({ id: id, status: 'checked_in' })
-    });
-    var data = await response.json();
-    if (!response.ok || !data || data.status !== 'success') throw new Error((data && data.message) || 'Check-in failed.');
-    var ref = raw.reference_no || raw.referenceNo || '';
-    closeCheckInModal();
-    showToast('Patient checked in. Reference ' + ref + '.', 'success');
-    window._adminCheckInAppointment = null;
-    loadAppointments();
-  } catch (err) {
-    console.error('Check-in failed:', err);
-    if (errEl) errEl.textContent = err.message || 'Check-in failed.';
+  var actEl = document.getElementById('checkInActions');
+  var shared = window.SharedMockAppointments;
+  var appt = shared ? shared.lookup((input.value || '').trim()) : null;
+  if (!appt) { errEl.textContent = 'Appointment no longer available.'; return; }
+  var result = shared.checkIn(appt.appointmentId);
+  if (!result.ok) {
+    errEl.textContent = result.error === 'already'
+      ? 'Already checked in.'
+      : result.error === 'invalid_status'
+        ? 'Check-in is only allowed for confirmed appointments.'
+        : 'Check-in failed.';
+    return;
+  }
+  closeCheckInModal();
+  showToast('Patient checked in. Reference ' + result.appointment.referenceNo + '.', 'success');
+  _auditAdmin({ action: 'patient_checked_in', entityType: 'appointment', entityId: result.appointment.appointmentId, referenceNo: result.appointment.referenceNo, description: 'Admin checked in ' + (result.appointment.pet ? result.appointment.pet.name : 'patient') + ' — ' + result.appointment.referenceNo, metadata: { owner: result.appointment.owner ? result.appointment.owner.name : '', pet: result.appointment.pet ? result.appointment.pet.name : '' } });
+  // Refresh whichever appointment views exist on this page so the same
+  // shared record shows Checked In immediately.
+  if (document.getElementById('allAppointmentsTable')) loadAppointments();
+  if (document.getElementById('todayScheduleTable') && window.SharedMockAppointments) {
+    var contract = window.AppointmentContract;
+    var _nowD = new Date();
+    var realToday = _nowD.getFullYear() + '-' + String(_nowD.getMonth() + 1).padStart(2, '0') + '-' + String(_nowD.getDate()).padStart(2, '0');
+    renderTodaysScheduleTable(shared.getAll().map(function(a) {
+      return contract ? contract.toLegacyDisplay(contract.fromLegacy(a)) : a;
+    }).filter(function(a) { return a.date === realToday; }));
   }
 }
 
@@ -302,26 +296,29 @@ async function checkInAppointment() {
 // SharedMockAppointments.reschedule() — never a duplicate appointment.
 // TODO(BACKEND): PATCH /appointments/:id { appointment_date, appointment_time }.
 function openAdminReschedule(idOrRef) {
-  var rec = _adminFindAppointment(idOrRef);
+  var shared = window.SharedMockAppointments;
+  var rec = shared ? (shared.byId(idOrRef) || shared.byReference(idOrRef)) : null;
   if (!rec) { showToast('Appointment not found.', 'error'); return; }
-  var status = window.AppointmentContract ? window.AppointmentContract.normalizeStatus(rec.status) : rec.status;
-  if (status !== 'confirmed' && status !== 'pending') {
+  var s = window.AppointmentContract ? window.AppointmentContract.normalizeStatus(rec.status) : rec.status;
+  if (s !== 'confirmed' && s !== 'pending') {
     showToast('Only confirmed appointments can be rescheduled.', 'warning');
     return;
   }
-  var date = rec.appointmentDate || rec.appointment_date || rec.date || '';
-  var time = rec.appointmentTime || rec.appointment_time || rec.time || '';
-  var id = rec.appointmentId || rec.appointment_id || rec.id;
-  var ref = rec.referenceNo || rec.reference_no || '';
-  var owner = rec.owner ? rec.owner.name : (rec.owner_name || '');
-  var pet = rec.pet ? rec.pet.name : (rec.pet_name || '');
-  document.getElementById('adminRescheduleApptId').value = id;
+  // SAME shared reschedule cut-off as the User portal (Clinic Settings).
+  // UI hiding is not enough: a direct modal invocation must still be refused.
+  // TODO(BACKEND): enforce the cut-off server-side on PATCH /appointments/:id.
+  if (window.VHSClinicSettings && window.VHSClinicSettings.isRescheduleBlocked) {
+    var _toHHMM = window.AppointmentContract ? window.AppointmentContract.timeToHHMM : function (v) { return v; };
+    if (window.VHSClinicSettings.isRescheduleBlocked(rec.appointmentDate, _toHHMM(rec.appointmentTime))) {
+      showToast('Rescheduling is no longer available within ' + window.VHSClinicSettings.cutoffLabel('reschedule') + ' of the appointment.', 'warning');
+      return;
+    }
+  }
+  document.getElementById('adminRescheduleApptId').value = rec.appointmentId;
   document.getElementById('adminRescheduleInfo').textContent =
-    ref + ' · ' + owner + ' · ' + pet + ' · currently ' + date + ' ' +
-    (window.AppointmentContract ? window.AppointmentContract.timeTo12h(time) : time);
-  var _rescheduleDateInput = document.getElementById('adminRescheduleDate');
-  _rescheduleDateInput.value = '';
-  _rescheduleDateInput.min = new Date().toISOString().split('T')[0];
+    (rec.referenceNo || '') + ' · ' + (rec.owner ? rec.owner.name : '') + ' · ' + (rec.pet ? rec.pet.name : '') +
+    ' · currently ' + rec.appointmentDate + ' ' + (window.AppointmentContract ? window.AppointmentContract.timeTo12h(rec.appointmentTime) : rec.appointmentTime);
+  document.getElementById('adminRescheduleDate').value = '';
   _populateAdminRescheduleSlots();
   var modal = document.getElementById('adminRescheduleModal');
   if (modal) modal.classList.add('show');
@@ -336,42 +333,81 @@ function _populateAdminRescheduleSlots() {
   if (!timeSel || !dateInput) return;
   var dateVal = dateInput.value;
   if (!dateVal) { timeSel.innerHTML = '<option value="">Select a date first</option>'; return; }
-  var apptId = document.getElementById('adminRescheduleApptId') ? document.getElementById('adminRescheduleApptId').value : '';
-  timeSel.innerHTML = '<option value="">Loading slots...</option>';
-  fetch('/api/availability?date=' + encodeURIComponent(dateVal) + (apptId ? '&exclude_id=' + encodeURIComponent(apptId) : ''), { headers: { 'Accept': 'application/json' } })
-    .then(function(r) { if (!r.ok) throw new Error('Availability service unavailable.'); return r.json(); })
-    .then(function(data) {
-      var slots = data && data.data ? (data.data.display_slots || []) : [];
-      timeSel.innerHTML = slots.length
-        ? '<option value="">Select time</option>' + slots.map(function(slot) { return '<option value="' + slot + '">' + slot + '</option>'; }).join('')
-        : '<option value="">No available slots</option>';
-    })
-    .catch(function(err) {
-      console.error('Admin reschedule availability failed:', err);
-      timeSel.innerHTML = '<option value="">Availability unavailable — try again</option>';
+  var slots = (typeof getVHSTimeSlots === 'function') ? getVHSTimeSlots(dateVal) : [];
+  // Same shared scheduling engine as the User booking form and Vetti, so the
+  // front desk can never offer a slot the owner portal refuses (or hide one
+  // it allows). excludeAppointmentId keeps this appointment from blocking
+  // its OWN current slot.
+  // TODO(BACKEND): slot availability comes from the API availability check.
+  var apptId = document.getElementById('adminRescheduleApptId') ? document.getElementById('adminRescheduleApptId').value : null;
+  var sched = window.SmartScheduling;
+  var users = window.SharedMockUsers;
+  var appt = (apptId && window.SharedMockAppointments) ? window.SharedMockAppointments.byId(apptId) : null;
+  var svc = (appt && users && users.serviceByValue) ? users.serviceByValue(appt.service) : null;
+  if (sched && typeof sched.getAvailableSlots === 'function' && svc) {
+    var result = sched.getAvailableSlots({
+      serviceId: svc.serviceId,
+      date: dateVal,
+      excludeAppointmentId: apptId || null
     });
+    slots = result.ok ? result.slots.map(function (s) { return s.time; }) : [];
+  } else {
+    // Engine or service unavailable: fall back to the clinic's own hours
+    // rather than guessing at availability.
+    var fallback = window.SharedMockAppointments ? window.SharedMockAppointments.takenSlots(dateVal, apptId) : [];
+    var toHHMM = window.AppointmentContract ? window.AppointmentContract.timeToHHMM : function (v) { return v; };
+    var takenSet = fallback.map(function (t) { return String(toHHMM(t)); });
+    slots = slots.filter(function (slot) {
+      var parts = String(slot).trim().match(/(\d{1,2}):(\d{2})\s*(AM|PM)/i);
+      if (!parts) return true;
+      var h = parseInt(parts[1], 10);
+      if (parts[3].toUpperCase() === 'PM' && h !== 12) h += 12;
+      if (parts[3].toUpperCase() === 'AM' && h === 12) h = 0;
+      return takenSet.indexOf(h + ':' + parts[2]) === -1;
+    });
+  }
+  timeSel.innerHTML = slots.length
+    ? '<option value="">Select time</option>' + slots.map(function(s){ return '<option value="' + s + '">' + s + '</option>'; }).join('')
+    : '<option value="">No available slots that day</option>';
 }
-async function submitAdminReschedule(e) {
+function submitAdminReschedule(e) {
   e.preventDefault();
   var id = document.getElementById('adminRescheduleApptId').value;
   var newDate = document.getElementById('adminRescheduleDate').value;
   var newTime = document.getElementById('adminRescheduleTime').value;
   if (!newDate || !newTime) { showToast('Select a new date and time.', 'warning'); return; }
-  try {
-    var response = await fetch('../php_files/reschedule_appointment.php', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-      body: JSON.stringify({ id: id, appointment_date: newDate, appointment_time: newTime })
-    });
-    var data = await response.json();
-    if (!response.ok || !data || data.status !== 'success') throw new Error((data && data.message) || 'Could not reschedule.');
-    closeAdminReschedule();
-    showToast('Appointment rescheduled successfully. The Reference ID is unchanged.', 'success');
-    loadAppointments();
-  } catch (err) {
-    console.error('Admin reschedule failed:', err);
-    showToast(err.message || 'Could not reschedule.', 'error');
+  var shared = window.SharedMockAppointments;
+  var _before = shared ? shared.byId(id) : null;
+  if (!_before) { showToast('Appointment not found.', 'error'); return; }
+  // Submit-handler guard: even if the modal was opened before the cut-off or
+  // invoked directly, a reschedule inside the shared cut-off window is
+  // rejected — no store update, no duplicate, no audit event.
+  if (window.VHSClinicSettings && window.VHSClinicSettings.isRescheduleBlocked) {
+    var _toHHMM = window.AppointmentContract ? window.AppointmentContract.timeToHHMM : function (v) { return v; };
+    if (window.VHSClinicSettings.isRescheduleBlocked(_before.appointmentDate, _toHHMM(_before.appointmentTime))) {
+      showToast('Rescheduling is no longer available within ' + window.VHSClinicSettings.cutoffLabel('reschedule') + ' of the appointment.', 'warning');
+      return;
+    }
   }
+  var oldDate = _before ? _before.appointmentDate : '';
+  var oldTime = _before ? _before.appointmentTime : '';
+  var result = shared ? shared.reschedule(id, newDate, newTime) : { ok: false, error: 'not_found' };
+  if (!result.ok) {
+    // Same shared wording the User portal uses, so the front desk and the
+    // owner are told the same thing about the same conflict.
+    var _taken = result.error === 'slot_taken' || result.error === 'doctor_conflict' ||
+                 result.error === 'resource_capacity_reached';
+    showToast(_taken
+      ? 'That slot is already booked.'
+      : (window.SmartScheduling && window.SmartScheduling.describeReason
+          ? window.SmartScheduling.describeReason(result.error)
+          : 'Could not reschedule.'), 'error');
+    return;
+  }
+  closeAdminReschedule();
+  showToast('Rescheduled to ' + newDate + ' ' + (window.AppointmentContract ? window.AppointmentContract.timeTo12h(result.appointment.appointmentTime) : result.appointment.appointmentTime) + ' (same Reference ' + result.appointment.referenceNo + ').', 'success');
+  _auditAdmin({ action: 'appointment_rescheduled', entityType: 'appointment', entityId: result.appointment.appointmentId, referenceNo: result.appointment.referenceNo, description: 'Admin rescheduled ' + result.appointment.referenceNo + ' from ' + oldDate + ' ' + oldTime + ' to ' + newDate + ' ' + newTime, metadata: { previousDate: oldDate, previousTime: oldTime, appointmentDate: newDate, appointmentTime: newTime } });
+  if (document.getElementById('allAppointmentsTable')) loadAppointments();
 }
 
 document.addEventListener('keydown', function(e) {
@@ -415,10 +451,78 @@ document.addEventListener('change', function(e) {
   if (e.target.id === 'adminBookDate') {
     refreshAdminTimeSlots();
   }
+  if (e.target.id === 'adminBookService') {
+    // Availability is per SERVICE (doctor capacity and capacityPerSlot differ
+    // per service), so changing the service must recompute the slot list. The
+    // date handler alone left the dropdown showing whatever was rendered for
+    // the previous service — e.g. all clinic hours when the date was picked
+    // before the service — which let Admin offer a slot the engine refuses and
+    // the User portal hides. The previously chosen time is deliberately NOT
+    // preserved: it may not be bookable under the new service.
+    refreshAdminTimeSlots();
+  }
   if (e.target.id === 'adminRescheduleDate') {
     _populateAdminRescheduleSlots();
   }
 });
+
+// ── SCHEDULING ADAPTER (Admin booking) ──────────────────────────────
+// Availability ALWAYS comes from SmartScheduling — the same engine the User
+// booking form, the reschedule modal and Vetti read, so the front desk can
+// never be offered a slot the owner portal refuses, or vice versa.
+//
+// The PHP endpoint below is a LEGACY FALLBACK ONLY. It is reached just when
+// the engine cannot answer at all (engine script missing, or the selected
+// service cannot be resolved against the catalog) — never for an ordinary UI
+// state such as "no service chosen yet". It applies the old universal
+// "anything at this wall-clock time is booked" rule, so it does NOT understand
+// doctor capacity or per-service capacity — its answer must never be treated
+// as authoritative, which is why the final save re-validates through the
+// engine and never trusts this answer on its own.
+// TODO(BACKEND): delete _legacyBookedSlotsFromPhp once
+// GET /api/scheduling/slots exists; the engine then answers everywhere.
+function _legacyBookedSlotsFromPhp(dateStr) {
+  if (!dateStr) return Promise.resolve(null);
+  return fetch('../php_files/get_booked_slots.php?date=' + dateStr)
+    .then(function (r) { return r.json(); })
+    .then(function (data) {
+      return (data && data.booked_slots) ? data.booked_slots : null;
+    })
+    .catch(function () { return null; });   // endpoint absent -> unfiltered hours
+}
+
+// Resolve the booking service the same way every portal does, and ask the
+// engine. Returns { ok, slots:['9:00 AM', ...], reason, service } or null when
+// the engine cannot answer and the caller must fall back.
+function _adminSchedulingSlots(dateStr) {
+  var sched = window.SmartScheduling;
+  var users = window.SharedMockUsers;
+  if (!sched || typeof sched.getAvailableSlots !== 'function') return null;
+  if (!users || typeof users.serviceByValue !== 'function') return null;
+  var value = document.getElementById('adminBookService');
+  var svc = (value && value.value) ? users.serviceByValue(value.value) : null;
+  if (!svc) return null;
+  var result = sched.getAvailableSlots({ serviceId: svc.serviceId, date: dateStr });
+  return {
+    ok: result.ok === true,
+    reason: result.reason || null,
+    service: svc,
+    slots: result.slots.map(function (s) { return s.time; })
+  };
+}
+
+function _renderAdminSlotOptions(timeSelect, slots, prefilledTime) {
+  timeSelect.innerHTML = slots.length
+    ? '<option value="">Select time</option>' + slots.map(function (slot) {
+        return '<option value="' + slot + '">' + slot + '</option>';
+      }).join('')
+    : '<option value="">No available slots that day</option>';
+  if (prefilledTime) timeSelect.value = prefilledTime;
+  // #adminBookTime is wrapped in a custom dropdown, whose closed-state label
+  // is a SEPARATE copy of the selection. Without this the trigger can keep
+  // advertising a time that the freshly rendered list no longer contains.
+  if (typeof timeSelect._cdRefresh === 'function') timeSelect._cdRefresh();
+}
 
 function refreshAdminTimeSlots(prefilledTime) {
   var dateInput  = document.getElementById('adminBookDate');
@@ -428,23 +532,50 @@ function refreshAdminTimeSlots(prefilledTime) {
     timeSelect.innerHTML = '<option value="">Select date first</option>';
     return;
   }
+
+  // No service picked yet: there is nothing to check capacity against, so list
+  // the clinic's own hours — exactly what the User form does. This is a normal
+  // UI state, not an engine failure, so it must NOT reach for the legacy
+  // endpoint below.
+  var svcValue = document.getElementById('adminBookService')
+    ? document.getElementById('adminBookService').value : '';
+  if (!svcValue) {
+    _renderAdminSlotOptions(timeSelect, getVHSTimeSlots(dateInput.value), prefilledTime);
+    return;
+  }
+
+  // 1. Authoritative: the shared scheduling engine.
+  var viaEngine = _adminSchedulingSlots(dateInput.value);
+  if (viaEngine) {
+    if (!viaEngine.ok) {
+      timeSelect.innerHTML = '<option value="">' +
+        (window.SmartScheduling.describeReason
+          ? window.SmartScheduling.describeReason(viaEngine.reason)
+          : 'No available slots that day') + '</option>';
+      return;
+    }
+    _renderAdminSlotOptions(timeSelect, viaEngine.slots, prefilledTime);
+    return;
+  }
+
+  // 2. LEGACY FALLBACK ONLY — see the adapter note above.
+  var slots = getVHSTimeSlots(dateInput.value);
   timeSelect.innerHTML = '<option value="">Loading slots...</option>';
-  fetch('/api/availability?date=' + encodeURIComponent(dateInput.value), { headers: { 'Accept': 'application/json' } })
-    .then(function(r) { if (!r.ok) throw new Error('Availability service unavailable.'); return r.json(); })
-    .then(function(data) {
-      var slots = data && data.data ? (data.data.display_slots || []) : [];
-      timeSelect.innerHTML = slots.length
-        ? '<option value="">Select time</option>' + slots.map(function(slot) { return '<option value="' + slot + '">' + slot + '</option>'; }).join('')
-        : '<option value="">No available slots</option>';
-      if (prefilledTime && slots.indexOf(prefilledTime) !== -1) timeSelect.value = prefilledTime;
-    })
-    .catch(function(err) {
-      console.error('Admin booking availability failed:', err);
-      timeSelect.innerHTML = '<option value="">Availability unavailable — try again</option>';
-    });
+  _legacyBookedSlotsFromPhp(dateInput.value).then(function (booked) {
+    if (!booked) {
+      _renderAdminSlotOptions(timeSelect, slots, prefilledTime);
+      return;
+    }
+    timeSelect.innerHTML = '<option value="">Select time</option>' + slots.map(function (slot) {
+      var isBooked = booked.indexOf(slot) !== -1;
+      return '<option value="' + slot + '"' + (isBooked ? ' disabled' : '') + '>' +
+        slot + (isBooked ? ' (Unavailable)' : '') + '</option>';
+    }).join('');
+    if (prefilledTime) timeSelect.value = prefilledTime;
+  });
 }
 
-async function submitAdminBooking(e) {
+function submitAdminBooking(e) {
   e.preventDefault();
   var userId  = document.getElementById('adminClientSelect').value;
   var petId   = document.getElementById('adminPetSelect').value;
@@ -452,27 +583,89 @@ async function submitAdminBooking(e) {
   var date    = document.getElementById('adminBookDate').value;
   var time    = document.getElementById('adminBookTime').value;
   var notes   = document.getElementById('adminBookNotes').value.trim();
+  // service now carries the canonical catalog VALUE (FK-ready).
+  var svc = window.SharedMockUsers ? window.SharedMockUsers.serviceByValue(service) : null;
+
   if (!userId)  { showToast('Please select a client.', 'warning'); return; }
   if (!petId)   { showToast('Please select a pet.', 'warning'); return; }
   if (!service) { showToast('Please select a service.', 'warning'); return; }
   if (!date)    { showToast('Please select a date.', 'warning'); return; }
   if (!time)    { showToast('Please select a time.', 'warning'); return; }
 
-  try {
-    var response = await fetch('../php_files/book-appointment.php', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-      body: JSON.stringify({ user_id: userId, pet_id: petId, service: service, appointment_date: date, appointment_time: time, notes: notes })
-    });
-    var data = await response.json();
-    if (!response.ok || !data || !data.success) throw new Error((data && data.message) || 'Could not save the booking.');
-    closeAdminBookModal();
-    showToast('Appointment booked (Reference ' + (data.reference_no || 'created') + ').', 'success');
-    loadAppointments();
-  } catch (err) {
-    console.error('Admin booking failed:', err);
-    showToast(err.message || 'Could not save the booking.', 'error');
+  if (!window.SharedMockAppointments) { showToast('Shared appointment store unavailable.', 'error'); return; }
+
+  // FINAL-SAVE REVALIDATION. The time dropdown above is only a UI convenience:
+  // the modal can sit open while the owner portal (or another front-desk tab)
+  // books the same slot, so availability is re-checked against the SAME
+  // SmartScheduling engine — and therefore the same doctor/per-service
+  // capacity rules — the User booking form, the reschedule modal and Vetti use,
+  // immediately before the write. A refusal writes NO record and emits NO audit
+  // event, exactly like submitAdminReschedule.
+  var _sched = window.SmartScheduling;
+  if (_sched && typeof _sched.validateAppointmentRequest === 'function' && svc) {
+    var _check = _sched.validateAppointmentRequest({ serviceId: svc.serviceId, date: date, time: time });
+    if (!_check.ok) {
+      // Same mapping the reschedule handler uses, so the front desk and the
+      // owner are told the same thing about the same conflict.
+      var _conflict = _check.reason === 'slot_taken' || _check.reason === 'doctor_conflict' ||
+                      _check.reason === 'resource_capacity_reached';
+      showToast(_conflict
+        ? 'That slot is already booked.'
+        : (_sched.describeReason ? _sched.describeReason(_check.reason) : 'Could not save the booking. Please try again.'), 'error');
+      return;
+    }
+  } else {
+    // Engine or service unresolvable: degrade to the legacy exact-time store
+    // check. We never silently allow an unverified slot.
+    var _toHHMM = window.AppointmentContract ? window.AppointmentContract.timeToHHMM : function (v) { return v; };
+    var _takenNow = window.SharedMockAppointments.takenSlots(date) || [];
+    if (_takenNow.indexOf(_toHHMM(time)) !== -1) { showToast('That slot is already booked.', 'error'); return; }
   }
+
+  // Identity is minted by the SHARED contract helper (AppointmentContract.
+  // generateIdentity) — the exact call the User portal makes, so the two can
+  // never drift apart and records never collide.
+  // TODO(BACKEND): POST book-appointment.php replaces this write-through and
+  // returns the DB-assigned reference_no / appointment_id.
+  var _identity = window.AppointmentContract.generateIdentity(window.SharedMockAppointments.getAll() || [], date);
+  var aptId = _identity.appointmentId;
+  var refNo = _identity.referenceNo;
+
+  // Identity is resolved strictly by ID: owner by userId, pet by petId.
+  var owner = window.SharedMockUsers
+    ? window.SharedMockUsers.users().find(function (u) { return String(u.userId) === String(userId); })
+    : null;
+  var pet = window.SharedMockUsers ? window.SharedMockUsers.petById(petId) : null;
+
+  // One canonical record written through the SAME store the User, Doctor,
+  // and Doctor portals read.
+  var canonical = window.AppointmentContract.fromLegacy({
+    appointmentId: aptId,
+    referenceNo: refNo,
+    userId: userId,
+    petId: petId,
+    // Canonical service keys: serviceId is the machine identifier the backend
+    // will key on; service carries the catalog VALUE, never the display label.
+    // svc.value keeps that true even if a legacy caller passed a label.
+    serviceId: svc ? svc.serviceId : null,
+    service: svc ? svc.value : service,
+    appointmentDate: date,
+    appointmentTime: time,
+    notes: notes,
+    status: 'confirmed',
+    owner: { name: owner ? owner.name : '', phone: owner ? (owner.phone || '') : '' },
+    pet: { name: pet ? pet.name : '', species: pet ? (pet.species || '') : '', breed: pet ? (pet.breed || '') : '' }
+  });
+
+  var stored = window.SharedMockAppointments.add(canonical);
+  if (!stored.ok || !stored.appointment) {
+    showToast(stored.error === 'duplicate' ? 'This booking already exists.' : 'Could not save the booking. Please try again.', 'error');
+    return;
+  }
+  closeAdminBookModal();
+  showToast('Appointment booked (Reference ' + stored.appointment.referenceNo + '). Demo state \u2014 not saved to a database.', 'success');
+  _auditAdmin({ action: 'appointment_created', entityType: 'appointment', entityId: stored.appointment.appointmentId, referenceNo: stored.appointment.referenceNo, description: 'Admin booked appointment ' + stored.appointment.referenceNo + ' for ' + (stored.appointment.owner ? stored.appointment.owner.name : 'client'), metadata: { appointmentDate: stored.appointment.appointmentDate, appointmentTime: stored.appointment.appointmentTime, service: stored.appointment.service } });
+  loadAppointments();
 }
 
 // ─── ADMIN STATUS ACTIONS (frontend-demo honest mode) ───────────────────────────────
@@ -480,20 +673,29 @@ async function submitAdminBooking(e) {
 // Doctor portals read. No database persistence is claimed.
 // TODO(BACKEND): Route through update_appointment_status.php (ENUM must be
 // expanded first — see doctor/AUDIT-cross-portal-appointments.md).
-async function _adminSharedStatus(id, nextStatus, successMsg) {
-  try {
-    var response = await fetch('../php_files/update_appointment_status.php', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-      body: JSON.stringify({ id: id, status: nextStatus })
-    });
-    var data = await response.json();
-    if (!response.ok || !data || data.status !== 'success') throw new Error((data && data.message) || 'Status update failed.');
-    showToast(successMsg, 'success');
-    loadAppointments();
-  } catch (err) {
-    console.error('Admin status update failed:', err);
-    showToast(err.message || 'Status update failed.', 'error');
+function _adminSharedStatus(id, nextStatus, successMsg) {
+  var shared = window.SharedMockAppointments;
+  if (!shared) { showToast('Shared mock state unavailable.', 'error'); return; }
+  var result = shared.setStatus(id, nextStatus);
+  if (!result.ok) {
+    showToast(result.error === 'invalid_status'
+      ? 'That status change is not allowed for this appointment.'
+      : 'Appointment not found.', 'error');
+    return;
+  }
+  showToast(successMsg + ' (demo state — not saved to a database)', 'success');
+  var _action = nextStatus === 'confirmed' ? 'appointment_approved'
+    : (nextStatus === 'canceled' && /reject/i.test(successMsg || '')) ? 'appointment_rejected'
+    : 'appointment_canceled';
+  var _appt = result.appointment || {};
+  _auditAdmin({ action: _action, entityType: 'appointment', entityId: _appt.appointmentId || id, referenceNo: _appt.referenceNo || '', description: 'Admin ' + (_action === 'appointment_approved' ? 'approved' : _action === 'appointment_rejected' ? 'rejected' : 'cancelled') + ' appointment ' + (_appt.referenceNo || id), metadata: { status: nextStatus } });
+  if (document.getElementById('allAppointmentsTable')) loadAppointments();
+  var tbody = document.getElementById('todayScheduleTable');
+  if (tbody && window.SharedMockAppointments) {
+    var contract = window.AppointmentContract;
+    renderTodaysScheduleTable(shared.getAll().map(function(a) {
+      return contract ? contract.toLegacyDisplay(contract.fromLegacy(a)) : a;
+    }).filter(function(a) { return a.date === (shared.today || new Date().toISOString().split('T')[0]); }));
   }
 }
 
@@ -526,271 +728,6 @@ function cancelAppointment(id) {
     danger: true
   });
 }
-
-
-// ─── REQ006: PRINT DAILY APPOINTMENT SCHEDULE ─────────────────────────────
-// Staff/Admin printing is generated from the same Laravel-backed appointment
-// state used by the Admin portal. No separate printable appointment store is
-// created.
-function _printScheduleLocalDateKey() {
-  var d = new Date();
-  return d.getFullYear() + '-'
-    + String(d.getMonth() + 1).padStart(2, '0') + '-'
-    + String(d.getDate()).padStart(2, '0');
-}
-
-function _printScheduleEscape(value) {
-  return String(value == null ? '' : value).replace(/[&<>"']/g, function (c) {
-    return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
-  });
-}
-
-function _printScheduleDateLabel(dateKey) {
-  if (!dateKey) return '—';
-  var parts = String(dateKey).split('-');
-  if (parts.length !== 3) return String(dateKey);
-  var d = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]), 12, 0, 0);
-  return isNaN(d.getTime())
-    ? String(dateKey)
-    : d.toLocaleDateString('en-US', {
-        weekday: 'long',
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric'
-      });
-}
-
-function _printScheduleTimeLabel(value) {
-  var hhmm = window.AppointmentContract && window.AppointmentContract.timeToHHMM
-    ? window.AppointmentContract.timeToHHMM(value)
-    : String(value || '').slice(0, 5);
-
-  var match = /^(\d{1,2}):(\d{2})$/.exec(hhmm || '');
-  if (!match) return hhmm || '—';
-
-  var hour = Number(match[1]);
-  var minute = match[2];
-  var suffix = hour >= 12 ? 'PM' : 'AM';
-  var displayHour = hour % 12 || 12;
-  return displayHour + ':' + minute + ' ' + suffix;
-}
-
-function _printScheduleStatusLabel(value) {
-  var key = String(value || '').toLowerCase();
-  var labels = {
-    pending: 'Pending',
-    confirmed: 'Confirmed',
-    checked_in: 'Checked In',
-    in_consultation: 'In Consultation',
-    completed: 'Completed',
-    canceled: 'Canceled',
-    cancelled: 'Canceled',
-    no_show: 'No Show',
-    rescheduled: 'Rescheduled'
-  };
-  return labels[key] || (key ? key.replace(/_/g, ' ') : '—');
-}
-
-function _printScheduleDoctorName(appointment) {
-  var doctorId = appointment.assignedVetId
-    || appointment.assigned_vet_id
-    || appointment.staff_id
-    || null;
-
-  if (!doctorId || !window.SharedMockDoctors || !window.SharedMockDoctors.byId) {
-    return '—';
-  }
-
-  var doctor = window.SharedMockDoctors.byId(doctorId);
-  if (!doctor) return '—';
-
-  return doctor.name
-    || [doctor.firstName, doctor.middleName, doctor.lastName].filter(Boolean).join(' ')
-    || '—';
-}
-
-function _printScheduleAppointmentRows(dateKey) {
-  try {
-    // Pull the newest Laravel/MySQL state immediately before printing.
-    if (window.SharedMockAppointments && typeof window.SharedMockAppointments._refresh === 'function') {
-      window.SharedMockAppointments._refresh();
-    }
-  } catch (refreshError) {
-    console.warn('Could not refresh appointments before print:', refreshError);
-  }
-
-  var source = window.SharedMockAppointments && window.SharedMockAppointments.getAll
-    ? window.SharedMockAppointments.getAll()
-    : [];
-
-  var contract = window.AppointmentContract;
-
-  return source
-    .map(function (raw) {
-      return contract
-        ? contract.toLegacyDisplay(contract.fromLegacy(raw))
-        : raw;
-    })
-    .filter(function (appointment) {
-      return String(appointment.date || '') === String(dateKey);
-    })
-    .sort(function (a, b) {
-      var at = contract && contract.timeToHHMM
-        ? contract.timeToHHMM(a.time)
-        : String(a.time || '').slice(0, 5);
-      var bt = contract && contract.timeToHHMM
-        ? contract.timeToHHMM(b.time)
-        : String(b.time || '').slice(0, 5);
-      if (at !== bt) return at < bt ? -1 : 1;
-      return String(a.reference_no || '').localeCompare(String(b.reference_no || ''));
-    });
-}
-
-window.printDailyAppointmentSchedule = function (requestedDate) {
-  var dateKey = requestedDate || '';
-  if (!dateKey) {
-    var filterDate = document.getElementById('filterDate');
-    dateKey = filterDate && filterDate.value ? filterDate.value : _printScheduleLocalDateKey();
-  }
-
-  var appointments = _printScheduleAppointmentRows(dateKey);
-
-  var clinic = {
-    name: 'VHS Animal Wellness Center',
-    address: '',
-    phone: '',
-    email: ''
-  };
-
-  if (window.VHSClinicSettings && typeof window.VHSClinicSettings.get === 'function') {
-    var settings = window.VHSClinicSettings.get();
-    var info = settings && settings.clinicInfo ? settings.clinicInfo : {};
-    clinic.name = info.name || clinic.name;
-    clinic.address = info.address || '';
-    clinic.phone = info.phone || '';
-    clinic.email = info.email || '';
-  }
-
-  var totals = {
-    total: appointments.length,
-    confirmed: 0,
-    checkedIn: 0,
-    inConsultation: 0,
-    completed: 0,
-    canceled: 0,
-    noShow: 0
-  };
-
-  appointments.forEach(function (a) {
-    var status = String(a.status || '').toLowerCase();
-    if (status === 'confirmed') totals.confirmed += 1;
-    else if (status === 'checked_in') totals.checkedIn += 1;
-    else if (status === 'in_consultation') totals.inConsultation += 1;
-    else if (status === 'completed') totals.completed += 1;
-    else if (status === 'canceled' || status === 'cancelled') totals.canceled += 1;
-    else if (status === 'no_show') totals.noShow += 1;
-  });
-
-  var bodyRows = appointments.length
-    ? appointments.map(function (a, index) {
-        var service = typeof VHSserviceLabel === 'function'
-          ? VHSserviceLabel(a.service)
-          : (a.service || '—');
-
-        return '<tr>'
-          + '<td>' + (index + 1) + '</td>'
-          + '<td>' + _printScheduleEscape(_printScheduleTimeLabel(a.time)) + '</td>'
-          + '<td>' + _printScheduleEscape(a.reference_no || a.referenceNo || '—') + '</td>'
-          + '<td>' + _printScheduleEscape(a.owner_name || (a.owner && a.owner.name) || '—') + '</td>'
-          + '<td>' + _printScheduleEscape(a.pet_name || (a.pet && a.pet.name) || '—') + '</td>'
-          + '<td>' + _printScheduleEscape(service) + '</td>'
-          + '<td>' + _printScheduleEscape(_printScheduleDoctorName(a)) + '</td>'
-          + '<td>' + _printScheduleEscape(_printScheduleStatusLabel(a.status)) + '</td>'
-          + '</tr>';
-      }).join('')
-    : '<tr><td colspan="8" class="empty">No appointments scheduled for this date.</td></tr>';
-
-  var generated = new Date().toLocaleString('en-US', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit'
-  });
-
-  var printable = '<!doctype html>'
-    + '<html><head><meta charset="utf-8">'
-    + '<title>Daily Appointment Schedule - ' + _printScheduleEscape(dateKey) + '</title>'
-    + '<style>'
-    + '@page{size:A4 landscape;margin:12mm;}'
-    + '*{box-sizing:border-box;}'
-    + 'body{font-family:Arial,Helvetica,sans-serif;color:#111827;margin:0;font-size:11px;}'
-    + '.header{display:flex;justify-content:space-between;gap:24px;align-items:flex-start;border-bottom:2px solid #111827;padding-bottom:10px;margin-bottom:14px;}'
-    + 'h1{font-size:20px;margin:0 0 4px;}'
-    + 'h2{font-size:14px;margin:0;font-weight:600;}'
-    + '.clinic{line-height:1.45;color:#374151;text-align:right;}'
-    + '.meta{display:flex;justify-content:space-between;gap:16px;margin-bottom:10px;color:#4b5563;}'
-    + '.summary{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 12px;}'
-    + '.summary span{border:1px solid #d1d5db;border-radius:6px;padding:4px 7px;background:#f9fafb;}'
-    + 'table{width:100%;border-collapse:collapse;table-layout:fixed;}'
-    + 'th,td{border:1px solid #cbd5e1;padding:6px 7px;vertical-align:top;overflow-wrap:anywhere;}'
-    + 'th{background:#f3f4f6;text-align:left;font-size:10px;text-transform:uppercase;letter-spacing:.02em;}'
-    + 'th:nth-child(1),td:nth-child(1){width:4%;text-align:center;}'
-    + 'th:nth-child(2),td:nth-child(2){width:9%;}'
-    + 'th:nth-child(3),td:nth-child(3){width:15%;}'
-    + 'th:nth-child(4),td:nth-child(4){width:14%;}'
-    + 'th:nth-child(5),td:nth-child(5){width:11%;}'
-    + 'th:nth-child(6),td:nth-child(6){width:16%;}'
-    + 'th:nth-child(7),td:nth-child(7){width:17%;}'
-    + 'th:nth-child(8),td:nth-child(8){width:14%;}'
-    + '.empty{text-align:center;color:#6b7280;padding:24px;}'
-    + '.footer{display:flex;justify-content:space-between;margin-top:14px;padding-top:8px;border-top:1px solid #d1d5db;color:#6b7280;font-size:9px;}'
-    + '.no-print{margin-bottom:10px;}'
-    + '@media print{.no-print{display:none!important;}body{-webkit-print-color-adjust:exact;print-color-adjust:exact;}}'
-    + '</style></head><body>'
-    + '<div class="no-print"><button onclick="window.print()" style="padding:8px 14px;cursor:pointer;">Print</button></div>'
-    + '<div class="header">'
-    + '<div><h1>' + _printScheduleEscape(clinic.name) + '</h1>'
-    + '<h2>Daily Appointment Schedule</h2></div>'
-    + '<div class="clinic">'
-    + (clinic.address ? '<div>' + _printScheduleEscape(clinic.address) + '</div>' : '')
-    + (clinic.phone ? '<div>' + _printScheduleEscape(clinic.phone) + '</div>' : '')
-    + (clinic.email ? '<div>' + _printScheduleEscape(clinic.email) + '</div>' : '')
-    + '</div></div>'
-    + '<div class="meta"><strong>' + _printScheduleEscape(_printScheduleDateLabel(dateKey)) + '</strong>'
-    + '<span>Generated: ' + _printScheduleEscape(generated) + '</span></div>'
-    + '<div class="summary">'
-    + '<span>Total: <strong>' + totals.total + '</strong></span>'
-    + '<span>Confirmed: <strong>' + totals.confirmed + '</strong></span>'
-    + '<span>Checked In: <strong>' + totals.checkedIn + '</strong></span>'
-    + '<span>In Consultation: <strong>' + totals.inConsultation + '</strong></span>'
-    + '<span>Completed: <strong>' + totals.completed + '</strong></span>'
-    + '<span>Canceled: <strong>' + totals.canceled + '</strong></span>'
-    + '<span>No Show: <strong>' + totals.noShow + '</strong></span>'
-    + '</div>'
-    + '<table><thead><tr>'
-    + '<th>#</th><th>Time</th><th>Reference</th><th>Owner</th><th>Pet</th><th>Service</th><th>Veterinarian</th><th>Status</th>'
-    + '</tr></thead><tbody>' + bodyRows + '</tbody></table>'
-    + '<div class="footer"><span>VHS Animal Wellness Center — Staff Schedule</span>'
-    + '<span>Printed schedule reflects appointment data at generation time.</span></div>'
-    + '</body></html>';
-
-  var printWindow = window.open('', '_blank', 'width=1150,height=820');
-  if (!printWindow) {
-    showToast('The print window was blocked. Allow pop-ups for this site and try again.', 'warning');
-    return;
-  }
-
-  printWindow.document.open();
-  printWindow.document.write(printable);
-  printWindow.document.close();
-  printWindow.focus();
-
-  // Give the browser one frame to finish layout before opening the print dialog.
-  setTimeout(function () {
-    try { printWindow.print(); } catch (e) { /* user can use the visible Print button */ }
-  }, 250);
-};
 
 // ─── CLIENT SHORTCUTS ────────────────────────────────────────────────
 
@@ -975,7 +912,7 @@ document.addEventListener('click', function (e) {
       set('petSex', p.gender);
       set('petOwner', owner ? owner.name : '\u2014');
       var tbody = document.getElementById('petVaccinationTable');
-      if (tbody) tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:#888;">No vaccination records available.</td></tr>';
+      if (tbody) tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:#888;">No vaccination records in the demo dataset.</td></tr>';
       var modal = document.getElementById('petProfileModal');
       if (modal) modal.classList.add('show');
       return;
@@ -1004,10 +941,13 @@ document.addEventListener('click', function (e) {
 })();
 
 // ─── PHASE 2B: DOCTOR ACCOUNTS + OPERATIONAL DIRECTORY ───────────────────
-// One shared compatibility Doctor API powers three surfaces:
+// One shared Doctor store (shared/mock-doctors.js) powers three surfaces:
 //   Accounts  → account administration (create / edit / active-inactive)
 //   Doctors   → operational availability (On Duty / On Break / On Leave)
-//   Doctor Portal → reads/writes the same Laravel-backed availability record
+//   Doctor Portal → reads/writes the same availability record
+// TODO(BACKEND): Replace Doctor persistence with Doctor/User API calls
+// (GET /doctors, POST /doctors, PUT /doctors/:id, PATCH account-status and
+// availability endpoints). localStorage lives only inside the shared store.
 // Account credentials are backend-provisioned — never stored here.
 
 function _escD(s) {
@@ -1039,7 +979,7 @@ function _renderDoctorAccounts() {
   const docs = window.SharedMockDoctors.doctors().filter((d) => {
     if (f !== "all" && d.accountStatus !== f) return false;
     if (_doctorSearch) {
-      const hay = (d.name + " " + (d.employeeId || "") + " " + d.email).toLowerCase();
+      const hay = (d.name + " " + d.email).toLowerCase();
       if (!hay.includes(_doctorSearch)) return false;
     }
     return true;
@@ -1050,7 +990,7 @@ function _renderDoctorAccounts() {
           const inactive = d.accountStatus === "inactive";
           return `
         <tr data-id="${d.doctorId}">
-          <td><strong>${_escD(d.employeeId || "—")}</strong></td>
+          <td>#D${String(d.doctorId).padStart(3, "0")}</td>
           <td>${_escD(d.name)}</td>
           <td>${_escD(d.email)}</td>
           <td>${_escD(d.phone || "—")}</td>
@@ -1101,7 +1041,7 @@ function submitCreateDoctor(e) {
   closeCreateDoctor();
   _renderDoctorAccounts();
   showToast(
-    `Doctor account created for ${result.doctor.name}. Employee ID: ${result.doctor.employeeId || "assigned by backend"}. Password setup was sent by email.`,
+    `Doctor account created for ${result.doctor.name}. Credentials are provisioned by the backend (backend-pending demo state).`,
     "success",
   );
   _auditAdmin({ action: 'doctor_created', entityType: 'doctor', entityId: result.doctor.doctorId, description: 'Admin created doctor account for ' + result.doctor.name });
@@ -1143,7 +1083,7 @@ function submitEditDoctor(e) {
   }
   closeEditDoctor();
   _renderDoctorAccounts();
-  showToast("Doctor account updated.", "success");
+  showToast("Doctor account updated. (demo state — not saved to a database)", "success");
   var _doc = window.SharedMockDoctors.byId(id);
   _auditAdmin({ action: 'doctor_updated', entityType: 'doctor', entityId: id, description: 'Admin updated doctor profile — ' + (_doc ? _doc.name : id) });
 }
@@ -1160,7 +1100,7 @@ function toggleDoctorAccount(id) {
     () => {
       window.SharedMockDoctors.setAccountStatus(id, next);
       _renderDoctorAccounts();
-      showToast(`Doctor account ${next}.`, "success");
+      showToast(`Doctor account ${next}. (demo state — not saved to a database)`, "success");
       _auditAdmin({ action: next === 'inactive' ? 'doctor_deactivated' : 'doctor_activated', entityType: 'doctor', entityId: id, description: 'Admin ' + (next === 'inactive' ? 'deactivated' : 'activated') + ' doctor account — ' + d.name });
     },
     {
@@ -1198,7 +1138,7 @@ function _renderDoctorDirectory() {
           ).join("");
           return `
         <tr data-id="${d.doctorId}">
-          <td><strong>${_escD(d.employeeId || "—")}</strong></td>
+          <td>#D${String(d.doctorId).padStart(3, "0")}</td>
           <td>
             <strong>${_escD(d.name)}</strong><br />
             <span style="font-size:0.75rem;color:#6b7280;">${_escD(d.specialization || "General Practice")}</span>
@@ -1229,7 +1169,7 @@ function onDoctorAvailabilityChange(id, value) {
   window.SharedMockDoctors.setAvailability(id, value);
   if (window.showToast) {
     showToast(
-      `${d ? d.name : "Doctor"} → ${_availLabel(value)}`,
+      `${d ? d.name : "Doctor"} → ${_availLabel(value)} (demo state — shared with the Doctor Portal)`,
       "success",
     );
   }
@@ -1244,7 +1184,6 @@ function openViewDoctor(id) {
   if (body) {
     body.innerHTML = `
       <div style="display:grid;grid-template-columns:auto 1fr;gap:0.4rem 1rem;font-size:0.9rem;">
-        <strong>Employee ID</strong><span>${_escD(d.employeeId || "—")}</span>
         <strong>Name</strong><span>${_escD(d.name)}</span>
         <strong>Email</strong><span>${_escD(d.email)}</span>
         <strong>Phone</strong><span>${_escD(d.phone || "—")}</span>
@@ -1271,15 +1210,6 @@ document.addEventListener("DOMContentLoaded", () => {
   if (!window.SharedMockDoctors) return;
   if (document.getElementById("doctorAccountsTable")) {
     _renderDoctorAccounts();
-    const adminEmployeeId = document.getElementById("currentAdminEmployeeId");
-    const currentAdmin = window.SharedMockUsers && window.SharedMockUsers.currentUser
-      ? window.SharedMockUsers.currentUser()
-      : null;
-    if (adminEmployeeId) {
-      adminEmployeeId.textContent = currentAdmin && currentAdmin.employeeId
-        ? currentAdmin.employeeId
-        : "Not assigned";
-    }
     document.getElementById("filterDoctorStatus")?.addEventListener("change", _renderDoctorAccounts);
     document.getElementById("searchDoctors")?.addEventListener("input", (e) => {
       _doctorSearch = e.target.value.trim().toLowerCase();
@@ -1297,9 +1227,12 @@ document.addEventListener("DOMContentLoaded", () => {
 //   • Pet Profile modal: full frozen pet contract + vaccination section
 //   • Register Pet: Admin-assisted creation via SharedMockUsers.addPet()
 //     (ownership linked strictly by ownerId — never by name matching)
-// All reads/writes go through window.SharedMockUsers, which is retained as a
-// compatibility name over the live Laravel APIs. The frontend never displays,
-// sets, or stores account credentials.
+// All reads/writes go through window.SharedMockUsers. No portal-level
+// localStorage. TODO(BACKEND): each call site maps 1:1 to REST endpoints —
+//   table loads → GET /users, /pets; saves → PUT /users/:id, PUT /pets/:id;
+//   create → POST /users, POST /pets; status → PATCH /users/:id/status;
+//   Account Access (reset/unlock) → future auth-service endpoints; the
+//   frontend never displays, sets, or stores credentials.
 (function () {
   'use strict';
 
@@ -1446,12 +1379,9 @@ document.addEventListener("DOMContentLoaded", () => {
     var uid = section ? section.dataset.userId : '';
     var u = uid ? (SMU() ? SMU().byId(uid) : null) : null;
     if (kind === 'reset') {
-      if (!u || !u.email || !window.VHSLiveData || !window.VHSLiveData.request) { showToast('User email is unavailable.', 'error'); return; }
-      var result = window.VHSLiveData.request('POST', '/api/auth/password-reset', { email: u.email });
-      if (result.ok) showToast('Password setup/reset code sent to ' + u.email + '.', 'success');
-      else showToast(result.error || 'Could not send password reset code.', 'error');
+      showToast('Password reset will be sent through the authentication backend once connected.', 'info');
     } else if (kind === 'unlock') {
-      showToast('There is no persistent account-lock flag in the current backend. If the account is inactive, use Activate Account instead.', 'info');
+      showToast('Account unlocking will be enforced by the authentication backend once connected.', 'info');
     }
   };
 
@@ -1475,35 +1405,7 @@ document.addEventListener("DOMContentLoaded", () => {
     set('petChronic', p.chronicConditions);
     set('petNotes', p.notes);
     var tbody = document.getElementById('petVaccinationTable');
-    if (tbody) {
-      tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:#888;">Loading vaccination records…</td></tr>';
-      var vaxResult = window.VHSLiveData && window.VHSLiveData.request
-        ? window.VHSLiveData.request('GET', '/api/pets/' + encodeURIComponent(p.petId) + '/vaccinations')
-        : { ok: false };
-
-      var vaxRows = vaxResult && vaxResult.ok && vaxResult.data && vaxResult.data.data
-        ? vaxResult.data.data.vaccinations
-        : [];
-
-      if (Array.isArray(vaxRows) && vaxRows.length) {
-        tbody.innerHTML = vaxRows.map(function (v) {
-          var date = v.administeredDate
-            ? new Date(v.administeredDate + 'T12:00:00').toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })
-            : '—';
-          var next = v.nextDueDate
-            ? new Date(v.nextDueDate + 'T12:00:00').toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })
-            : '—';
-          return '<tr>'
-            + '<td>' + _escD(date) + '</td>'
-            + '<td>' + _escD(v.vaccineName || '—') + (v.batchNo ? '<div class="helper">Batch: ' + _escD(v.batchNo) + '</div>' : '') + '</td>'
-            + '<td>' + _escD(next) + '</td>'
-            + '<td>' + _escD(v.veterinarian || '—') + '</td>'
-            + '</tr>';
-        }).join('');
-      } else {
-        tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:#888;">No vaccination records available.</td></tr>';
-      }
-    }
+    if (tbody) tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:#888;">No vaccination records in the demo dataset.</td></tr>';
     var modal = document.getElementById('petProfileModal');
     if (modal) modal.classList.add('show');
   };
@@ -1996,7 +1898,7 @@ document.addEventListener("DOMContentLoaded", () => {
       populateClinicSettings();
       _auditAdmin({ action: 'clinic_settings_updated', entityType: 'clinic_settings', entityId: 'clinic', description: 'Admin updated clinic settings' });
     } else {
-      showToast(result.error || 'Could not save settings.', 'error');
+      showToast('Could not save settings.', 'error');
     }
   };
 
@@ -2007,172 +1909,16 @@ document.addEventListener("DOMContentLoaded", () => {
 
   window.restoreClinicDefaults = function () {
     confirmAction('Restore ALL clinic settings to the VHS defaults? Saved customizations will be cleared.', function () {
-      var result = window.VHSClinicSettings.reset();
-      if (!result || !result.ok) { showToast((result && result.error) || 'Could not restore clinic defaults.', 'error'); return; }
+      window.VHSClinicSettings.reset();
       populateClinicSettings();
       showToast('Clinic settings restored to defaults.', 'success');
       _auditAdmin({ action: 'clinic_settings_updated', entityType: 'clinic_settings', entityId: 'clinic', description: 'Admin restored clinic settings to defaults' });
     }, { title: 'Restore Defaults', danger: true });
   };
 
-
-  // ══ ANNOUNCEMENT MANAGEMENT ═════════════════════════════════════════════
-  var _clinicAnnouncements = [];
-
-  function _announcementDate(value) {
-    if (!value) return '—';
-    var d = new Date(value);
-    return isNaN(d.getTime())
-      ? String(value)
-      : d.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
-  }
-
-  function _announcementBadge(type) {
-    var value = type === 'new' ? 'new' : 'info';
-    var label = value === 'new' ? 'New' : 'Info';
-    return '<span class="status-badge ' + (value === 'new' ? 'completed' : 'confirmed') + '">' + label + '</span>';
-  }
-
-  function renderAnnouncementsAdmin() {
-    var tbody = document.getElementById('announcementsTable');
-    if (!tbody) return;
-
-    if (!_clinicAnnouncements.length) {
-      tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#6b7280;">No announcements yet. Create the first clinic announcement above.</td></tr>';
-      return;
-    }
-
-    tbody.innerHTML = _clinicAnnouncements.map(function (a) {
-      return '<tr>'
-        + '<td>' + (a.active
-          ? '<span class="status-badge completed">Active</span>'
-          : '<span class="status-badge cancelled">Inactive</span>') + '</td>'
-        + '<td>' + _announcementBadge(a.badgeType) + '</td>'
-        + '<td><strong>' + escS(a.title) + '</strong>'
-        + '<div style="margin-top:0.25rem;color:#6b7280;font-size:0.82rem;max-width:560px;white-space:normal;">' + escS(a.message) + '</div></td>'
-        + '<td>' + escS(_announcementDate(a.updatedAt)) + '</td>'
-        + '<td>'
-        + '<button type="button" class="btn-small" onclick="editAnnouncement(' + Number(a.announcementId) + ')">Edit</button>'
-        + '<button type="button" class="btn-danger btn-small" onclick="deleteAnnouncement(' + Number(a.announcementId) + ')">Delete</button>'
-        + '</td>'
-        + '</tr>';
-    }).join('');
-  }
-
-  function loadAnnouncementsAdmin() {
-    var tbody = document.getElementById('announcementsTable');
-    if (!tbody || !window.VHSLiveData || typeof window.VHSLiveData.request !== 'function') return;
-
-    var result = window.VHSLiveData.request('GET', '/api/announcements/manage');
-    if (!result || !result.ok) {
-      tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#b91c1c;">Could not load announcements.</td></tr>';
-      return;
-    }
-
-    _clinicAnnouncements = result.data && result.data.data && Array.isArray(result.data.data.announcements)
-      ? result.data.data.announcements
-      : [];
-
-    renderAnnouncementsAdmin();
-  }
-
-  window.resetAnnouncementForm = function () {
-    var form = document.getElementById('announcementForm');
-    if (!form) return;
-
-    form.reset();
-    document.getElementById('announcementId').value = '';
-    document.getElementById('announcementBadge').value = 'info';
-    document.getElementById('announcementActive').checked = true;
-    document.getElementById('announcementSaveBtn').textContent = 'Publish Announcement';
-    document.getElementById('announcementCancelEditBtn').hidden = true;
-  };
-
-  window.editAnnouncement = function (id) {
-    var a = _clinicAnnouncements.find(function (row) {
-      return String(row.announcementId) === String(id);
-    });
-    if (!a) return;
-
-    document.getElementById('announcementId').value = a.announcementId;
-    document.getElementById('announcementTitle').value = a.title || '';
-    document.getElementById('announcementMessage').value = a.message || '';
-    document.getElementById('announcementBadge').value = a.badgeType === 'new' ? 'new' : 'info';
-    document.getElementById('announcementActive').checked = a.active !== false;
-    document.getElementById('announcementSaveBtn').textContent = 'Save Announcement';
-    document.getElementById('announcementCancelEditBtn').hidden = false;
-
-    document.getElementById('announcementTitle').focus();
-    document.getElementById('announcementManagement').scrollIntoView({ behavior: 'smooth', block: 'start' });
-  };
-
-  window.submitAnnouncementForm = function (event) {
-    event.preventDefault();
-
-    if (!window.VHSLiveData || typeof window.VHSLiveData.request !== 'function') {
-      showToast('Announcement service is unavailable.', 'error');
-      return;
-    }
-
-    var id = document.getElementById('announcementId').value;
-    var payload = {
-      title: document.getElementById('announcementTitle').value.trim(),
-      message: document.getElementById('announcementMessage').value.trim(),
-      badgeType: document.getElementById('announcementBadge').value,
-      active: document.getElementById('announcementActive').checked
-    };
-
-    if (!payload.title || !payload.message) {
-      showToast('Announcement title and message are required.', 'error');
-      return;
-    }
-
-    var method = id ? 'PATCH' : 'POST';
-    var url = id ? '/api/announcements/' + encodeURIComponent(id) : '/api/announcements';
-    var result = window.VHSLiveData.request(method, url, payload);
-
-    if (!result || !result.ok) {
-      showToast((result && result.error) || 'Could not save announcement.', 'error');
-      return;
-    }
-
-    showToast(id ? 'Announcement updated.' : 'Announcement published.', 'success');
-    window.resetAnnouncementForm();
-    loadAnnouncementsAdmin();
-  };
-
-  window.deleteAnnouncement = function (id) {
-    var a = _clinicAnnouncements.find(function (row) {
-      return String(row.announcementId) === String(id);
-    });
-    if (!a) return;
-
-    confirmAction(
-      'Delete "' + a.title + '"? This removes it from the client dashboard.',
-      function () {
-        var result = window.VHSLiveData.request(
-          'DELETE',
-          '/api/announcements/' + encodeURIComponent(id)
-        );
-
-        if (!result || !result.ok) {
-          showToast((result && result.error) || 'Could not delete announcement.', 'error');
-          return;
-        }
-
-        showToast('Announcement deleted.', 'success');
-        window.resetAnnouncementForm();
-        loadAnnouncementsAdmin();
-      },
-      { title: 'Delete Announcement', danger: true }
-    );
-  };
-
   function initClinicSettingsPage() {
     if (!document.getElementById('clinicSettingsForm')) return;
     populateClinicSettings();
-    loadAnnouncementsAdmin();
-    window.resetAnnouncementForm();
   }
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', initClinicSettingsPage);

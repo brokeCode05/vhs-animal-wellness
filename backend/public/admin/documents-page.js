@@ -66,17 +66,8 @@
 
   // ── Document viewer (print-style; mirrors the portal document system) ──
   window.viewDocument = function (docId) {
-    var doc = window.SharedDocuments
-      ? (window.SharedDocuments.viewById
-          ? window.SharedDocuments.viewById(docId)
-          : window.SharedDocuments.byId(docId))
-      : null;
-    if (!doc) {
-      if (typeof showToast === 'function') {
-        showToast('That document could not be opened. Refresh and try again.', 'error');
-      }
-      return;
-    }
+    var doc = window.SharedDocuments ? window.SharedDocuments.byId(docId) : null;
+    if (!doc) return;
     document.getElementById('docViewerBody').innerHTML = window.SharedDocumentRender.render(doc);
     document.getElementById('docViewerPrint').onclick = function () { window.print(); };
     document.getElementById('docViewerModal').classList.add('show');

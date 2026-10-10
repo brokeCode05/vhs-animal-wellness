@@ -203,7 +203,7 @@
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
           </button>
         </div>
-        <div class="chatbot-footer"><p>Automated Help &bull; Demo</p></div>
+        <div class="chatbot-footer"><p>Powered by AI &bull; Available 24/7</p></div>
       </div>
     </div>
 
@@ -256,12 +256,12 @@
       <!-- Login Form -->
       <form id="loginForm" action="login.php" class="booking-form hidden" method="post">
         <h2>Log In</h2>
-        <p class="modal-subtitle">Clients use email; clinic staff use Employee ID</p>
+        <p class="modal-subtitle">Access your account to book an appointment</p>
         
         <div class="form-section">
           <div class="form-group">
-            <label for="loginEmail">Email / Employee ID <span class="required">*</span></label>
-            <input type="text" id="loginEmail" name="email2" placeholder="Email or VHS-DOC-0001" autocomplete="username" required />
+            <label for="loginEmail">Email Address <span class="required">*</span></label>
+            <input type="email" id="loginEmail" name="email2" placeholder="example@gmail.com" required>
           </div>
           
           <div class="form-group">
@@ -274,7 +274,7 @@
           </div>
           
           <div class="form-group">
-            <a href="/auth" class="forgot-password">Forgot password?</a>
+            <a href="#" class="forgot-password">Forgot password?</a>
           </div>
         </div>
         
@@ -370,6 +370,6 @@
 
   <script src="../shared/vhs-ui.js"></script>
   <script src="../shared/signup-wizard.js?v=1.1.0"></script>
-  <script src="script.js?v=4.2.0"></script>
+  <script src="script.js"></script>
 </body>
 </html>

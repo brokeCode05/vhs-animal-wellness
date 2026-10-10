@@ -92,9 +92,30 @@
     },
     // The portal's signed-in veterinarian (single-doctor prototype).
     // TODO(BACKEND): resolved from the authenticated session instead.
-    currentDoctor: function () {
-      return this.byUserId('vet-001') || _all()[0] || null;
-    },
+      currentDoctor: function () {
+        return this.byUserId('vet-001') || _all()[0] || null;
+      },
+      // ── IDENTITY BOUNDARY (mock) ───────────────────────────────────────
+      // The signed-in veterinarian, resolved from the roster rather than
+      // declared inside a portal. `id` is the roster's userId ('vet-001'), so
+      // audit rows and document authorship come from ONE source.
+      // This is a DEMO resolver, not authentication: there is no session and
+      // no login. Replacing it with an authenticated staff session is a change
+      // to this function alone.
+      // TODO(BACKEND): GET /me (staff session) supplies actorId/actorName.
+      identityMode: 'mock',
+      currentStaff: function () {
+        var d = this.currentDoctor();
+        if (!d) return { id: null, name: '', role: 'Veterinarian', clinicalTitle: 'Veterinarian' };
+        // `role` is the ACCOUNT role from the roster (User | Doctor | Admin) —
+        // the thing auth will eventually assert. `clinicalTitle` is the
+        // professional title that appears on a SIGNED CLINICAL RECORD, which
+        // is a different concept and must stay 'Veterinarian' so generated
+        // consultation documents are byte-identical to before this boundary
+        // existed. Both are mock values and both are replaced together when
+        // an authenticated staff session lands.
+        return { id: d.userId, name: d.name, role: d.role, clinicalTitle: 'Veterinarian' };
+      },
     activeDoctors: function () {
       return _all().filter(function (d) { return d.accountStatus !== 'inactive'; });
     },

@@ -291,155 +291,6 @@ const closeBtn = document.getElementById("closeModal");
 const loginForm = document.getElementById("loginForm");
 const signupForm = document.getElementById("signupForm");
 
-
-// ===== LOGIN reCAPTCHA v2 =====
-// The public site key is loaded from Laravel so it does not need to be copied
-// into every static HTML page. The secret key never reaches the browser.
-let _vhsLoginRecaptchaWidgetId = null;
-let _vhsLoginRecaptchaSiteKey = "";
-let _vhsLoginRecaptchaApiPromise = null;
-
-function _loginRecaptchaSlot() {
-  if (!loginForm) return null;
-
-  let wrapper = loginForm.querySelector("#loginRecaptchaGroup");
-  if (wrapper) return wrapper.querySelector("#loginRecaptchaWidget");
-
-  wrapper = document.createElement("div");
-  wrapper.id = "loginRecaptchaGroup";
-  wrapper.className = "form-group";
-  wrapper.innerHTML = `
-    <div id="loginRecaptchaWidget"></div>
-    <div id="loginRecaptchaStatus" class="error-message" style="display:none;margin-top:8px;"></div>
-  `;
-
-  const formActions = loginForm.querySelector(".form-actions");
-  if (formActions) loginForm.insertBefore(wrapper, formActions);
-  else loginForm.appendChild(wrapper);
-
-  return wrapper.querySelector("#loginRecaptchaWidget");
-}
-
-function _setLoginRecaptchaStatus(message) {
-  if (!loginForm) return;
-  const status = loginForm.querySelector("#loginRecaptchaStatus");
-  if (!status) return;
-  status.textContent = message || "";
-  status.style.display = message ? "" : "none";
-}
-
-async function _loadLoginRecaptchaSiteKey() {
-  if (_vhsLoginRecaptchaSiteKey) return _vhsLoginRecaptchaSiteKey;
-
-  const response = await fetch("/api/recaptcha-config", {
-    method: "GET",
-    headers: { Accept: "application/json" },
-    cache: "no-store",
-  });
-
-  let data = null;
-  try {
-    data = await response.json();
-  } catch {
-    data = null;
-  }
-
-  const siteKey = data?.data?.site_key || "";
-  if (!response.ok || !siteKey) {
-    throw new Error(data?.message || "CAPTCHA configuration could not be loaded.");
-  }
-
-  _vhsLoginRecaptchaSiteKey = siteKey;
-  return siteKey;
-}
-
-function _loadLoginRecaptchaApi() {
-  if (window.grecaptcha && typeof window.grecaptcha.render === "function") {
-    return Promise.resolve();
-  }
-
-  if (_vhsLoginRecaptchaApiPromise) return _vhsLoginRecaptchaApiPromise;
-
-  _vhsLoginRecaptchaApiPromise = new Promise((resolve, reject) => {
-    const callbackName = "__vhsLoginRecaptchaLoaded";
-
-    window[callbackName] = function () {
-      try {
-        delete window[callbackName];
-      } catch {}
-      resolve();
-    };
-
-    const existing = document.querySelector('script[data-vhs-recaptcha="1"]');
-    if (existing) return;
-
-    const scriptEl = document.createElement("script");
-    scriptEl.src =
-      "https://www.google.com/recaptcha/api.js?onload=" +
-      callbackName +
-      "&render=explicit";
-    scriptEl.async = true;
-    scriptEl.defer = true;
-    scriptEl.dataset.vhsRecaptcha = "1";
-    scriptEl.onerror = function () {
-      _vhsLoginRecaptchaApiPromise = null;
-      reject(new Error("Google reCAPTCHA could not be loaded."));
-    };
-    document.head.appendChild(scriptEl);
-  });
-
-  return _vhsLoginRecaptchaApiPromise;
-}
-
-async function _ensureLoginRecaptchaRendered() {
-  if (!loginForm) return false;
-
-  const slot = _loginRecaptchaSlot();
-  if (!slot) return false;
-
-  try {
-    _setLoginRecaptchaStatus("");
-    const siteKey = await _loadLoginRecaptchaSiteKey();
-    await _loadLoginRecaptchaApi();
-
-    if (_vhsLoginRecaptchaWidgetId === null) {
-      _vhsLoginRecaptchaWidgetId = window.grecaptcha.render(slot, {
-        sitekey: siteKey,
-      });
-    }
-
-    return true;
-  } catch (error) {
-    console.error("reCAPTCHA initialization failed:", error);
-    _setLoginRecaptchaStatus(
-      error?.message || "CAPTCHA could not be loaded. Please refresh and try again.",
-    );
-    return false;
-  }
-}
-
-function _getLoginRecaptchaToken() {
-  if (
-    _vhsLoginRecaptchaWidgetId === null ||
-    !window.grecaptcha ||
-    typeof window.grecaptcha.getResponse !== "function"
-  ) {
-    return "";
-  }
-
-  return window.grecaptcha.getResponse(_vhsLoginRecaptchaWidgetId) || "";
-}
-
-function _resetLoginRecaptcha() {
-  if (
-    _vhsLoginRecaptchaWidgetId !== null &&
-    window.grecaptcha &&
-    typeof window.grecaptcha.reset === "function"
-  ) {
-    window.grecaptcha.reset(_vhsLoginRecaptchaWidgetId);
-  }
-}
-
 function openModal() {
   if (!modal) return;
   // The mobile menu also holds a scroll lock; drop it first so the modal is
@@ -463,12 +314,6 @@ function showForm(formElement) {
   if (loginForm) loginForm.classList.add("hidden");
   if (signupForm) signupForm.classList.add("hidden");
   if (formElement) formElement.classList.remove("hidden");
-
-  if (formElement === loginForm) {
-    setTimeout(() => {
-      _ensureLoginRecaptchaRendered();
-    }, 0);
-  }
 }
 
 [
@@ -598,33 +443,12 @@ if (serviceBookBtn) {
 if (loginForm) {
   loginForm.addEventListener("submit", async (e) => {
     e.preventDefault();
-    const identifier = document.getElementById("loginEmail")?.value.trim();
+    const email = document.getElementById("loginEmail")?.value.trim();
     const password = document.getElementById("loginPassword")?.value;
 
-    const captchaReady = await _ensureLoginRecaptchaRendered();
-    if (!captchaReady) {
-      showAlert(
-        "CAPTCHA could not be loaded. Please refresh the page and try again.",
-        "error",
-        "Login Failed",
-      );
-      return;
-    }
-
-    const captchaToken = _getLoginRecaptchaToken();
-    if (!captchaToken) {
-      showAlert(
-        'Please complete the "I\'m not a robot" verification.',
-        "error",
-        "CAPTCHA Required",
-      );
-      return;
-    }
-
     const formData = new FormData();
-    formData.append("email2", identifier);
+    formData.append("email2", email);
     formData.append("password1", password);
-    formData.append("g-recaptcha-response", captchaToken);
 
     const submitBtn = loginForm.querySelector('[type="submit"]');
     if (submitBtn) {
@@ -635,9 +459,9 @@ if (loginForm) {
     try {
       // FIX: Use the correct path relative to your directory structure.
       // If the script is in web-page/ and the php file is in php_files/, use ../php_files/login.php
-      const response = await fetch("/legacy/login", {
-      method: "POST",
-      body: formData,
+      const response = await fetch("login.php", {
+        method: "POST",
+        body: formData,
       });
 
       const text = await response.text();
@@ -666,7 +490,6 @@ if (loginForm) {
         "Connection Error",
       );
     } finally {
-      _resetLoginRecaptcha();
       if (submitBtn) {
         submitBtn.disabled = false;
         submitBtn.textContent = "Log In";
@@ -788,10 +611,7 @@ function _showLoginOtpStep(maskedPhone, devOtp, phoneVerified) {
       fd.append("login_otp", code);
 
       try {
-       const res = await fetch("/legacy/login", {
-      method: "POST",
-      body: fd,
-      });
+        const res = await fetch("login.php", { method: "POST", body: fd });
         const data = await res.json();
 
         if (data && data.status === "Login successful") {
@@ -822,7 +642,6 @@ function _completeLogin(data) {
       lastName: data.last_name,
       middleName: data.middle_name,
       email: data.email,
-      employeeId: data.employee_id || data.employeeId || "",
       phone: data.phone,
       address: data.address,
       role: data.role,
@@ -847,7 +666,6 @@ function _completeLogin(data) {
 
   setTimeout(() => {
     if (data.role === "admin") window.location.href = "../admin/index.html";
-    else if (data.role === "doctor") window.location.href = "../doctor/index.html";
     else if (data.role === "clerk")
       // Admin is canonical: the standalone Clerk portal is no longer
       // maintained, so former clerk accounts land in the Admin portal.
@@ -878,7 +696,7 @@ function syncSignupPhone() {
 // Never falls back to "verified" or to any demo persistence — the real backend
 // path below is untouched.
 // TODO(BACKEND): remove once index.php / sms_otp.php are served for real.
-const _ENDPOINT_ABSENT = [404, 405, 501, 502, 503];
+const _ENDPOINT_ABSENT = [404, 405, 500, 501, 502, 503];
 
 function resetOtpResend() {
   const resendBtn = document.getElementById("resendOtpBtn");
@@ -947,7 +765,7 @@ async function triggerOtpSend() {
   formData.append("phone2", syncSignupPhone());
 
   try {
-  const otpUrl = "/php_files/sms_otp.php";
+    const otpUrl = "../php_files/sms_otp.php";
 
     const response = await fetch(otpUrl, {
       method: "POST",
@@ -1094,7 +912,7 @@ if (signupForm) {
     const formData = new FormData(signupForm);
 
     try {
-    const registerUrl = "/legacy/register";
+      const registerUrl = "index.php";
 
       const response = await fetch(registerUrl, {
         method: "POST",
@@ -1107,35 +925,13 @@ if (signupForm) {
         return;
       }
 
-      const responseText = await response.text();
-
-      console.log("[Registration HTTP Status]", response.status);
-      console.log("[Registration Response]", responseText);
-
       let data;
-
       try {
-        data = JSON.parse(responseText);
+        data = await response.json();
       } catch (err) {
-        showAlert(
-        "Registration server returned HTTP " +
-          response.status +
-        ". Check the browser console for the response.",
-        "error",
-        "Registration Error"
-      );
-      return;
+        showVerificationUnavailable("Registration Unavailable");
+        return;
       }
-
-      if (!response.ok) {
-        showAlert(
-        "Registration failed: " +
-        (data.status || data.message || "HTTP " + response.status),
-         "error",
-         "Registration Failed"
-     );
-      return;
-    }
 
       // CHANGED HERE: Access the payload status via data.status
       if (
@@ -1398,7 +1194,8 @@ const contactForm = document.getElementById("contactForm");
 if (contactForm) {
   contactForm.addEventListener("submit", (e) => {
     e.preventDefault();
-    alert("The online contact form is not connected yet. Please use the clinic phone or email shown on this page.");
+    alert("Thank you for your message! We will get back to you soon.");
+    contactForm.reset();
   });
 }
 
@@ -1443,7 +1240,7 @@ function sendMessage() {
     setTimeout(() => {
       removeTypingIndicator();
       addMessage(
-        "This chat assistant is not connected yet. Please use the clinic contact details for assistance.",
+        "Thank you for your message! This is a placeholder response. AI integration coming soon.",
         "bot",
       );
     }, 1500);

@@ -115,7 +115,7 @@
         '</div></div>' +
         '<div class="ci-actions">' +
         '<button type="button" class="btn-secondary" data-ci-close>Cancel</button>' +
-        '<button type="button" class="btn-primary" data-ci-checkin="' + esc(a._canonicalId) + '">Check in at Reception</button>' +
+        '<button type="button" class="btn-primary" data-ci-checkin="' + esc(a._canonicalId) + '">Confirm Check-in</button>' +
         '</div>' +
         '<p class="ci-hint">Check-in notifies the front desk that you have arrived. Please wait at the waiting area.</p>';
       return;
@@ -153,27 +153,44 @@
   function performCheckIn(appointmentId) {
     if (_busy) return;
     _busy = true;
+    var shared = window.SharedMockAppointments;
+    var sharedUsers = window.SharedMockUsers;
+    var uid = window._currentUserIdSafe ? window._currentUserIdSafe() : '';
     try {
-      var shared = window.SharedMockAppointments;
-      var uid = window._currentUserIdSafe ? window._currentUserIdSafe() : '';
       var rec = shared ? (shared.byId(appointmentId) || shared.byReference(appointmentId)) : null;
+      // Re-validate at submit time: ownership, today, confirmed. Direct state
+      // manipulation (e.g. via console) never bypasses these checks.
       var ownerId = rec && (rec.userId || (rec.owner && rec.owner.userId) || (rec.owner && rec.owner.id));
-      var st = rec && window.AppointmentContract && window.AppointmentContract.normalizeStatus
-        ? window.AppointmentContract.normalizeStatus(rec.status) : (rec && rec.status);
-      if (!rec || !uid || String(ownerId) !== String(uid) || rec.appointmentDate !== todayKey() || st !== 'confirmed') {
+      if (!rec || !uid || String(ownerId) !== String(uid) || rec.appointmentDate !== todayKey()) {
         window.showToast('This appointment is not eligible for check-in.', 'error');
         return;
       }
-      var el = body();
-      if (!el) return;
-      el.innerHTML =
-        '<div class="ci-state ci-state-warn">' +
-        '<h3>Check in with Reception</h3>' +
-        '<p>For security, arrival status is confirmed by clinic staff. Show this reference number at the front desk:</p>' +
-        '<p style="font-size:1.15rem;font-weight:700;">' + esc(rec.referenceNo || rec.reference_no || appointmentId) + '</p>' +
-        '<p class="ci-hint">Reception will mark you as checked in once your appointment is verified.</p>' +
-        '</div>' +
-        '<div class="ci-actions"><button type="button" class="btn-primary" data-ci-close>Done</button></div>';
+      var st = window.AppointmentContract && window.AppointmentContract.normalizeStatus
+        ? window.AppointmentContract.normalizeStatus(rec.status) : rec.status;
+      if (st !== 'confirmed') {
+        window.showToast('Only confirmed appointments can be checked in.', 'warning');
+        return;
+      }
+      var result = shared.setStatus(appointmentId, 'checked_in'); // guarded: confirmed → checked_in only
+      if (!result || !result.ok) {
+        window.showToast('Check-in failed — appointment status changed. Please see reception.', 'error');
+        return;
+      }
+      // Audit trail: same store the Admin fallback uses.
+      if (window.AuditLog && sharedUsers) {
+        var u = window._getSessionUser ? window._getSessionUser() : null;
+        window.AuditLog.add({
+          actor: { actorType: 'User', actorId: uid, actorName: (u && (u.name || u.first_name)) || 'Pet Owner' },
+          action: 'patient_checked_in',
+          entityType: 'appointment',
+          entityId: result.appointment.appointmentId,
+          referenceNo: result.appointment.referenceNo,
+          description: 'Owner self checked in ' + (result.appointment.pet ? result.appointment.pet.name : 'pet') + ' — ' + result.appointment.referenceNo,
+          metadata: { method: 'clinic_qr_self_checkin', owner: result.appointment.owner ? result.appointment.owner.name : '', pet: result.appointment.pet ? result.appointment.pet.name : '' }
+        });
+      }
+      renderSuccess(result.appointment);
+      if (typeof window.loadUserAppointments === 'function') window.loadUserAppointments();
     } finally {
       _busy = false;
     }

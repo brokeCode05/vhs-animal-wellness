@@ -128,8 +128,7 @@
           <h2 class="section-title">All Appointments</h2>
         </div>
         <div class="filter-bar">
-          <input type="date" class="form-input" style="width:auto;" id="filterDate" title="Select the day to filter or print">
-          <button type="button" class="btn-secondary" onclick="printDailyAppointmentSchedule(document.getElementById('filterDate').value)" title="Print the selected date; if no date is selected, prints today">Print Daily Schedule</button>
+          <input type="date" class="form-input" style="width:auto;" id="filterDate">
           <select class="form-select" style="width:auto;" id="filterStatus">
             <option value="all">All Status</option>
             <option value="pending">Pending</option>
@@ -162,11 +161,14 @@
 
   <script src="../shared/vhs-ui.js?v=2.6.0"></script>
   <script src="../shared/clinic-settings.js?v=1.1.0"></script>
-  <script src="../shared/appointment-contract.js?v=2.5.0"></script>
-  <script src="../shared/live-data.js?v=1.1.0"></script>
+  <script src="../shared/appointment-contract.js?v=2.8.0"></script>
+  <script src="../shared/mock-users.js?v=2.13.0"></script>
+  <script src="../shared/mock-appointments.js?v=2.10.0"></script>
+  <script src="../shared/smart-scheduling.js?v=1.1.0"></script>
+  <script src="../shared/mock-doctors.js?v=2.9.0"></script>
   <script src="../shared/dashboard-shared.js?v=2.11.1"></script>
   <script src="../shared/audit-store.js?v=1.0.0"></script>
-  <script src="admin-portal.js?v=2.16.0"></script>
+  <script src="admin-portal.js?v=2.22.0"></script>
 
   <!-- Walk-in Book Appointment Modal -->
   <div class="modal-overlay" id="adminBookModal" onclick="if (event.target === this) closeAdminBookModal()">
@@ -191,6 +193,7 @@
         <div class="form-group" style="margin-bottom:1rem; position:relative;">
           <label class="form-label">Service <span style="color:#ef4444">*</span></label>
           <!-- Options rendered from the shared service catalog
+               (shared/mock-users.js) so the booked service matches the
                User portal exactly. TODO(BACKEND): vet_services table. -->
           <select class="form-select" id="adminBookService" required>
             <option value="">Choose a service</option>

@@ -135,75 +135,16 @@
           <button type="button" class="btn-secondary" onclick="restoreClinicDefaults()">Restore Defaults</button>
         </div>
       </form>
-
-      <section class="content-section" id="announcementManagement">
-        <div class="section-header">
-          <div>
-            <h2 class="section-title">Clinic Announcements</h2>
-            <p style="margin:0;color:#6b7280;font-size:0.875rem;">
-              Publish clinic notices shown on the client dashboard. Inactive announcements stay saved but are hidden from clients.
-            </p>
-          </div>
-        </div>
-
-        <form id="announcementForm" onsubmit="submitAnnouncementForm(event)">
-          <input type="hidden" id="announcementId">
-
-          <div style="display:grid;grid-template-columns:minmax(220px,1fr) minmax(150px,220px);gap:0.75rem;">
-            <div class="form-group">
-              <label class="form-label" for="announcementTitle">Title</label>
-              <input class="form-input" id="announcementTitle" maxlength="120" required placeholder="e.g. Holiday Schedule">
-            </div>
-
-            <div class="form-group">
-              <label class="form-label" for="announcementBadge">Badge</label>
-              <select class="form-input" id="announcementBadge">
-                <option value="info">Info</option>
-                <option value="new">New</option>
-              </select>
-            </div>
-          </div>
-
-          <div class="form-group">
-            <label class="form-label" for="announcementMessage">Message</label>
-            <textarea class="form-textarea" id="announcementMessage" rows="3" maxlength="1000" required placeholder="Announcement details shown to clients"></textarea>
-          </div>
-
-          <label style="display:flex;align-items:center;gap:0.55rem;margin:0.5rem 0 1rem;cursor:pointer;">
-            <input type="checkbox" id="announcementActive" checked>
-            <span>Active — visible to clients</span>
-          </label>
-
-          <div style="display:flex;gap:0.75rem;flex-wrap:wrap;">
-            <button type="submit" class="btn-primary" id="announcementSaveBtn">Publish Announcement</button>
-            <button type="button" class="btn-secondary" id="announcementCancelEditBtn" onclick="resetAnnouncementForm()" hidden>Cancel Edit</button>
-          </div>
-        </form>
-
-        <div class="table-wrapper" style="margin-top:1.25rem;">
-          <table class="compact-table">
-            <thead>
-              <tr>
-                <th>Status</th>
-                <th>Badge</th>
-                <th>Announcement</th>
-                <th>Updated</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody id="announcementsTable">
-              <tr><td colspan="5" style="text-align:center;color:#6b7280;">Loading announcements…</td></tr>
-            </tbody>
-          </table>
-        </div>
-      </section>
     </main>
   </div>
 
   <script src="../shared/vhs-ui.js?v=2.6.0"></script>
   <script src="../shared/clinic-settings.js?v=1.1.0"></script>
-  <script src="../shared/appointment-contract.js?v=2.5.0"></script>
-  <script src="../shared/live-data.js?v=1.1.0"></script>
+  <script src="../shared/appointment-contract.js?v=2.8.0"></script>
+  <script src="../shared/mock-users.js?v=2.13.0"></script>
+  <script src="../shared/mock-appointments.js?v=2.10.0"></script>
+  <script src="../shared/smart-scheduling.js?v=1.1.0"></script>
+  <script src="../shared/mock-doctors.js?v=2.9.0"></script>
   <script src="../shared/dashboard-shared.js?v=2.11.1"></script>
   <script src="../shared/audit-store.js?v=1.0.0"></script>
-  <script src="admin-portal.js?v=2.15.0"></script>
+  <script src="admin-portal.js?v=2.22.0"></script>

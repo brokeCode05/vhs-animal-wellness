@@ -13,6 +13,7 @@
     <link rel="stylesheet" href="user-accent.css?v=2.5.0" />
     <link rel="stylesheet" href="../shared/vhs-ui.css?v=2.6.0" />
     <link rel="stylesheet" href="pet-onboarding.css?v=1.0.1" />
+    <link rel="stylesheet" href="vetti.css?v=5.1.1" />
   </head>
   <body>
     <!-- TOP NAVBAR -->
@@ -57,14 +58,61 @@
             <span id="sidebarAvatarEmoji" style="display:flex;align-items:center;justify-content:center;"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M6 21v-2a6 6 0 0 1 12 0v2"/></svg></span>
           </div>
           <div class="sidebar-user-info">
-            <span class="sidebar-user-name">Pet Owner</span>
+            <span class="sidebar-user-name">Maria Santos</span>
             <span class="sidebar-user-role">Pet Owner</span>
           </div>
         </div>
         <nav class="sidebar-nav">
+          <!-- Ask Vetti is the ASSISTED route and the default landing. It is
+               additional to the manual pages below, never a replacement for
+               them — Vetti guides, the traditional pages manage. -->
+          <div class="nav-item active" data-section="vetti">
+            <a class="nav-link" href="#" onclick="showSection('vetti')">
+              <span class="icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg></span>
+              <span class="label">Ask Vetti</span>
+            </a>
+            <!-- Workspace overflow menu (⋮). The trigger overlays the far
+                 right of this row — hidden at rest on desktop, revealed on
+                 row hover, keyboard focus, or while the menu is open. -->
+            <span class="vetti-menu" id="vettiMenu" data-vetti-action="toggle-menu">
+              <button
+                type="button"
+                class="vetti-menu-btn"
+                id="vettiMenuBtn"
+                data-vetti-action="toggle-menu"
+                aria-haspopup="menu"
+                aria-expanded="false"
+                aria-controls="vettiMenuPop"
+                aria-label="Vetti menu"
+              >
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                  <circle cx="12" cy="5" r="2" />
+                  <circle cx="12" cy="12" r="2" />
+                  <circle cx="12" cy="19" r="2" />
+                </svg>
+              </button>
+              <div
+                class="vetti-menu-pop"
+                id="vettiMenuPop"
+                role="menu"
+                aria-labelledby="vettiMenuBtn"
+                hidden
+              >
+                <button type="button" class="vetti-menu-item" role="menuitem" data-vetti-action="new-conversation">
+                  New Conversation
+                </button>
+                <button type="button" class="vetti-menu-item" role="menuitem" data-vetti-action="settings">
+                  Settings
+                </button>
+                <button type="button" class="vetti-menu-item" role="menuitem" data-vetti-action="what-vetti-can-do">
+                  What Vetti Can Do
+                </button>
+              </div>
+            </span>
+          </div>
           <a
             href="#"
-            class="nav-item active"
+            class="nav-item"
             data-section="dashboard"
             onclick="showSection('dashboard')"
           >
@@ -137,10 +185,197 @@
 
       <!-- MAIN CONTENT -->
       <main class="main-content">
+        <!-- ===== ASK VETTI (assisted workspace) =====
+             Vetti is the default assisted experience. The manual User pages
+             below stay reachable from the sidebar. -->
+        <section id="section-vetti" class="page-section active">
+          <div class="vetti-shell">
+            <!-- A. WORKSPACE HEADER — three parts on one line:
+                 [ Vetti mascot ] [ greeting ] ......... [ pet selector / ⋮ menu ]
+                 Vetti lives INSIDE the header: no separate mascot row, no
+                 stage, no square frame, no permanent caption. Only the
+                 EXPRESSION changes here. The chat avatar used inside the
+                 thread is a separate, fixed asset (vetti-chat-head.png).
+                 On a phone the header stays ONE row: the greeting shrinks
+                 and the tools stay hard right. -->
+            <header class="vetti-greeting">
+              <!-- Transparent PNG, natural drop-shadow. Expression only. -->
+              <div class="vetti-header-mascot" id="vettiHeaderMascotFrame" data-state="idle">
+                <img
+                  id="vettiHeaderMascot"
+                  class="vetti-header-mascot-img"
+                  data-vetti-face="1"
+                  src="../shared/assets/vetti/vetti-idle-a.png"
+                  alt="Vetti the pet-care assistant"
+                  width="1254"
+                  height="1254"
+                  decoding="async"
+                  draggable="false"
+                />
+              </div>
+
+              <div class="vetti-greeting-text">
+                <h1 id="vettiGreeting">Good day.</h1>
+                <p class="vetti-warm-line" id="vettiWarmLine">
+                  I&rsquo;m here whenever you need help with your pet&rsquo;s care.
+                </p>
+              </div>
+
+              <div class="vetti-header-tools">
+                <!-- Active-pet selector, rendered only when the owner has pets. -->
+                <div class="vetti-pet-selector" id="vettiPetSelector" hidden></div>
+              </div>
+            </header>
+
+            <!-- B. CONVERSATION THREAD — the only scrolling region. -->
+            <div
+              class="vetti-canvas"
+              id="vettiCanvas"
+              role="log"
+              aria-live="polite"
+              aria-relevant="additions text"
+              aria-label="Conversation with Vetti"
+            ></div>
+
+            <!-- C + D. SUGGESTED PROMPT RAIL + COMPOSER — one bottom interaction
+                 zone: the rail sits directly above the composer inside the
+                 same bordered container, so they read as a single control.
+
+                 "Jump to latest" is anchored to this zone and floats just
+                 above it, so appearing or disappearing never changes the
+                 canvas height. -->
+            <div class="vetti-composer-area">
+              <button type="button" class="vetti-scroll-down" id="vettiScrollDown" aria-label="Jump to latest" hidden>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
+                <span class="vetti-scroll-down-label">Jump to latest</span>
+              </button>
+              <div class="vetti-input-zone">
+                <div class="vetti-carousel" id="vettiCarousel" hidden></div>
+                <form class="vetti-composer" id="vettiComposer">
+                  <label class="vetti-sr-only" for="vettiInput">
+                    Message Vetti
+                  </label>
+                  <textarea
+                    id="vettiInput"
+                    rows="1"
+                    placeholder="Ask Vetti about your pet…"
+                    autocomplete="off"
+                  ></textarea>
+                  <button
+                    type="submit"
+                    class="vetti-send"
+                    id="vettiSend"
+                    aria-label="Send message to Vetti"
+                  >
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
+                  </button>
+                </form>
+              </div>
+            </div>
+
+            <!-- ===== FIRST-TIME WELCOME LAYER ============================
+                 Shown ONCE, the first time this browser meets Vetti. The
+                 workspace behind it is real and already rendered, just
+                 dimmed, so dismissing the layer drops the user straight
+                 into their workspace (or straight onto the add-pet form
+                 if the account has no pets yet).
+
+                 Deliberately NOT a run of chat bubbles: it is a welcome
+                 layer with a clear way in and a clear way out. Marked
+                 aria-modal because it does cover the workspace. Step copy
+                 comes from vetti-onboarding.js; only the shell is here. -->
+            <div
+              class="vetti-welcome"
+              id="vettiWelcome"
+              hidden
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="vettiWelcomeTitle"
+            >
+              <div class="vetti-welcome-card">
+                <!-- Mascot + headings share one block and sit side by side at
+                     every breakpoint, so Vetti reads as introducing herself
+                     rather than floating above her own name. Only her size
+                     scales down on a phone. -->
+                <div class="vetti-welcome-head">
+                  <div class="vetti-welcome-mascot">
+                    <img
+                      id="vettiWelcomeMascot"
+                      src="../shared/assets/vetti/vetti-greeting.png"
+                      alt="Vetti the pet-care assistant, smiling in greeting"
+                      width="1254"
+                      height="1254"
+                      decoding="async"
+                      draggable="false"
+                    />
+                  </div>
+                  <div class="vetti-welcome-headings">
+                    <p class="vetti-welcome-eyebrow">Welcome to the VHS Portal</p>
+                    <h2 class="vetti-welcome-title" id="vettiWelcomeTitle">
+                      Hi, I&rsquo;m Vetti.
+                    </h2>
+                  </div>
+                </div>
+                <p class="vetti-welcome-lead" id="vettiWelcomeLead"></p>
+                <ol class="vetti-welcome-steps" id="vettiWelcomeSteps"></ol>
+                <div class="vetti-welcome-actions">
+                  <button type="button" class="btn-primary" id="vettiWelcomeStart">
+                    Let&rsquo;s Get Started
+                  </button>
+                  <button type="button" class="vetti-welcome-skip" id="vettiWelcomeSkip">
+                    Skip
+                  </button>
+                </div>
+                <p class="vetti-welcome-note" id="vettiWelcomeNote"></p>
+              </div>
+            </div>
+
+            <!-- ===== GUIDED WALKTHROUGH ================================
+                 What "Let's Get Started" opens. Four steps, each
+                 highlighting one real element in the workspace.
+
+                 The dimming is FOUR mask panels around the target rather
+                 than one full-screen sheet: the hole they leave is
+                 genuinely open, so the highlighted element stays
+                 clickable while everything else is blocked.
+
+                 Anchored to .vetti-shell, not the viewport, so it stays
+                 correct inside the portal's own layout on a phone. -->
+            <div
+              class="vetti-tour"
+              id="vettiTour"
+              hidden
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="vettiTourTitle"
+            >
+              <div class="vetti-tour-frame" id="vettiTourFrame">
+                <div class="vetti-tour-mask" data-vetti-tour-mask="top" aria-hidden="true"></div>
+                <div class="vetti-tour-mask" data-vetti-tour-mask="left" aria-hidden="true"></div>
+                <div class="vetti-tour-mask" data-vetti-tour-mask="right" aria-hidden="true"></div>
+                <div class="vetti-tour-mask" data-vetti-tour-mask="bottom" aria-hidden="true"></div>
+                <div class="vetti-tour-ring" id="vettiTourRing" aria-hidden="true"></div>
+                <div class="vetti-tour-card" id="vettiTourCard">
+                  <p class="vetti-tour-count" id="vettiTourCount">Step 1 of 4</p>
+                  <h2 class="vetti-tour-title" id="vettiTourTitle"></h2>
+                  <p class="vetti-tour-body" id="vettiTourBody"></p>
+                  <div class="vetti-tour-actions">
+                    <button type="button" class="btn-primary" id="vettiTourNext">Next</button>
+                    <button type="button" class="vetti-tour-back" id="vettiTourBack" hidden>Back</button>
+                    <button type="button" class="vetti-tour-skip" id="vettiTourSkip">
+                      Skip Tutorial
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
         <!-- ===== DASHBOARD OVERVIEW ===== -->
-        <section id="section-dashboard" class="page-section active">
+        <section id="section-dashboard" class="page-section">
           <div class="page-header">
-            <h1>Welcome back!</h1>
+            <h1>Welcome back, Maria!</h1>
             <p class="page-subtitle">
               Here's a quick overview of your account.
             </p>
@@ -152,27 +387,54 @@
                already have pets. -->
           <div id="firstPetGate" hidden></div>
 
-          <!-- Announcements — Laravel/MySQL-backed active clinic notices -->
+          <!-- Announcements — auto-rotating single row -->
           <div class="content-section dashboard-announcements">
             <div class="announcement-carousel" id="announcementCarousel">
               <div class="announcement-track" id="announcementTrack">
                 <div class="announcement-slide">
+                  <span class="announcement-badge new">New</span>
+                  <div class="announcement-slide-body">
+                    <strong>Free Vaccination Drive</strong>
+                    <p>
+                      Join our free vaccination drive on March 15, 2026. Limited
+                      slots available.
+                    </p>
+                  </div>
+                </div>
+                <div class="announcement-slide">
                   <span class="announcement-badge info">Info</span>
                   <div class="announcement-slide-body">
-                    <strong>Loading clinic announcements…</strong>
-                    <p>Please wait.</p>
+                    <strong>Holiday Schedule</strong>
+                    <p>
+                      We will be open on Holy Week with reduced hours. Please
+                      book in advance.
+                    </p>
+                  </div>
+                </div>
+                <div class="announcement-slide">
+                  <span class="announcement-badge info">Info</span>
+                  <div class="announcement-slide-body">
+                    <strong>New Grooming Packages</strong>
+                    <p>
+                      We've added new grooming packages for small and large
+                      breeds. Check our services!
+                    </p>
                   </div>
                 </div>
               </div>
             </div>
-            <div class="announcement-dots" id="announcementDots"></div>
+            <div class="announcement-dots" id="announcementDots">
+              <button class="dot active" data-slide="0" aria-label="Announcement 1"></button>
+              <button class="dot" data-slide="1" aria-label="Announcement 2"></button>
+              <button class="dot" data-slide="2" aria-label="Announcement 3"></button>
+            </div>
           </div>
 
           <!-- Upcoming Appointments -->
           <!-- Metric stat cards (Upcoming Appointments / Registered Pets /
                Completed Visits / Pending Confirmation) were removed in the
                Phase 3.2 dashboard cleanup — low-value space for a pet owner,
-               and the area is reserved for the future Vetty workspace. -->
+               and the area is reserved for the future Vetti workspace. -->
           <div class="content-section">
             <div class="section-header">
               <h2 class="section-title">Upcoming Appointments</h2>
@@ -546,7 +808,8 @@
           </div>
           <div id="userServicesGrid">
             <!-- Rendered by user-script.js from the shared service catalog
-                              reload/navigation. TODO(BACKEND): GET /api/services. -->
+                 (shared/mock-users.js) so Admin edits surface here after
+                 reload/navigation. TODO(BACKEND): GET /api/services. -->
           </div>
         </section>
         <section id="section-documents" class="page-section">
@@ -617,9 +880,13 @@
             <div class="form-group" style="margin-bottom:1rem;">
               <label class="form-label">Service <span class="required">*</span></label>
               <!-- Options rendered from the shared service catalog
+                   (shared/mock-users.js) so the booked service label matches
                    Clerk and Doctor exactly. TODO(BACKEND): serve from a
                    vet_services table. -->
-              <select class="form-select" id="service_id" name="service_id" required>
+              <!-- onchange recomputes the slot list: availability is per
+                   service, so a service change after a date is populated must
+                   not leave the previous service's slots on offer. -->
+              <select class="form-select" id="service_id" name="service_id" required onchange="onBookServiceChange()">
                 <option value="">Choose a service</option>
               </select>
             </div>
@@ -647,7 +914,7 @@
               <select class="form-select" id="visit_reason" name="visit_reason">
                 <option value="">Select context</option>
                 <!-- Canonical visit contexts (frozen). TODO(BACKEND): keep
-                     these values stable for Vetty + the appointments table. -->
+                     these values stable for Vetti + the appointments table. -->
                 <option value="Routine check-up">Routine check-up</option>
                 <option value="Scheduled procedure">Scheduled procedure</option>
                 <option value="Showing mild symptoms">Showing mild symptoms</option>
@@ -1130,7 +1397,7 @@
 
         <!-- Chatbot Footer -->
         <div class="chatbot-footer">
-          <p>Automated Help • Demo</p>
+          <p>Powered by AI • Available 24/7</p>
         </div>
       </div>
     </div>
@@ -1155,12 +1422,25 @@
     <script src="../shared/vhs-ui.js?v=2.6.0"></script>
     <script src="../shared/clinic-settings.js?v=1.1.0"></script>
     <script src="../shared/appointment-contract.js?v=2.8.0"></script>
+    <script src="../shared/mock-users.js?v=2.13.0"></script>
+    <script src="../shared/mock-appointments.js?v=2.10.0"></script>
+    <script src="../shared/mock-doctors.js?v=2.9.0"></script>
+    <script src="../shared/smart-scheduling.js?v=1.1.0"></script>
     <script src="../shared/audit-store.js?v=1.0.0"></script>
-    <script src="../shared/document-store.js?v=1.0.5"></script>
-    <script src="../shared/document-render.js?v=1.2.0"></script>
-    <script src="../shared/live-data.js?v=1.1.0"></script>
-    <script src="user-script.js?v=3.14.1"></script>
+    <script src="../shared/document-store.js?v=1.0.3"></script>
+    <script src="../shared/document-render.js?v=1.1.0"></script>
+    <script src="user-script.js?v=4.5.0"></script>
     <script src="pet-onboarding.js?v=1.0.1"></script>
     <script src="checkin-script.js?v=1.0.0"></script>
+    <!-- Vetti, in dependency order:
+         data + tool adapters (over the shared stores above)
+         -> state model -> onboarding copy -> UI.
+         Nothing below this block names a shared store or a portal action. -->
+    <script src="vetti-data.js?v=5.1.0"></script>
+    <script src="vetti-tools.js?v=5.2.0"></script>
+    <script src="vetti-state.js?v=5.3.0"></script>
+    <script src="vetti-ai.js?v=5.3.0"></script>
+    <script src="vetti-onboarding.js?v=5.0.0"></script>
+    <script src="vetti-ui.js?v=5.2.0"></script>
   </body>
 </html>

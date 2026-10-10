@@ -76,7 +76,7 @@
         <p class="page-subtitle">Centralized client-facing clinic documents</p>
       </div>
 
-      <!-- Finalized client-facing documents:
+      <!-- Finalized client-facing documents (frontend demo):
            shared/document-store.js. Internal SOAP notes are NOT
            exposed here - they stay in the Doctor portal. -->
       <section class="content-section">
@@ -102,7 +102,9 @@
           </table>
         </div>
         <p style="font-size:0.8rem;color:#6b7280;margin:0.75rem 0 0;">
-          Documents are loaded from the clinic database. Internal clinical notes remain available only to authorized clinical views.
+          Demo mode: documents are frontend-only records. TODO(BACKEND): Replace document demo
+          persistence with document API/storage - the backend generates and stores the
+          authoritative document records server-side.
         </p>
       </section>
 
@@ -125,12 +127,11 @@
 
   <script src="../shared/vhs-ui.js?v=2.6.0"></script>
   <script src="../shared/clinic-settings.js?v=1.1.0"></script>
-  <script src="../shared/live-data.js?v=1.1.0"></script>
   <script src="../shared/dashboard-shared.js?v=2.11.1"></script>
   <script src="../shared/audit-store.js?v=1.0.0"></script>
-  <script src="admin-portal.js?v=2.14.0"></script>
-  <script src="../shared/document-store.js?v=1.0.5"></script>
-  <script src="../shared/document-render.js?v=1.1.1"></script>
-  <script src="documents-page.js?v=1.0.1"></script>
+  <script src="admin-portal.js?v=2.22.0"></script>
+  <script src="../shared/document-store.js?v=1.0.3"></script>
+  <script src="../shared/document-render.js?v=1.1.0"></script>
+  <script src="documents-page.js?v=1.0.0"></script>
 </body>
 </html>

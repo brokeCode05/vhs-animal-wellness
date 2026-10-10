@@ -269,10 +269,6 @@ function loadAppointments() {
       }
 
       var all = data.appointments;
-      // Keep the last authoritative backend payload available to detail/action
-      // handlers. This is an in-memory display cache only; Laravel/MySQL is the
-      // source of truth.
-      window.VHSBackendAppointments = all.slice();
 
       renderTodaysScheduleTable(all.filter(function(a) { return a.date === new Date().toISOString().split('T')[0]; }));
 
@@ -582,14 +578,6 @@ function cancelAppointment(id) {
 // layer when present, otherwise through the last loaded table rows.
 // TODO(BACKEND): Replace the resolver with GET appointment by id/referenceNo.
 function _findCanonicalAppointment(idOrRef) {
-  var backend = window.VHSBackendAppointments || [];
-  var backendHit = backend.find(function(a) {
-    return String(a.id) === String(idOrRef) ||
-      String(a.appointment_id || '') === String(idOrRef) ||
-      String(a.reference_no || a.referenceNo || '') === String(idOrRef);
-  });
-  if (backendHit) return backendHit;
-
   var shared = window.SharedMockAppointments;
   if (shared) {
     var hit = shared.byId(idOrRef) || shared.byReference(idOrRef);

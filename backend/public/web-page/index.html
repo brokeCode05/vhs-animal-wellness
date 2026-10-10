@@ -343,7 +343,7 @@
 
         <!-- Veterinarians -->
         <h3 class="team-section-title">Our Veterinarians</h3>
-        <div class="vets-grid" data-vhs-doctor-grid>
+        <div class="vets-grid">
           <div class="vet-card">
             <div class="vet-card__photo">
               <img
@@ -549,7 +549,7 @@
 
         <!-- Chatbot Footer -->
         <div class="chatbot-footer">
-          <p>Automated Help • Demo</p>
+          <p>Powered by AI • Available 24/7</p>
         </div>
       </div>
     </div>
@@ -701,13 +701,21 @@
         <form id="loginForm" class="booking-form hidden" method="post">
           <h2>Log In</h2>
           <p class="modal-subtitle">
-            Clients use email; clinic staff use Employee ID
+            Access your account to book an appointment
           </p>
 
           <div class="form-section">
             <div class="form-group">
-              <label for="loginEmail">Email / Employee ID <span class="required">*</span></label>
-              <input type="text" id="loginEmail" name="email2" placeholder="Email or VHS-DOC-0001" autocomplete="username" required />
+              <label for="loginEmail"
+                >Email Address <span class="required">*</span></label
+              >
+              <input
+                type="email"
+                id="loginEmail"
+                name="email2"
+                placeholder="example@gmail.com"
+                required
+              />
             </div>
 
             <div class="form-group">
@@ -732,7 +740,7 @@
             </div>
 
             <div class="form-group">
-              <a href="/auth" class="forgot-password">Forgot password?</a>
+              <a href="#" class="forgot-password">Forgot password?</a>
             </div>
           </div>
 
@@ -960,11 +968,10 @@
     </div>
 
     <script src="../shared/vhs-ui.js"></script>
-    <script src="../shared/live-data.js?v=1.1.0"></script>
+    <script src="../shared/mock-users.js?v=2.13.0"></script>
     <script src="website-services.js"></script>
-    <script src="website-staff.js?v=1.0.0"></script>
     <script src="../shared/signup-wizard.js?v=1.1.0"></script>
-    <script src="script.js?v=4.2.0"></script>
+    <script src="script.js"></script>
     <script>
       // Homepage service teasers sync name/price from the SAME shared catalog
       // as the portals. TODO(BACKEND): GET /api/services.

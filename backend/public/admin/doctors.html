@@ -77,7 +77,8 @@
       </div>
 
       <!-- Doctor operational management (Phase 2B).
-                  same records as Accounts and the Doctor Portal. Availability is a
+           Reads the ONE shared Doctor store (shared/mock-doctors.js) — the
+           same records as Accounts and the Doctor Portal. Availability is a
            clinic working status, fully separate from account status. -->
       <section class="content-section">
         <div class="section-header">
@@ -88,7 +89,7 @@
           <table class="compact-table">
             <thead>
               <tr>
-                <th>Employee ID</th>
+                <th>ID</th>
                 <th>Doctor</th>
                 <th>Contact / Profile</th>
                 <th>Account Status</th>
@@ -126,9 +127,9 @@
 
   <script src="../shared/vhs-ui.js?v=2.6.0"></script>
   <script src="../shared/clinic-settings.js?v=1.1.0"></script>
-  <script src="../shared/live-data.js?v=1.1.0"></script>
   <script src="../shared/dashboard-shared.js?v=2.11.1"></script>
+  <script src="../shared/mock-doctors.js?v=2.9.0"></script>
   <script src="../shared/audit-store.js?v=1.0.0"></script>
-  <script src="admin-portal.js?v=2.17.0"></script>
+  <script src="admin-portal.js?v=2.22.0"></script>
 </body>
 </html>
