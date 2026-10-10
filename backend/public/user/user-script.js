@@ -1444,51 +1444,24 @@ function cancelAppt(id) {
 
     "Cancel Appointment",
 
-    () => {
+    async () => {
 
-      fetch("../php_files/update_appointment_status.php", {
-
-        method: "POST",
-
-        headers: { "Content-Type": "application/json" },
-
-        body: JSON.stringify({ id: id, status: "canceled" }),
-
-      })
-
-        .then(function (r) {
-
-          return r.json();
-
-        })
-
-        .then(function (data) {
-
-          if (data.status === "success") {
-
-            showToast("Appointment cancelled.", "warning");
-
-            loadUserAppointments();
-
-          } else {
-
-            showToast(
-
-              "Failed to cancel: " + (data.message || "Unknown error"),
-
-              "error",
-
-            );
-
-          }
-
-        })
-
-        .catch(function () {
-
-          showToast("Network error.", "error");
-
-        });
+      // Phase 5: cancellation is SERVER-side — PATCH /appointments/:id/status
+      // { canceled }. The API enforces the cancellation cut-off and the User
+      // may only cancel their own appointment.
+      if (!window.VHSWrites) { showToast("Cancellation service unavailable.", "error"); return; }
+      const result = await window.VHSWrites.cancel(id);
+      if (result.ok) {
+        showToast("Appointment cancelled.", "warning");
+        loadUserAppointments();
+      } else {
+        showToast(
+          result.notInDatabase
+            ? "This appointment is not in the clinic schedule."
+            : (result.message || "Failed to cancel."),
+          "error",
+        );
+      }
 
     },
 
@@ -2820,53 +2793,36 @@ function _getResolvedValue(selectId, otherInputId) {
   return sel.value;
 }
 
-function submitReschedule(e) {
+async function submitReschedule(e) {
   e.preventDefault();
   var apptId = document.getElementById('rescheduleApptId').value;
   var newDate = document.getElementById('rescheduleDate').value;
   var newTime = document.getElementById('rescheduleTime').value;
   var reason = _getResolvedValue('rescheduleReason', 'rescheduleReasonOther');
   if (!newDate || !newTime) { showToast('Please select a new date and time.', 'warning'); return; }
+  if (!window.VHSWrites) { showToast('Reschedule service unavailable.', 'error'); return; }
   var store = window.SharedMockAppointments;
   // Canonical record lookup — the store is the source of truth, not the
-  // page-load display cache. Same appointmentId/referenceNo are preserved by
-  // the store; only date/time move.
-  // TODO(BACKEND): PATCH /appointments/:id { appointment_date, appointment_time }.
+  // page-load display cache. Same appointmentId/referenceNo are preserved.
   var rec = store ? (store.byId(apptId) || store.byReference(apptId)) : null;
-  if (rec && store) {
-    if (_isWithinTwoHours(rec.appointmentDate, rec.appointmentTime)) { _showCutoffModal(); return; }
-    var result = store.reschedule(rec.appointmentId, newDate, newTime);
-    if (!result.ok) {
-      // Conflict wording comes from the shared scheduling engine so the User
-      // portal explains a rejection exactly as Admin does.
-      var _taken = result.error === 'slot_taken' || result.error === 'doctor_conflict' ||
-                   result.error === 'resource_capacity_reached';
-      showToast(result.error === 'invalid_status'
-        ? 'Only confirmed appointments can be rescheduled.'
-        : _taken
-          ? 'That slot has just been taken. Please pick another time.'
-          : (window.SmartScheduling && window.SmartScheduling.describeReason
-              ? window.SmartScheduling.describeReason(result.error)
-              : 'Could not reschedule. Please try again.'), 'error');
-      return;
-    }
-    if (reason) store.update(rec.appointmentId, { notes: (rec.notes ? rec.notes + ' | ' : '') + 'Rescheduled — ' + reason });
-    _syncFromStore();
-    if (window.AuditLog) window.AuditLog.add({ actor: _userAuditActor(), action: 'appointment_rescheduled', entityType: 'appointment', entityId: rec.appointmentId, referenceNo: rec.referenceNo || '', description: _userAuditActor().actorName + ' rescheduled ' + (rec.referenceNo || '') + ' to ' + newDate + ' ' + newTime, metadata: { appointmentDate: newDate, appointmentTime: newTime } });
-    closeModal('rescheduleModal');
-    showToast('Appointment rescheduled to ' + _fmtApptDateShort(newDate) + ' at ' + (_fmtApptTimeShort(result.appointment.appointmentTime) || newTime) + '.', 'success');
-    renderAppointmentCards();
+  if (!rec) { showToast('Appointment not found.', 'error'); return; }
+  if (_isWithinTwoHours(rec.appointmentDate, rec.appointmentTime)) { _showCutoffModal(); return; }
+  // Phase 5: reschedule is SERVER-side — PATCH /appointments/:id. The API
+  // revalidates slot concurrency and the reschedule cut-off; a refusal here
+  // is authoritative and writes nothing locally.
+  var notes = reason ? ((rec.notes ? rec.notes + ' | ' : '') + 'Rescheduled — ' + reason) : undefined;
+  var result = await window.VHSWrites.reschedule(rec.appointmentId, newDate, newTime, notes);
+  if (!result.ok) {
+    showToast(result.notInDatabase
+      ? 'This appointment is not in the clinic schedule.'
+      : (result.message || 'Could not reschedule. Please try again.'), 'error');
     return;
   }
-  // No shared store loaded: legacy local behaviour.
-  var appt = mockAppointmentsData.find(function(a) { return a.id === apptId; });
-  if (appt) {
-    appt.date = newDate;
-    appt.time = newTime;
-    appt.notes = (appt.notes ? appt.notes + ' | ' : '') + 'Rescheduled' + (reason ? ' — ' + reason : '');
-  }
+  _syncFromStore();
+  if (window.AuditLog) window.AuditLog.add({ actor: _userAuditActor(), action: 'appointment_rescheduled', entityType: 'appointment', entityId: rec.appointmentId, referenceNo: rec.referenceNo || '', description: _userAuditActor().actorName + ' rescheduled ' + (rec.referenceNo || '') + ' to ' + newDate + ' ' + newTime, metadata: { appointmentDate: newDate, appointmentTime: newTime } });
   closeModal('rescheduleModal');
-  showToast('Appointment rescheduled to ' + _fmtApptDateShort(newDate) + ' at ' + newTime + '.', 'success');
+  var _savedTime = (result.appointment && (result.appointment.appointmentTime || result.appointment.appointment_time)) || newTime;
+  showToast('Appointment rescheduled to ' + _fmtApptDateShort(newDate) + ' at ' + (_fmtApptTimeShort(_savedTime) || newTime) + '.', 'success');
   renderAppointmentCards();
 }
 
@@ -2892,27 +2848,26 @@ function openCancelModal(apptId) {
   openModal('cancelModal');
 }
 
-function submitCancel(e) {
+async function submitCancel(e) {
   e.preventDefault();
   var apptId = document.getElementById('cancelApptId').value;
   var reason = _getResolvedValue('cancelReason', 'cancelReasonOther');
   if (!reason) { showToast('Please select a cancellation reason.', 'warning'); return; }
+  if (!window.VHSWrites) { showToast('Cancellation service unavailable.', 'error'); return; }
   var store = window.SharedMockAppointments;
   var rec = store ? (store.byId(apptId) || store.byReference(apptId)) : null;
-  if (rec && store) {
-    // Cancellation goes through the guarded store transition so every portal
-    // sees the same canceled state. TODO(BACKEND): status endpoint.
-    var result = store.setStatus(rec.appointmentId, 'canceled');
-    if (!result.ok) { showToast('This appointment can no longer be cancelled.', 'error'); return; }
-    if (reason) store.update(rec.appointmentId, { notes: (rec.notes ? rec.notes + ' | ' : '') + 'Cancelled — ' + reason });
-    if (window.AuditLog) window.AuditLog.add({ actor: _userAuditActor(), action: 'appointment_canceled', entityType: 'appointment', entityId: rec.appointmentId, referenceNo: rec.referenceNo || '', description: _userAuditActor().actorName + ' cancelled appointment ' + (rec.referenceNo || ''), metadata: { reason: reason || '' } });
+  if (!rec) { showToast('Appointment not found.', 'error'); return; }
+  // Phase 5: cancellation is SERVER-side — PATCH /appointments/:id/status
+  // { canceled, reason }. The API enforces the cancellation cut-off and that
+  // the User owns the appointment; a refusal writes nothing locally.
+  var result = await window.VHSWrites.cancel(rec.appointmentId, reason);
+  if (!result.ok) {
+    showToast(result.notInDatabase
+      ? 'This appointment is not in the clinic schedule.'
+      : (result.message || 'This appointment can no longer be cancelled.'), 'error');
+    return;
   }
-  // There is no legacy fallback path any more. `mockAppointmentsData` is a
-  // DERIVED projection of SharedMockAppointments.all() (rebuilt by
-  // _syncFromStore()), and its `id` is exactly the appointmentId that
-  // store.byId() looks up. So when rec is null, no second local search could
-  // ever find it — the old branch was provably a no-op and is removed rather
-  // than left to imply a second, conflicting lifecycle.
+  if (window.AuditLog) window.AuditLog.add({ actor: _userAuditActor(), action: 'appointment_canceled', entityType: 'appointment', entityId: rec.appointmentId, referenceNo: rec.referenceNo || '', description: _userAuditActor().actorName + ' cancelled appointment ' + (rec.referenceNo || ''), metadata: { reason: reason || '' } });
   closeModal('cancelModal');
   showToast('Appointment cancelled.', 'warning');
   _syncFromStore();
@@ -3093,42 +3048,30 @@ function submitPet(e) {
 
   var editId = form.dataset.editId;
 
-  // Try backend first, then fall back to local state
+  // Phase 5: pet save is SERVER-side — POST /pets (create) or PATCH
+  // /pets/{id} (update), multipart so the photo rides along. The API scopes
+  // the write to the authenticated owner; a refusal renders the server's
+  // validation message instead of silently falling back to local state.
   var user = _getSessionUser();
   var userId = user.id || user.userId;
 
-  if (userId) {
-    // Online mode: send to PHP backend, fall back to the shared mock store
-    // when that endpoint is not there (frontend-only demo / static hosting).
-    if (editId) formData.append('pet_id', editId);
-    fetch('../api/pets/save_pet.php', { method: 'POST', body: formData })
-      .then(function (r) { return r.text(); })
-      .then(function (data) {
-        var json = null;
-        try { json = JSON.parse(data); } catch (err) { json = null; }
-
-        if (json && json.success) {
-          // Real backend persisted it — read the pet list back from it.
-          closeModal('petModal');
-          showToast(editId ? 'Pet updated successfully!' : 'Pet added successfully!', 'success');
-          loadPets();
-        } else if (json && json.success === false) {
-          // A real rejection: the server answered and said no.
-          showToast('Error: ' + (json.message || data), 'error');
-        } else if (data.trim() === 'Success') {
-          closeModal('petModal');
-          showToast(editId ? 'Pet updated successfully!' : 'Pet added successfully!', 'success');
-          loadPets();
-        } else {
-          // Not an API response at all (404/501/HTML). The backend is not
-          // deployed, so write through the shared store like every other
-          // frontend-demo write.
-          _submitPetLocal(petData, editId);
-        }
-      })
-      .catch(function() {
-        _submitPetLocal(petData, editId);
-      });
+  if (userId && window.VHSWrites) {
+    var _done = function (result) {
+      if (result.ok) {
+        closeModal('petModal');
+        showToast(editId ? 'Pet updated successfully!' : 'Pet added successfully!', 'success');
+        loadPets();
+        if (window.VHSPetOnboarding) window.VHSPetOnboarding.refresh();
+      } else {
+        showToast('Error: ' + (result.message || 'Could not save the pet.'), 'error');
+      }
+    };
+    if (editId) {
+      formData.append('_method', 'PATCH'); // method-override for multipart PATCH
+      window.VHSWrites.updatePet(editId, formData).then(_done);
+    } else {
+      window.VHSWrites.createPet(formData).then(_done);
+    }
   } else {
     _submitPetLocal(petData, editId);
   }

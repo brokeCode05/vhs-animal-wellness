@@ -259,25 +259,32 @@ function lookupCheckIn() {
   }
 }
 
-function checkInAppointment() {
+async function checkInAppointment() {
   var input = document.getElementById('checkInRefInput');
   var errEl = document.getElementById('checkInError');
   var actEl = document.getElementById('checkInActions');
   var shared = window.SharedMockAppointments;
+  if (!window.VHSWrites) { errEl.textContent = 'Check-in service unavailable.'; return; }
   var appt = shared ? shared.lookup((input.value || '').trim()) : null;
   if (!appt) { errEl.textContent = 'Appointment no longer available.'; return; }
-  var result = shared.checkIn(appt.appointmentId);
+  // Phase 5: check-in is SERVER-side — PATCH /appointments/:id/status
+  // { checked_in }. The API confirms the appointment date and stamps
+  // checked_in_at; nothing is written locally until it accepts.
+  var result = await window.VHSWrites.checkIn(appt.appointmentId);
   if (!result.ok) {
-    errEl.textContent = result.error === 'already'
-      ? 'Already checked in.'
-      : result.error === 'invalid_status'
-        ? 'Check-in is only allowed for confirmed appointments.'
-        : 'Check-in failed.';
+    errEl.textContent = result.notInDatabase
+      ? 'Appointment not found in the clinic schedule.'
+      : result.status === 422
+        ? (result.message || 'Check-in is not available for this appointment.')
+        : result.status === 403
+          ? 'Check-in is only allowed for confirmed appointments.'
+          : (result.message || 'Check-in failed.');
     return;
   }
+  var checked = result.appointment || appt;
   closeCheckInModal();
-  showToast('Patient checked in. Reference ' + result.appointment.referenceNo + '.', 'success');
-  _auditAdmin({ action: 'patient_checked_in', entityType: 'appointment', entityId: result.appointment.appointmentId, referenceNo: result.appointment.referenceNo, description: 'Admin checked in ' + (result.appointment.pet ? result.appointment.pet.name : 'patient') + ' — ' + result.appointment.referenceNo, metadata: { owner: result.appointment.owner ? result.appointment.owner.name : '', pet: result.appointment.pet ? result.appointment.pet.name : '' } });
+  showToast('Patient checked in. Reference ' + (checked.referenceNo || checked.reference_no || appt.referenceNo) + '.', 'success');
+  _auditAdmin({ action: 'patient_checked_in', entityType: 'appointment', entityId: checked.appointmentId || checked.appointment_id || appt.appointmentId, referenceNo: checked.referenceNo || checked.reference_no || appt.referenceNo, description: 'Admin checked in ' + ((checked.pet && (checked.pet.name || checked.pet_name)) || 'patient') + ' — ' + (checked.referenceNo || checked.reference_no || appt.referenceNo), metadata: { owner: (checked.owner && (checked.owner.name || checked.owner_name)) || '', pet: (checked.pet && (checked.pet.name || checked.pet_name)) || '' } });
   // Refresh whichever appointment views exist on this page so the same
   // shared record shows Checked In immediately.
   if (document.getElementById('allAppointmentsTable')) loadAppointments();
@@ -370,7 +377,7 @@ function _populateAdminRescheduleSlots() {
     ? '<option value="">Select time</option>' + slots.map(function(s){ return '<option value="' + s + '">' + s + '</option>'; }).join('')
     : '<option value="">No available slots that day</option>';
 }
-function submitAdminReschedule(e) {
+async function submitAdminReschedule(e) {
   e.preventDefault();
   var id = document.getElementById('adminRescheduleApptId').value;
   var newDate = document.getElementById('adminRescheduleDate').value;
@@ -391,22 +398,22 @@ function submitAdminReschedule(e) {
   }
   var oldDate = _before ? _before.appointmentDate : '';
   var oldTime = _before ? _before.appointmentTime : '';
-  var result = shared ? shared.reschedule(id, newDate, newTime) : { ok: false, error: 'not_found' };
+  // Phase 5: reschedule is SERVER-side — PATCH /appointments/:id. The API
+  // revalidates slot concurrency and the cut-off; a refusal writes nothing.
+  if (!window.VHSWrites) { showToast('Reschedule service unavailable.', 'error'); return; }
+  var result = await window.VHSWrites.reschedule(_before.appointmentId, newDate, newTime);
   if (!result.ok) {
-    // Same shared wording the User portal uses, so the front desk and the
-    // owner are told the same thing about the same conflict.
-    var _taken = result.error === 'slot_taken' || result.error === 'doctor_conflict' ||
-                 result.error === 'resource_capacity_reached';
-    showToast(_taken
-      ? 'That slot is already booked.'
-      : (window.SmartScheduling && window.SmartScheduling.describeReason
-          ? window.SmartScheduling.describeReason(result.error)
-          : 'Could not reschedule.'), 'error');
+    showToast(result.notInDatabase
+      ? 'This appointment is not in the clinic schedule.'
+      : (result.message || 'Could not reschedule.'), 'error');
     return;
   }
+  var _appt = result.appointment || {};
+  var _ref = _appt.referenceNo || _appt.reference_no || _before.referenceNo;
+  var _savedTime = _appt.appointmentTime || _appt.appointment_time || newTime;
   closeAdminReschedule();
-  showToast('Rescheduled to ' + newDate + ' ' + (window.AppointmentContract ? window.AppointmentContract.timeTo12h(result.appointment.appointmentTime) : result.appointment.appointmentTime) + ' (same Reference ' + result.appointment.referenceNo + ').', 'success');
-  _auditAdmin({ action: 'appointment_rescheduled', entityType: 'appointment', entityId: result.appointment.appointmentId, referenceNo: result.appointment.referenceNo, description: 'Admin rescheduled ' + result.appointment.referenceNo + ' from ' + oldDate + ' ' + oldTime + ' to ' + newDate + ' ' + newTime, metadata: { previousDate: oldDate, previousTime: oldTime, appointmentDate: newDate, appointmentTime: newTime } });
+  showToast('Rescheduled to ' + newDate + ' ' + (window.AppointmentContract ? window.AppointmentContract.timeTo12h(_savedTime) : _savedTime) + ' (same Reference ' + _ref + ').', 'success');
+  _auditAdmin({ action: 'appointment_rescheduled', entityType: 'appointment', entityId: _appt.appointmentId || _appt.appointment_id || _before.appointmentId, referenceNo: _ref, description: 'Admin rescheduled ' + _ref + ' from ' + oldDate + ' ' + oldTime + ' to ' + newDate + ' ' + newTime, metadata: { previousDate: oldDate, previousTime: oldTime, appointmentDate: newDate, appointmentTime: newTime } });
   if (document.getElementById('allAppointmentsTable')) loadAppointments();
 }
 
@@ -669,26 +676,28 @@ function submitAdminBooking(e) {
 }
 
 // ─── ADMIN STATUS ACTIONS (frontend-demo honest mode) ───────────────────────────────
-// Approve / reject / cancel write to the SAME shared mock state the User and
-// Doctor portals read. No database persistence is claimed.
-// TODO(BACKEND): Route through update_appointment_status.php (ENUM must be
-// expanded first — see doctor/AUDIT-cross-portal-appointments.md).
-function _adminSharedStatus(id, nextStatus, successMsg) {
+// Approve / reject / cancel write SERVER-side through PATCH
+// /appointments/:id/status, so Admin, User and Doctor all read one
+// authoritative lifecycle. The local store is mirrored only after the API
+// accepts the change (VHSWrites handles this).
+async function _adminSharedStatus(id, nextStatus, successMsg) {
   var shared = window.SharedMockAppointments;
-  if (!shared) { showToast('Shared mock state unavailable.', 'error'); return; }
-  var result = shared.setStatus(id, nextStatus);
+  if (!window.VHSWrites) { showToast('Appointment service unavailable.', 'error'); return; }
+  var rec = shared ? (shared.byId(id) || shared.byReference(id)) : null;
+  if (!rec) { showToast('Appointment not found.', 'error'); return; }
+  var result = await window.VHSWrites.setStatus(rec.appointmentId, nextStatus);
   if (!result.ok) {
-    showToast(result.error === 'invalid_status'
-      ? 'That status change is not allowed for this appointment.'
-      : 'Appointment not found.', 'error');
+    showToast(result.notInDatabase
+      ? 'This appointment is not in the clinic schedule.'
+      : (result.message || 'That status change is not allowed for this appointment.'), 'error');
     return;
   }
-  showToast(successMsg + ' (demo state — not saved to a database)', 'success');
+  showToast(successMsg, 'success');
   var _action = nextStatus === 'confirmed' ? 'appointment_approved'
     : (nextStatus === 'canceled' && /reject/i.test(successMsg || '')) ? 'appointment_rejected'
     : 'appointment_canceled';
-  var _appt = result.appointment || {};
-  _auditAdmin({ action: _action, entityType: 'appointment', entityId: _appt.appointmentId || id, referenceNo: _appt.referenceNo || '', description: 'Admin ' + (_action === 'appointment_approved' ? 'approved' : _action === 'appointment_rejected' ? 'rejected' : 'cancelled') + ' appointment ' + (_appt.referenceNo || id), metadata: { status: nextStatus } });
+  var _appt = result.appointment || rec;
+  _auditAdmin({ action: _action, entityType: 'appointment', entityId: _appt.appointmentId || rec.appointmentId, referenceNo: _appt.referenceNo || rec.referenceNo || '', description: 'Admin ' + (_action === 'appointment_approved' ? 'approved' : _action === 'appointment_rejected' ? 'rejected' : 'cancelled') + ' appointment ' + (_appt.referenceNo || rec.referenceNo || id), metadata: { status: nextStatus } });
   if (document.getElementById('allAppointmentsTable')) loadAppointments();
   var tbody = document.getElementById('todayScheduleTable');
   if (tbody && window.SharedMockAppointments) {

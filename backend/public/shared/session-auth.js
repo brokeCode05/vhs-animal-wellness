@@ -39,14 +39,22 @@
   }
 
   // One JSON round-trip against the Laravel API, same-origin, CSRF protected.
-  async function send(path, body, retried) {
+  // `opts` may be { method: 'PATCH'|'DELETE'|'POST'|'GET', retried: true }.
+  // A bare `true` (legacy internal call) is treated as { retried: true }.
+  // PATCH is required: every Laravel write route (appointments status,
+  // reschedule, pets, doctor availability) is PATCH/PUT, not POST.
+  async function send(path, body, opts) {
+    if (opts === true) opts = { retried: true };
+    opts = opts || {};
+    var method = (opts.method || (body ? 'POST' : 'GET')).toUpperCase();
     if (!csrf) await refreshCsrf();
     var init = {
-      method: body ? 'POST' : 'GET',
+      method: method,
       credentials: 'same-origin',
       headers: { Accept: 'application/json', 'X-CSRF-TOKEN': csrf || '' }
     };
-    if (body) {
+    // GET and DELETE carry no body here; POST/PATCH/PUT serialize JSON.
+    if (body && method !== 'GET' && method !== 'DELETE') {
       init.headers['Content-Type'] = 'application/json';
       init.body = JSON.stringify(body);
     }
@@ -55,9 +63,9 @@
     try { data = await r.json(); } catch (e) { data = null; }
 
     // 419 = expired session / rotated CSRF token: refresh once and retry.
-    if (r.status === 419 && !retried) {
+    if (r.status === 419 && !opts.retried) {
       await refreshCsrf();
-      return await send(path, body, true);
+      return await send(path, body, { method: method, retried: true });
     }
 
     return {
@@ -124,6 +132,12 @@
       return parsed && (parsed.id || parsed.userId) ? parsed : null;
     } catch (e) { return null; }
   }
+
+  // Verb helpers for the PATCH/DELETE write routes. Thin wrappers so callers
+  // never hand-roll method+CSRF handling.
+  function patch(path, body) { return send(path, body, { method: 'PATCH' }); }
+  function put(path, body) { return send(path, body, { method: 'PUT' }); }
+  function del(path) { return send(path, null, { method: 'DELETE' }); }
 
   function login(identifier, password, channel) {
     var body = { identifier: identifier, password: password };
@@ -195,6 +209,9 @@
     guard: guard,
     refreshCsrf: refreshCsrf,
     send: send,
+    patch: patch,
+    put: put,
+    del: del,
     portalForRole: portalForRole,
     expectedRole: expectedRole
   };

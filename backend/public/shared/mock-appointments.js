@@ -499,6 +499,51 @@
         _saveOverrides();
       }
       return { ok: true, appointment: this.byId(id) };
+    },
+
+    // ── AUTHORITATIVE SERVER MIRROR ────────────────────────────────────
+    // Applies a Laravel-confirmed patch to the local store WITHOUT the
+    // client-side transition guard. The server already validated the
+    // lifecycle and stamped its own timestamps, so this only reflects the
+    // outcome so every portal re-renders consistently. Never invents state:
+    // call it only after a successful API write. `id` may be the numeric DB
+    // id or the referenceNo — both resolve through byId()/byReference().
+    applyServerPatch: function (id, patch) {
+      var p = patch || {};
+      ADDED = _readAdded();
+      OVERRIDES = _readOverrides();
+      var rec = this.byId(id);
+      if (!rec) return { ok: false, error: 'not_found' };
+      var key = String(rec.appointmentId);
+      var target = ADDED.find(function (a) { return String(a.appointmentId) === key; });
+      if (target) {
+        Object.assign(target, p);
+        ADDED = ADDED;
+        _saveAdded();
+        return { ok: true, appointment: this.byId(id) };
+      }
+      OVERRIDES[key] = Object.assign({}, OVERRIDES[key] || {}, p);
+      _saveOverrides();
+      return { ok: true, appointment: this.byId(id) };
+    },
+
+    // ── FULL RECORD UPSERT (server → local) ───────────────────────────
+    // Replaces a local record with the canonical shape returned by the API
+    // (already run through AppointmentContract by the caller). Used after a
+    // create/reschedule so the DB-assigned appointmentId/referenceNo win.
+    upsertFromServer: function (canonical) {
+      if (!canonical || !canonical.appointmentId) return { ok: false, error: 'invalid' };
+      var fresh = _readAdded();
+      var key = String(canonical.appointmentId);
+      var idx = -1;
+      for (var i = 0; i < fresh.length; i++) {
+        if (String(fresh[i].appointmentId) === key) { idx = i; break; }
+      }
+      if (idx >= 0) fresh[idx] = canonical;
+      else fresh.push(canonical);
+      ADDED = fresh;
+      _saveAdded();
+      return { ok: true, appointment: this.byId(canonical.appointmentId) };
     }
   };
 })(window);

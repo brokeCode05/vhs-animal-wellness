@@ -179,6 +179,22 @@
     // TODO(BACKEND): PATCH /doctors/:id/availability (+ audit event).
     setAvailability: function (id, value) {
       return this.updateDoctor(id, { availabilityStatus: normalizeAvailability(value) });
+    },
+    // ── AUTHORITATIVE SERVER MIRROR ────────────────────────────────────
+    // Reflects a Laravel-confirmed availability change into the local store
+    // without any client-side guard. Call only AFTER a successful API write.
+    applyServerPatch: function (id, fields) {
+      var f = fields || {};
+      var added = DEMO.added.find(function (d) { return String(d.doctorId) === String(id); });
+      if (added) {
+        Object.assign(added, f);
+      } else {
+        var base = DOCTORS.find(function (d) { return String(d.doctorId) === String(id); });
+        if (!base) return { ok: false, error: 'not_found' };
+        DEMO.overrides[base.doctorId] = Object.assign({}, DEMO.overrides[base.doctorId] || {}, f);
+      }
+      _save();
+      return { ok: true, doctor: this.byId(id) };
     }
   };
 })(window);

@@ -1316,28 +1316,41 @@ const MEDICINE_LIMITS = { medicine: 100, frequency: 50, instructions: 500 };
   renderQueue();
   // Start is an explicit action, never a side effect of selecting a patient.
   // Only checked-in patients may start; upcoming patients cannot.
-  // TODO(BACKEND): Validate the status transition server-side and record
-  // startedAt through the consultation API.
-  function startConsultation(patient) {
+  // Phase 5: the transition is validated SERVER-side — PATCH
+  // /appointments/:id/status { in_consultation }. The local store is only
+  // updated after the API accepts it (VHSWrites mirrors the confirmed record).
+  async function startConsultation(patient) {
     const draft = draftFor(patient);
     if (statusFor(patient) !== 'checked_in') return;
     if (statusFor(patient) === 'in_consultation' || statusFor(patient) === 'completed') return;
-    // Same record, same lifecycle: the shared store stamps
-    // consultationStartedAt and sets in_consultation for every portal.
-    // TODO(BACKEND): PATCH /appointments/:id/status { in_consultation }.
-    const store = window.SharedMockAppointments;
-    const result = store && patient.appointmentId ? store.setStatus(patient.appointmentId, 'in_consultation') : { ok: false };
-    if (store && patient.appointmentId && !result.ok) return; // guard rejected the transition
+    const saveStatus = document.getElementById('save-status');
+    if (!window.VHSWrites || !patient.appointmentId) {
+      if (saveStatus) saveStatus.textContent = 'Cannot start: the consultation service is unavailable.';
+      return;
+    }
+    if (saveStatus) saveStatus.textContent = 'Starting consultation…';
+    const result = await window.VHSWrites.startConsultation(patient.appointmentId);
+    if (!result.ok) {
+      // The server refused (invalid transition, wrong doctor, 404 demo row).
+      // Nothing is stamped locally — every other portal keeps the old status.
+      if (saveStatus) {
+        saveStatus.textContent = result.notInDatabase
+          ? 'This appointment is not in the clinic schedule. Nothing was changed.'
+          : (result.message || 'Could not start the consultation. Nothing was changed.');
+      }
+      return;
+    }
     if (window.AuditLog) window.AuditLog.add({ actor: { actorType: 'Doctor', actorId: VETERINARIAN.id, actorName: VETERINARIAN.name }, action: 'consultation_started', entityType: 'appointment', entityId: patient.appointmentId, referenceNo: patient.referenceNo || '', description: VETERINARIAN.name + ' started consultation for ' + patient.name });
     captureDraft();
-    draft.startedAt = (result && result.appointment && result.appointment.consultationStartedAt) || new Date().toISOString();
+    // Server-authoritative timestamp (mirrored into the store by VHSWrites).
+    draft.startedAt = (result.appointment && (result.appointment.consultationStartedAt || result.appointment.consultation_started_at)) || new Date().toISOString();
     draft.completedAt = null;
     draft.durationMinutes = null;
     draft.updatedAt = draft.startedAt;
     persistDraft(patient, draft);
     renderQueue();
     selectPatient(patient);
-    document.getElementById('save-status').textContent = `Consultation started for ${patient.name}. Timer is running.`;
+    if (saveStatus) saveStatus.textContent = `Consultation started for ${patient.name}. Timer is running.`;
     navigate('notes');
   }
   // One tick updates every visible elapsed readout; state is derived from
@@ -1476,23 +1489,19 @@ const MEDICINE_LIMITS = { medicine: 100, frequency: 50, instructions: 500 };
     // Confirmed and re-validated: an unprocessed clip has nowhere to go in a
     // read-only record, so it is released rather than silently kept.
     if (rec.recording) discardScribeRecording();
-    // Same canonical record: the shared store stamps
-    // consultationCompletedAt and sets completed for every portal. The local
-    // duration/timer logic is preserved untouched.
-    // TODO(BACKEND): PATCH /appointments/:id/status { completed }.
-    const store = window.SharedMockAppointments;
-    const completion = (store && selectedPatient.appointmentId)
-      ? store.setStatus(selectedPatient.appointmentId, 'completed')
+    // Phase 5: the APPOINTMENT lifecycle is finalized SERVER-side — PATCH
+    // /appointments/:id/status { completed }. The local store is updated only
+    // after the API accepts it (VHSWrites mirrors the confirmed record), so
+    // this portal can never show "completed" while every other portal reads a
+    // stale status. Nothing is stamped on a refusal.
+    status.textContent = 'Finalizing consultation…';
+    const completion = (window.VHSWrites && selectedPatient.appointmentId)
+      ? await window.VHSWrites.completeConsultation(selectedPatient.appointmentId)
       : { ok: false, error: 'no_store' };
-    // The APPOINTMENT is the lifecycle authority. If the canonical transition
-    // was refused, this consultation is NOT complete — showing it as completed
-    // here while every other portal still reads the old status is exactly the
-    // divergence this guard exists to prevent. Nothing is stamped: no audit
-    // event, no completedAt, no documents, no button state.
     if (!completion.ok) {
-      status.textContent = completion.error === 'not_found'
+      status.textContent = completion.notInDatabase
         ? 'This appointment is no longer in the schedule. Nothing was changed.'
-        : 'This consultation was already finalized or cannot be completed right now. Nothing was changed.';
+        : (completion.message || 'This consultation was already finalized or cannot be completed right now. Nothing was changed.');
       syncScribePanel();
       return;
     }
@@ -1750,24 +1759,40 @@ const MEDICINE_LIMITS = { medicine: 100, frequency: 50, instructions: 500 };
       sidebarRole.textContent = _display.role === 'Doctor' ? 'Veterinarian' : _display.role;
     }
   }
-  // Availability select writes through the shared store, so Admin → Doctor
-  // and Doctor → Admin stay in sync via the same record.
-  document.getElementById('availability').addEventListener('change', event => {
+  // Availability select: Phase 5 writes SERVER-side via PATCH
+  // /doctors/:id/availability, then the confirmed value is mirrored into the
+  // shared store so Admin → Doctor and Doctor → Admin stay in sync via the
+  // same record. On refusal the control reverts — no optimistic local-only
+  // state that the backend never accepted.
+  document.getElementById('availability').addEventListener('change', async event => {
     const value = event.target.value;
-    if (window.SharedMockDoctors && _doctorRecord) {
-      const MAP = { 'On-Duty': 'on_duty', 'On Break': 'on_break', 'On Leave': 'on_leave' };
-      const _prevAvail = _doctorRecord.availabilityStatus;
-      window.SharedMockDoctors.setAvailability(_doctorRecord.doctorId, MAP[value] || 'on_duty');
-      if (window.AuditLog) {
-        const _next = MAP[value] || 'on_duty';
-        const _lab = { on_duty: 'On Duty', on_break: 'On Break', on_leave: 'On Leave' };
-        window.AuditLog.add({ actor: { actorType: 'Doctor', actorId: VETERINARIAN.id, actorName: VETERINARIAN.name }, action: 'doctor_availability_changed', entityType: 'doctor', entityId: _doctorRecord.doctorId, description: VETERINARIAN.name + ' set own availability to ' + (_lab[_next] || _next), metadata: { previous: _lab[_prevAvail] || _prevAvail || '', new: _lab[_next] || _next } });
-      }
+    const MAP = { 'On-Duty': 'on_duty', 'On Break': 'on_break', 'On Leave': 'on_leave' };
+    const next = MAP[value] || 'on_duty';
+    const status = document.getElementById('availability-status');
+    if (!window.VHSWrites || !_doctorRecord) {
+      if (status) status.textContent = 'Availability service unavailable — change not saved.';
+      return;
+    }
+    const _prevAvail = _doctorRecord.availabilityStatus;
+    const result = await window.VHSWrites.setDoctorAvailability(_doctorRecord.doctorId, next);
+    if (!result.ok) {
+      // Revert the select to the last server-accepted value.
+      const REV = { on_duty: 'On-Duty', on_break: 'On Break', on_leave: 'On Leave' };
+      event.target.value = REV[_prevAvail] || 'On-Duty';
+      if (status) status.textContent = result.notInDatabase
+        ? 'This doctor record is not in the clinic database — change not saved.'
+        : (result.message || 'Could not save availability. Please try again.');
+      return;
+    }
+    if (window.AuditLog) {
+      const _lab = { on_duty: 'On Duty', on_break: 'On Break', on_leave: 'On Leave' };
+      window.AuditLog.add({ actor: { actorType: 'Doctor', actorId: VETERINARIAN.id, actorName: VETERINARIAN.name }, action: 'doctor_availability_changed', entityType: 'doctor', entityId: _doctorRecord.doctorId, description: VETERINARIAN.name + ' set own availability to ' + (_lab[next] || next), metadata: { previous: _lab[_prevAvail] || _prevAvail || '', new: _lab[next] || next } });
     }
     const paused = value !== 'On-Duty';
-    const status = document.getElementById('availability-status');
-    status.textContent = paused ? 'New assignments paused' : 'Accepting new assignments';
-    status.classList.toggle('assignments-paused', paused);
+    if (status) {
+      status.textContent = paused ? 'New assignments paused' : 'Accepting new assignments';
+      status.classList.toggle('assignments-paused', paused);
+    }
   });
   // Mobile drawer behaves like the other portals: slide-in panel, dimmed
   // overlay, animated hamburger, and close on overlay click or Escape.
