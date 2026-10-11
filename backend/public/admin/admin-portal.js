@@ -138,36 +138,29 @@ function openAdminBookModal(prefilledDate, prefilledTime) {
           }).join('')
         : '<option value="">No clients found</option>';
     };
-    fetch('../php_files/get_users.php')
-      .then(function(r) { return r.json(); })
-      .then(function(data) {
-        var users = Array.isArray(data) ? data : (data.users || []);
-        if (users.length) { fillClients(users.map(function (u) { return { id: u.id, name: u.fullName || u.name, email: u.email }; })); return; }
-        // No backend data: fall back to the shared mock clients.
-        fillClients(window.SharedMockUsers
-          ? window.SharedMockUsers.users().map(function (u) { return { id: u.userId, name: u.name, email: u.email }; })
-          : []);
-      })
-      .catch(function() {
-        // Static hosting (GitHub Pages demo): use the shared mock clients.
-        // TODO(BACKEND): get_users.php is the only source when deployed.
-        fillClients(window.SharedMockUsers
-          ? window.SharedMockUsers.users().map(function (u) { return { id: u.userId, name: u.name, email: u.email }; })
-          : []);
+    // ── READ INTEGRATION ──────────────────────────────────────────────────
+    // Clients come from GET /api/users (Admin) via the read adapter, so the
+    // IDs offered in this dropdown are the real Laravel user IDs the booking
+    // write path uses. No mock fallback: a failed call shows the honest
+    // "No clients found" state plus an error toast.
+    var reads = window.VHSReads;
+    if (reads && typeof reads.users === 'function') {
+      reads.users().then(function (res) {
+        if (res.ok) {
+          fillClients(res.data.users.map(function (u) { return { id: u.userId || u.id, name: u.fullName || u.name, email: u.email }; }));
+          return;
+        }
+        fillClients([]);
+        if (window.showToast) showToast('Could not load clients — ' + (res.message || 'request failed.'), 'error');
       });
+    } else {
+      fillClients([]);
+      if (window.showToast) showToast('Read adapter (shared/api-reads.js) failed to load.', 'error');
+    }
   }
 
   var petSelect = document.getElementById('adminPetSelect');
   if (petSelect) petSelect.innerHTML = '<option value="">Select client first</option>';
-}
-
-// Shared mock pets for the booking-modal client→pet cascade (frontend demo).
-// TODO(BACKEND): get_pets.php?user_id=... replaces this entirely.
-function _sharedPetsForClient(userId) {
-  if (!window.SharedMockUsers) return [];
-  return window.SharedMockUsers.petsOfOwner(userId).map(function (p) {
-    return { id: p.petId, name: p.name, species: p.species };
-  });
 }
 
 function closeAdminBookModal() {
@@ -443,17 +436,24 @@ document.addEventListener('change', function(e) {
           }).join('')
         : '<option value="">No pets registered</option>';
     };
-    fetch('../php_files/get_pets.php?user_id=' + userId)
-      .then(function(r) { return r.json(); })
-      .then(function(data) {
-        var pets = Array.isArray(data) ? data : (data.pets || []);
-        if (pets.length) { fillPets(pets.map(function (p) { return { id: p.id, name: p.name, species: p.type || p.species }; })); return; }
-        fillPets(_sharedPetsForClient(userId));
-      })
-      .catch(function() {
-        // TODO(BACKEND): get_pets.php?user_id=... is the only source when deployed.
-        fillPets(_sharedPetsForClient(userId));
+    // ── READ INTEGRATION ──────────────────────────────────────────────────
+    // The pet cascade comes from GET /api/users/{user}/pets via the read
+    // adapter — real pet IDs for the selected client. No mock fallback: a
+    // failed call shows the honest "No pets registered" state + error toast.
+    var reads = window.VHSReads;
+    if (reads && typeof reads.petsOfUser === 'function') {
+      reads.petsOfUser(userId).then(function (res) {
+        if (res.ok) {
+          fillPets(res.data.pets.map(function (p) { return { id: p.petId || p.id, name: p.name, species: p.species }; }));
+          return;
+        }
+        fillPets([]);
+        if (window.showToast) showToast('Could not load pets — ' + (res.message || 'request failed.'), 'error');
       });
+    } else {
+      fillPets([]);
+      if (window.showToast) showToast('Read adapter (shared/api-reads.js) failed to load.', 'error');
+    }
   }
   if (e.target.id === 'adminBookDate') {
     refreshAdminTimeSlots();
@@ -829,6 +829,10 @@ document.addEventListener('click', function (e) {
   } else {
     computeCounts();
   }
+  // READ INTEGRATION: recount when the server data lands — the first pass
+  // above reads the stores before the boot GETs have resolved.
+  document.addEventListener('vhs:appointments-loaded', computeCounts);
+  document.addEventListener('vhs:clients-loaded', computeCounts);
 })();
 
 // Clients & Pets demo fallback: populate the owner/pet tables from the
@@ -937,6 +941,11 @@ document.addEventListener('click', function (e) {
   window.closePetProfile = window.closePetProfile || function () { closeProfile('petProfileModal'); };
 
   // Populate after DOM ready; skip if a backend loader marked the tables.
+  // READ INTEGRATION: exposed so the boot hydration (end of file) can re-render
+  // these tables from the server-hydrated store once GET /api/users +
+  // GET /api/users/{id}/pets have landed.
+  window.VHSAdminRenderClients = loadSharedClients;
+  window.VHSAdminRenderPets = loadSharedPets;
   function initClientsPets() {
     if (!document.getElementById('clientsTable')) return;
     loadSharedClients();
@@ -1217,15 +1226,28 @@ function closeViewDoctor() {
 // Init wiring for both pages (ids decide what runs).
 document.addEventListener("DOMContentLoaded", () => {
   if (!window.SharedMockDoctors) return;
-  if (document.getElementById("doctorAccountsTable")) {
-    _renderDoctorAccounts();
-    document.getElementById("filterDoctorStatus")?.addEventListener("change", _renderDoctorAccounts);
-    document.getElementById("searchDoctors")?.addEventListener("input", (e) => {
-      _doctorSearch = e.target.value.trim().toLowerCase();
+  // ── READ INTEGRATION ──────────────────────────────────────────────────────
+  // Hydrate the roster from GET /api/doctors before the first paint, so
+  // Admin sees the real doctors — and the real doctorIds that
+  // VHSWrites.setDoctorAvailability/applyServerPatch use — never the demo
+  // roster. Renders run after hydration settles (empty + toast on failure).
+  var doctorRes = (window.VHSReads && typeof window.VHSReads.hydrateDoctors === 'function')
+    ? window.VHSReads.hydrateDoctors()
+    : Promise.resolve({ ok: false, message: 'Read adapter (shared/api-reads.js) failed to load.' });
+  doctorRes.then((res) => {
+    if (!res.ok && window.showToast) {
+      showToast('Could not load doctors — ' + (res.message || 'request failed.'), 'error');
+    }
+    if (document.getElementById("doctorAccountsTable")) {
       _renderDoctorAccounts();
-    });
-  }
-  if (document.getElementById("doctorDirectoryTable")) _renderDoctorDirectory();
+      document.getElementById("filterDoctorStatus")?.addEventListener("change", _renderDoctorAccounts);
+      document.getElementById("searchDoctors")?.addEventListener("input", (e) => {
+        _doctorSearch = e.target.value.trim().toLowerCase();
+        _renderDoctorAccounts();
+      });
+    }
+    if (document.getElementById("doctorDirectoryTable")) _renderDoctorDirectory();
+  });
 });
 // ─── PHASE 2A POLISH: CLIENTS & PETS FULL MANAGEMENT ─────────────────────
 // Complete User/Pet management on the canonical shared store:
@@ -1316,6 +1338,11 @@ document.addEventListener("DOMContentLoaded", () => {
     return _fmtDateD(last);
   }
 
+  // READ INTEGRATION: exposed so the boot hydration (end of file) can
+  // re-render from the server-hydrated store once the client/pet GETs
+  // land. This richer renderer wins over the lightweight one above.
+  window.VHSAdminRenderClients = renderClientsTable;
+  window.VHSAdminRenderPets = renderPetsTable;
   function renderPetsTable() {
     var tbody = document.getElementById('petsTable');
     if (!tbody || !SMU()) return;
@@ -2021,4 +2048,49 @@ function _escKebabAttr(s) {
   document.addEventListener('keydown', function (e) {
     if (e.key === 'Escape') closeAll(null);
   });
+})();
+
+// ─── ADMIN BOOT-TIME READ HYDRATION (read integration) ─────────────────────
+// Loads the real Laravel records into the shared stores at page boot, so
+// every Admin table, count, modal and write action operates on the SAME
+// records the API returned (real numeric IDs — never fixtures like 'apt301'):
+//   • appointments → GET /api/appointments   (Admin sees every appointment)
+//   • clients+pets → GET /api/users + GET /api/users/{id}/pets per owner
+// (Doctors are hydrated by the doctors/accounts boot above, which must run
+// its renders after that fetch.) On failure the stores hydrate EMPTY — the
+// honest state — and an error toast explains why; demo fixtures are never
+// substituted for a failed real call.
+(function () {
+  'use strict';
+  function boot() {
+    if (!window.VHSReads) return;
+    var reads = window.VHSReads;
+    var needsClients = document.getElementById('clientsTable')
+      || document.getElementById('petsTable')
+      || document.getElementById('adminBookModal')
+      || document.querySelector('.stat-card');
+    var jobs = [reads.hydrateAppointments()];
+    if (needsClients) jobs.push(reads.hydrateClients());
+    Promise.all(jobs).then(function (results) {
+      var apptRes = results[0];
+      if (apptRes && !apptRes.ok && window.showToast) {
+        showToast('Could not load appointments — ' + (apptRes.message || 'request failed.'), 'error');
+      }
+      var clientRes = results[1];
+      if (clientRes && !clientRes.ok && window.showToast) {
+        showToast('Could not load clients — ' + (clientRes.message || 'request failed.'), 'error');
+      }
+      if (document.getElementById('clientsTable') && typeof window.VHSAdminRenderClients === 'function') {
+        window.VHSAdminRenderClients();
+      }
+      if (document.getElementById('petsTable') && typeof window.VHSAdminRenderPets === 'function') {
+        window.VHSAdminRenderPets();
+      }
+    });
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', boot);
+  } else {
+    boot();
+  }
 })();

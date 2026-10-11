@@ -54,21 +54,17 @@ const MEDICINE_LIMITS = { medicine: 100, frequency: 50, instructions: 500 };
   // Pass SharedMockAppointments.today explicitly to exercise the fixture day.
   // TODO(BACKEND): get_appointments.php?date=<today> returns this list.
   const DOCTOR_TEST_DATE = null; // set '2026-09-26' ONLY to demo the fixture day
-  const mockSchedule = (window.SharedMockAppointments
-    ? window.SharedMockAppointments.todays(DOCTOR_TEST_DATE)
-    : []
-  ).map(function (appt) {
-    var emr = (window.SharedMockClinical && window.SharedMockClinical.getEmr)
-      ? window.SharedMockClinical.getEmr(appt.petId)
-      : { pet_age: '', ai_triage: 'Routine', ai_summary: '', visits: [] };
-    return Object.assign({}, appt, emr);
-  });
+  // ── READ INTEGRATION ──────────────────────────────────────────────────────
+  // The queue boots EMPTY and is filled from GET /api/appointments (scoped by
+  // the server to THIS veterinarian; canceled/no_show excluded) by
+  // _bootQueueFromServer() at the end of this file. The demo EMR fixture
+  // merge is deliberately gone: real rows carry pet_age through the
+  // appointment presenter, and clinical history comes from the Doctor-only
+  // consultations endpoint — never from petId-keyed fixtures.
 
   // Data-mapping boundary: fixtures/endpoint rows are normalized through the
   // shared canonical appointment contract first, then projected into the
   // doctor view model. Pet/EMR data rides separately from the appointment.
-  // TODO(BACKEND): Feed mockSchedule rows from get_appointments.php
-  // (referenceNo included) — this mapper then changes least.
   function mapAppointment(appt) {
     const a = window.AppointmentContract.fromLegacy(appt);
     return {
@@ -125,7 +121,7 @@ const MEDICINE_LIMITS = { medicine: 100, frequency: 50, instructions: 500 };
   // TODO(BACKEND): Keep this consultation record keyed by appointmentId;
   // persist transitions server-side instead of local status flags.
   function consultationRecord(patient) { return draftFor(patient); }
-  const patients = mockSchedule.map(mapAppointment);
+  const patients = []; // filled by _bootQueueFromServer() from GET /api/appointments
 
   const queue = document.getElementById('patient-queue');
   const record = document.getElementById('patient-record');
@@ -140,7 +136,10 @@ const MEDICINE_LIMITS = { medicine: 100, frequency: 50, instructions: 500 };
   // about the demo changes; there is now one source instead of two.
   // MOCK identity: there is no login. TODO(BACKEND): an authenticated staff
   // session replaces SharedMockDoctors.currentStaff(); only that changes.
-  const VETERINARIAN = (window.SharedMockDoctors && window.SharedMockDoctors.currentStaff)
+  // Identity: hydrated from GET /api/doctors by _bootQueueFromServer()
+  // (let so the boot can re-point it at the signed-in veterinarian's REAL
+  // record once the roster lands). Demo fallback kept only for static hosting.
+  let VETERINARIAN = (window.SharedMockDoctors && window.SharedMockDoctors.currentStaff)
     ? window.SharedMockDoctors.currentStaff()
     : { id: 'vet-001', name: 'Dr. Santos', role: 'Veterinarian', clinicalTitle: 'Veterinarian' };
   // Display-side service label resolution: records may store the canonical
@@ -1215,10 +1214,46 @@ const MEDICINE_LIMITS = { medicine: 100, frequency: 50, instructions: 500 };
     }
     document.getElementById('selection-status').textContent = `${patient.name} is the active patient.`;
     renderRecordActions(patient);
+    // READ INTEGRATION: real clinical history replaces the EMR fixture merge.
+    // Real appointments carry no visits[], so pull this pet's consultation
+    // notes from the Doctor-scoped endpoint and patch the history section.
+    record.dataset.historyFor = patient.id;
+    _loadPatientHistory(patient, record);
     if (moveFocus) {
       document.getElementById('record-heading').focus({ preventScroll: true });
       if (window.matchMedia('(max-width: 1000px)').matches) document.getElementById('record-heading').scrollIntoView({ block: 'start' });
     }
+  }
+  // GET /api/consultations?pet_id=… (Doctor role) — real past-consultation
+  // notes for the selected patient. Silent on failure: the synchronous render
+  // already shows the honest "No previous vaccinations or veterinary notes
+  // recorded." fallback, and a stale response never overwrites a newer selection.
+  async function _loadPatientHistory(patient, recordEl) {
+    if (!window.VHSReads || !patient.petId) return;
+    const res = await window.VHSReads.get(
+      'consultations?pet_id=' + encodeURIComponent(patient.petId)
+    );
+    if (recordEl.dataset.historyFor !== patient.id) return; // selection moved on
+    if (!res.ok) return;
+    const rows = Array.isArray(res.data) ? res.data
+      : (res.data && Array.isArray(res.data.data) ? res.data.data : []);
+    const entries = rows
+      .filter(c => c && c.summary && c.appointment_id !== patient.id)
+      .map(c => ({ date: String(c.created_at || '').slice(0, 10), title: 'Consultation note', note: c.summary }))
+      .filter(e => e.date);
+    if (!entries.length) return;
+    const history = element('ol', '', 'history');
+    history.tabIndex = 0;
+    history.setAttribute('aria-label', `${patient.name} clinical history`);
+    entries.forEach(entry => {
+      const item = element('li');
+      const date = element('time', new Date(`${entry.date}T12:00:00`).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }));
+      date.dateTime = entry.date;
+      item.append(date, element('strong', entry.title), element('p', entry.note));
+      history.append(item);
+    });
+    const old = recordEl.querySelector('.history, .helper');
+    if (old) old.replaceWith(history); else recordEl.append(history);
   }
   // One status-driven action beside the EMR; the EMR itself stays read-only.
   function renderRecordActions(patient) {
@@ -1313,7 +1348,10 @@ const MEDICINE_LIMITS = { medicine: 100, frequency: 50, instructions: 500 };
     }
     queue.replaceChildren(...patients.map(renderQueueRow));
   }
-  renderQueue();
+  // Boot is async now (server reads): show an honest loading row —
+  // _bootQueueFromServer() at the end of this file replaces it with the real
+  // queue or the empty state once the GETs settle.
+  queue.innerHTML = '<tr><td colspan="6" class="queue-empty">Loading today\u2019s patients\u2026</td></tr>';
   // Start is an explicit action, never a side effect of selecting a patient.
   // Only checked-in patients may start; upcoming patients cannot.
   // Phase 5: the transition is validated SERVER-side — PATCH
@@ -1740,7 +1778,7 @@ const MEDICINE_LIMITS = { medicine: 100, frequency: 50, instructions: 500 };
   function _currentDoctor() {
     return window.SharedMockDoctors ? window.SharedMockDoctors.currentDoctor() : null;
   }
-  const _doctorRecord = _currentDoctor();
+  let _doctorRecord = _currentDoctor(); // re-resolved by _bootQueueFromServer() after roster hydration
   // Identity display comes from the authenticated session (/api/auth/me);
   // the mock doctor record only carries domain state (availability, ids).
   const _authUser = window.VHSAuth ? window.VHSAuth.currentUser() : null;
@@ -1858,21 +1896,68 @@ const MEDICINE_LIMITS = { medicine: 100, frequency: 50, instructions: 500 };
   }
   updateClock();
   setInterval(updateClock, 1000);
-  // Restore availability from the shared record (Admin-set values survive
-  // reload/navigation — Admin → Doctor direction of the shared state).
-  if (window.SharedMockDoctors) {
-    const _fresh = window.SharedMockDoctors.currentDoctor();
-    const REV = { on_duty: 'On-Duty', on_break: 'On Break', on_leave: 'On Leave' };
-    const availSel = document.getElementById('availability');
-    if (availSel && _fresh) {
-      availSel.value = REV[_fresh.availabilityStatus] || 'On-Duty';
-      const paused = availSel.value !== 'On-Duty';
-      const statusEl = document.getElementById('availability-status');
-      statusEl.textContent = paused ? 'New assignments paused' : 'Accepting new assignments';
-      statusEl.classList.toggle('assignments-paused', paused);
+  // ── BOOT: hydrate the real records, then paint the queue ──────────────────
+  // 1. GET /api/doctors → roster (server mode: SharedMockDoctors.currentDoctor()
+  //    resolves the signed-in session user, so identity + availability come
+  //    from THIS veterinarian's real row, not doctor(1)).
+  // 2. GET /api/appointments → today's patients (server-scoped to this vet;
+  //    canceled/no_show excluded). These are the SAME records VHSWrites
+  //    patches — real numeric ids, never apt3xx fixtures.
+  // 3. Restore availability, render the queue, select the first patient.
+  // On failure: honest empty state + a visible message — never the demo schedule.
+  async function _bootQueueFromServer() {
+    const reads = window.VHSReads;
+    if (!reads) {
+      patients.length = 0;
+      renderQueue();
+      const errEl = document.getElementById('selection-status');
+      if (errEl) errEl.textContent = 'Read adapter (shared/api-reads.js) failed to load — cannot reach the clinic server.';
+      return;
+    }
+    const [docRes, apptRes] = await Promise.all([
+      reads.hydrateDoctors(),
+      reads.hydrateAppointments()
+    ]);
+    // Re-resolve identity at IIFE scope (let-bound for exactly this): staff
+    // name/role from the hydrated roster, availability from the same record.
+    const staff = (window.SharedMockDoctors && window.SharedMockDoctors.currentStaff)
+      ? window.SharedMockDoctors.currentStaff()
+      : VETERINARIAN;
+    if (staff && staff.name) VETERINARIAN = staff;
+    _doctorRecord = _currentDoctor();
+    // Restore availability from the shared record (Admin-set values survive
+    // reload/navigation — Admin → Doctor direction of the shared state).
+    if (window.SharedMockDoctors) {
+      const _fresh = window.SharedMockDoctors.currentDoctor();
+      const REV = { on_duty: 'On-Duty', on_break: 'On Break', on_leave: 'On Leave' };
+      const availSel = document.getElementById('availability');
+      if (availSel && _fresh) {
+        availSel.value = REV[_fresh.availabilityStatus] || 'On-Duty';
+        const paused = availSel.value !== 'On-Duty';
+        const statusEl = document.getElementById('availability-status');
+        statusEl.textContent = paused ? 'New assignments paused' : 'Accepting new assignments';
+        statusEl.classList.toggle('assignments-paused', paused);
+      }
+    }
+    // Server-hydrated store → today's rows (identical mapping to what
+    // renderTodaysScheduleTable/admin loadAppointments consume).
+    const rows = (window.SharedMockAppointments
+      ? window.SharedMockAppointments.todays(DOCTOR_TEST_DATE)
+      : []);
+    patients.length = 0;
+    rows.forEach(a => patients.push(mapAppointment(a)));
+    renderQueue();
+    renderHeader(currentView, false); // refresh greeting counts for the real queue
+    if (patients.length) selectPatient(patients[0], false); // empty day → no selection
+    // Honest status messaging — the UI never silently pretends.
+    const statusMsg = document.getElementById('selection-status');
+    if (statusMsg && !apptRes.ok) {
+      statusMsg.textContent = 'Could not load today\u2019s patients \u2014 ' + (apptRes.message || 'request failed.');
+    } else if (statusMsg && docRes.ok && !window.SharedMockDoctors.currentDoctor()) {
+      statusMsg.textContent = 'No veterinarian profile is linked to this account \u2014 contact the clinic admin.';
     }
   }
-  if (patients.length) selectPatient(patients[0], false); // empty day → no selection
+  _bootQueueFromServer();
   showView(window.location.hash.slice(1), false);
 })();
 

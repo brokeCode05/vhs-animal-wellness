@@ -396,8 +396,27 @@ function initLogout() {
 
 
 function loadUserAppointments() {
-  // Use mock data for rendering the new card-based appointments view
-  renderAppointmentCards();
+  // ── READ INTEGRATION (boot-time source of truth) ──────────────────────────
+  // Boot reads come from GET /api/appointments (the server scopes it to the
+  // signed-in owner). VHSReads.hydrateAppointments() replaces the shared
+  // store with the canonical records, then _syncFromStore() rebuilds the
+  // rendered rows from THAT store — so every cancel/reschedule action below
+  // targets the same real record the API returned. No mock fallback: a failed
+  // call renders the honest empty state + an error toast.
+  var reads = window.VHSReads;
+  if (!reads || typeof reads.hydrateAppointments !== 'function') {
+    mockAppointmentsData = [];
+    renderAppointmentCards();
+    if (window.showToast) showToast('Read adapter (shared/api-reads.js) failed to load.', 'error');
+    return;
+  }
+  reads.hydrateAppointments().then(function (res) {
+    _syncFromStore();
+    renderAppointmentCards();
+    if (!res.ok && window.showToast) {
+      showToast('Could not load your appointments — ' + (res.message || 'request failed.'), 'error');
+    }
+  });
 }
 
 
@@ -2978,11 +2997,32 @@ function loadPets() {
 
   _fetchUserPets()
     .then(function (pets) {
+      // ── READ INTEGRATION ────────────────────────────────────────────────
+      // Mirror the owner's real pets into the shared store so pet-onboarding
+      // "needs a pet?" checks and booking pet lookups resolve the SAME pet
+      // IDs the API returned (identity boundary re-pointed at the session
+      // owner). The rendered cards come straight from the API response.
+      if (window.VHSReads && typeof window.VHSReads.hydrateMyPets === 'function') {
+        window.VHSReads.hydrateMyPets(
+          { id: userId, userId: userId, name: user.name, email: user.email, role: user.role },
+          { ownerId: userId }
+        );
+      }
       _renderPetCards(pets, grid, dashGrid, petCount);
     })
     .catch(function () {
-      // Fallback to mock data on error
-      _renderPetCards(mockPetsData, grid, dashGrid, petCount);
+      // ── READ INTEGRATION: NO mock fallback. A failed real API call renders
+      // the honest empty state — mock pets must never masquerade as the
+      // owner's records (pet writes use the real numeric IDs).
+      if (window.SharedMockUsers && typeof window.SharedMockUsers.replaceWithServer === 'function') {
+        window.SharedMockUsers.replaceWithServer(
+          [{ id: userId, userId: userId, name: user.name, email: user.email, role: user.role }],
+          [],
+          { ownerId: userId }
+        );
+      }
+      _renderPetCards([], grid, dashGrid, petCount);
+      if (window.showToast) showToast('Could not load your pets — please try again.', 'error');
     });
 }
 

@@ -156,8 +156,9 @@ function removeRow(id) {
 // Compact same-day list for #todayScheduleTable. Columns mirror the dashboard
 // markup (Time/Owner/Pet/Service/Type/Status); reference_no is surfaced as the
 // Type cell until the backend serves a real visit type.
-// TODO(BACKEND): get_appointments.php must include reference_no so this shows
-// the same identifiers the User and Doctor portals display.
+// READ INTEGRATION: GET /api/appointments (via VHSReads) already carries
+// referenceNo through the presenter, so Admin shows the same identifiers the
+// User and Doctor portals display.
 // Canonical service label resolver — Admin displays NEVER show the raw
 // catalog value (e.g. wound_repair); bookings store the value, display uses
 // the shared catalog label. Idempotent for label-stored records.
@@ -224,14 +225,28 @@ function renderTodaysScheduleTable(all) {
 
 
 
-function loadAppointments() {
+// Coalesces concurrent loadAppointments() calls (initial boot + the several
+// refresh-after-write callers) into ONE server read, so a page never fires
+// duplicate GETs while a load is already in flight.
+var _loadAppointmentsPending = null;
 
-  // Backend data first; the shared canonical mock dataset keeps the Admin
-  // dashboard (and the calendar) populated for frontend-only testing until
-  // the API is live.
-  // TODO(BACKEND): Remove the mock fallback once get_appointments.php is wired.
-  function useSharedMock(reason) {
-    if (reason) console.warn('loadAppointments fallback to shared mock:', reason);
+function loadAppointments() {
+  // ── READ INTEGRATION (boot-time source of truth) ────────────────────────
+  // Boot-time reads come from GET /api/appointments (role-scoped server-side:
+  // Admin sees every appointment, Doctor their assignments, User their own).
+  // VHSReads.hydrateAppointments() ALSO replaces the shared store with the
+  // canonical records VHSWrites mutates, so every row rendered here carries
+  // the real numeric ID used by approve/reject/cancel/reschedule/check-in.
+  // No mock fallback: a failed fetch renders the honest empty state + an
+  // error toast instead of fixture IDs like 'apt301'.
+  if (_loadAppointmentsPending) return _loadAppointmentsPending;
+
+  var reads = window.VHSReads;
+  var pending = (reads && typeof reads.hydrateAppointments === 'function')
+    ? reads.hydrateAppointments()
+    : Promise.resolve({ ok: false, message: 'shared/api-reads.js failed to load.' });
+
+  _loadAppointmentsPending = pending.then(function (res) {
     var source = (window.SharedMockAppointments ? window.SharedMockAppointments.getAll() : []);
     var all = source.map(function(a) {
       var d = window.AppointmentContract ? window.AppointmentContract.toLegacyDisplay(window.AppointmentContract.fromLegacy(a)) : a;
@@ -243,67 +258,23 @@ function loadAppointments() {
       }
       return d;
     });
-    // Real current LOCAL date for the schedule filter (the store's `today`
-    // is a frozen test fixture and must not drive the live dashboard).
-    var _mockNow = new Date();
-    var mockToday = _mockNow.getFullYear() + '-' + String(_mockNow.getMonth() + 1).padStart(2, '0') + '-' + String(_mockNow.getDate()).padStart(2, '0');
-    renderTodaysScheduleTable(all.filter(function(a) { return a.date === mockToday; }));
+    if (!res.ok) {
+      showToast('Could not load appointments — ' + (res.message || 'request failed.'), 'error');
+    }
+    // Real current LOCAL date for the schedule filter (not UTC — the UTC
+    // slice lags a calendar day for UTC+8 evenings).
+    var _now = new Date();
+    var localToday = _now.getFullYear() + '-' + String(_now.getMonth() + 1).padStart(2, '0') + '-' + String(_now.getDate()).padStart(2, '0');
+    renderTodaysScheduleTable(all.filter(function(a) { return a.date === localToday; }));
     renderAllAppointmentsTable(all);
     CalendarState.appointments = all.map(function(a) {
       return { id: a.id, date: a.date, owner: a.owner_name, pet: a.pet_name, service: a.service, status: a.status, type: a.status };
-    });    generateCalendar();
-  }
-
-  fetch('../php_files/get_appointments.php')
-
-    .then(function(r) { return r.json(); })
-
-    .then(function(data) {
-
-      if (data.status !== 'success') {
-
-        showToast('Failed to load appointments.', 'error');
-
-        useSharedMock('status ' + data.status);
-
-        return;
-
-      }
-
-      var all = data.appointments;
-
-      renderTodaysScheduleTable(all.filter(function(a) { return a.date === new Date().toISOString().split('T')[0]; }));
-
-      renderAllAppointmentsTable(all);
-
-      CalendarState.appointments = all.map(function(a) {
-
-      return {
-
-        id:      a.id,
-
-        date:    a.date,
-
-        owner:   a.owner_name,
-
-        pet:     a.pet_name,
-
-        service: a.service,
-
-        status:  a.status,
-
-        type:    a.status
-
-      };
-
     });
+    generateCalendar();
+    return res;
+  }).finally(function () { _loadAppointmentsPending = null; });
 
-      generateCalendar();
-
-    })
-
-    .catch(function(err) { useSharedMock(err.message); });
-
+  return _loadAppointmentsPending;
 }
 
 
@@ -709,185 +680,100 @@ function reschedule(id)       { showUnderWork('Reschedule appointment'); }
 
 
 function viewOwnerProfile(id) {
-
   var modal = document.getElementById('ownerProfileModal');
-
   if (!modal) return;
 
-
-
   ['ownerName','ownerEmail','ownerPhone','ownerDob','ownerAddress','ownerRegDate','ownerVisits']
-
     .forEach(function(elId) {
-
       var el = document.getElementById(elId);
-
       if (el) el.textContent = 'Loading...';
-
     });
 
-
-
   var petsBody = document.getElementById('ownerPetsTable');
-
   if (petsBody) petsBody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#888;">Loading...</td></tr>';
 
   var apptBody = document.getElementById('ownerAppointmentsTable');
-
   if (apptBody) apptBody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:#888;">No appointments yet.</td></tr>';
-
-
 
   modal.classList.add('show');
 
+  // ── READ INTEGRATION ──────────────────────────────────────────────────────
+  // The client record comes from the server-hydrated SharedMockUsers store
+  // (hydrated from GET /api/users + GET /api/users/{id}/pets via
+  // VHSReads.hydrateClients) — the legacy get_user_profile.php read is gone.
+  var u = (window.SharedMockUsers ? window.SharedMockUsers.byId(id) : null);
+  if (!u) {
+    showToast('Client not found.', 'error');
+    modal.classList.remove('show');
+    return;
+  }
 
+  function set(elId, val) {
+    var el = document.getElementById(elId);
+    if (el) el.textContent = val || '—';
+  }
 
-  fetch('../php_files/get_user_profile.php?id=' + id)
+  set('ownerName',    u.fullName || u.name);
+  set('ownerEmail',   u.email);
+  set('ownerPhone',   u.phone);
+  set('ownerDob',     u.bday || u.birthdate);
+  set('ownerAddress', u.address);
+  set('ownerRegDate', u.created_at
+    ? new Date(u.created_at).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
+    : '—');
+  set('ownerVisits', '—');
 
-    .then(function(r) { return r.json(); })
-
-    .then(function(u) {
-
-      function set(elId, val) {
-
-        var el = document.getElementById(elId);
-
-        if (el) el.textContent = val || '—';
-
-      }
-
-      set('ownerName',    u.fullName);
-
-      set('ownerEmail',   u.email);
-
-      set('ownerPhone',   u.phone);
-
-      set('ownerDob',     u.bday);
-
-      set('ownerAddress', u.address);
-
-      set('ownerRegDate', u.created_at
-
-        ? new Date(u.created_at).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
-
-        : '—');
-
-      set('ownerVisits', '—');
-
-
-
-      if (petsBody) {
-
-        petsBody.innerHTML = u.pets && u.pets.length
-
-          ? u.pets.map(function(p) {
-
-              return '<tr><td>' + p.name + '</td><td>' + p.type + '</td><td>' + p.breed +
-
-                     '</td><td>' + p.age + '</td><td>—</td>' +
-
-                     '<td><button class="btn-small" onclick="viewPetProfile(' + p.id + ')">View</button></td></tr>';
-
-            }).join('')
-
-          : '<tr><td colspan="6" style="text-align:center;color:#888;">No pets registered.</td></tr>';
-
-      }
-
-    })
-
-    .catch(function() {
-
-      showToast('Failed to load owner profile.', 'error');
-
-      modal.classList.remove('show');
-
-    });
-
+  if (petsBody) {
+    var pets = window.SharedMockUsers ? window.SharedMockUsers.petsOfOwner(id) : [];
+    petsBody.innerHTML = pets.length
+      ? pets.map(function(p) {
+          return '<tr><td>' + _esc(p.name) + '</td><td>' + _esc(p.type || p.species || '—') + '</td><td>' + _esc(p.breed || '—') +
+                 '</td><td>' + _esc(p.age || '—') + '</td><td>—</td>' +
+                 '<td><button class="btn-small" onclick="viewPetProfile(' + p.petId + ')">View</button></td></tr>';
+        }).join('')
+      : '<tr><td colspan="6" style="text-align:center;color:#888;">No pets registered.</td></tr>';
+  }
 }
-
-
 
 function closeOwnerProfile() { document.getElementById('ownerProfileModal')?.classList.remove('show'); }
 
 function editOwner(id)       { showUnderWork('Edit owner'); }
 
 function viewPetProfile(id) {
-
   var modal = document.getElementById('petProfileModal');
-
   if (!modal) return;
 
-
-
-  // Reset fields to loading
-
   ['petName','petType','petBreed','petAge','petSex','petOwner','petMedicalHistory']
-
     .forEach(function(elId) {
-
       var el = document.getElementById(elId);
-
       if (el) el.textContent = 'Loading...';
-
     });
-
-
 
   modal.classList.add('show');
 
+  // ── READ INTEGRATION ──────────────────────────────────────────────────────
+  // The pet record comes from the server-hydrated SharedMockUsers store —
+  // the legacy get_pets.php read is gone.
+  var pet = (window.SharedMockUsers ? window.SharedMockUsers.petById(id) : null);
+  if (!pet) {
+    showToast('Pet not found.', 'error');
+    modal.classList.remove('show');
+    return;
+  }
 
+  function set(elId, val) {
+    var el = document.getElementById(elId);
+    if (el) el.textContent = val || '—';
+  }
 
-  fetch('../php_files/get_pets.php')
-
-    .then(function(r) { return r.json(); })
-
-    .then(function(pets) {
-
-      var pet = Array.isArray(pets) ? pets.find(function(p) { return p.id === id; }) : null;
-
-      if (!pet) {
-
-        showToast('Pet not found.', 'error');
-
-        modal.classList.remove('show');
-
-        return;
-
-      }
-
-      function set(elId, val) {
-
-        var el = document.getElementById(elId);
-
-        if (el) el.textContent = val || '—';
-
-      }
-
-      set('petName', pet.name);
-
-      set('petType', pet.type);
-
-      set('petBreed', pet.breed);
-
-      set('petAge', pet.age ? pet.age + ' years' : '—');
-
-      set('petSex', pet.gender || '—');
-
-      set('petOwner', pet.ownerName || '—');
-
-      set('petMedicalHistory', pet.notes || 'No medical notes on file.');
-
-    })
-
-    .catch(function() {
-
-      showToast('Failed to load pet profile.', 'error');
-
-      modal.classList.remove('show');
-
-    });
-
+  set('petName', pet.name);
+  set('petType', pet.type || pet.species);
+  set('petBreed', pet.breed);
+  set('petAge', pet.age ? pet.age + ' years' : '—');
+  set('petSex', pet.gender || '—');
+  var owner = window.SharedMockUsers ? window.SharedMockUsers.byId(pet.ownerId) : null;
+  set('petOwner', (owner && (owner.name || owner.fullName)) || pet.ownerName || '—');
+  set('petMedicalHistory', pet.notes || 'No medical notes on file.');
 }
 
 function closePetProfile()   { document.getElementById('petProfileModal')?.classList.remove('show'); }
@@ -1727,20 +1613,12 @@ function initDashboardShared() {
     };
   }
 
-  if (document.getElementById('todayScheduleTable') && window.SharedMockAppointments) {
-
-    // Real current LOCAL date (not the frozen test fixture, not UTC —
-    // the UTC slice lags a calendar day for UTC+8 evenings).
-    var _now = new Date();
-    var sharedToday = _now.getFullYear() + '-' + String(_now.getMonth() + 1).padStart(2, '0') + '-' + String(_now.getDate()).padStart(2, '0');
-
-    renderTodaysScheduleTable(window.SharedMockAppointments.getAll().map(function(a) {
-
-      return window.AppointmentContract ? window.AppointmentContract.toLegacyDisplay(window.AppointmentContract.fromLegacy(a)) : a;
-
-    }).filter(function(a) { return a.date === sharedToday; }));
-
-  }
+  // ── READ INTEGRATION ──────────────────────────────────────────────────────
+  // Today's Schedule boots from GET /api/appointments via loadAppointments()
+  // (which also hydrates the shared store with the same canonical records
+  // VHSWrites mutates). Its in-flight guard makes this safe alongside the
+  // #allAppointmentsTable call below — one server read per page boot.
+  if (document.getElementById('todayScheduleTable')) loadAppointments();
 
 
 

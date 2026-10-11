@@ -266,7 +266,19 @@
     try { localStorage.setItem(STORE_KEY, JSON.stringify(DEMO)); } catch (e) { /* storage unavailable */ }
   }
 
+  // ── AUTHORITATIVE SERVER LAYER (Laravel → store) ─────────────────────────
+  // VHSReads.hydrateClients() / hydrateMyPets() replace the demo USERS/PETS
+  // datasets with the real records from GET /api/users and
+  // GET /api/users/{user}/pets — the same records VHSWrites.pet* mutates.
+  // In server mode the DEMO layers (seeds + localStorage overrides) leave every
+  // read path, so a mock petId can no longer reach a real pet write.
+  var SERVER_USERS = null;
+  var SERVER_PETS = null;
+
+  function _serverMode() { return SERVER_USERS !== null && SERVER_PETS !== null; }
+
   function _allUsers() {
+    if (_serverMode()) return SERVER_USERS;
     return USERS.map(function (u) {
       var o = DEMO.userOverrides[u.userId];
       return o ? Object.assign({}, u, o) : Object.assign({}, u);
@@ -274,6 +286,7 @@
   }
 
   function _allPets() {
+    if (_serverMode()) return SERVER_PETS;
     return PETS.map(function (p) {
       var o = DEMO.petOverrides[p.petId];
       return o ? Object.assign({}, p, o) : Object.assign({}, p);
@@ -319,6 +332,12 @@
     // ── WRITE-THROUGH (Admin-assisted / demo edits) ──────────────────────
     // TODO(BACKEND): PUT /users/:id
     updateUser: function (id, fields) {
+      if (_serverMode()) {
+        var srvU = byId(SERVER_USERS, 'userId', id);
+        if (!srvU) return { ok: false, error: 'not_found' };
+        Object.assign(srvU, fields || {});
+        return { ok: true, user: this.byId(id) };
+      }
       var added = DEMO.userAdded.find(function (u) { return String(u.userId) === String(id); });
       if (added) {
         Object.assign(added, fields || {});
@@ -350,6 +369,12 @@
         role: 'User',
         status: 'active'
       };
+      if (_serverMode()) {
+        // Session-scoped admin edit on top of server truth (client create/edit
+        // writes are not API-backed yet): visible for this session only.
+        SERVER_USERS.push(user);
+        return { ok: true, user: Object.assign({}, user) };
+      }
       DEMO.userAdded.push(user);
       _save();
       return { ok: true, user: Object.assign({}, user) };
@@ -361,6 +386,12 @@
     },
     // TODO(BACKEND): PUT /pets/:id
     updatePet: function (id, fields) {
+      if (_serverMode()) {
+        var srvP = byId(SERVER_PETS, 'petId', id);
+        if (!srvP) return { ok: false, error: 'not_found' };
+        Object.assign(srvP, fields || {});
+        return { ok: true, pet: this.petById(id) };
+      }
       var added = DEMO.petAdded.find(function (p) { return String(p.petId) === String(id); });
       if (added) {
         Object.assign(added, fields || {});
@@ -397,10 +428,34 @@
         chronicConditions: f.chronicConditions || '',
         notes: f.notes || ''
       };
+      if (_serverMode()) {
+        // Session-scoped pet registration on top of server truth (booking
+        // pet-creation writes go through VHSWrites.pet*; this is the demo path).
+        SERVER_PETS.push(pet);
+        return { ok: true, pet: Object.assign({}, pet) };
+      }
       DEMO.petAdded.push(pet);
       _save();
       return { ok: true, pet: Object.assign({}, pet) };
     },
+
+    // ── SERVER HYDRATION (read integration) ──────────────────────────────
+    // Replaces both demo datasets with the canonical rows from GET /api/users
+    // and GET /api/users/{user}/pets. `opts.ownerId` re-points the identity
+    // boundary (CURRENT_USER_ID) at the signed-in owner's real user id so
+    // currentUserId()/currentUser()/resolveOwner() resolve the real session
+    // instead of the demo constant.
+    replaceWithServer: function (users, pets, opts) {
+      SERVER_USERS = (Array.isArray(users) ? users : []).map(function (u) { return Object.assign({}, u); });
+      SERVER_PETS = (Array.isArray(pets) ? pets : []).map(function (p) { return Object.assign({}, p); });
+      var ownerId = opts && opts.ownerId;
+      if (ownerId !== undefined && ownerId !== null && ownerId !== '') {
+        CURRENT_USER_ID = ownerId;
+        if (global.SharedMockUsers) global.SharedMockUsers.currentUserId = ownerId;
+      }
+      return { ok: true, users: SERVER_USERS.length, pets: SERVER_PETS.length };
+    },
+    serverMode: function () { return _serverMode(); },
 
     services: function () { return _effectiveServices(); },
     // Active services only — the list every NEW booking offers.

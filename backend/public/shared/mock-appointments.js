@@ -171,6 +171,25 @@
   var ADDED_KEY = 'vhs_mock_appointments_added_v1';
   var ADDED = _readAdded();
 
+  // ── AUTHORITATIVE SERVER LAYER (Laravel → store) ─────────────────────────
+  // In the integrated portals, VHSReads.hydrateAppointments() replaces every
+  // demo layer below with the canonical rows fetched from GET /api/appointments
+  // — the SAME records VHSWrites mutates. From then on SERVER (an array) is the
+  // ONLY read source, so a mock ID (e.g. 'apt301') can never reach a write
+  // action rendered from a stale fixture. SERVER === null means demo mode
+  // (static hosting, or a portal that has not hydrated yet).
+  var SERVER = null;
+
+  function _serverMode() { return SERVER !== null; }
+
+  function _serverRec(id) {
+    if (SERVER === null) return null;
+    for (var i = 0; i < SERVER.length; i++) {
+      if (String(SERVER[i].appointmentId) === String(id)) return SERVER[i];
+    }
+    return null;
+  }
+
   // ── WRITE-THROUGH THAT CANNOT CLOBBER ANOTHER PORTAL ───────────────────
   // These layers live in localStorage precisely so every portal tab sees
   // them, but each page also keeps its OWN copy loaded at start-up. Writing
@@ -200,7 +219,7 @@
   }
 
   function _allBase() {
-    return MOCK_APPOINTMENTS.concat(ADDED);
+    return _serverMode() ? SERVER : MOCK_APPOINTMENTS.concat(ADDED);
   }
 
   // Same medium as the ADDED layer above: localStorage, so a reschedule or
@@ -233,6 +252,9 @@
   }
 
   function effective(base) {
+    // Server truth is never shadowed by the demo OVERRIDES layer: a localStorage
+    // check-in from an old demo session must not repaint a real record.
+    if (_serverMode()) return base;
     var o = OVERRIDES[base.appointmentId];
     return o ? Object.assign({}, base, o) : base;
   }
@@ -321,6 +343,17 @@
       if (!c || !c.appointmentId || !c.referenceNo) {
         return { ok: false, error: 'invalid', appointment: null };
       }
+      if (_serverMode()) {
+        // Session-scoped booking on top of server truth (booking writes are not
+        // API-backed yet): render for the rest of this session, persist nothing
+        // — a reload re-reads the database and this record is gone.
+        var clashSrv = SERVER.some(function (a) {
+          return String(a.appointmentId) === String(c.appointmentId) || a.referenceNo === c.referenceNo;
+        });
+        if (clashSrv) return { ok: false, error: 'duplicate', appointment: null };
+        SERVER.push(c);
+        return { ok: true, appointment: this.byId(c.appointmentId) };
+      }
       // Merge into the CURRENT stored layer, never into this page's copy.
       var fresh = _readAdded();
       var clash = MOCK_APPOINTMENTS.concat(fresh).some(function (a) {
@@ -342,6 +375,12 @@
     update: function (id, fields) {
       var f = fields || {};
       delete f.status; // status changes only via setStatus()/updateStatus()
+      if (_serverMode()) {
+        var srvUpd = _serverRec(id);
+        if (!srvUpd) return { ok: false, error: 'not_found' };
+        Object.assign(srvUpd, f);
+        return { ok: true, appointment: this.byId(id) };
+      }
       // Read-modify-write against the stored layer so a stale page never
       // writes back a whole copy that would undo another portal's work.
       var fresh = _readAdded();
@@ -392,6 +431,13 @@
         status: 'confirmed',
         rescheduledFrom: { date: eff.appointmentDate, time: eff.appointmentTime, at: new Date().toISOString() }
       });
+      // update() never touches status; in server mode, return the record to
+      // 'confirmed' through the same guarded transition the demo path uses.
+      if (result.ok && _serverMode()) {
+        var cur = effective(_serverRec(id));
+        var cs = (window.AppointmentContract ? window.AppointmentContract.normalizeStatus(cur.status) : cur.status);
+        if (cs === 'pending' || cs === 'rescheduled') this.setStatus(id, 'confirmed');
+      }
       return result;
     },
 
@@ -486,6 +532,12 @@
       // against the live record, and the write touches only this appointment:
       // a tab that has been open since before another portal finished a
       // consultation can no longer drag that record back to checked_in.
+      if (_serverMode()) {
+        var srvStatus = _serverRec(id);
+        if (!srvStatus) return { ok: false, error: 'not_found' };
+        Object.assign(srvStatus, patch);
+        return { ok: true, appointment: this.byId(id) };
+      }
       var freshAdded = _readAdded();
       var target = freshAdded.find(function (a) { return String(a.appointmentId) === String(id); });
       if (target) {
@@ -510,6 +562,12 @@
     // id or the referenceNo — both resolve through byId()/byReference().
     applyServerPatch: function (id, patch) {
       var p = patch || {};
+      if (_serverMode()) {
+        var srvPatch = _serverRec(id);
+        if (!srvPatch) return { ok: false, error: 'not_found' };
+        Object.assign(srvPatch, p);
+        return { ok: true, appointment: this.byId(id) };
+      }
       ADDED = _readAdded();
       OVERRIDES = _readOverrides();
       var rec = this.byId(id);
@@ -533,6 +591,16 @@
     // create/reschedule so the DB-assigned appointmentId/referenceNo win.
     upsertFromServer: function (canonical) {
       if (!canonical || !canonical.appointmentId) return { ok: false, error: 'invalid' };
+      if (_serverMode()) {
+        var keySrv = String(canonical.appointmentId);
+        var idxSrv = -1;
+        for (var j = 0; j < SERVER.length; j++) {
+          if (String(SERVER[j].appointmentId) === keySrv) { idxSrv = j; break; }
+        }
+        if (idxSrv >= 0) SERVER[idxSrv] = canonical;
+        else SERVER.push(canonical);
+        return { ok: true, appointment: this.byId(canonical.appointmentId) };
+      }
       var fresh = _readAdded();
       var key = String(canonical.appointmentId);
       var idx = -1;
@@ -544,6 +612,17 @@
       ADDED = fresh;
       _saveAdded();
       return { ok: true, appointment: this.byId(canonical.appointmentId) };
-    }
+    },
+
+    // ── SERVER HYDRATION (read integration) ──────────────────────────────
+    // Replaces every demo layer with the canonical rows from GET
+    // /api/appointments. `records` may be [] (honest empty state after a
+    // failed fetch — never demo data), but must not be null/undefined.
+    replaceWithServer: function (records) {
+      var list = Array.isArray(records) ? records : [];
+      SERVER = list.map(function (r) { return Object.assign({}, r); });
+      return { ok: true, count: SERVER.length };
+    },
+    serverMode: function () { return _serverMode(); }
   };
 })(window);

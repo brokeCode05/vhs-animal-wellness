@@ -55,7 +55,17 @@
     try { localStorage.setItem(STORE_KEY, JSON.stringify(DEMO)); } catch (e) { /* storage unavailable */ }
   }
 
+  // ── AUTHORITATIVE SERVER LAYER (Laravel → store) ─────────────────────────
+  // VHSReads.hydrateDoctors() replaces the demo roster with the real records
+  // from GET /api/doctors — the same records VHSWrites.setDoctorAvailability
+  // mutates. In server mode the demo seeds + localStorage overrides leave
+  // every read path, so Admin/Doctor can no longer disagree with the database.
+  var SERVER_DOCTORS = null;
+
+  function _serverMode() { return SERVER_DOCTORS !== null; }
+
   function _all() {
+    if (_serverMode()) return SERVER_DOCTORS;
     return DOCTORS.map(function (d) {
       var o = DEMO.overrides[d.doctorId];
       return o ? Object.assign({}, d, o) : Object.assign({}, d);
@@ -93,6 +103,18 @@
     // The portal's signed-in veterinarian (single-doctor prototype).
     // TODO(BACKEND): resolved from the authenticated session instead.
       currentDoctor: function () {
+        if (_serverMode()) {
+          // Server mode resolves the signed-in veterinarian from the Laravel
+          // session — never from the demo 'vet-001' constant. No match means
+          // NO doctor identity (null): the portal shows an honest empty state
+          // instead of silently adopting another vet's record.
+          var sessionUser = null;
+          try {
+            sessionUser = (global.VHSAuth && global.VHSAuth.currentUser) ? global.VHSAuth.currentUser() : null;
+          } catch (e) { sessionUser = null; }
+          var uid = sessionUser && (sessionUser.id || sessionUser.userId);
+          return uid ? this.byUserId(uid) : null;
+        }
         return this.byUserId('vet-001') || _all()[0] || null;
       },
       // ── IDENTITY BOUNDARY (mock) ───────────────────────────────────────
@@ -146,12 +168,27 @@
         availabilityStatus: 'on_duty',
         createdAt: new Date().toISOString().split('T')[0]
       };
+      if (_serverMode()) {
+        // Session-scoped admin edit on top of server truth (doctor account
+        // writes are not API-backed yet): visible for this session only.
+        SERVER_DOCTORS.push(doctor);
+        return { ok: true, doctor: Object.assign({}, doctor) };
+      }
       DEMO.added.push(doctor);
       _save();
       return { ok: true, doctor: Object.assign({}, doctor) };
     },
     // TODO(BACKEND): PUT /doctors/:id
     updateDoctor: function (id, fields) {
+      if (_serverMode()) {
+        var srvD = this.byId(id);
+        if (!srvD) return { ok: false, error: 'not_found' };
+        Object.assign(srvD, fields || {});
+        if (fields && (fields.firstName || fields.lastName)) {
+          srvD.name = (String(srvD.firstName || '').trim() + ' ' + String(srvD.lastName || '').trim()).trim();
+        }
+        return { ok: true, doctor: this.byId(id) };
+      }
       var added = DEMO.added.find(function (d) { return String(d.doctorId) === String(id); });
       if (added) {
         Object.assign(added, fields || {});
@@ -185,6 +222,12 @@
     // without any client-side guard. Call only AFTER a successful API write.
     applyServerPatch: function (id, fields) {
       var f = fields || {};
+      if (_serverMode()) {
+        var srvPatch = this.byId(id);
+        if (!srvPatch) return { ok: false, error: 'not_found' };
+        Object.assign(srvPatch, f);
+        return { ok: true, doctor: this.byId(id) };
+      }
       var added = DEMO.added.find(function (d) { return String(d.doctorId) === String(id); });
       if (added) {
         Object.assign(added, f);
@@ -195,6 +238,14 @@
       }
       _save();
       return { ok: true, doctor: this.byId(id) };
-    }
+    },
+
+    // ── SERVER HYDRATION (read integration) ──────────────────────────────
+    // Replaces the demo roster with the canonical rows from GET /api/doctors.
+    replaceWithServer: function (doctors) {
+      SERVER_DOCTORS = (Array.isArray(doctors) ? doctors : []).map(function (d) { return Object.assign({}, d); });
+      return { ok: true, count: SERVER_DOCTORS.length };
+    },
+    serverMode: function () { return _serverMode(); }
   };
 })(window);
