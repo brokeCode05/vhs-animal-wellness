@@ -187,6 +187,7 @@
     // so we go through a raw fetch that still carries the CSRF token.
     if (isForm) {
       return a.refreshCsrf().then(function (csrf) {
+        // The SAME path is used for both create (pets) and update (pets/{id}).
         return fetch('/api/' + path, {
           method: method,
           credentials: 'same-origin',
@@ -210,7 +211,10 @@
   }
 
   function createPet(payload) { return petRequest('POST', 'pets', payload); }
-  function updatePet(petId, payload) { return petRequest('PATCH', petId, payload); }
+  // PATCH /api/pets/{id}. The pet form is multipart (photo upload), so the
+  // request carries the route id in the path, not in the form body — the API
+  // route-parameter {pet} is the only canonical pet identifier.
+  function updatePet(petId, payload) { return petRequest('PATCH', 'pets/' + encodeURIComponent(petId), payload); }
 
   function deletePet(petId) {
     var a = auth();

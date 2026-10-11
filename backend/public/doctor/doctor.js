@@ -1864,6 +1864,21 @@ const MEDICINE_LIMITS = { medicine: 100, frequency: 50, instructions: 500 };
     event.preventDefault();
     navigate(link.dataset.view);
   }));
+  document.getElementById('logoutBtn')?.addEventListener('click', async (e) => {
+    e.preventDefault();
+    if (window.VHSAuth && typeof window.VHSAuth.logout === 'function') {
+      await window.VHSAuth.logout().catch(function () {});
+    }
+    const loader = document.createElement('div');
+    loader.style.cssText = 'position:fixed;inset:0;background:#1a0a3e;display:flex;align-items:center;justify-content:center;z-index:99999;';
+    const _paw = '<svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" style="width:32px;height:32px;"><ellipse cx="22" cy="18" rx="8" ry="10"/><ellipse cx="42" cy="18" rx="8" ry="10"/><ellipse cx="10" cy="34" rx="7" ry="9"/><ellipse cx="54" cy="34" rx="7" ry="9"/><path d="M32 36c-10 0-18 7-18 14s4 10 10 10c4 0 6-2 8-6 2 4 4 6 8 6 6 0 10-5 10-10s-8-14-18-14z"/></svg>';
+    loader.innerHTML = `<div style="text-align:center;"><div style="display:flex;gap:0.5rem;justify-content:center;align-items:flex-end;margin-bottom:1.5rem;"><div style="display:inline-block;opacity:0;animation:pawIn 0.4s ease-out forwards;">${_paw}</div><div style="display:inline-block;opacity:0;animation:pawIn 0.4s ease-out forwards;animation-delay:0.25s;">${_paw}</div><div style="display:inline-block;opacity:0;animation:pawIn 0.4s ease-out forwards;animation-delay:0.5s;">${_paw}</div><div style="display:inline-block;opacity:0;animation:pawIn 0.4s ease-out forwards;animation-delay:0.75s;">${_paw}</div></div><div style="color:white;font-size:0.85rem;font-weight:600;letter-spacing:3px;text-transform:uppercase;font-family:inherit;">Logging out</div></div><style>@keyframes pawIn{from{opacity:0;transform:translateY(6px) scale(0.7)}to{opacity:1;transform:translateY(0) scale(1)}}</style>`;
+    document.body.appendChild(loader);
+    setTimeout(() => {
+      window.location.href = '/auth';
+    }, 1200);
+  });
+  // Navbar clock in the shared Clerk/Admin format: "Fri, Sep 25, 2026 | 9:14:32 PM".
   window.addEventListener('hashchange', () => showView(window.location.hash.slice(1)));
   window.addEventListener('popstate', () => showView(window.location.hash.slice(1)));
   // The validation gate reveals the panel that owns an invalid field so focus
