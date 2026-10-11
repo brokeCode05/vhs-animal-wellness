@@ -378,7 +378,7 @@ function initLogout() {
 
         setTimeout(() => {
 
-          window.location.href = "/auth";
+          window.location.href = "/web-page/index.html";
 
         }, 1200);
 
@@ -1272,6 +1272,10 @@ function verifyOtp() {
       _pendingBookingDisplay = null;
       _pendingBookingAlternatives = null;
       _showBookingSuccess(ref, { id: aid, reference_no: ref });
+      // Refresh server truth so My Appointments/dashboard show the new booking immediately
+      if (window.VHSReads && typeof window.VHSReads.hydrateMyAppointments === 'function') {
+        window.VHSReads.hydrateMyAppointments({ replace: true }).catch(function () {});
+      }
     }).catch(function () {
       if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Verify & Confirm'; }
       showToast('Network error. Please try again.', 'error');

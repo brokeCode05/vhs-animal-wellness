@@ -1227,10 +1227,11 @@ function closeViewDoctor() {
 document.addEventListener("DOMContentLoaded", () => {
   if (!window.SharedMockDoctors) return;
   // ── READ INTEGRATION ──────────────────────────────────────────────────────
-  // Hydrate the roster from GET /api/doctors before the first paint, so
-  // Admin sees the real doctors — and the real doctorIds that
-  // VHSWrites.setDoctorAvailability/applyServerPatch use — never the demo
-  // roster. Renders run after hydration settles (empty + toast on failure).
+  // Hydrate doctors only on pages that actually use the doctor roster. The
+  // Services page does not require doctor hydration; global hydration was
+  // producing an irrelevant "Could not load doctors" toast on Services.
+  var needsDoctors = document.getElementById("doctorAccountsTable") || document.getElementById("doctorDirectoryTable");
+  if (!needsDoctors) return;
   var doctorRes = (window.VHSReads && typeof window.VHSReads.hydrateDoctors === 'function')
     ? window.VHSReads.hydrateDoctors()
     : Promise.resolve({ ok: false, message: 'Read adapter (shared/api-reads.js) failed to load.' });

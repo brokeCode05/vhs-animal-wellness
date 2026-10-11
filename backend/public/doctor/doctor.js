@@ -1913,7 +1913,7 @@ const MEDICINE_LIMITS = { medicine: 100, frequency: 50, instructions: 500 };
     loader.innerHTML = `<div style="text-align:center;"><div style="display:flex;gap:0.5rem;justify-content:center;align-items:flex-end;margin-bottom:1.5rem;"><div style="display:inline-block;opacity:0;animation:pawIn 0.4s ease-out forwards;">${_paw}</div><div style="display:inline-block;opacity:0;animation:pawIn 0.4s ease-out forwards;animation-delay:0.25s;">${_paw}</div><div style="display:inline-block;opacity:0;animation:pawIn 0.4s ease-out forwards;animation-delay:0.5s;">${_paw}</div><div style="display:inline-block;opacity:0;animation:pawIn 0.4s ease-out forwards;animation-delay:0.75s;">${_paw}</div></div><div style="color:white;font-size:0.85rem;font-weight:600;letter-spacing:3px;text-transform:uppercase;font-family:inherit;">Logging out</div></div><style>@keyframes pawIn{from{opacity:0;transform:translateY(6px) scale(0.7)}to{opacity:1;transform:translateY(0) scale(1)}}</style>`;
     document.body.appendChild(loader);
     setTimeout(() => {
-      window.location.href = '/auth';
+      window.location.href = '/web-page/index.html';
     }, 1200);
   });
   // Navbar clock in the shared Clerk/Admin format: "Fri, Sep 25, 2026 | 9:14:32 PM".
