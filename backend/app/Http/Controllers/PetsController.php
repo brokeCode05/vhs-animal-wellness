@@ -139,6 +139,19 @@ class PetsController extends Controller
         $v = $r->validate($this->rules(true));
         [$species, $speciesCustom] = array_key_exists('species', $v) ? $this->normalizeSpecies($v) : [$pet->species, $pet->species_custom];
 
+        // Owner is NOT re-derivable from the payload here: authorizePet()
+        // already proved this pet belongs to the caller (or, for Admin, to the
+        // row being edited), and update() never writes owner_id. Do not resolve
+        // an owner from the request — an Admin edit carries no owner_id and
+        // would otherwise be resolved against the Admin's own account.
+
+        // Every update rule is `sometimes`, so an EMPTY payload validates
+        // cleanly and would otherwise report "Pet updated." while changing
+        // nothing. A write with no recognised pet field is a client bug, not a
+        // successful edit — refuse it instead of returning a false success.
+        $writable = array_diff(array_keys($v), ['pet_photo']);
+        abort_if($writable === [], 422, 'No pet fields were submitted for update.');
+
         DB::transaction(function () use ($r, $pet, $v, $species, $speciesCustom) {
             $map = [
                 'name' => 'name', 'pet_name' => 'name', 'breed' => 'breed',

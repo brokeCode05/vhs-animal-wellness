@@ -1174,6 +1174,26 @@ function openOtpModal() {
   _otpSecondsLeft = 59;
   _startOtpCountdown();
   openModal('otpModal');
+  var hint = document.getElementById('otpHint');
+  if (hint) hint.textContent = 'Sending verification code…';
+  if (window.VHSWrites && typeof window.VHSWrites.requestAppointmentOtp === 'function') {
+    window.VHSWrites.requestAppointmentOtp().then(function (res) {
+      if (!res.ok) {
+        showToast(res.message || 'Failed to send verification code.', 'error');
+      } else {
+        var ch = res.channel || res.data && res.data.channel;
+        if (hint) {
+          if (ch === 'sms') hint.textContent = 'A 6-digit code was sent to your registered phone number.';
+          else if (ch === 'email') hint.textContent = 'A 6-digit code was sent to your registered email address.';
+          else hint.textContent = 'A 6-digit verification code has been sent to your registered contact details.';
+        }
+      }
+    }).catch(function () {
+      if (hint) hint.textContent = 'Verification code request failed.';
+    });
+  } else {
+    if (hint) hint.textContent = 'A 6-digit verification code has been sent to your registered contact details.';
+  }
 }
 
 function closeOtpModal() {
@@ -1202,7 +1222,14 @@ function _resendOtp() {
   var timerEl = document.getElementById('otpTimer');
   if (timerEl) timerEl.innerHTML = 'Resend code in <span id="otpCountdown">0:59</span>';
   _startOtpCountdown();
-  showToast('Verification code resent.', 'info');
+  if (window.VHSWrites && typeof window.VHSWrites.requestAppointmentOtp === 'function') {
+    window.VHSWrites.requestAppointmentOtp().then(function (res) {
+      if (!res.ok) showToast(res.message || 'Failed to resend verification code.', 'error');
+      else showToast('Verification code resent.', 'info');
+    }).catch(function () { showToast('Failed to resend verification code.', 'error'); });
+  } else {
+    showToast('Verification code resent.', 'info');
+  }
 }
 
 function verifyOtp() {
@@ -1213,7 +1240,45 @@ function verifyOtp() {
     showToast('Please enter the complete 6-digit code.', 'warning');
     return;
   }
-  // Mock mode: any 6 digits accepted
+  var submitBtn = document.getElementById('otpVerifyBtn');
+  if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = 'Verifying…'; }
+  if (window.VHSWrites && typeof window.VHSWrites.verifyAppointmentOtp === 'function' && _pendingBookingPayload) {
+    var _svcForVerify = (window.SharedMockUsers && typeof window.SharedMockUsers.canonicalService === 'function')
+      ? window.SharedMockUsers.canonicalService(_pendingBookingPayload.service)
+      : null;
+    var _svcVal = _svcForVerify ? _svcForVerify.value : _pendingBookingPayload.service;
+    var _svcId  = _svcForVerify ? _svcForVerify.serviceId : null;
+    var _verifyPayload = {
+      user_id: _pendingBookingPayload.user_id,
+      pet_id: _pendingBookingPayload.pet_id,
+      service_id: _svcId,
+      service: _svcVal,
+      appointment_date: _pendingBookingPayload.appointment_date,
+      appointment_time: _pendingBookingPayload.appointment_time,
+      visit_reason: _pendingBookingPayload.visit_reason,
+      visit_reason_custom: _pendingBookingPayload.visit_reason_custom,
+      notes: _pendingBookingPayload.notes
+    };
+    window.VHSWrites.verifyAppointmentOtp(code, _verifyPayload).then(function (res) {
+      if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Verify & Confirm'; }
+      if (!res.ok) {
+        showToast(res.message || 'Invalid verification code or booking could not be completed.', 'error');
+        return;
+      }
+      closeOtpModal();
+      var ref = res.referenceNo || res.appointment && (res.appointment.referenceNo || res.appointment.reference_no);
+      var aid = res.appointmentId || res.appointment && (res.appointment.appointmentId || res.appointment.id);
+      _pendingBookingPayload = null;
+      _pendingBookingDisplay = null;
+      _pendingBookingAlternatives = null;
+      _showBookingSuccess(ref, { id: aid, reference_no: ref });
+    }).catch(function () {
+      if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Verify & Confirm'; }
+      showToast('Network error. Please try again.', 'error');
+    });
+    return;
+  }
+  // Fallback to legacy local finalize if adapter missing
   closeOtpModal();
   _finalizeBooking();
 }
@@ -3088,10 +3153,19 @@ function submitPet(e) {
 
   var editId = form.dataset.editId;
 
-  // Phase 5: pet save is SERVER-side — POST /pets (create) or PATCH
-  // /pets/{id} (update), multipart so the photo rides along. The API scopes
-  // the write to the authenticated owner; a refusal renders the server's
-  // validation message instead of silently falling back to local state.
+  // Phase 5: pet save is SERVER-side — PATCH /api/pets/{id} (update),
+  // POST /api/pets (create), multipart so the photo rides along. The API is
+  // the sole authority: a refusal renders the server's validation message.
+  // A successful edit refreshes pets from server truth; a failed save shows
+  // the server's validation message and never a local mirror.
+  //
+  // Repair Batch 2 (pet edit did not persist): the transport is POST + _method
+  // spoofing, NOT a real multipart PATCH. PHP only parses a multipart body into
+  // $_POST when the method is POST; on a real PATCH the fields stay in
+  // php://input, Laravel sees an EMPTY request, and since every update rule is
+  // `sometimes` the save became a no-op that still reported "Pet updated.".
+  // The multipart adapter in shared/api-writes.js owns that spoofing, so this
+  // caller only hands over the FormData.
   var user = _getSessionUser();
   var userId = user.id || user.userId;
 
@@ -3107,9 +3181,16 @@ function submitPet(e) {
       }
     };
     if (editId) {
-      formData.append('_method', 'PATCH'); // method-override for multipart PATCH
+      // Canonical edit path: PATCH /api/pets/{id}, route id in the path. The
+      // multipart adapter re-sends it as POST + _method=PATCH so the fields
+      // actually reach the controller (a real multipart PATCH is never parsed
+      // by PHP into $_POST).
+      formData.append('user_id', userId);
       window.VHSWrites.updatePet(editId, formData).then(_done);
     } else {
+      // Create Pet: POST /api/pets. user_id lets an Admin register a pet for
+      // a client; a non-Admin owner is scoped server-side to their own account.
+      formData.append('user_id', userId);
       window.VHSWrites.createPet(formData).then(_done);
     }
   } else {

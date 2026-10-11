@@ -65,6 +65,8 @@ const MEDICINE_LIMITS = { medicine: 100, frequency: 50, instructions: 500 };
   // Data-mapping boundary: fixtures/endpoint rows are normalized through the
   // shared canonical appointment contract first, then projected into the
   // doctor view model. Pet/EMR data rides separately from the appointment.
+  // selectedPatient ALWAYS resolves to a patient from the current
+  // server-scoped queue only — it is null when the queue is empty.
   function mapAppointment(appt) {
     const a = window.AppointmentContract.fromLegacy(appt);
     return {
@@ -218,7 +220,11 @@ const MEDICINE_LIMITS = { medicine: 100, frequency: 50, instructions: 500 };
     captureDraft();
     document.querySelectorAll('[data-panel]').forEach(panel => { panel.hidden = panel.dataset.panel !== effectiveView; });
     form.hidden = effectiveView !== view || view === 'patients';
-    document.getElementById('patient-context').hidden = view === 'patients';
+    // Context block is only shown when a real queue patient is selected AND
+    // the view uses it. With no selection (fresh boot, empty queue) the block
+    // stays hidden and empty — never a fixture name.
+    const hasPatient = Boolean(selectedPatient);
+    document.getElementById('patient-context').hidden = view === 'patients' || !hasPatient;
     const notice = document.getElementById('locked-notice');
     notice.hidden = effectiveView !== 'locked';
     if (clinicalLocked) {
@@ -1169,8 +1175,9 @@ const MEDICINE_LIMITS = { medicine: 100, frequency: 50, instructions: 500 };
         ? 'A recording is held in memory for this patient only.'
         : SCRIBE.getRecordingStatus({ state: rec.state }).label;
     }
-    document.getElementById('context-name').textContent = patient.name;
-    document.getElementById('context-appointment').textContent = `${patient.species} · ${patient.breed} · ${patient.dateDisplay}, ${patient.time} · ${svcLabel(patient.service)}`;
+    renderContext(patient);
+    // renderContext keeps patient-context visible for a real patient; when
+    // patient is null it hides the block and clears every context node.
     const timerLine = document.getElementById('context-timer');
     if (statusFor(patient) === 'in_consultation' && draft.startedAt) {
       const startClock = new Date(draft.startedAt).toLocaleTimeString('en-GB', { hour: 'numeric', minute: '2-digit' });
@@ -1212,7 +1219,6 @@ const MEDICINE_LIMITS = { medicine: 100, frequency: 50, instructions: 500 };
     } else {
       record.append(element('p', 'No previous vaccinations or veterinary notes recorded.', 'helper'));
     }
-    document.getElementById('selection-status').textContent = `${patient.name} is the active patient.`;
     renderRecordActions(patient);
     // READ INTEGRATION: real clinical history replaces the EMR fixture merge.
     // Real appointments carry no visits[], so pull this pet's consultation
@@ -1256,6 +1262,38 @@ const MEDICINE_LIMITS = { medicine: 100, frequency: 50, instructions: 500 };
     if (old) old.replaceWith(history); else recordEl.append(history);
   }
   // One status-driven action beside the EMR; the EMR itself stays read-only.
+  // Context must only ever reflect a patient that came from the current
+  // server-scoped queue. It is NEVER driven from a draft, a draft restore,
+  // localStorage, or a fixture — no stale 'Luna' can survive a fresh login.
+  function renderContext(patient) {
+    const nameEl = document.getElementById('context-name');
+    const apptEl = document.getElementById('context-appointment');
+    const timerEl = document.getElementById('context-timer');
+    if (!patient) {
+      document.getElementById('patient-context').hidden = true;
+      if (nameEl) nameEl.textContent = '';
+      if (apptEl) apptEl.textContent = '';
+      if (timerEl) timerEl.replaceChildren();
+      return;
+    }
+    nameEl.textContent = patient.name;
+    apptEl.textContent = `${patient.species} · ${patient.breed} · ${patient.dateDisplay}, ${patient.time} · ${svcLabel(patient.service)}`;
+    const timerLine = document.getElementById('context-timer');
+    if (statusFor(patient) === 'in_consultation' && draft.startedAt) {
+      const startClock = new Date(draft.startedAt).toLocaleTimeString('en-GB', { hour: 'numeric', minute: '2-digit' });
+      timerEl.hidden = false;
+      timerEl.replaceChildren(
+        element('span', STATUS_LABELS.in_consultation, `appt-status in_consultation`),
+        element('span', ` · Started ${startClock} · `),
+        element('span', formatElapsed(draft.startedAt), 'timer-value')
+      );
+      timerEl.querySelector('.timer-value').dataset.elapsedFor = patient.id;
+    } else {
+      timerEl.hidden = true;
+      timerEl.replaceChildren();
+    }
+  }
+
   function renderRecordActions(patient) {
     const wrap = document.getElementById('record-actions');
     wrap.replaceChildren();
@@ -1963,7 +2001,11 @@ const MEDICINE_LIMITS = { medicine: 100, frequency: 50, instructions: 500 };
     rows.forEach(a => patients.push(mapAppointment(a)));
     renderQueue();
     renderHeader(currentView, false); // refresh greeting counts for the real queue
-    if (patients.length) selectPatient(patients[0], false); // empty day → no selection
+    // Empty day → no selection, so context stays hidden (no fixture name
+    // can survive a fresh queue load).
+    selectedPatient = null;
+    renderContext(null);
+    if (patients.length) selectPatient(patients[0], false);
     // Honest status messaging — the UI never silently pretends.
     const statusMsg = document.getElementById('selection-status');
     if (statusMsg && !apptRes.ok) {

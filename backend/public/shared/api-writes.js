@@ -152,6 +152,56 @@
       });
   }
 
+  // ── BOOKING OTP ──────────────────────────────────────────────────
+  // POST /appointments/request_otp.php — issues and DELIVERS a 6-digit code
+  // (email or SMS chosen server-side from the account's contact record), then
+  // binds it to this session as pending_appointment_otp.
+  // POST /appointments/verify_otp.php — consumes the code AND creates the
+  // appointment in one transaction: a bad/expired code rolls the booking back,
+  // so the UI never mints a reference number of its own.
+  function requestAppointmentOtp() {
+    var a = auth();
+    if (!a) return Promise.resolve({ ok: false, status: 0, message: 'Not signed in.' });
+    return a.send('appointments/request_otp.php', {})
+      .then(function (r) {
+        var out = normalize(r);
+        // The channel is the server's decision, never the client's guess — the
+        // UI must tell the owner where the code actually went.
+        out.channel = (r && r.channel) || (out.data && out.data.channel) || null;
+        out.destination = (r && r.destination) || (out.data && out.data.destination) || null;
+        return out;
+      })
+      .catch(function (e) {
+        return { ok: false, status: 0, message: 'Network error. Please try again.', error: m(e) };
+      });
+  }
+
+  function verifyAppointmentOtp(code, appointmentData) {
+    var a = auth();
+    if (!a) return Promise.resolve({ ok: false, status: 0, message: 'Not signed in.' });
+    return a.send('appointments/verify_otp.php', {
+      otp_code: String(code || '').trim(),
+      appointment_data: appointmentData || {}
+    }).then(function (r) {
+      var out = normalize(r, { appointmentKey: true });
+      // The server response is the authoritative booking: mirror it so every
+      // portal re-renders from the DB-assigned id + reference number.
+      var s = store();
+      if (out.ok && out.appointment && s && typeof s.upsertFromServer === 'function') {
+        var c = contract();
+        var canonical = c && c.fromLegacy ? c.fromLegacy(out.appointment) : out.appointment;
+        s.upsertFromServer(canonical);
+        out.canonical = canonical;
+      }
+      out.referenceNo = (r && r.reference_no) || (out.appointment && (out.appointment.referenceNo || out.appointment.reference_no)) || null;
+      out.appointmentId = (r && r.appointment_id) || (out.appointment && (out.appointment.appointmentId || out.appointment.id)) || null;
+      return out;
+    })
+      .catch(function (e) {
+        return { ok: false, status: 0, message: 'Network error. Please try again.', error: m(e) };
+      });
+  }
+
   // ── DOCTOR AVAILABILITY ──────────────────────────────────────────────
   // PATCH /doctors/{id}/availability. status ∈ on_duty|on_break|on_leave.
   function setDoctorAvailability(doctorId, availabilityStatus) {
@@ -179,6 +229,17 @@
   // The pet form is multipart (photo upload), so these accept a FormData or a
   // plain object. FormData is sent as-is (fetch sets the multipart boundary);
   // plain objects are JSON-encoded.
+  //
+  // CRITICAL (Repair Batch 2): a multipart body can only be parsed by PHP when
+  // the request is POST. On a multipart PATCH/PUT/DELETE, PHP leaves the body
+  // unparsed in php://input and $_POST stays empty, so Laravel's Request::all()
+  // sees NO fields at all. Every update rule is `sometimes`, so validation then
+  // passes on an empty payload, the write is a no-op, and the API returns a
+  // false "Pet updated." 200. The user's edit silently never persisted.
+  //
+  // So multipart writes are ALWAYS sent as POST with Laravel's _method field
+  // carrying the real verb. The router still resolves PATCH /pets/{id}, but the
+  // fields now actually reach the controller.
   function petRequest(method, path, payload) {
     var a = auth();
     if (!a) return Promise.resolve({ ok: false, status: 0, message: 'Not signed in.' });
@@ -186,10 +247,17 @@
     // For multipart we must NOT force a JSON content-type; VHSAuth.send would,
     // so we go through a raw fetch that still carries the CSRF token.
     if (isForm) {
+      var verb = method;
+      if (method !== 'POST') {
+        // Spoof the verb through the body so PHP populates $_POST. Never a
+        // real PATCH/PUT/DELETE — those silently discard every form field.
+        payload.set('_method', method);
+        verb = 'POST';
+      }
       return a.refreshCsrf().then(function (csrf) {
         // The SAME path is used for both create (pets) and update (pets/{id}).
         return fetch('/api/' + path, {
-          method: method,
+          method: verb,
           credentials: 'same-origin',
           headers: { Accept: 'application/json', 'X-CSRF-TOKEN': csrf || '' },
           body: payload
@@ -238,6 +306,8 @@
     markNoShow: function (id) { return setStatus(id, 'no_show'); },
     reschedule: reschedule,
     createAppointment: createAppointment,
+    requestAppointmentOtp: requestAppointmentOtp,
+    verifyAppointmentOtp: verifyAppointmentOtp,
     setDoctorAvailability: setDoctorAvailability,
     createPet: createPet,
     updatePet: updatePet,
