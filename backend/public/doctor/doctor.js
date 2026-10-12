@@ -1533,6 +1533,10 @@ const MEDICINE_LIMITS = { medicine: 100, frequency: 50, instructions: 500 };
     }
     nameEl.textContent = patient.name;
     apptEl.textContent = `${patient.species} · ${patient.breed} · ${patient.dateDisplay}, ${patient.time} · ${svcLabel(patient.service)}`;
+    // The elapsed timer is the one draft-derived line in the context block:
+    // it needs this patient's consultation start time. Everything else here
+    // comes from the server-scoped queue only.
+    const draft = draftFor(patient);
     const timerLine = document.getElementById('context-timer');
     if (statusFor(patient) === 'in_consultation' && draft.startedAt) {
       const startClock = new Date(draft.startedAt).toLocaleTimeString('en-GB', { hour: 'numeric', minute: '2-digit' });
@@ -1701,12 +1705,17 @@ const MEDICINE_LIMITS = { medicine: 100, frequency: 50, instructions: 500 };
   }
   setInterval(tickTimers, 1000);
   // Header/meta date: same REAL local date the queue filters on (not the
-  // first patient's date, and no crash when today's list is empty).
-  {
+  // first patient's date, no crash when today's list is empty). Recomputed on
+  // every render because the queue boots asynchronously — a value computed
+  // once at script load would keep reporting "0 appointments" forever.
+  function renderQueueMeta() {
+    const meta = document.getElementById('queue-meta');
+    if (!meta) return;
     const todayDisplay = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
     const countLine = patients.length === 1 ? '1 appointment' : `${patients.length} appointments`;
-    document.getElementById('queue-meta').textContent = `${todayDisplay} · ${countLine}`;
+    meta.textContent = `${todayDisplay} · ${countLine}`;
   }
+  renderQueueMeta();
   form.addEventListener('input', event => {
     if (event.target.id === 'reviewed') {
       captureDraft();
@@ -2295,6 +2304,7 @@ const MEDICINE_LIMITS = { medicine: 100, frequency: 50, instructions: 500 };
     rows.forEach(a => patients.push(mapAppointment(a)));
     renderQueue();
     renderHeader(currentView, false); // refresh greeting counts for the real queue
+    renderQueueMeta();
     // Empty day → no selection, so context stays hidden (no fixture name
     // can survive a fresh queue load).
     selectedPatient = null;

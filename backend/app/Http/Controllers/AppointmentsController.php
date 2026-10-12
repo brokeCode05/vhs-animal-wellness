@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Appointment;
 use App\Models\AppointmentEvent;
+use App\Models\DoctorProfile;
 use App\Models\Pet;
 use App\Models\Service;
 use App\Models\User;
@@ -120,6 +121,10 @@ class AppointmentsController extends Controller
             'visit_reason_custom' => ['nullable', 'string', 'max:255'],
             'visitReasonCustom' => ['nullable', 'string', 'max:255'],
             'notes' => ['nullable', 'string', 'max:255'],
+            // Optional explicit veterinarian — Admin only. When omitted the
+            // existing least-loaded on-duty rule assigns the doctor.
+            'assigned_vet_id' => ['nullable', 'integer', 'exists:doctor_profiles,id'],
+            'assignedVetId' => ['nullable', 'integer', 'exists:doctor_profiles,id'],
         ]);
 
         $actor = $r->user();
@@ -129,6 +134,30 @@ class AppointmentsController extends Controller
             403,
             'Only Users and Admins may create appointments.'
         );
+
+        $requestedVetId = $v['assigned_vet_id'] ?? $v['assignedVetId'] ?? null;
+
+        if ($requestedVetId !== null) {
+            abort_unless(
+                $actor->role === 'Admin',
+                403,
+                'Only Admins may assign a veterinarian.'
+            );
+
+            /*
+             * An explicitly assigned doctor must be a real, active
+             * veterinarian. Current availability is not required — the
+             * appointment may be booked for a future date.
+             */
+            abort_unless(
+                DoctorProfile::whereKey($requestedVetId)
+                    ->where('account_status', 'active')
+                    ->whereHas('user', fn ($q) => $q->where('status', 'active'))
+                    ->exists(),
+                422,
+                'Selected veterinarian is not available for this appointment.'
+            );
+        }
 
         $ownerId = $actor->role === 'Admin'
             ? (int) ($v['user_id'] ?? 0)
@@ -176,12 +205,14 @@ class AppointmentsController extends Controller
             $pet,
             $service,
             $time,
-            $actor
+            $actor,
+            $requestedVetId
         ) {
             AppointmentWorkflow::lockSchedulingGate();
             AppointmentWorkflow::validateSlot($v['appointment_date'], $time);
 
-            $doctorId = AppointmentWorkflow::assignedDoctorId($v['appointment_date']);
+            $doctorId = $requestedVetId
+                ?? AppointmentWorkflow::assignedDoctorId($v['appointment_date']);
 
             abort_unless(
                 $doctorId,
@@ -555,20 +586,27 @@ class AppointmentsController extends Controller
 
             if ($next === 'checked_in') {
                 /*
-                 * Ensure an on-duty veterinarian is attached before the
-                 * patient enters the Doctor queue.
+                 * Check-in must NEVER move a patient to a different doctor.
+                 * The assignment made at booking (or explicitly by an Admin)
+                 * is what places the patient in THAT doctor's queue, so it is
+                 * preserved as-is. Only a legacy row with no veterinarian at
+                 * all is filled in here, using the same least-loaded on-duty
+                 * rule the booking flow uses.
                  */
-                $doctorId = AppointmentWorkflow::assignedDoctorId(
-                    $a->appointment_date->format('Y-m-d')
-                );
+                if ($a->assigned_vet_id === null) {
+                    $doctorId = AppointmentWorkflow::assignedDoctorId(
+                        $a->appointment_date->format('Y-m-d')
+                    );
 
-                abort_unless(
-                    $doctorId,
-                    422,
-                    'No on-duty veterinarian is available for this appointment.'
-                );
+                    abort_unless(
+                        $doctorId,
+                        422,
+                        'No on-duty veterinarian is available for this appointment.'
+                    );
 
-                $a->assigned_vet_id = $doctorId;
+                    $a->assigned_vet_id = $doctorId;
+                }
+
                 $a->checked_in_at = now();
             }
 

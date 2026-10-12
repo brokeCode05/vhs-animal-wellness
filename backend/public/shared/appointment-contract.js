@@ -59,6 +59,9 @@
       userId: firstDefined(src.userId, src.user_id, (src.pet && src.pet.ownerId), (src.pet && src.pet.owner_id)) || null,
       petId: firstDefined(src.petId, src.pet_id) || null,
       assignedVetId: firstDefined(src.assignedVetId, src.assigned_vet_id, src.staffId, src.staff_id),
+      // Assigned veterinarian display name (API vet_name / assignedVetName).
+      // Empty string when unassigned — never invented.
+      assignedVetName: firstDefined(src.assignedVetName, src.vet_name, src.assigned_vet_name) || '',
       // Canonical service identity. `serviceId` is the machine key the backend
       // will key on; `service` carries the catalog value (never the display
       // label) for records written by the current portals. Legacy records that
@@ -97,6 +100,7 @@
       user_id: appt.userId,
       pet_id: appt.petId,
       staff_id: appt.assignedVetId,
+      vet_name: appt.assignedVetName || '',
       service: appt.service,
       date: appt.appointmentDate,
       time: appt.appointmentTime,

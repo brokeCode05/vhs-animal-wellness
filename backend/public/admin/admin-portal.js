@@ -21,7 +21,7 @@ function renderAllAppointmentsTable(all) {
   var tbody = document.getElementById('allAppointmentsTable');
   if (!tbody) return;
   if (!all.length) {
-    tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:#888;">No appointments yet.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;color:#888;">No appointments yet.</td></tr>';
     return;
   }
   var contract = window.AppointmentContract;
@@ -77,6 +77,7 @@ function renderAllAppointmentsTable(all) {
       '<td>' + (a.pet_name   || '—') + '</td>' +
       '<td>' + (a.service    || '—') + '</td>' +
       '<td><span class="status-badge info">Registered</span></td>' +
+      '<td>' + (a.vet_name || '—') + '</td>' +
       '<td>' + statusBadge(a.status) + '</td>' +
       '<td class="action-cell">' + actions + '</td>' +
       '</tr>';

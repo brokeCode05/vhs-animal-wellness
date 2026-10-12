@@ -12,7 +12,21 @@ class AppointmentWorkflow
 {
     public static function settings(): ClinicSetting
     {
-        return ClinicSetting::firstOrCreate(['id' => 1]);
+        /*
+         * ClinicSetting is fully guarded, so firstOrCreate(['id' => 1])
+         * explodes with a mass-assignment error on any database that does
+         * not already have the singleton row (every fresh install / test
+         * database). Load it by key and create it explicitly instead.
+         */
+        $settings = ClinicSetting::whereKey(1)->first();
+
+        if ($settings === null) {
+            $settings = new ClinicSetting;
+            $settings->forceFill(['id' => 1]);
+            $settings->save();
+        }
+
+        return $settings;
     }
 
     public static function timeToHHMM(?string $value): ?string
