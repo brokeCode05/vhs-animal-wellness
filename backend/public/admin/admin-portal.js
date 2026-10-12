@@ -162,6 +162,46 @@ function openAdminBookModal(prefilledDate, prefilledTime) {
 
   var petSelect = document.getElementById('adminPetSelect');
   if (petSelect) petSelect.innerHTML = '<option value="">Select client first</option>';
+
+  var doctorSelect = document.getElementById('adminBookDoctor');
+  if (doctorSelect) {
+    doctorSelect.innerHTML = '<option value="">Auto-assign</option>';
+    // ── READ INTEGRATION ───────────────────────────────────────────────────
+    // Doctor options come from GET /api/doctors (Admin sees every profile).
+    // Only account-active veterinarians are offerable — the booking endpoint
+    // refuses anything else — and currently On Duty doctors are listed first.
+    // Option values are the REAL doctor_profiles ids written to
+    // appointments.assigned_vet_id, never users.id.
+    var fillDoctors = function (docs) {
+      var eligible = (docs || []).filter(function (d) {
+        return (d.accountStatus || d.account_status) === 'active';
+      });
+      eligible.sort(function (a, b) {
+        var aOn = (a.availabilityStatus || a.availability_status) === 'on_duty' ? 0 : 1;
+        var bOn = (b.availabilityStatus || b.availability_status) === 'on_duty' ? 0 : 1;
+        if (aOn !== bOn) return aOn - bOn;
+        return (a.doctorId || a.id) - (b.doctorId || b.id);
+      });
+      doctorSelect.innerHTML = '<option value="">Auto-assign</option>' + eligible.map(function (d) {
+        var id = d.doctorId || d.id;
+        return '<option value="' + id + '">' + (d.displayName || d.name || ('Doctor #' + id)) + '</option>';
+      }).join('');
+    };
+    var doctorReads = window.VHSReads;
+    if (doctorReads && typeof doctorReads.doctors === 'function') {
+      doctorReads.doctors().then(function (res) {
+        if (res.ok) {
+          fillDoctors(res.data.doctors);
+          return;
+        }
+        fillDoctors([]);
+        if (window.showToast) showToast('Could not load doctors — ' + (res.message || 'request failed.'), 'error');
+      });
+    } else {
+      fillDoctors([]);
+      if (window.showToast) showToast('Read adapter (shared/api-reads.js) failed to load.', 'error');
+    }
+  }
 }
 
 function closeAdminBookModal() {
@@ -591,6 +631,8 @@ function submitAdminBooking(e) {
   var date    = document.getElementById('adminBookDate').value;
   var time    = document.getElementById('adminBookTime').value;
   var notes   = document.getElementById('adminBookNotes').value.trim();
+  var doctorId = document.getElementById('adminBookDoctor')
+    ? parseInt(document.getElementById('adminBookDoctor').value, 10) : 0;
   // service now carries the canonical catalog VALUE (FK-ready).
   var svc = window.SharedMockUsers ? window.SharedMockUsers.serviceByValue(service) : null;
 
@@ -653,6 +695,12 @@ function submitAdminBooking(e) {
     appointment_time: time,
     notes: notes
   };
+  // Explicit veterinarian choice: the real doctor_profiles id picked above.
+  // "Auto-assign" (empty) omits the field entirely so the backend keeps its
+  // least-loaded on-duty rule; a backend refusal (e.g. the doctor went
+  // inactive between load and submit) surfaces through the real error toast
+  // below — the write is never mirrored without server confirmation.
+  if (doctorId > 0) payload.assigned_vet_id = doctorId;
 
   window.VHSWrites.createAppointment(payload).then(function (res) {
     if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Book Appointment'; }
