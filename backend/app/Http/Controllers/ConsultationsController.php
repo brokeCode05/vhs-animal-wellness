@@ -123,7 +123,11 @@ class ConsultationsController extends Controller
         $consultation=DB::transaction(function() use($r,$v,$doctor){
             $a=Appointment::whereKey($v['appointment_id'])->lockForUpdate()->firstOrFail();
             abort_unless($a->assigned_vet_id===$doctor->id,403,'This appointment is not assigned to you.');
-            abort_unless($a->status==='checked_in',422,'Only a checked-in appointment may start consultation.');
+            // Start OR resume: a checked-in patient starts a new session; an
+            // appointment already in consultation resumes its existing row
+            // (the unique constraint + first() reuse mean a repeated Start /
+            // Continue can never create a duplicate session).
+            abort_unless(in_array($a->status,['checked_in','in_consultation'],true),422,'Only a checked-in appointment may start consultation.');
             $c=Consultation::where('appointment_id',$a->id)->first();
             if(!$c){
                 $c=new Consultation;

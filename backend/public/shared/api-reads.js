@@ -130,6 +130,20 @@ window.VHSReads = (function () {
     });
   }
 
+  /** GET /api/consultations?appointment_id= — the Doctor's consultation
+   *  session for ONE appointment (null when none exists yet). */
+  function consultationForAppointment(appointmentId) {
+    if (!appointmentId) {
+      return Promise.resolve({ ok: false, status: 0, data: null, message: 'No appointment selected.' });
+    }
+    return get('consultations?appointment_id=' + encodeURIComponent(appointmentId)).then(function (r) {
+      if (!r.ok) return r;
+      var list = (r.data && r.data.consultations) || [];
+      return { ok: true, status: r.status, message: r.message,
+        data: { consultation: list.length ? list[0] : null } };
+    });
+  }
+
   // ── Store hydration (the boot-time read path) ────────────────────────────
 
   /**
@@ -234,6 +248,7 @@ window.VHSReads = (function () {
     myPets: myPets,
     doctors: doctors,
     appointmentHistory: appointmentHistory,
+    consultationForAppointment: consultationForAppointment,
     hydrateAppointments: hydrateAppointments,
     hydrateClients: hydrateClients,
     hydrateMyPets: hydrateMyPets,

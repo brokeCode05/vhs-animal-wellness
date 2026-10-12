@@ -56,6 +56,9 @@
     if (opts.appointmentKey && out.data && out.data.appointment) {
       out.appointment = out.data.appointment;
     }
+    if (opts.consultationKey && out.data && out.data.consultation) {
+      out.consultation = out.data.consultation;
+    }
     if (opts.doctorKey && out.data && out.data.doctor) {
       out.doctor = out.data.doctor;
     }
@@ -294,6 +297,71 @@
       });
   }
 
+  // ── CONSULTATION SESSION (Doctor clinical flow) ──────────────────────────
+  // One consultation record per appointment, owned by the assigned doctor.
+  // The backend creates/resumes it, validates every transition and refuses
+  // edits to completed consultations; the local store is only ever patched
+  // AFTER the server accepts.
+
+  /** POST /api/consultations { appointment_id } — start OR resume the ONE
+   *  consultation for a checked-in appointment. Repeated calls return the
+   *  same row (no duplicates). Also moves the appointment to in_consultation
+   *  server-side; the appointment mirror below keeps the local store in step. */
+  function startConsultationSession(appointmentId) {
+    var a = auth();
+    if (!a) return Promise.resolve({ ok: false, status: 0, message: 'Not signed in.' });
+    return a.send('consultations', { appointment_id: appointmentId })
+      .then(function (r) {
+        var out = normalize(r, { consultationKey: true });
+        var s = store();
+        if (out.ok && out.consultation && s && typeof s.applyServerPatch === 'function') {
+          s.applyServerPatch(appointmentId, {
+            status: 'in_consultation',
+            consultationStartedAt: out.consultation.startedAt
+          });
+        }
+        return out;
+      })
+      .catch(function (e) {
+        return { ok: false, status: 0, message: 'Network error. Please try again.', error: m(e) };
+      });
+  }
+
+  /** PATCH /api/consultations/{id} — persist SOAP / prescriptions / lab
+   *  requests / vaccinations. The backend refuses completed consultations
+   *  and any consultation owned by another veterinarian (403). */
+  function saveConsultation(consultationId, payload) {
+    var a = auth();
+    if (!a) return Promise.resolve({ ok: false, status: 0, message: 'Not signed in.' });
+    return a.patch('consultations/' + encodeURIComponent(consultationId), payload || {})
+      .then(function (r) { return normalize(r, { consultationKey: true }); })
+      .catch(function (e) {
+        return { ok: false, status: 0, message: 'Network error. Please try again.', error: m(e) };
+      });
+  }
+
+  /** POST /api/consultations/{id}/complete — finalize the consultation AND
+   *  the appointment in one backend transaction (documents fan out there). */
+  function completeConsultationSession(consultationId) {
+    var a = auth();
+    if (!a) return Promise.resolve({ ok: false, status: 0, message: 'Not signed in.' });
+    return a.send('consultations/' + encodeURIComponent(consultationId) + '/complete', {})
+      .then(function (r) {
+        var out = normalize(r, { consultationKey: true });
+        var s = store();
+        if (out.ok && out.consultation && s && typeof s.applyServerPatch === 'function') {
+          s.applyServerPatch(out.consultation.appointmentId, {
+            status: 'completed',
+            consultationCompletedAt: out.consultation.completedAt
+          });
+        }
+        return out;
+      })
+      .catch(function (e) {
+        return { ok: false, status: 0, message: 'Network error. Please try again.', error: m(e) };
+      });
+  }
+
   function m(e) { return (e && e.message) || e; }
 
   global.VHSWrites = {
@@ -311,6 +379,9 @@
     setDoctorAvailability: setDoctorAvailability,
     createPet: createPet,
     updatePet: updatePet,
-    deletePet: deletePet
+    deletePet: deletePet,
+    startConsultationSession: startConsultationSession,
+    saveConsultation: saveConsultation,
+    completeConsultationSession: completeConsultationSession
   };
 })(window);

@@ -323,6 +323,7 @@ const MEDICINE_LIMITS = { medicine: 100, frequency: 50, instructions: 500 };
     fields.forEach(name => { draft.fields[name] = form.elements.namedItem(name).value; });
     draft.medicines = Array.from(document.querySelectorAll('.medicine-row'), readMedicineRow);
     draft.labs = Array.from(form.querySelectorAll('[name="labs"]:checked'), input => input.value);
+    draft.vaccinations = Array.from(document.querySelectorAll('.vaccination-row'), readVaccinationRow);
     draft.reviewed = document.getElementById('reviewed').checked;
     // AI Scribe keeps its transcript on the SAME draft record as the SOAP
     // fields — one record, one storage owner (SharedMockClinical). Capturing it
@@ -1129,6 +1130,242 @@ const MEDICINE_LIMITS = { medicine: 100, frequency: 50, instructions: 500 };
     document.getElementById('medicine-list').append(row);
     return row;
   }
+  // ── VACCINATION ROWS ───────────────────────────────────────────────────────
+  // Structured clinical rows for vaccines given during THIS visit. The backend
+  // stores them on vaccination_records keyed by consultation/pet/
+  // veterinarian, and requires administeredDate to equal the visit date —
+  // enforced here for an honest immediate message, and again server-side.
+  const VACCINE_LIMITS = { vaccineName: 150, batchNo: 100, notes: 500 };
+  let vaccinationSequence = 0;
+  function emptyVaccination() {
+    return { vaccineName: '', administeredDate: '', nextDueDate: '', batchNo: '', notes: '' };
+  }
+  function readVaccinationRow(row) {
+    const values = {};
+    row.querySelectorAll('[data-vfield]').forEach(control => { values[control.dataset.vfield] = control.value; });
+    return values;
+  }
+  function addVaccinationRow(values) {
+    const row = element('fieldset', '', 'medicine-row vaccination-row');
+    const sequence = ++vaccinationSequence;
+    const idFor = key => `vaccine-${sequence}-${key}`;
+    const v = values || emptyVaccination();
+    const text = (className, id, placeholder, maxLength) => {
+      const input = element('input', '', `form-input ${className}`.trim());
+      input.type = 'text';
+      input.id = id;
+      input.maxLength = maxLength;
+      input.placeholder = placeholder;
+      input.autocomplete = 'off';
+      return input;
+    };
+    const dateGroup = (id, label, value) => {
+      const input = element('input', '', 'form-input');
+      input.type = 'date';
+      input.id = id;
+      input.value = value || '';
+      const group = element('div');
+      const lbl = element('label', label, 'form-label');
+      lbl.htmlFor = id;
+      group.append(lbl, input);
+      return { group, input };
+    };
+
+    const nameGroup = element('div');
+    const nameLabel = element('label', 'Vaccine', 'form-label');
+    const nameInput = text('', idFor('name'), 'e.g. Rabies', VACCINE_LIMITS.vaccineName);
+    nameInput.dataset.vfield = 'vaccineName';
+    nameInput.value = v.vaccineName || '';
+    nameLabel.htmlFor = nameInput.id;
+    nameGroup.append(nameLabel, nameInput);
+
+    const given = dateGroup(idFor('given'), 'Given on (visit date)', v.administeredDate);
+    given.input.dataset.vfield = 'administeredDate';
+    const due = dateGroup(idFor('due'), 'Next due (optional)', v.nextDueDate);
+    due.input.dataset.vfield = 'nextDueDate';
+
+    const batchGroup = element('div');
+    const batchLabel = element('label', 'Batch no. (optional)', 'form-label');
+    const batchInput = text('', idFor('batch'), 'e.g. RB-2026-014', VACCINE_LIMITS.batchNo);
+    batchInput.dataset.vfield = 'batchNo';
+    batchInput.value = v.batchNo || '';
+    batchLabel.htmlFor = batchInput.id;
+    batchGroup.append(batchLabel, batchInput);
+
+    const notesGroup = element('div');
+    const notesLabel = element('label', 'Notes (optional)', 'form-label');
+    const notesInput = element('textarea', '', 'form-input');
+    notesInput.id = idFor('notes');
+    notesInput.dataset.vfield = 'notes';
+    notesInput.value = v.notes || '';
+    notesInput.maxLength = VACCINE_LIMITS.notes;
+    notesInput.rows = 2;
+    notesLabel.htmlFor = notesInput.id;
+    notesGroup.append(notesLabel, notesInput);
+
+    row.append(nameGroup, given.group, due.group, batchGroup, notesGroup);
+    const remove = element('button', 'Remove', 'btn-secondary btn-small');
+    remove.type = 'button';
+    remove.setAttribute('aria-label', 'Remove this vaccination record');
+    remove.addEventListener('click', () => {
+      row.remove();
+      markChanged();
+      document.getElementById('add-vaccination').focus();
+    });
+    row.append(remove);
+    document.getElementById('vaccination-list').append(row);
+    return row;
+  }
+
+  // Restores the working draft into the mounted form controls. Used by
+  // selectPatient AND by the server-hydration path below, so a re-opened
+  // consultation always renders exactly what the draft holds.
+  function renderDraftIntoForm(patient) {
+    const draft = draftFor(patient);
+    fields.forEach(name => { form.elements.namedItem(name).value = draft.fields[name] || ''; });
+    document.getElementById('medicine-list').replaceChildren();
+    (draft.medicines && draft.medicines.length ? draft.medicines : [emptyMedicine()]).forEach(addMedicine);
+    form.querySelectorAll('[name="labs"]').forEach(input => { input.checked = (draft.labs || []).includes(input.value); });
+    document.getElementById('vaccination-list').replaceChildren();
+    (draft.vaccinations || []).forEach(addVaccinationRow);
+    document.getElementById('reviewed').checked = draft.reviewed;
+  }
+
+  // ── CONSULTATION PAYLOAD (server contract) ─────────────────────────────────
+  // The draft's structured rows become the flat rows PATCH
+  // /api/consultations/{id} expects: composed dosage/frequency strings for
+  // prescriptions, checkbox selections as lab requests, and vaccination rows
+  // validated against the backend's visit-date rule BEFORE the request, so
+  // the doctor gets an immediate honest message instead of a 422 round-trip.
+  function buildConsultationPayload(patient) {
+    const draft = draftFor(patient);
+    const vaccinations = (draft.vaccinations || [])
+      .filter(row => String(row.vaccineName || '').trim())
+      .map(row => ({
+        vaccineName: String(row.vaccineName).trim(),
+        administeredDate: String(row.administeredDate || '').trim(),
+        nextDueDate: String(row.nextDueDate || '').trim() || null,
+        batchNo: String(row.batchNo || '').trim() || null,
+        notes: String(row.notes || '').trim() || null
+      }));
+    for (const row of vaccinations) {
+      if (!row.administeredDate) {
+        return { error: `Set the date "${row.vaccineName}" was administered (the visit date).` };
+      }
+      if (row.administeredDate !== patient.date) {
+        return { error: `"${row.vaccineName}" must be dated the visit date (${patient.date}).` };
+      }
+      if (row.nextDueDate && row.nextDueDate < row.administeredDate) {
+        return { error: `The next-due date for "${row.vaccineName}" cannot be earlier than the administered date.` };
+      }
+    }
+    return {
+      payload: {
+        soap: {
+          subjective: draft.fields.subjective || '',
+          objective: draft.fields.exam || '',
+          assessment: draft.fields.assessment || '',
+          plan: draft.fields.plan || '',
+          weight: draft.fields.weight || '',
+          temperature: draft.fields.temperature || '',
+          heartRate: draft.fields.heartRate || ''
+        },
+        prescriptions: draft.medicines
+          .filter(m => String(m.medicine || '').trim())
+          .map(m => ({
+            medicine: String(m.medicine).trim(),
+            dosage: dosageText(m),
+            frequency: frequencyText(m),
+            duration: String(m.duration || '').trim() || null,
+            instructions: String(m.instructions || '').trim() || null
+          })),
+        labRequests: draft.labs.map(name => ({ test: name, notes: null })),
+        vaccinations: vaccinations
+      }
+    };
+  }
+
+  // ── SERVER-TRUTH CONSULTATION ADOPTION ─────────────────────────────────────
+  // Whenever a patient with a live or finished consultation is opened, the
+  // ONE server record for this appointment is fetched and, when the local
+  // draft holds no unsaved edits, becomes the working draft — so a reload or
+  // a patient switch re-opens exactly what was last saved, never a stale
+  // device copy. The Scribe transcript is browser-local by design and is
+  // never touched here.
+  const _consultationSyncFlight = {};
+  async function _syncConsultationFromServer(patient) {
+    if (!window.VHSReads || !patient || !patient.appointmentId) return;
+    if (_consultationSyncFlight[patient.appointmentId]) return;
+    _consultationSyncFlight[patient.appointmentId] = true;
+    try {
+      const res = await window.VHSReads.consultationForAppointment(patient.appointmentId);
+      if (!selectedPatient || selectedPatient.id !== patient.id) return; // selection moved on
+      if (!res.ok || !res.data || !res.data.consultation) return;
+      const c = res.data.consultation;
+      const draft = draftFor(patient);
+      draft.consultationId = c.consultationId || draft.consultationId || null;
+      if (c.startedAt && !draft.startedAt) draft.startedAt = c.startedAt;
+      if (c.status === 'completed') {
+        draft.completedAt = c.completedAt || draft.completedAt;
+        draft.durationMinutes = c.duration != null ? c.duration : draft.durationMinutes;
+      }
+      // Server wins when the local draft is clean; unsaved local edits are
+      // kept (the doctor can still save them over the server copy).
+      const hasLocalEdits = !draft.saved && _draftHasContent(draft);
+      if (!hasLocalEdits) {
+        _adoptConsultationSnapshot(draft, c);
+        draft.saved = true;
+        renderDraftIntoForm(patient);
+        document.getElementById('draft-state').textContent = 'Saved to clinic record';
+        syncScribePanel();
+      }
+      draft.updatedAt = new Date().toISOString();
+      persistDraft(patient, draft);
+      // Timer/complete-button state can depend on the adopted start time.
+      renderContext(patient);
+    } finally {
+      _consultationSyncFlight[patient.appointmentId] = false;
+    }
+  }
+  function _draftHasContent(draft) {
+    if (!draft) return false;
+    if (Object.values(draft.fields || {}).some(value => String(value || '').trim())) return true;
+    if ((draft.medicines || []).some(m => String(m.medicine || '').trim())) return true;
+    if ((draft.labs || []).length) return true;
+    return (draft.vaccinations || []).some(v => String(v.vaccineName || '').trim());
+  }
+  function _adoptConsultationSnapshot(draft, c) {
+    const s = (c && c.soap) || {};
+    draft.fields = {
+      subjective: s.subjective || '',
+      exam: s.objective || '',
+      assessment: s.assessment || '',
+      plan: s.plan || '',
+      weight: s.weight || '',
+      temperature: s.temperature || '',
+      heartRate: s.heartRate || ''
+    };
+    draft.medicines = ((c && c.prescriptions) || []).map(p => ({
+      medicine: p.medicine || '',
+      // Structured controls round-trip through the composed strings: the
+      // custom unit/pattern carry the server's flat dosage/frequency text
+      // back into the parts exactly (dosageText/frequencyText re-compose
+      // them unchanged on the next save).
+      dosageValue: '', dosageUnit: 'custom', dosageCustom: p.dosage || '',
+      frequencyPattern: 'custom', frequencyCustom: p.frequency || '',
+      duration: p.duration || '', instructions: p.instructions || ''
+    }));
+    if (!draft.medicines.length) draft.medicines = [emptyMedicine()];
+    draft.labs = ((c && c.labRequests) || []).map(l => l.test).filter(Boolean);
+    draft.vaccinations = ((c && c.vaccinations) || []).map(v => ({
+      vaccineName: v.vaccineName || '',
+      administeredDate: v.administeredDate || '',
+      nextDueDate: v.nextDueDate || '',
+      batchNo: v.batchNo || '',
+      notes: v.notes || ''
+    }));
+  }
+
   // Text is assigned through textContent so record strings are never HTML.
   function element(tag, text, className) {
     const node = document.createElement(tag);
@@ -1140,11 +1377,7 @@ const MEDICINE_LIMITS = { medicine: 100, frequency: 50, instructions: 500 };
     captureDraft();
     selectedPatient = patient;
     const draft = draftFor(patient);
-    fields.forEach(name => { form.elements.namedItem(name).value = draft.fields[name] || ''; });
-    document.getElementById('medicine-list').replaceChildren();
-    draft.medicines.forEach(addMedicine);
-    form.querySelectorAll('[name="labs"]').forEach(input => { input.checked = draft.labs.includes(input.value); });
-    document.getElementById('reviewed').checked = draft.reviewed;
+    renderDraftIntoForm(patient);
     const _completeBtn = document.getElementById('complete-consultation');
     _completeBtn.disabled = statusFor(patient) !== 'in_consultation';
     // Completed patients keep the finished state visible on the primary button.
@@ -1192,8 +1425,15 @@ const MEDICINE_LIMITS = { medicine: 100, frequency: 50, instructions: 500 };
       timerLine.hidden = true;
       timerLine.replaceChildren();
     }
-    document.getElementById('draft-state').textContent = draft.saved ? 'Saved on this device' : 'Unsaved draft';
+    document.getElementById('draft-state').textContent = draft.saved ? 'Saved to clinic record' : 'Unsaved draft';
     document.getElementById('save-status').textContent = '';
+    // Live consultation or finished record → the ONE server consultation for
+    // this appointment is the draft's authority (see
+    // _syncConsultationFromServer): a reload or patient switch re-opens
+    // exactly what was last saved, never a stale device copy.
+    if (statusFor(patient) === 'in_consultation' || statusFor(patient) === 'completed') {
+      _syncConsultationFromServer(patient);
+    }
     queue.querySelectorAll('.queue-row').forEach(row => row.setAttribute('aria-pressed', String(row.dataset.patientId === patient.id)));
     const name = element('h3', patient.name);
     const details = element('dl', '', 'pet-details');
@@ -1230,23 +1470,38 @@ const MEDICINE_LIMITS = { medicine: 100, frequency: 50, instructions: 500 };
       if (window.matchMedia('(max-width: 1000px)').matches) document.getElementById('record-heading').scrollIntoView({ block: 'start' });
     }
   }
-  // GET /api/consultations?pet_id=… (Doctor role) — real past-consultation
-  // notes for the selected patient. Silent on failure: the synchronous render
-  // already shows the honest "No previous vaccinations or veterinary notes
-  // recorded." fallback, and a stale response never overwrites a newer selection.
+  // GET /api/consultations?history_for_appointment_id=… (Doctor-only,
+  // assignment-scoped) — real completed-consultation history for the selected
+  // patient, with structured SOAP / prescriptions / lab requests /
+  // vaccinations. Silent on failure: the synchronous render already shows the
+  // honest "No previous vaccinations or veterinary notes recorded."
+  // fallback, and a stale response never overwrites a newer selection.
   async function _loadPatientHistory(patient, recordEl) {
-    if (!window.VHSReads || !patient.petId) return;
-    const res = await window.VHSReads.get(
-      'consultations?pet_id=' + encodeURIComponent(patient.petId)
-    );
+    if (!window.VHSReads || !patient.appointmentId) return;
+    const res = await window.VHSReads.appointmentHistory(patient.appointmentId);
     if (recordEl.dataset.historyFor !== patient.id) return; // selection moved on
     if (!res.ok) return;
-    const rows = Array.isArray(res.data) ? res.data
-      : (res.data && Array.isArray(res.data.data) ? res.data.data : []);
+    const rows = (res.data && res.data.history) || [];
     const entries = rows
-      .filter(c => c && c.summary && c.appointment_id !== patient.id)
-      .map(c => ({ date: String(c.created_at || '').slice(0, 10), title: 'Consultation note', note: c.summary }))
-      .filter(e => e.date);
+      .filter(h => h && h.date)
+      .map(h => {
+        const parts = [];
+        if (h.soap && h.soap.assessment) parts.push(String(h.soap.assessment));
+        if (Array.isArray(h.prescriptions) && h.prescriptions.length) {
+          parts.push('Prescribed: ' + h.prescriptions.map(p => p.medicine).join(', ') + '.');
+        }
+        if (Array.isArray(h.labRequests) && h.labRequests.length) {
+          parts.push('Labs: ' + h.labRequests.map(l => l.test).join(', ') + '.');
+        }
+        if (Array.isArray(h.vaccinations) && h.vaccinations.length) {
+          parts.push('Vaccinated: ' + h.vaccinations.map(v => v.vaccineName).join(', ') + '.');
+        }
+        return {
+          date: String(h.date).slice(0, 10),
+          title: (h.service || 'Consultation') + (h.veterinarian ? ' · ' + h.veterinarian : ''),
+          note: parts.join(' ') || 'No clinical notes recorded.'
+        };
+      });
     if (!entries.length) return;
     const history = element('ol', '', 'history');
     history.tabIndex = 0;
@@ -1392,20 +1647,22 @@ const MEDICINE_LIMITS = { medicine: 100, frequency: 50, instructions: 500 };
   queue.innerHTML = '<tr><td colspan="6" class="queue-empty">Loading today\u2019s patients\u2026</td></tr>';
   // Start is an explicit action, never a side effect of selecting a patient.
   // Only checked-in patients may start; upcoming patients cannot.
-  // Phase 5: the transition is validated SERVER-side — PATCH
-  // /appointments/:id/status { in_consultation }. The local store is only
-  // updated after the API accepts it (VHSWrites mirrors the confirmed record).
+  // Phase (clinical E2E): the transition is a REAL server action — POST
+  // /api/consultations { appointment_id } creates (or resumes, without
+  // duplicates) the ONE consultation row for this appointment, stamps
+  // started_at, and moves the appointment to in_consultation inside the same
+  // backend transaction. The local store is only updated after the API
+  // accepts (VHSWrites mirrors the confirmed record).
   async function startConsultation(patient) {
     const draft = draftFor(patient);
     if (statusFor(patient) !== 'checked_in') return;
-    if (statusFor(patient) === 'in_consultation' || statusFor(patient) === 'completed') return;
     const saveStatus = document.getElementById('save-status');
     if (!window.VHSWrites || !patient.appointmentId) {
       if (saveStatus) saveStatus.textContent = 'Cannot start: the consultation service is unavailable.';
       return;
     }
     if (saveStatus) saveStatus.textContent = 'Starting consultation…';
-    const result = await window.VHSWrites.startConsultation(patient.appointmentId);
+    const result = await window.VHSWrites.startConsultationSession(patient.appointmentId);
     if (!result.ok) {
       // The server refused (invalid transition, wrong doctor, 404 demo row).
       // Nothing is stamped locally — every other portal keeps the old status.
@@ -1416,10 +1673,12 @@ const MEDICINE_LIMITS = { medicine: 100, frequency: 50, instructions: 500 };
       }
       return;
     }
+    const consultation = result.consultation || {};
     if (window.AuditLog) window.AuditLog.add({ actor: { actorType: 'Doctor', actorId: VETERINARIAN.id, actorName: VETERINARIAN.name }, action: 'consultation_started', entityType: 'appointment', entityId: patient.appointmentId, referenceNo: patient.referenceNo || '', description: VETERINARIAN.name + ' started consultation for ' + patient.name });
     captureDraft();
-    // Server-authoritative timestamp (mirrored into the store by VHSWrites).
-    draft.startedAt = (result.appointment && (result.appointment.consultationStartedAt || result.appointment.consultation_started_at)) || new Date().toISOString();
+    // Server-authoritative consultation id + start timestamp.
+    draft.consultationId = consultation.consultationId || null;
+    draft.startedAt = consultation.startedAt || new Date().toISOString();
     draft.completedAt = null;
     draft.durationMinutes = null;
     draft.updatedAt = draft.startedAt;
@@ -1468,7 +1727,12 @@ const MEDICINE_LIMITS = { medicine: 100, frequency: 50, instructions: 500 };
     markChanged();
     row.querySelector('input').focus();
   });
-  form.addEventListener('submit', event => {
+  document.getElementById('add-vaccination').addEventListener('click', () => {
+    const row = addVaccinationRow();
+    markChanged();
+    row.querySelector('input').focus();
+  });
+  form.addEventListener('submit', async event => {
     event.preventDefault();
     // Invalid vitals/duration/limits block the save, not just the visual.
     if (window.doctorValidateClinical && !window.doctorValidateClinical()) {
@@ -1506,12 +1770,30 @@ const MEDICINE_LIMITS = { medicine: 100, frequency: 50, instructions: 500 };
       document.getElementById('reviewed').focus();
       return;
     }
-    { const d = draftFor(selectedPatient); d.saved = true; persistDraft(selectedPatient, d); }
-    document.getElementById('draft-state').textContent = 'Saved on this device';
+    // ── REAL SERVER SAVE (PATCH /api/consultations/{id}) ────────────────
+    // SOAP, prescriptions, lab requests and vaccinations persist to the
+    // clinic record; "saved" is only ever claimed after the server confirms
+    // persistence. A refusal keeps the draft unsaved and shows the real
+    // validation message — never a local-only success.
+    const draft = draftFor(selectedPatient);
+    if (!draft.consultationId) {
+      status.textContent = 'No consultation session is open for this patient. Start the consultation first.';
+      return;
+    }
+    const built = buildConsultationPayload(selectedPatient);
+    if (built.error) { status.textContent = built.error; return; }
+    status.textContent = 'Saving consultation…';
+    const saved = await window.VHSWrites.saveConsultation(draft.consultationId, built.payload);
+    if (!saved.ok) {
+      status.textContent = saved.message || 'The consultation could not be saved. Nothing was changed.';
+      return;
+    }
+    draft.saved = true;
+    draft.updatedAt = new Date().toISOString();
+    persistDraft(selectedPatient, draft);
+    document.getElementById('draft-state').textContent = 'Saved to clinic record';
     syncScribePanel(); // the Scribe pill moves to "Saved draft"
-    // TODO(BACKEND): Persist the consultation through the consultation endpoint
-    // and enable front-desk handoff once the API exists.
-    status.textContent = 'Draft saved on this device.';
+    status.textContent = 'Consultation saved to the clinic record.';
   });
   // Complete ends the lifecycle: stop the timer, record end time + duration.
   // TODO(BACKEND): Finalize through the consultation API; the backend then
@@ -1565,15 +1847,30 @@ const MEDICINE_LIMITS = { medicine: 100, frequency: 50, instructions: 500 };
     // Confirmed and re-validated: an unprocessed clip has nowhere to go in a
     // read-only record, so it is released rather than silently kept.
     if (rec.recording) discardScribeRecording();
-    // Phase 5: the APPOINTMENT lifecycle is finalized SERVER-side — PATCH
-    // /appointments/:id/status { completed }. The local store is updated only
-    // after the API accepts it (VHSWrites mirrors the confirmed record), so
-    // this portal can never show "completed" while every other portal reads a
-    // stale status. Nothing is stamped on a refusal.
+    // Phase 5/clinical E2E: finalization is REAL and server-authoritative.
+    // 1) The current clinical state is SAVED first (PATCH
+    //    /api/consultations/{id}) — nothing un-saved may be finalized.
+    // 2) POST /api/consultations/{id}/complete then completes the
+    //    consultation AND the appointment in one backend transaction, which
+    //    also fans out the client-facing documents. A refusal finalizes
+    //    nothing and stamps nothing.
     status.textContent = 'Finalizing consultation…';
-    const completion = (window.VHSWrites && selectedPatient.appointmentId)
-      ? await window.VHSWrites.completeConsultation(selectedPatient.appointmentId)
-      : { ok: false, error: 'no_store' };
+    const liveDraft = draftFor(selectedPatient);
+    if (!liveDraft.consultationId) {
+      status.textContent = 'No consultation session is open for this patient. Nothing was changed.';
+      return;
+    }
+    const finalBuilt = buildConsultationPayload(selectedPatient);
+    if (finalBuilt.error) { status.textContent = finalBuilt.error; return; }
+    const finalSave = await window.VHSWrites.saveConsultation(liveDraft.consultationId, finalBuilt.payload);
+    if (!finalSave.ok) {
+      status.textContent = finalSave.message || 'The consultation could not be saved, so nothing was finalized.';
+      syncScribePanel();
+      return;
+    }
+    liveDraft.saved = true;
+    persistDraft(selectedPatient, liveDraft);
+    const completion = await window.VHSWrites.completeConsultationSession(liveDraft.consultationId);
     if (!completion.ok) {
       status.textContent = completion.notInDatabase
         ? 'This appointment is no longer in the schedule. Nothing was changed.'
@@ -1582,20 +1879,17 @@ const MEDICINE_LIMITS = { medicine: 100, frequency: 50, instructions: 500 };
       return;
     }
     if (window.AuditLog) window.AuditLog.add({ actor: { actorType: 'Doctor', actorId: VETERINARIAN.id, actorName: VETERINARIAN.name }, action: 'consultation_completed', entityType: 'appointment', entityId: selectedPatient.appointmentId, referenceNo: selectedPatient.referenceNo || '', description: VETERINARIAN.name + ' completed consultation for ' + selectedPatient.name });
-    draft.completedAt = new Date().toISOString();
-    draft.durationMinutes = durationBetween(draft.startedAt, draft.completedAt);
+    // Server-authoritative completion stamps (completion.consultation comes
+    // straight from the finalized backend record).
+    const _sc = completion.consultation || {};
+    draft.completedAt = _sc.completedAt || new Date().toISOString();
+    draft.durationMinutes = _sc.duration != null ? _sc.duration : durationBetween(draft.startedAt, draft.completedAt);
     draft.saved = true;
     draft.updatedAt = draft.completedAt;
     persistDraft(selectedPatient, draft);
-    // Phase 5: finalization creates the client-facing documents
-    // (summary, prescription, lab request). Internal SOAP narrative
-    // stays Doctor-only and is never stored in the shared layer.
-    // TODO(BACKEND): the consultation API performs this fan-out in the
-    // completion transaction instead of the frontend.
-    if (window.SharedDocuments && selectedPatient.appointmentId) {
-      const _rec = window.SharedMockAppointments ? window.SharedMockAppointments.byId(selectedPatient.appointmentId) : null;
-      if (_rec) window.SharedDocuments.finalizeFromConsultation(buildConsultation(selectedPatient), _rec);
-    }
+    // Client-facing documents (summary / prescription / lab request) are
+    // fanned out SERVER-side inside the completion transaction — the
+    // frontend demo document store is deliberately NOT written anymore.
     // Immediate terminal state: the primary button becomes a non-interactive
     // confirmation (no second completion attempt); View Clinical Document
     // remains available in the record actions.
@@ -1612,8 +1906,8 @@ const MEDICINE_LIMITS = { medicine: 100, frequency: 50, instructions: 500 };
     const timerLine = document.getElementById('context-timer');
     timerLine.hidden = true;
     timerLine.replaceChildren();
-    document.getElementById('draft-state').textContent = 'Saved on this device';
-    status.textContent = `Consultation completed for ${selectedPatient.name}. Duration: ${draft.durationMinutes} min. Sending to the front desk requires backend integration.`;
+    document.getElementById('draft-state').textContent = 'Saved to clinic record';
+    status.textContent = `Consultation completed for ${selectedPatient.name}. Duration: ${draft.durationMinutes} min. The record and client documents are saved to the clinic system.`;
   });
   // Structured consultation object built from the appointment record plus the
   // captured draft — the same shape a consultation endpoint would receive.
