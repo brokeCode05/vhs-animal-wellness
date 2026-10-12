@@ -629,50 +629,57 @@ function submitAdminBooking(e) {
     if (_takenNow.indexOf(_toHHMM(time)) !== -1) { showToast('That slot is already booked.', 'error'); return; }
   }
 
-  // Identity is minted by the SHARED contract helper (AppointmentContract.
-  // generateIdentity) — the exact call the User portal makes, so the two can
-  // never drift apart and records never collide.
-  // TODO(BACKEND): POST book-appointment.php replaces this write-through and
-  // returns the DB-assigned reference_no / appointment_id.
-  var _identity = window.AppointmentContract.generateIdentity(window.SharedMockAppointments.getAll() || [], date);
-  var aptId = _identity.appointmentId;
-  var refNo = _identity.referenceNo;
+  if (!window.VHSWrites) { showToast('Appointment service unavailable.', 'error'); return; }
 
-  // Identity is resolved strictly by ID: owner by userId, pet by petId.
-  var owner = window.SharedMockUsers
-    ? window.SharedMockUsers.users().find(function (u) { return String(u.userId) === String(userId); })
-    : null;
-  var pet = window.SharedMockUsers ? window.SharedMockUsers.petById(petId) : null;
+  // ── REAL BACKEND WRITE ──────────────────────────────────────────────────
+  // POST /api/appointments (AppointmentsController::store) is the single
+  // appointment-creation endpoint — the same one the User portal books
+  // through, so there is deliberately no second creation API. The backend
+  // re-validates the slot inside the same transaction as the insert
+  // (conflicts are refused with 409 slot_taken), assigns the on-duty
+  // veterinarian, and mints the authoritative appointment id + reference_no.
+  // Nothing is minted, persisted or audited on the frontend.
+  var form = document.getElementById('adminBookForm');
+  var submitBtn = form ? form.querySelector('[type="submit"]') : null;
+  if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = 'Booking…'; }
 
-  // One canonical record written through the SAME store the User, Doctor,
-  // and Doctor portals read.
-  var canonical = window.AppointmentContract.fromLegacy({
-    appointmentId: aptId,
-    referenceNo: refNo,
-    userId: userId,
-    petId: petId,
-    // Canonical service keys: serviceId is the machine identifier the backend
-    // will key on; service carries the catalog VALUE, never the display label.
-    // svc.value keeps that true even if a legacy caller passed a label.
-    serviceId: svc ? svc.serviceId : null,
+  var payload = {
+    user_id: parseInt(userId, 10) || 0,
+    pet_id: parseInt(petId, 10) || 0,
+    // Canonical catalog VALUE the backend resolves against vet_services.
     service: svc ? svc.value : service,
-    appointmentDate: date,
-    appointmentTime: time,
-    notes: notes,
-    status: 'confirmed',
-    owner: { name: owner ? owner.name : '', phone: owner ? (owner.phone || '') : '' },
-    pet: { name: pet ? pet.name : '', species: pet ? (pet.species || '') : '', breed: pet ? (pet.breed || '') : '' }
-  });
+    appointment_date: date,
+    appointment_time: time,
+    notes: notes
+  };
 
-  var stored = window.SharedMockAppointments.add(canonical);
-  if (!stored.ok || !stored.appointment) {
-    showToast(stored.error === 'duplicate' ? 'This booking already exists.' : 'Could not save the booking. Please try again.', 'error');
-    return;
-  }
-  closeAdminBookModal();
-  showToast('Appointment booked (Reference ' + stored.appointment.referenceNo + '). Demo state \u2014 not saved to a database.', 'success');
-  _auditAdmin({ action: 'appointment_created', entityType: 'appointment', entityId: stored.appointment.appointmentId, referenceNo: stored.appointment.referenceNo, description: 'Admin booked appointment ' + stored.appointment.referenceNo + ' for ' + (stored.appointment.owner ? stored.appointment.owner.name : 'client'), metadata: { appointmentDate: stored.appointment.appointmentDate, appointmentTime: stored.appointment.appointmentTime, service: stored.appointment.service } });
-  loadAppointments();
+  window.VHSWrites.createAppointment(payload).then(function (res) {
+    if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Book Appointment'; }
+    if (!res.ok) {
+      // Real backend rejection — conflicting/invalid slots are never
+      // silently allowed. Known scheduling codes are phrased the same way
+      // the reschedule and status handlers phrase them.
+      var msg = res.message || 'Could not save the booking. Please try again.';
+      if (res.status === 409 || msg === 'slot_taken') msg = 'That slot is already booked.';
+      else if (msg === 'appointment_time_passed') msg = 'That time slot has already passed. Pick a later time.';
+      else if (msg === 'service_inactive') msg = 'The selected service is not available for booking.';
+      showToast(msg, 'error');
+      return;
+    }
+    var appt = res.appointment || {};
+    var ref = appt.referenceNo || appt.reference_no || '';
+    closeAdminBookModal();
+    // Success is displayed only AFTER the backend confirms persistence.
+    showToast('Appointment booked (Reference ' + ref + ').', 'success');
+    // The write adapter already mirrored the canonical server record into
+    // the shared store; loadAppointments() re-fetches GET /api/appointments
+    // (server truth) and re-renders the table + calendar immediately —
+    // no hard page refresh.
+    loadAppointments();
+  }).catch(function () {
+    if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Book Appointment'; }
+    showToast('Network error. Please try again.', 'error');
+  });
 }
 
 // ─── ADMIN STATUS ACTIONS (frontend-demo honest mode) ───────────────────────────────

@@ -110,7 +110,12 @@ function initLogout() {
 
       document.body.appendChild(loader);
 
-      setTimeout(function() { window.location.href = '/auth'; }, 1000);
+      // Logout always lands on the PUBLIC homepage and stays there while
+      // unauthenticated. /auth is a backend/testing utility only — the
+      // session-auth.js role guard only ever runs on portal paths
+      // (/admin, /doctor, /user), so it can never bounce the public
+      // homepage back to /auth.
+      setTimeout(function() { window.location.href = '/web-page/index.html'; }, 1000);
 
     }, {
 
