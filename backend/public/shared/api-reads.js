@@ -281,6 +281,40 @@ window.VHSReads = (function () {
   }
 
   /**
+   * GET /api/documents — finalized client-facing documents (consultation
+   * summary / prescription / lab request). The backend scopes by role:
+   * a User receives ONLY their own documents, a Doctor their patients'.
+   */
+  function documents() {
+    return get('documents');
+  }
+
+  /**
+   * GET /api/pets/:pet/vaccinations — structured vaccination records for one
+   * pet (vaccine, administered date, next due, batch, veterinarian), only
+   * from completed consultations. Backend authorizes owner/Admin only.
+   */
+  function petVaccinations(petId) {
+    return get('pets/' + encodeURIComponent(petId) + '/vaccinations');
+  }
+
+  /**
+   * Replace SharedDocuments with server truth (GET /api/documents), the same
+   * pattern as hydrateAppointments. Failure contract: on ANY failure the
+   * store is replaced with an EMPTY list — the localStorage demo seed must
+   * never masquerade as a signed-in owner's records.
+   */
+  function hydrateDocuments() {
+    var store = window.SharedDocuments;
+    return documents().then(function (r) {
+      if (store && typeof store.replaceWithServer === 'function') {
+        store.replaceWithServer(r.ok ? (r.data.documents || []) : []);
+      }
+      return r;
+    });
+  }
+
+  /**
    * GET /api/availability — REAL, resource-aware slot availability for one
    * date, evaluated by the backend with the SAME capacity rules the booking
    * endpoint enforces (On Duty doctor pool per exact slot, per-service
@@ -314,10 +348,13 @@ window.VHSReads = (function () {
     doctors: doctors,
     appointmentHistory: appointmentHistory,
     consultationForAppointment: consultationForAppointment,
+    documents: documents,
+    petVaccinations: petVaccinations,
     hydrateAppointments: hydrateAppointments,
     hydrateClients: hydrateClients,
     hydrateMyPets: hydrateMyPets,
     hydrateDoctors: hydrateDoctors,
+    hydrateDocuments: hydrateDocuments,
     petsSettled: petsSettled,
     whenPetsSettled: whenPetsSettled,
     markPetsSettled: markPetsSettled,

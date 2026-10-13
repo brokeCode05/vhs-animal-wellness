@@ -2047,33 +2047,12 @@ function __medHistHydratePet(pet) {
   // Descending by date (newest first) so a fresh consultation appears on top.
   events.sort(function (a, b) { return new Date(b.date) - new Date(a.date); });
 
-  // Vaccination passport: only completed Vaccination consultations that have
-  // a finalized summary. The prototype records carry no structured vaccine
-  // data (name/batch/next-due), so no vaccine lines can be fabricated.
-  // TODO(BACKEND): a vaccination record model (vaccine, batch, next-due) on
-  // the consultation is required before this passport can list real doses.
-  var derivedVaccines = appts
-    .filter(function (a) {
-      return (window.SharedMockUsers && window.SharedMockUsers.serviceLabel)
-        ? String(window.SharedMockUsers.serviceLabel(a.service) || a.service).toLowerCase() === 'vaccination'
-        : String(a.service).toLowerCase() === 'vaccination';
-    })
-    .map(function (a) {
-      var d = summaryByAppt[String(a.appointmentId)];
-      return {
-        name: __svcLabel(a.service),
-        date: a.appointmentDate,
-        nextDue: '',
-        batchNo: '',
-        vet: d && d.veterinarian && d.veterinarian.name ? d.veterinarian.name : '',
-        ref: a.referenceNo || (d && d.referenceNo) || '',
-        docId: d ? d.docId : null,
-        derived: true
-      }
-    })
-    .sort(function (a, b) { return new Date(b.date) - new Date(a.date); });
-
-  return Object.assign({}, pet, { visits: events, vaccines: derivedVaccines });
+  // Vaccination passport: NO derivation from service labels — a service
+  // label is not a vaccine name. renderVaccinePassport() fetches the real
+  // structured rows (GET /api/pets/:pet/vaccinations: vaccine, batch,
+  // next-due, administering vet) at render time; here we only preserve any
+  // rows already fetched for this pet object.
+  return Object.assign({}, pet, { visits: events, vaccines: pet.vaccines || [] });
 }
 
 // View Record — opens the item's finalized Consultation Summary through the
@@ -2266,17 +2245,45 @@ function renderVaccinePassport(pet) {
   if (!container) return;
   if (!pet) { container.innerHTML = '<p class="med-hist-empty">No pet selected.</p>'; return; }
 
-  // Derived-only: the hydrated pet (see __medHistHydratePet) carries
-  // vaccination entries derived from completed Vaccination consultations
-  // with finalized documents. Static placeholder vaccine lists are retired —
-  // they presented authoritative-looking doses with no appointment/document
-  // backing. Un-hydrated pets show the clean empty state.
-  var vaccines = (pet.vaccines || []).filter(function (v) { return v && v.derived === true; });
+  // Server-truth passport: fetch the structured vaccination records from
+  // GET /api/pets/:pet/vaccinations (owner-scoped by the backend, completed
+  // consultations only). Nothing is derived or fabricated — vaccine name,
+  // batch, next-due and administering vet come only from what the
+  // veterinarian actually recorded. Honest empty state when none exist,
+  // honest error message when the request fails.
+  var reads = window.VHSReads;
+  if (!reads || typeof reads.petVaccinations !== 'function') {
+    container.innerHTML = '<p class="med-hist-empty">No vaccination records yet.</p>';
+    return;
+  }
+  container.innerHTML = '<p class="med-hist-empty">Loading vaccination records...</p>';
+  reads.petVaccinations(pet.id).then(function (r) {
+    if (_currentProfilePet !== pet) return; // another pet's profile replaced this one
+    if (!r.ok) {
+      pet.vaccines = [];
+      container.innerHTML = '<p class="med-hist-empty">' + escapeHtml(r.message || 'Vaccination records could not be loaded.') + '</p>';
+      return;
+    }
+    var rows = (r.data.vaccinations || []).map(function (v) {
+      return {
+        name: v.vaccineName || '',
+        date: v.administeredDate || '',
+        nextDue: v.nextDueDate || '',
+        batchNo: v.batchNo || '',
+        vet: v.veterinarian || '',
+        ref: v.referenceNo || ''
+      };
+    }).filter(function (v) { return v.name && v.date; });
+    pet.vaccines = rows;
+    _renderVaccineRows(container, rows);
+  });
+}
+
+function _renderVaccineRows(container, vaccines) {
   if (!vaccines.length) {
     container.innerHTML = '<p class="med-hist-empty">No vaccination records yet.</p>';
     return;
   }
-
   var rows = vaccines.map(function (v) {
     var d = new Date(v.date + 'T00:00:00');
     var dateStr = d.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
@@ -2289,7 +2296,6 @@ function renderVaccinePassport(pet) {
       + '<td>' + escapeHtml(v.vet || '\u2014') + '</td>'
       + '</tr>';
   }).join('');
-
   container.innerHTML = '<table class="vaccine-table">'
     + '<thead><tr><th>Date Administered</th><th>Vaccine</th><th>Next Due</th><th>Batch No.</th><th>Administered By</th></tr></thead>'
     + '<tbody>' + rows + '</tbody>'
@@ -2418,7 +2424,7 @@ function printVaccineCertificate() {
   var now = new Date();
   var datePrinted = now.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
   var owner = pet.owner || {};
-  var vaccines = (pet.vaccines || []).filter(function (v) { return v && v.derived === true; }).slice().sort(function (a, b) {
+  var vaccines = (pet.vaccines || []).filter(function (v) { return v && v.name && v.date; }).slice().sort(function (a, b) {
     return new Date(b.date) - new Date(a.date);
   });
 
@@ -4083,6 +4089,16 @@ document.addEventListener("DOMContentLoaded", () => {
 
   loadUserAppointments();
 
+  // ── READ INTEGRATION: completed clinical records / My Documents ──────────
+  // SharedDocuments is hydrated from GET /api/documents (server-scoped to
+  // the signed-in owner) so the finalized documents the backend fans out on
+  // consultation completion appear in My Documents and the pet medical
+  // timeline. On failure the store is emptied — the localStorage demo seed
+  // never masquerades as a signed-in owner's records.
+  if (window.VHSReads && typeof window.VHSReads.hydrateDocuments === 'function') {
+    window.VHSReads.hydrateDocuments();
+  }
+
   showSection("dashboard");
 
   autoLabelTables();  // Initialize custom searchable dropdown for service select
@@ -4554,5 +4570,13 @@ window.closeUserDocViewer = function () { closeModal('userDocViewerModal'); };
 var _origShowSection = window.showSection;
 window.showSection = function (name) {
   if (_origShowSection) _origShowSection(name);
-  if (name === 'documents') _renderUserDocuments();
+  if (name === 'documents') {
+    // Paint immediately from the boot-hydrated store, then re-hydrate from
+    // GET /api/documents so a consultation completed while the portal sat
+    // open appears without a reload (server truth wins on resolve).
+    _renderUserDocuments();
+    if (window.VHSReads && typeof window.VHSReads.hydrateDocuments === 'function') {
+      window.VHSReads.hydrateDocuments().then(function () { _renderUserDocuments(); });
+    }
+  }
 };

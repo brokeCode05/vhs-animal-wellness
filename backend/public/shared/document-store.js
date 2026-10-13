@@ -153,6 +153,39 @@
       return _read().find(function (d) { return String(d.docId) === String(docId); }) || null;
     },
 
+    // READ integration: replaces the WHOLE store with the rows returned by
+    // GET /api/documents (server-role-scoped — a User only ever receives
+    // their own documents). Called by VHSReads.hydrateDocuments() at portal
+    // boot and on My Documents entry, this discards any localStorage content
+    // (including the demo seed) before My Documents or the pet medical
+    // timeline render, so a signed-in owner only sees server-issued
+    // documents. Row shape = DocumentsController::present() (backend).
+    replaceWithServer: function (rows) {
+      var list = (Array.isArray(rows) ? rows : []).map(function (r) {
+        if (!r || !r.type) return null;
+        return {
+          docId: _clean(r.docId !== undefined && r.docId !== null ? r.docId : r.id),
+          type: _clean(r.type),
+          status: _clean(r.status) || 'finalized',
+          appointmentId: _clean(r.appointmentId),
+          referenceNo: _clean(r.referenceNo),
+          userId: _clean(r.userId),
+          petId: _clean(r.petId),
+          petName: _clean(r.petName),
+          ownerName: _clean(r.ownerName),
+          service: _clean(r.service),
+          veterinarian: r.veterinarian
+            ? { name: _clean(r.veterinarian.name), role: _clean(r.veterinarian.role || 'Veterinarian') }
+            : null,
+          issuedAt: _clean(r.issuedAt),
+          data: r.data && typeof r.data === 'object' ? r.data : {}
+        };
+      }).filter(Boolean);
+      if (list.length > MAX_DOCS) list.length = MAX_DOCS;
+      _write(list);
+      return list;
+    },
+
     // Internal write path (module use). External callers go through
     // finalizeFromConsultation() so client-facing scoping stays consistent.
     add: function (doc) {
