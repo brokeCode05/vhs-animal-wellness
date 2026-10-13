@@ -134,9 +134,10 @@ class AuthController extends Controller
     public function login(Request $r)
     {
         $rawIdentifier = trim((string) ($r->input('identifier') ?: $r->input('email')));
+        // Note: there is deliberately no `channel` input for login. Login OTP is
+        // always email (see below); a client-supplied channel is ignored.
         $v = $r->validate([
             'password' => ['required', 'string', 'max:72'],
-            'channel' => ['sometimes', 'in:email,sms'],
         ]);
 
         abort_if($rawIdentifier === '' || mb_strlen($rawIdentifier) > 254, 422, 'Email/Employee ID is required.');
@@ -168,9 +169,13 @@ class AuthController extends Controller
         abort_unless($u->isVerified(), 403, 'Verify your account before logging in.');
         RateLimiter::clear($key);
         if (config('vhs.login_otp')) {
-            $channel = $v['channel'] ?? ($u->email_verified_at ? 'email' : 'sms');
-            abort_unless($channel === 'email' ? $u->email_verified_at : $u->phone_verified_at, 422, 'Choose a verified contact channel.');
-            $identifier = $channel === 'email' ? $u->email : $u->phone;
+            // Login OTP is ALWAYS delivered to the account's registered email.
+            // There is no SMS provider in this build: preferring a stored phone
+            // (the old behavior for accounts whose email_verified_at was null)
+            // produced an "SMS Verification" challenge whose code was never
+            // delivered anywhere. The response always reports channel "email".
+            $channel = 'email';
+            $identifier = $u->email;
             $r->session()->put('pending_login', ['id' => $u->id, 'version' => $u->auth_version, 'identifier' => $identifier, 'channel' => $channel, 'expires' => time() + 600]);
             $this->otp->issue($r, $identifier, $channel, 'login', $u->id);
 

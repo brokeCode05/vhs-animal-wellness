@@ -13,7 +13,7 @@ Every success is `{success:true,message,data}`; failures are `{success:false,mes
 | POST `/api/auth/register` | Canonical owner fields below; forces User role |
 | POST `/api/auth/resend-otp` | `{identifier,channel,context}`; registration or pending login |
 | POST `/api/auth/verify-otp` | `{identifier,channel,context,code}`; registration or pending login |
-| POST `/api/auth/login` | `{email,password,channel?}`; password first, then verified email/SMS code by default |
+| POST `/api/auth/login` | `{email,password}`; password first, then a real 6-digit code sent to the account email. Login is always email — any `channel` value in the payload is ignored |
 | GET `/api/auth/me` | Active verified session only; `{data:{user:{user_id,role,name,email,phone,status}}}` |
 | POST `/api/auth/logout` | Empty JSON object; invalidates session |
 | POST `/api/auth/password-reset` | `{email}`; generic acknowledgement; emails a reset/setup code if eligible |
@@ -51,7 +51,7 @@ By default, login with a correct password returns:
 {"success":true,"message":"Enter the login code.","data":{"otp_required":true,"identifier":"maria@example.com","channel":"email","context":"login"}}
 ```
 
-There is still no authenticated session at this point. Submit the code to verify-otp with context login. Only then is the session authenticated and regenerated. Only previously verified contact channels may be used. `VHS_LOGIN_OTP=false` permits password-only login for accounts that have already completed registration verification; this does not disable signup verification.
+There is still no authenticated session at this point. Submit the code to verify-otp with context login. Only then is the session authenticated and regenerated. Login OTP is ALWAYS delivered to the account's registered email and the response always reports `channel: "email"` — this build has no SMS provider, so an SMS login channel would claim a delivery that cannot happen. The login response never contains the code. `VHS_LOGIN_OTP=false` (development only, not the default) permits password-only login for accounts that have already completed registration verification; this does not disable signup verification. The legacy `dev_otp`/`dev_verify_url` convenience fields are DEVELOPMENT-ONLY, gated behind `VHS_EXPOSE_DEV_OTP` (default **off**) and never returned in production.
 
 ## Security boundaries and future adapters
 

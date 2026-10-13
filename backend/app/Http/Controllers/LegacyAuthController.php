@@ -252,10 +252,11 @@ class LegacyAuthController extends Controller
             return $this->json($this->loginPayload($u));
         }
 
-        // Existing public UI is an SMS OTP login step. Admin/Doctor accounts may
-        // fall back to verified email if no phone has been configured yet.
-        $channel = $u->phone ? 'sms' : 'email';
-        $identifier = $channel === 'sms' ? $u->phone : $u->email;
+        // Login OTP is ALWAYS email — this build has no SMS provider, so an
+        // SMS channel here would claim a delivery that cannot happen. The old
+        // phone-preferred selection sent nothing while the UI said "SMS".
+        $channel = 'email';
+        $identifier = $u->email;
         $r->session()->put('legacy_pending_login', [
             'id' => $u->id, 'version' => (int) $u->auth_version,
             'identifier' => $identifier, 'channel' => $channel, 'expires' => time() + 600,
@@ -265,8 +266,8 @@ class LegacyAuthController extends Controller
         } catch (\Throwable $e) {
             return $this->json(['status' => $e->getMessage() ?: 'Unable to send login code.'], 422);
         }
-        $masked = $channel === 'sms' ? preg_replace('/^(\+639)\d{5}(\d{4})$/', '$1*****$2', $identifier) : preg_replace('/(^.).*(@.*$)/', '$1***$2', $identifier);
-        $out = ['status' => 'otp_required', 'phone' => $masked, 'phone_verified' => $u->phone_verified_at ? 1 : 0, 'channel' => $channel];
+        $masked = preg_replace('/(^.).*(@.*$)/', '$1***$2', $identifier);
+        $out = ['status' => 'otp_required', 'channel' => 'email', 'email' => $masked];
         if (! app()->isProduction() && config('vhs.expose_dev_otp')) $out['dev_otp'] = $code;
         return $this->json($out);
     }

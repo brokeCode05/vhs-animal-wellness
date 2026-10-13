@@ -8,6 +8,7 @@ use App\Services\OtpDelivery;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Testing\TestResponse;
 use Tests\TestCase;
@@ -152,10 +153,58 @@ class AuthTest extends TestCase
         $this->getJson('/api/auth/me')->assertUnauthorized();
     }
 
-    public function test_login_cannot_use_unverified_sms_contact(): void
+    public function test_login_ignores_client_sms_channel_and_always_uses_email_otp(): void
     {
         $this->verified();
-        $this->postJson('/api/auth/login', ['email' => 'maria@example.com', 'password' => 'Password123!', 'channel' => 'sms'])->assertUnprocessable();
+        // A client-requested SMS channel must never produce an SMS challenge:
+        // no SMS provider exists, so it would claim a delivery that cannot happen.
+        $r = $this->postJson('/api/auth/login', ['email' => 'maria@example.com', 'password' => 'Password123!', 'channel' => 'sms'])->assertOk();
+        $r->assertJsonPath('data.otp_required', true)->assertJsonPath('data.channel', 'email');
+        $this->assertArrayHasKey('login:maria@example.com', $this->sent);
+        $this->assertGuest();
+    }
+
+    public function test_login_otp_is_a_real_six_digit_email_code_and_wrong_code_fails(): void
+    {
+        $this->verified();
+        $r = $this->postJson('/api/auth/login', ['email' => 'maria@example.com', 'password' => 'Password123!'])->assertOk();
+        // The response reports the email channel and never carries the code itself.
+        $r->assertJsonPath('data.channel', 'email');
+        $this->assertArrayNotHasKey('dev_otp', $r->json('data') ?? []);
+        $code = $this->sent['login:maria@example.com'];
+        $this->assertDoesNotMatchRegularExpression('/'.preg_quote($code, '/').'/', $r->getContent());
+        // A real 6-digit OTP was handed to the email delivery channel.
+        $this->assertMatchesRegularExpression('/^\d{6}$/', $code);
+        // Wrong code fails and no session is established.
+        $this->postJson('/api/auth/verify-otp', ['identifier' => 'maria@example.com', 'channel' => 'email', 'context' => 'login', 'code' => $code === '000000' ? '111111' : '000000'])->assertUnprocessable();
+        $this->assertGuest();
+    }
+
+    public function test_dev_otp_exposure_default_is_off_in_shipped_config(): void
+    {
+        // The defense/runtime build must never expose OTP values in responses.
+        // A developer may opt in locally via the gitignored .env, but the
+        // shipped config default must remain off.
+        $source = (string) file_get_contents(__DIR__.'/../../config/vhs.php');
+        $this->assertStringContainsString("'expose_dev_otp' => env('VHS_EXPOSE_DEV_OTP', false)", $source);
+    }
+
+    public function test_legacy_login_is_email_channel_and_returns_no_code(): void
+    {
+        $this->verified();
+        // Imported/staff-like account: a phone is on file, which used to flip
+        // legacy login to a never-delivered "SMS" challenge.
+        User::query()->update(['phone_verified_at' => now()]);
+        config(['services.recaptcha.site_key' => 'test-site', 'services.recaptcha.secret_key' => 'test-secret', 'vhs.expose_dev_otp' => false]);
+        Http::fake(['www.google.com/recaptcha/api/siteverify' => Http::response(['success' => true])]);
+
+        $r = $this->post('/legacy/login', ['email2' => 'maria@example.com', 'password1' => 'Password123!', 'g-recaptcha-response' => 'test-token']);
+
+        $r->assertOk()->assertJsonPath('status', 'otp_required')->assertJsonPath('channel', 'email')->assertJsonPath('email', 'm***@example.com');
+        $this->assertArrayNotHasKey('dev_otp', $r->json());
+        $this->assertArrayNotHasKey('phone', $r->json());
+        $this->assertMatchesRegularExpression('/^\d{6}$/', $this->sent['login:maria@example.com']);
+        $this->assertGuest();
     }
 
     public function test_sms_signup_requires_real_code_and_binds_it_to_normalized_phone(): void

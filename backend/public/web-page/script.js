@@ -513,7 +513,7 @@ function _showEmailNotVerifiedAlert(email) {
   });
 }
 
-// ── SMS OTP step (first-time phone verify OR recurring 2FA) ───────────────────
+// ── Login OTP step (always EMAIL verification) ──────────────────────────────
 
 function _showLoginOtpStep(identifier, channel) {
   const isEmail = (channel || "email") === "email";
