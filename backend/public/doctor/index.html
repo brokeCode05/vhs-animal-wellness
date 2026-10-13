@@ -21,8 +21,8 @@
   <script src="../shared/audit-store.js?v=1.0.0"></script>
   <script src="../shared/document-store.js?v=1.0.3"></script>
   <script src="../shared/document-render.js?v=1.1.0"></script>
-  <script src="doctor-scribe.js?v=3.1.0"></script>
-  <script src="doctor.js?v=2.23.0" defer></script>
+  <script src="doctor-scribe.js?v=3.2.0"></script>
+  <script src="doctor.js?v=2.24.0" defer></script>
 </head>
 <body class="doctor-portal">
   <a class="skip-link" href="#workspace">Skip to current view</a>
@@ -102,27 +102,22 @@
               <div class="scribe-recorder-row">
                 <button type="button" class="btn-secondary scribe-btn-record" id="scribe-record" aria-describedby="scribe-record-status">
                   <span class="scribe-btn-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0"/><path d="M12 18v3"/><path d="M9 21h6"/></svg></span>
-                  Start Recording
+                  Start Dictation
                 </button>
                 <button type="button" class="btn-secondary scribe-btn-stop" id="scribe-stop" hidden>
                   <span class="scribe-btn-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><rect x="6" y="6" width="12" height="12" rx="2"/></svg></span>
-                  Stop Recording
+                  Stop Dictation
                 </button>
                 <span class="scribe-rec-indicator" id="scribe-record-indicator" aria-hidden="true" hidden></span>
                 <span class="scribe-rec-timer" id="scribe-record-timer" hidden>00:00</span>
               </div>
-              <div class="scribe-recorded-actions" id="scribe-recorded-actions" hidden>
-                <button type="button" class="btn-secondary" id="scribe-process">Process Recording</button>
-                <button type="button" class="btn-secondary" id="scribe-discard">Discard Recording</button>
-                <button type="button" class="btn-secondary" id="scribe-again">Record Again</button>
-              </div>
-              <p class="scribe-rec-status" id="scribe-record-status" role="status" aria-live="polite">Recording is idle.</p>
+              <p class="scribe-rec-status" id="scribe-record-status" role="status" aria-live="polite">Dictation is idle.</p>
             </div>
             <p class="scribe-or" id="scribe-or">or use an existing transcript</p>
             <div class="scribe-transcript" id="scribe-transcript-wrap" hidden>
               <label class="form-label" for="scribe-transcript">Consultation transcript / notes</label>
-              <textarea class="form-textarea" id="scribe-transcript" name="scribeTranscript" rows="4" maxlength="8000" placeholder="Paste or type the consultation transcript, then generate a SOAP draft."></textarea>
-              <p class="helper">Kept with this draft on this device. Nothing is sent anywhere, and a recording is never written here — it stays in memory for this page only.</p>
+              <textarea class="form-textarea" id="scribe-transcript" name="scribeTranscript" rows="4" maxlength="8000" placeholder="Type, dictate or paste the consultation transcript, then generate a SOAP draft."></textarea>
+              <p class="helper">Kept with this draft on this device. Nothing is sent anywhere — dictated or typed text lands here for you to edit before generating.</p>
             </div>
             <div class="scribe-controls">
               <button type="button" class="btn-secondary" id="scribe-paste-toggle" aria-expanded="false" aria-controls="scribe-transcript-wrap">
@@ -136,7 +131,15 @@
               <input type="file" id="scribe-file" accept=".txt,text/plain" hidden>
               <button type="button" class="btn-primary scribe-btn-generate" id="scribe-generate">Generate SOAP Draft</button>
             </div>
-            <p class="scribe-disclaimer" id="scribe-disclaimer">Recording captures audio in this browser only and never leaves this device. Speech-to-text is not connected yet, so a recording is not transcribed &mdash; paste or upload the transcript instead.</p>
+            <div class="scribe-review" id="scribe-review" hidden>
+              <p class="scribe-review-notice">AI-generated draft. Review clinical details before saving.</p>
+              <div class="scribe-review-body" id="scribe-review-body"></div>
+              <div class="scribe-review-actions">
+                <button type="button" class="btn-primary" id="scribe-review-apply">Apply Draft</button>
+                <button type="button" class="btn-secondary" id="scribe-review-discard">Discard</button>
+              </div>
+            </div>
+            <p class="scribe-disclaimer" id="scribe-disclaimer">Dictation uses this browser&rsquo;s built-in speech recognition. Press Start Dictation, speak, then press Stop &mdash; the transcript appears in the box above for you to review.</p>
             <p class="scribe-note" id="scribe-note">Assistive draft only &mdash; review and edit every field. Nothing is saved or finalized until you do.</p>
             <p class="scribe-lock" id="scribe-lock" hidden></p>
           </section>

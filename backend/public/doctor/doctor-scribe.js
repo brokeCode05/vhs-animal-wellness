@@ -6,8 +6,7 @@
  * rate). AI Scribe must FILL those controls, never replace them, so the
  * workflow lives here as an adapter instead of as generation rules inside
  * doctor/doctor.js:
- *
- *     Doctor UI  ->  window.DoctorScribe  ->  mock generator NOW
+ * * Doctor UI  ->  window.DoctorScribe  ->  local deterministic parser NOW
  *                                       ->  transcription/AI API LATER
  *
  * doctor/doctor.js therefore never learns what a draft may contain, how a
@@ -21,11 +20,11 @@
  * TBD — see docs/VHS_CLINICAL_CONTRACT.md §8. Do not invent them here.
  *
  * HARD RULES this module enforces:
- * - This module NEVER captures audio and NEVER transcribes it. The browser
- *   does the capturing (doctor/doctor.js); this adapter only validates the
- *   resulting recording object and describes the future backend seam.
- * - It fakes no transcription. processRecording() returns an explicit
- *   "not connected" result rather than inventing text from audio.
+ - This module NEVER captures audio and NEVER transcribes it. The browser's
+ *   SpeechRecognition does the dictating (doctor/doctor.js); this adapter only
+ *   owns the wording, the error mapping and the SOAP structuring.
+ * - It fakes no microphone: when the browser has no speech recognition, the
+ *   UI says so and falls back to the transcript box — never a dead mic button.
  * - No network, no storage, no DOM: the adapter is pure logic over strings, so
  *   the same call works in the browser and in a future unit test.
  * - The generator is DETERMINISTIC: same transcript in, same draft out.
@@ -43,7 +42,7 @@
 (function (global) {
   'use strict';
 
-  var VERSION = '3.1.0';
+  var VERSION = '3.2.0';
 
   // The EXISTING consultation controls, in SOAP order. `exam` is the Objective
   // textarea; the three vitals are the structured inputs the Scribe can fill
@@ -66,29 +65,49 @@
   var MAX_TRANSCRIPT_CHARS = 8000;
   var MAX_NOTE_CHARS = 160; // pre-consultation summary stays 2-4 short lines
 
-  // Recording (Phase 2). The BROWSER captures audio; this adapter owns the
-  // contract around the resulting object. `supported` describes the BUILD
-  // (it ships a capture seam), not the browser — doctor.js probes the actual
-  // MediaRecorder/getUserMedia capability at runtime and disables the control
-  // when the browser cannot record. `transcription` is deliberately
-  // 'not-connected': nothing turns audio into text yet.
+  // Dictation (browser speech recognition). The BROWSER converts speech to
+  // text; this adapter owns the wording and the error mapping. doctor.js
+  // probes the actual SpeechRecognition capability at runtime and hides the
+  // microphone control when the browser has none — the transcript box is the
+  // honest fallback there, never a fake mic. The transcript text stays in the
+  // Doctor UI's own state (the consultation draft), never in a store here.
   var RECORDING = {
     supported: true,
-    mode: 'browser-capture',
-    storage: 'memory-only',
-    transcription: 'not-connected',
-    message: 'Recording captures audio in this browser only and never leaves this device. Speech-to-text is not connected yet, so a recording is not transcribed — paste or upload the transcript instead.'
+    mode: 'browser-dictation',
+    storage: 'transcript-only',
+    transcription: 'browser-speech-api',
+    message: 'Dictation uses this browser\u2019s built-in speech recognition. Press Dictate, speak, then press Stop \u2014 the transcript appears in the box below for you to review. If your browser has no speech recognition, type or upload the transcript instead.'
   };
 
-  // Phase 2 deliberately refuses to guess: a recording is kept in memory for
-  // this page session only. No audio in localStorage, none in
-  // SharedMockClinical, none uploaded, none surviving a reload.
-  var RECORDING_MIME_CANDIDATES = [
-    'audio/webm;codecs=opus',
-    'audio/webm',
-    'audio/ogg;codecs=opus',
-    'audio/mp4'
-  ];
+  // The line shown when the browser has no SpeechRecognition at all. Explicit
+  // beats a silently dead button: the Doctor is told why and what to use.
+  var DICTATION_UNSUPPORTED_MESSAGE =
+    'This browser has no speech recognition, so dictation is unavailable.';
+
+  function dictationUnsupportedMessage() { return DICTATION_UNSUPPORTED_MESSAGE; }
+
+  // Friendly wording for every SpeechRecognition error the Doctor can cause.
+  // The raw error name stays for the console only.
+  var DICTATION_ERROR_MESSAGES = {
+    'not-allowed': 'Microphone permission was denied for speech recognition.',
+    'service-not-allowed': 'Speech recognition was blocked by this browser.',
+    'audio-capture': 'No microphone was found for speech recognition.',
+    'no-speech': 'No speech was detected.',
+    'network': 'Speech recognition could not reach the browser\u2019s speech service.',
+    'language-not-supported': 'This browser cannot recognise speech in the current language.',
+    'aborted': 'Dictation was stopped.',
+    unsupported: DICTATION_UNSUPPORTED_MESSAGE,
+    unknown: 'Dictation could not start.'
+  };
+
+  function describeDictationError(error) {
+    var code = (error && (error.error || error.code)) || error || 'unknown';
+    if (code === 'unsupported' || code === 'language-not-allowed') code = code === 'unsupported' ? 'unsupported' : 'language-not-supported';
+    return {
+      code: String(code),
+      message: DICTATION_ERROR_MESSAGES[code] || DICTATION_ERROR_MESSAGES.unknown
+    };
+  }
 
   // ── phrase matching ───────────────────────────────────────────────────────
   // Cue lists ROUTE existing words; they never contribute content. They match
@@ -142,8 +161,8 @@
   //    only — the generator never proposes one of these itself.
   var ASSESSMENT_CUES = cueMatcher([
     'assessment', 'impression', 'diagnosis', 'differential', 'consistent with', 'suspicion',
-    'suspicious for', 'probable', 'likely', 'appears to be', 'rules out', 'rule out',
-    'diagnostic of', 'provisional'
+    'suspicious for', 'suspect', 'suspected', 'suggestive of', 'probable', 'likely',
+    'appears to be', 'rules out', 'rule out', 'diagnostic of', 'provisional'
   ]);
   // 6. Owner-observed symptom vocabulary. Routing vocabulary only: no word
   //    here is ever added to the draft, it only decides where a sentence goes.
@@ -175,7 +194,7 @@
     {
       key: 'temperature',
       // "temperature is 39.4°C", "Temp 39.4 degrees", "fever of 39.1"
-      re: /(?:temperature|temps?|pyrexia|fever)\s*(?:of\s+|is\s+|:\s*|at\s+)?(\d{1,2}(?:[.,]\d)?)\s*(?:°\s*[cf]\b|degrees?\b|celsius\b|centigrade\b|fahrenheit\b)?/gi
+      re: /(?:temperature|temps?|pyrexia|fever)\s*(?:of\s+|is\s+|:\s*|at\s+)?(\d{1,2}(?:[.,]\d)?)\s*(?:°\s*[cf]\b|degrees?(?:\s+celsius|\s+fahrenheit)?\b|celsius\b|centigrade\b|fahrenheit\b)?/gi
     },
     {
       key: 'heartRate',
@@ -501,8 +520,8 @@ function tidyResidual(text, capitalize) {
       unclassified: unclassified,
       dropped: dropped,
       meta: {
-        engine: 'mock',
-        generator: 'doctor-scribe-mock',
+        engine: 'local-deterministic',
+        generator: 'doctor-scribe-local',
         version: VERSION,
         deterministic: true,
         recording: RECORDING.mode,
@@ -542,7 +561,7 @@ function tidyResidual(text, capitalize) {
         error: { ok: false, code: 'failed', message: 'The SOAP draft could not be generated. Enter the SOAP note manually.' },
         soap: null, apply: null, filled: [], missing: [], absentVitals: VITAL_FIELDS.slice(),
         unclassified: [], dropped: {},
-        meta: { engine: 'mock', generator: 'doctor-scribe-mock', version: VERSION, generatedAt: new Date().toISOString() }
+        meta: { engine: 'local-deterministic', generator: 'doctor-scribe-local', version: VERSION, generatedAt: new Date().toISOString() }
       });
     }
   }
@@ -597,7 +616,6 @@ function tidyResidual(text, capitalize) {
     REQUESTING: 'requesting_permission',
     RECORDING: 'recording',
     RECORDED: 'recorded',
-    PROCESSING: 'processing',
     ERROR: 'error'
   };
 
@@ -605,97 +623,16 @@ function tidyResidual(text, capitalize) {
     var s = state && typeof state === 'object' ? state : {};
     switch (s.state) {
       case RECORDING_STATES.REQUESTING:
-        return { state: RECORDING_STATES.REQUESTING, label: 'Waiting for microphone permission…' };
+        return { state: RECORDING_STATES.REQUESTING, label: 'Starting dictation…' };
       case RECORDING_STATES.RECORDING:
-        return { state: RECORDING_STATES.RECORDING, label: 'Recording…' };
-      case RECORDING_STATES.PROCESSING:
-        return { state: RECORDING_STATES.PROCESSING, label: 'Processing recording…' };
+        return { state: RECORDING_STATES.RECORDING, label: 'Listening…' };
       case RECORDING_STATES.RECORDED:
-        return { state: RECORDING_STATES.RECORDED, label: 'Recording ready' };
+        return { state: RECORDING_STATES.RECORDED, label: 'Dictation captured' };
       case RECORDING_STATES.ERROR:
-        return { state: RECORDING_STATES.ERROR, label: s.message ? 'Recording problem' : 'Recording problem' };
+        return { state: RECORDING_STATES.ERROR, label: 'Dictation problem' };
       default:
-        return { state: RECORDING_STATES.READY, label: 'Recording is idle.' };
+        return { state: RECORDING_STATES.READY, label: 'Dictation is idle.' };
     }
-  }
-
-  // Friendly, non-technical wording for every getUserMedia failure the Doctor
-  // can actually cause. The raw error never reaches the UI; it is for the
-  // console only.
-  var RECORDING_ERROR_MESSAGES = {
-    NotAllowedError: 'Microphone permission was denied.',
-    PermissionDeniedError: 'Microphone permission was denied.',
-    NotFoundError: 'No microphone was found.',
-    DevicesNotFoundError: 'No microphone was found.',
-    NotReadableError: 'The microphone could not be accessed.',
-    TrackStartError: 'The microphone could not be accessed.',
-    AbortError: 'The microphone could not be accessed.',
-    SecurityError: 'Microphone permission was denied.',
-    NotSupportedError: 'Audio recording is not supported in this browser.',
-    unsupported: 'Audio recording is not supported in this browser.',
-    unknown: 'Recording could not start.'
-  };
-
-  function describeRecordingError(error) {
-    if (error === 'unsupported' || (error && error.code === 'unsupported')) {
-      return { code: 'unsupported', message: RECORDING_ERROR_MESSAGES.unsupported };
-    }
-    var name = (error && (error.name || error.code)) || 'unknown';
-    return {
-      code: String(name),
-      message: RECORDING_ERROR_MESSAGES[name] || RECORDING_ERROR_MESSAGES.unknown
-    };
-  }
-
-  // Capability detection, not a hardcoded format: the first candidate the
-  // browser actually accepts wins, and an empty string means "let the browser
-  // pick its own default". `isSupported` is injected so this is testable
-  // without a MediaRecorder.
-  function pickRecordingMimeType(isSupported, candidates) {
-    var list = Array.isArray(candidates) && candidates.length ? candidates : RECORDING_MIME_CANDIDATES;
-    if (typeof isSupported !== 'function') return '';
-    for (var i = 0; i < list.length; i++) {
-      try {
-        if (isSupported(list[i])) return list[i];
-      } catch (e) { /* an unknown type must never break recording */ }
-    }
-    return '';
-  }
-
-  // The recording object the future upload contract expects. Built HERE so the
-  // UI cannot invent a second, looser shape: mimeType and sizeBytes come from
-  // the Blob itself, and duration/recordedAt are supplied by the recorder.
-  function buildRecording(blob, meta) {
-    var b = blob || {};
-    var m = meta && typeof meta === 'object' ? meta : {};
-    var sizeBytes = typeof m.sizeBytes === 'number' ? m.sizeBytes
-      : (typeof b.size === 'number' ? b.size : 0);
-    if (sizeBytes <= 0) {
-      return { ok: false, error: { code: 'empty_recording', message: 'The recording was empty. Try again.' } };
-    }
-    var durationSeconds = typeof m.durationSeconds === 'number' && m.durationSeconds >= 0
-      ? Math.round(m.durationSeconds)
-      : 0;
-    return {
-      ok: true,
-      recording: {
-        blob: b,
-        mimeType: String(m.mimeType || b.type || 'application/octet-stream'),
-        sizeBytes: sizeBytes,
-        durationSeconds: durationSeconds,
-        recordedAt: m.recordedAt || null
-      }
-    };
-  }
-
-  function validateRecording(recording) {
-    var r = recording && typeof recording === 'object' ? recording : {};
-    if (!r.blob) return { ok: false, code: 'no_recording', message: 'There is no recording to process.' };
-    if (!(typeof r.sizeBytes === 'number' && r.sizeBytes > 0)) {
-      return { ok: false, code: 'empty_recording', message: 'The recording was empty. Record again.' };
-    }
-    if (!r.mimeType) return { ok: false, code: 'no_mime', message: 'The recording has no audio format recorded.' };
-    return { ok: true, code: 'ok', message: '' };
   }
 
   // FUTURE RESPONSE SHAPE (CONTRACT NEEDED / TBD).
@@ -908,47 +845,9 @@ function tidyResidual(text, capitalize) {
     };
   }
 
-  // THE SEAM. The Doctor UI calls exactly this in Phase 2 and in production;
-  // only the BODY changes when Laravel exists:
-  //   mock (today) -> local, no audio touched, no network
-  //   later        -> POST the recording to the consultation AI endpoint and
-  //                   hand the answer to normalizeBackendResponse()
-  // The Doctor never learns a provider, a URL or a key from either branch.
-  // TODO(BACKEND): endpoint/auth/upload contract CONTRACT NEEDED / TBD.
-  function processRecording(recording, context) {
-    var r = recording && typeof recording === 'object' ? recording : {};
-    var check = validateRecording(r);
-    if (!check.ok) return { ok: false, error: { code: check.code, message: check.message } };
-    var ctx = context && typeof context === 'object' ? context : {};
-    return {
-      ok: true,
-      source: 'mock',
-      // Explicitly NOT a transcription. Phase 2 has no speech-to-text, so the
-      // text stays empty and the Doctor is told so; inventing words from audio
-      // would be the most dangerous thing this panel could do.
-      transcription: { text: '', language: null, durationSeconds: typeof r.durationSeconds === 'number' ? r.durationSeconds : null },
-      soap: null,
-      warnings: ['speech_to_text_not_connected'],
-      providerMeta: null,
-      meta: {
-        engine: 'mock',
-        generator: 'doctor-scribe-recording-mock',
-        version: VERSION,
-        recordedAt: r.recordedAt || null,
-        mimeType: r.mimeType,
-        sizeBytes: r.sizeBytes,
-        durationSeconds: r.durationSeconds,
-        // Identity only, for traceability. Clinical context is accepted so the
-        // future call can send it, but nothing is derived from it here.
-        appointmentId: ctx.appointmentId || '',
-        petId: ctx.petId || ''
-      }
-    };
-  }
-
   global.DoctorScribe = {
-    identityMode: 'mock',
-    engine: 'mock',
+    identityMode: 'local-deterministic',
+    engine: 'local-deterministic',
     version: VERSION,
     SOAP_FIELDS: SOAP_FIELDS,
     VITAL_FIELDS: VITAL_FIELDS,
@@ -958,18 +857,14 @@ function tidyResidual(text, capitalize) {
     MAX_TRANSCRIPT_CHARS: MAX_TRANSCRIPT_CHARS,
     recording: RECORDING,
     RECORDING_STATES: RECORDING_STATES,
-    RECORDING_MIME_CANDIDATES: RECORDING_MIME_CANDIDATES,
+    dictationUnsupportedMessage: dictationUnsupportedMessage,
+    describeDictationError: describeDictationError,
     normalizeTranscript: normalizeTranscript,
     validateScribeInput: validateScribeInput,
     getScribeStatus: getScribeStatus,
     getRecordingStatus: getRecordingStatus,
-    describeRecordingError: describeRecordingError,
-    pickRecordingMimeType: pickRecordingMimeType,
-    buildRecording: buildRecording,
-    validateRecording: validateRecording,
     normalizeBackendResponse: normalizeBackendResponse,
     buildApplyMap: buildApplyMap,
-    processRecording: processRecording,
     generateSoapDraft: generateSoapDraft,
     createSoapDraft: createSoapDraft,
     buildPreConsultationSummary: buildPreConsultationSummary
