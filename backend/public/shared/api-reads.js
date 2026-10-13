@@ -240,8 +240,33 @@ window.VHSReads = (function () {
     });
   }
 
+  /**
+   * GET /api/availability — REAL, resource-aware slot availability for one
+   * date, evaluated by the backend with the SAME capacity rules the booking
+   * endpoint enforces (On Duty doctor pool per exact slot, per-service
+   * capacity for non-doctor services, same-day past slots excluded).
+   *   params: { date, service?, serviceId?, doctorId?, excludeId? }
+   *   data.slots         : ['09:00', ...]        bookable HH:MM starts
+   *   data.display_slots : ['9:00 AM', ...]      same slots as 12h labels
+   *   data.slot_details  : per-slot { time, available, past, used, capacity, conflict }
+   * doctorId scopes the answer to one doctor's own conflicts (Admin's
+   * explicit doctor dropdown); excludeId lets a reschedule ignore the
+   * appointment's OWN currently held slot.
+   */
+  function availability(params) {
+    var p = params || {};
+    var q = [];
+    if (p.date) q.push('date=' + encodeURIComponent(p.date));
+    if (p.service) q.push('service=' + encodeURIComponent(p.service));
+    if (p.serviceId) q.push('service_id=' + encodeURIComponent(p.serviceId));
+    if (p.doctorId) q.push('doctor_id=' + encodeURIComponent(p.doctorId));
+    if (p.excludeId) q.push('exclude_id=' + encodeURIComponent(p.excludeId));
+    return get('availability' + (q.length ? '?' + q.join('&') : ''));
+  }
+
   return {
     get: get,
+    availability: availability,
     appointments: appointments,
     users: users,
     petsOfUser: petsOfUser,

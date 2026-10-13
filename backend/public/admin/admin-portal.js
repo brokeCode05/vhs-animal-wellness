@@ -368,48 +368,67 @@ function closeAdminReschedule() {
   var modal = document.getElementById('adminRescheduleModal');
   if (modal) modal.classList.remove('show');
 }
+var _adminRescheduleSlotsToken = 0;
 function _populateAdminRescheduleSlots() {
   var timeSel = document.getElementById('adminRescheduleTime');
   var dateInput = document.getElementById('adminRescheduleDate');
   if (!timeSel || !dateInput) return;
   var dateVal = dateInput.value;
   if (!dateVal) { timeSel.innerHTML = '<option value="">Select a date first</option>'; return; }
-  var slots = (typeof getVHSTimeSlots === 'function') ? getVHSTimeSlots(dateVal) : [];
-  // Same shared scheduling engine as the User booking form and Vetti, so the
-  // front desk can never offer a slot the owner portal refuses (or hide one
-  // it allows). excludeAppointmentId keeps this appointment from blocking
-  // its OWN current slot.
-  // TODO(BACKEND): slot availability comes from the API availability check.
+  // Same backend availability source as the booking modal and the User
+  // portal (GET /api/availability, resource-aware). exclude_id keeps this
+  // appointment from blocking its OWN current slot while it still holds it.
   var apptId = document.getElementById('adminRescheduleApptId') ? document.getElementById('adminRescheduleApptId').value : null;
-  var sched = window.SmartScheduling;
   var users = window.SharedMockUsers;
   var appt = (apptId && window.SharedMockAppointments) ? window.SharedMockAppointments.byId(apptId) : null;
   var svc = (appt && users && users.serviceByValue) ? users.serviceByValue(appt.service) : null;
+  var token = ++_adminRescheduleSlotsToken;
+  var render = function (list) {
+    if (token !== _adminRescheduleSlotsToken) return;
+    list = _filterAdminPastSlots(list || [], dateVal);
+    timeSel.innerHTML = list.length
+      ? '<option value="">Select time</option>' + list.map(function(s){ return '<option value="' + s + '">' + s + '</option>'; }).join('')
+      : '<option value="">No available slots that day</option>';
+    if (typeof timeSel._cdRefresh === 'function') timeSel._cdRefresh();
+  };
+  var reads = window.VHSReads;
+  if (reads && typeof reads.availability === 'function' && svc) {
+    timeSel.innerHTML = '<option value="">Loading slots...</option>';
+    reads.availability({ date: dateVal, service: svc.value, serviceId: svc.serviceId, excludeId: apptId || null })
+      .then(function (r) {
+        if (r.ok && r.data && r.data.display_slots) { render(r.data.display_slots); return; }
+        render(_adminRescheduleLocalSlots(dateVal, apptId, svc));
+      });
+    return;
+  }
+  render(_adminRescheduleLocalSlots(dateVal, apptId, svc));
+}
+
+// OFFLINE FALLBACK ONLY — the pre-existing shared-engine / taken-slot path.
+function _adminRescheduleLocalSlots(dateVal, apptId, svc) {
+  var slots = (typeof getVHSTimeSlots === 'function') ? getVHSTimeSlots(dateVal) : [];
+  var sched = window.SmartScheduling;
   if (sched && typeof sched.getAvailableSlots === 'function' && svc) {
     var result = sched.getAvailableSlots({
       serviceId: svc.serviceId,
       date: dateVal,
       excludeAppointmentId: apptId || null
     });
-    slots = result.ok ? result.slots.map(function (s) { return s.time; }) : [];
-  } else {
-    // Engine or service unavailable: fall back to the clinic's own hours
-    // rather than guessing at availability.
-    var fallback = window.SharedMockAppointments ? window.SharedMockAppointments.takenSlots(dateVal, apptId) : [];
-    var toHHMM = window.AppointmentContract ? window.AppointmentContract.timeToHHMM : function (v) { return v; };
-    var takenSet = fallback.map(function (t) { return String(toHHMM(t)); });
-    slots = slots.filter(function (slot) {
-      var parts = String(slot).trim().match(/(\d{1,2}):(\d{2})\s*(AM|PM)/i);
-      if (!parts) return true;
-      var h = parseInt(parts[1], 10);
-      if (parts[3].toUpperCase() === 'PM' && h !== 12) h += 12;
-      if (parts[3].toUpperCase() === 'AM' && h === 12) h = 0;
-      return takenSet.indexOf(h + ':' + parts[2]) === -1;
-    });
+    return result.ok ? result.slots.map(function (s) { return s.time; }) : [];
   }
-  timeSel.innerHTML = slots.length
-    ? '<option value="">Select time</option>' + slots.map(function(s){ return '<option value="' + s + '">' + s + '</option>'; }).join('')
-    : '<option value="">No available slots that day</option>';
+  // Engine or service unavailable: fall back to the clinic's own hours
+  // minus the taken slots, rather than guessing at availability.
+  var fallback = window.SharedMockAppointments ? window.SharedMockAppointments.takenSlots(dateVal, apptId) : [];
+  var toHHMM = window.AppointmentContract ? window.AppointmentContract.timeToHHMM : function (v) { return v; };
+  var takenSet = fallback.map(function (t) { return String(toHHMM(t)); });
+  return slots.filter(function (slot) {
+    var parts = String(slot).trim().match(/(\d{1,2}):(\d{2})\s*(AM|PM)/i);
+    if (!parts) return true;
+    var h = parseInt(parts[1], 10);
+    if (parts[3].toUpperCase() === 'PM' && h !== 12) h += 12;
+    if (parts[3].toUpperCase() === 'AM' && h === 12) h = 0;
+    return takenSet.indexOf(h + ':' + parts[2]) === -1;
+  });
 }
 async function submitAdminReschedule(e) {
   e.preventDefault();
@@ -509,54 +528,80 @@ document.addEventListener('change', function(e) {
     // preserved: it may not be bookable under the new service.
     refreshAdminTimeSlots();
   }
+  if (e.target.id === 'adminBookDoctor') {
+    // The explicit doctor choice changes which slots are valid (their own
+    // conflicts at that time), so the time list is recomputed for the
+    // selected doctor. "Auto-assign" (empty) returns to the general pool.
+    refreshAdminTimeSlots();
+  }
   if (e.target.id === 'adminRescheduleDate') {
     _populateAdminRescheduleSlots();
   }
 });
 
 // ── SCHEDULING ADAPTER (Admin booking) ──────────────────────────────
-// Availability ALWAYS comes from SmartScheduling — the same engine the User
-// booking form, the reschedule modal and Vetti read, so the front desk can
-// never be offered a slot the owner portal refuses, or vice versa.
+// Availability ALWAYS comes from the backend (GET /api/availability), which
+// applies the same resource-aware capacity rules the booking endpoint
+// enforces: the On Duty doctor pool per exact slot, the per-service capacity
+// of non-doctor services, and — when an explicit doctor is selected above —
+// that doctor's own conflicts at the time. The pre-existing SmartScheduling
+// engine is kept only as the offline fallback (it reads the same mirrored
+// server data), and POST /api/appointments re-validates atomically, so a
+// stale list can never produce a double booking.
 //
-// The PHP endpoint below is a LEGACY FALLBACK ONLY. It is reached just when
-// the engine cannot answer at all (engine script missing, or the selected
-// service cannot be resolved against the catalog) — never for an ordinary UI
-// state such as "no service chosen yet". It applies the old universal
-// "anything at this wall-clock time is booked" rule, so it does NOT understand
-// doctor capacity or per-service capacity — its answer must never be treated
-// as authoritative, which is why the final save re-validates through the
-// engine and never trusts this answer on its own.
-// TODO(BACKEND): delete _legacyBookedSlotsFromPhp once
-// GET /api/scheduling/slots exists; the engine then answers everywhere.
-function _legacyBookedSlotsFromPhp(dateStr) {
-  if (!dateStr) return Promise.resolve(null);
-  return fetch('../php_files/get_booked_slots.php?date=' + dateStr)
-    .then(function (r) { return r.json(); })
-    .then(function (data) {
-      return (data && data.booked_slots) ? data.booked_slots : null;
-    })
-    .catch(function () { return null; });   // endpoint absent -> unfiltered hours
+// Same-day past slots are removed in BOTH paths: a time that has already
+// started can no longer be booked.
+function _filterAdminPastSlots(slots, dateStr) {
+  var today = new Date();
+  var todayStr = today.getFullYear() + '-' + String(today.getMonth() + 1).padStart(2, '0') + '-' + String(today.getDate()).padStart(2, '0');
+  if (dateStr !== todayStr) return slots;
+  var nowMins = today.getHours() * 60 + today.getMinutes();
+  return (slots || []).filter(function (slot) {
+    var parts = String(slot).trim().match(/(\d{1,2}):(\d{2})\s*(AM|PM)/i);
+    if (!parts) return true;
+    var h = parseInt(parts[1], 10);
+    if (parts[3].toUpperCase() === 'PM' && h !== 12) h += 12;
+    if (parts[3].toUpperCase() === 'AM' && h === 12) h = 0;
+    return (h * 60 + parseInt(parts[2], 10)) > nowMins;
+  });
 }
 
-// Resolve the booking service the same way every portal does, and ask the
-// engine. Returns { ok, slots:['9:00 AM', ...], reason, service } or null when
-// the engine cannot answer and the caller must fall back.
+// Resolve the booking service (and the explicit doctor, if any) the same way
+// every portal does, and ask the backend. Returns a PROMISE of
+// { ok, slots:['9:00 AM', ...], reason, service } or null when the service
+// cannot be resolved and the caller must fall back.
 function _adminSchedulingSlots(dateStr) {
-  var sched = window.SmartScheduling;
   var users = window.SharedMockUsers;
-  if (!sched || typeof sched.getAvailableSlots !== 'function') return null;
-  if (!users || typeof users.serviceByValue !== 'function') return null;
+  if (!users || typeof users.serviceByValue !== 'function') return Promise.resolve(null);
   var value = document.getElementById('adminBookService');
   var svc = (value && value.value) ? users.serviceByValue(value.value) : null;
-  if (!svc) return null;
+  if (!svc) return Promise.resolve(null);
+
+  // Explicit doctor choice scopes the answer to that doctor's own conflicts.
+  var docSel = document.getElementById('adminBookDoctor');
+  var doctorId = docSel ? parseInt(docSel.value, 10) : 0;
+
+  var reads = window.VHSReads;
+  if (reads && typeof reads.availability === 'function') {
+    var params = { date: dateStr, service: svc.value, serviceId: svc.serviceId };
+    if (doctorId > 0) params.doctorId = doctorId;
+    return reads.availability(params).then(function (r) {
+      if (r.ok && r.data && r.data.display_slots) {
+        return { ok: true, reason: null, service: svc, slots: r.data.display_slots };
+      }
+      // Offline fallback only — never a second authority.
+      return { ok: true, reason: null, service: svc, slots: _adminLocalSchedulingSlots(dateStr, svc) };
+    });
+  }
+  return Promise.resolve({ ok: true, reason: null, service: svc, slots: _adminLocalSchedulingSlots(dateStr, svc) });
+}
+
+// OFFLINE FALLBACK ONLY — the pre-existing shared-engine path.
+function _adminLocalSchedulingSlots(dateStr, svc) {
+  var sched = window.SmartScheduling;
+  if (!sched || typeof sched.getAvailableSlots !== 'function') return getVHSTimeSlots(dateStr);
   var result = sched.getAvailableSlots({ serviceId: svc.serviceId, date: dateStr });
-  return {
-    ok: result.ok === true,
-    reason: result.reason || null,
-    service: svc,
-    slots: result.slots.map(function (s) { return s.time; })
-  };
+  return result.ok ? result.slots.map(function (s) { return s.time; }) : [];
 }
 
 function _renderAdminSlotOptions(timeSelect, slots, prefilledTime) {
@@ -572,6 +617,7 @@ function _renderAdminSlotOptions(timeSelect, slots, prefilledTime) {
   if (typeof timeSelect._cdRefresh === 'function') timeSelect._cdRefresh();
 }
 
+var _adminSlotsToken = 0;
 function refreshAdminTimeSlots(prefilledTime) {
   var dateInput  = document.getElementById('adminBookDate');
   var timeSelect = document.getElementById('adminBookTime');
@@ -582,44 +628,33 @@ function refreshAdminTimeSlots(prefilledTime) {
   }
 
   // No service picked yet: there is nothing to check capacity against, so list
-  // the clinic's own hours — exactly what the User form does. This is a normal
-  // UI state, not an engine failure, so it must NOT reach for the legacy
-  // endpoint below.
+  // the clinic's own hours (minus today's past times) — exactly what the User
+  // form does. This is a normal UI state, not an API failure.
   var svcValue = document.getElementById('adminBookService')
     ? document.getElementById('adminBookService').value : '';
   if (!svcValue) {
-    _renderAdminSlotOptions(timeSelect, getVHSTimeSlots(dateInput.value), prefilledTime);
+    _renderAdminSlotOptions(timeSelect, _filterAdminPastSlots(getVHSTimeSlots(dateInput.value), dateInput.value), prefilledTime);
     return;
   }
 
-  // 1. Authoritative: the shared scheduling engine.
-  var viaEngine = _adminSchedulingSlots(dateInput.value);
-  if (viaEngine) {
+  // Authoritative: the backend availability check. The token discards a
+  // slower response for a superseded date/service/doctor selection.
+  var token = ++_adminSlotsToken;
+  timeSelect.innerHTML = '<option value="">Loading slots...</option>';
+  _adminSchedulingSlots(dateInput.value).then(function (viaEngine) {
+    if (token !== _adminSlotsToken) return;
+    if (!viaEngine) {
+      _renderAdminSlotOptions(timeSelect, _filterAdminPastSlots(getVHSTimeSlots(dateInput.value), dateInput.value), prefilledTime);
+      return;
+    }
     if (!viaEngine.ok) {
       timeSelect.innerHTML = '<option value="">' +
-        (window.SmartScheduling.describeReason
+        (window.SmartScheduling && window.SmartScheduling.describeReason && viaEngine.reason
           ? window.SmartScheduling.describeReason(viaEngine.reason)
           : 'No available slots that day') + '</option>';
       return;
     }
-    _renderAdminSlotOptions(timeSelect, viaEngine.slots, prefilledTime);
-    return;
-  }
-
-  // 2. LEGACY FALLBACK ONLY — see the adapter note above.
-  var slots = getVHSTimeSlots(dateInput.value);
-  timeSelect.innerHTML = '<option value="">Loading slots...</option>';
-  _legacyBookedSlotsFromPhp(dateInput.value).then(function (booked) {
-    if (!booked) {
-      _renderAdminSlotOptions(timeSelect, slots, prefilledTime);
-      return;
-    }
-    timeSelect.innerHTML = '<option value="">Select time</option>' + slots.map(function (slot) {
-      var isBooked = booked.indexOf(slot) !== -1;
-      return '<option value="' + slot + '"' + (isBooked ? ' disabled' : '') + '>' +
-        slot + (isBooked ? ' (Unavailable)' : '') + '</option>';
-    }).join('');
-    if (prefilledTime) timeSelect.value = prefilledTime;
+    _renderAdminSlotOptions(timeSelect, _filterAdminPastSlots(viaEngine.slots, dateInput.value), prefilledTime);
   });
 }
 
@@ -644,33 +679,13 @@ function submitAdminBooking(e) {
 
   if (!window.SharedMockAppointments) { showToast('Shared appointment store unavailable.', 'error'); return; }
 
-  // FINAL-SAVE REVALIDATION. The time dropdown above is only a UI convenience:
-  // the modal can sit open while the owner portal (or another front-desk tab)
-  // books the same slot, so availability is re-checked against the SAME
-  // SmartScheduling engine — and therefore the same doctor/per-service
-  // capacity rules — the User booking form, the reschedule modal and Vetti use,
-  // immediately before the write. A refusal writes NO record and emits NO audit
-  // event, exactly like submitAdminReschedule.
-  var _sched = window.SmartScheduling;
-  if (_sched && typeof _sched.validateAppointmentRequest === 'function' && svc) {
-    var _check = _sched.validateAppointmentRequest({ serviceId: svc.serviceId, date: date, time: time });
-    if (!_check.ok) {
-      // Same mapping the reschedule handler uses, so the front desk and the
-      // owner are told the same thing about the same conflict.
-      var _conflict = _check.reason === 'slot_taken' || _check.reason === 'doctor_conflict' ||
-                      _check.reason === 'resource_capacity_reached';
-      showToast(_conflict
-        ? 'That slot is already booked.'
-        : (_sched.describeReason ? _sched.describeReason(_check.reason) : 'Could not save the booking. Please try again.'), 'error');
-      return;
-    }
-  } else {
-    // Engine or service unresolvable: degrade to the legacy exact-time store
-    // check. We never silently allow an unverified slot.
-    var _toHHMM = window.AppointmentContract ? window.AppointmentContract.timeToHHMM : function (v) { return v; };
-    var _takenNow = window.SharedMockAppointments.takenSlots(date) || [];
-    if (_takenNow.indexOf(_toHHMM(time)) !== -1) { showToast('That slot is already booked.', 'error'); return; }
-  }
+  // The time dropdown above is a UI convenience only: the modal can sit open
+  // while the owner portal (or another front-desk tab) books the same slot.
+  // POST /api/appointments re-validates atomically inside its transaction —
+  // clinic slots, same-day past times, per-service capacity, the On Duty
+  // doctor pool and an explicit doctor's own conflicts — and refuses with a
+  // clear message (surfaced by the real error toast below). A refusal writes
+  // NO record and emits NO audit event, exactly like submitAdminReschedule.
 
   if (!window.VHSWrites) { showToast('Appointment service unavailable.', 'error'); return; }
 

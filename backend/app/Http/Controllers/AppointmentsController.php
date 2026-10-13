@@ -146,8 +146,11 @@ class AppointmentsController extends Controller
 
             /*
              * An explicitly assigned doctor must be a real, active
-             * veterinarian. Current availability is not required — the
-             * appointment may be booked for a future date.
+             * veterinarian. Whether they are free at the requested slot is
+             * checked inside validateSlot() under the scheduling row lock,
+             * so a doctor cannot be double-booked even under concurrency.
+             * On-duty status itself is not required here — the appointment
+             * may be booked for a future date.
              */
             abort_unless(
                 DoctorProfile::whereKey($requestedVetId)
@@ -209,16 +212,36 @@ class AppointmentsController extends Controller
             $requestedVetId
         ) {
             AppointmentWorkflow::lockSchedulingGate();
-            AppointmentWorkflow::validateSlot($v['appointment_date'], $time);
-
-            $doctorId = $requestedVetId
-                ?? AppointmentWorkflow::assignedDoctorId($v['appointment_date']);
-
-            abort_unless(
-                $doctorId,
-                422,
-                'No on-duty veterinarian is available for this appointment.'
+            AppointmentWorkflow::validateSlot(
+                $v['appointment_date'],
+                $time,
+                $service,
+                $requestedVetId
             );
+
+            /*
+             * RESOURCE-AWARE ASSIGNMENT.
+             * Doctor-required services take an eligible doctor: the explicit
+             * Admin pick first, otherwise the least-loaded On Duty doctor
+             * free at this exact slot. Non-doctor services (grooming,
+             * boarding, confinement, home service) never consume doctor
+             * capacity and are stored without a veterinarian unless an
+             * Admin explicitly picked one above.
+             */
+            $doctorId = $requestedVetId;
+
+            if ($doctorId === null && AppointmentWorkflow::serviceRequiresDoctor($service)) {
+                $doctorId = AppointmentWorkflow::freeDoctorIdAt(
+                    $v['appointment_date'],
+                    $time
+                );
+
+                abort_unless(
+                    $doctorId,
+                    422,
+                    'No on-duty veterinarian is available for this appointment.'
+                );
+            }
 
             $appointment = new Appointment;
 
@@ -368,26 +391,65 @@ class AppointmentsController extends Controller
                 'Appointment cannot be rescheduled from its current status.'
             );
 
-            AppointmentWorkflow::validateSlot(
-                $v['appointment_date'],
-                $time,
-                $locked->id
-            );
+            $service = $locked->service()->firstOrFail();
 
             /*
-             * Re-evaluate the Doctor when the appointment is rescheduled.
-             * A confirmed appointment must always have an active, on-duty
-             * veterinarian under the current VHS availability model.
+             * RESOURCE-AWARE RESCHEDULE.
+             * Doctor-required: the current veterinarian is kept when still
+             * active, On Duty and free at the new slot; otherwise the
+             * least-loaded eligible doctor free at the new slot takes the
+             * visit. Non-doctor: the service's own per-slot capacity is
+             * checked and an existing explicit assignment must be free at
+             * the new slot — it is never silently dropped.
              */
-            $newDoctorId = AppointmentWorkflow::assignedDoctorId(
-                $v['appointment_date']
-            );
+            if (AppointmentWorkflow::serviceRequiresDoctor($service)) {
+                AppointmentWorkflow::validateSlot(
+                    $v['appointment_date'],
+                    $time,
+                    $service,
+                    null,
+                    $locked->id
+                );
 
-            abort_unless(
-                $newDoctorId,
-                422,
-                'No on-duty veterinarian is available for this appointment.'
-            );
+                $current = $locked->relationLoaded('veterinarian')
+                    ? $locked->veterinarian
+                    : $locked->veterinarian()->first();
+
+                $keepCurrent = $current
+                    && $current->account_status === 'active'
+                    && $current->availability_status === 'on_duty'
+                    && $current->user()->where('status', 'active')->exists()
+                    && ! AppointmentWorkflow::doctorBusyAt(
+                        $v['appointment_date'],
+                        $time,
+                        $current->id,
+                        $locked->id
+                    );
+
+                $newDoctorId = $keepCurrent
+                    ? $current->id
+                    : AppointmentWorkflow::freeDoctorIdAt(
+                        $v['appointment_date'],
+                        $time,
+                        $locked->id
+                    );
+
+                abort_unless(
+                    $newDoctorId,
+                    422,
+                    'No on-duty veterinarian is available for this appointment.'
+                );
+            } else {
+                AppointmentWorkflow::validateSlot(
+                    $v['appointment_date'],
+                    $time,
+                    $service,
+                    $locked->assigned_vet_id,
+                    $locked->id
+                );
+
+                $newDoctorId = $locked->assigned_vet_id;
+            }
 
             $locked->rescheduled_from = [
                 'date' => $oldDate,
@@ -594,17 +656,31 @@ class AppointmentsController extends Controller
                  * rule the booking flow uses.
                  */
                 if ($a->assigned_vet_id === null) {
-                    $doctorId = AppointmentWorkflow::assignedDoctorId(
-                        $a->appointment_date->format('Y-m-d')
-                    );
+                    $service = $a->service()->first();
 
-                    abort_unless(
-                        $doctorId,
-                        422,
-                        'No on-duty veterinarian is available for this appointment.'
-                    );
+                    /*
+                     * Only a DOCTOR-REQUIRED visit needs a veterinarian to
+                     * enter a queue. Non-doctor services (grooming,
+                     * boarding, ...) stay unassigned — they never consume
+                     * doctor capacity, not even at check-in. The fill-in
+                     * uses the same free-at-this-slot rule as booking, so
+                     * check-in can never hand the patient to a doctor who
+                     * is already busy at this time.
+                     */
+                    if ($service && AppointmentWorkflow::serviceRequiresDoctor($service)) {
+                        $doctorId = AppointmentWorkflow::freeDoctorIdAt(
+                            $a->appointment_date->format('Y-m-d'),
+                            substr((string) $a->appointment_time, 0, 5)
+                        );
 
-                    $a->assigned_vet_id = $doctorId;
+                        abort_unless(
+                            $doctorId,
+                            422,
+                            'No on-duty veterinarian is available for this appointment.'
+                        );
+
+                        $a->assigned_vet_id = $doctorId;
+                    }
                 }
 
                 $a->checked_in_at = now();

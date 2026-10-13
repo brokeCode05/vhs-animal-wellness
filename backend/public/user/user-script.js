@@ -1002,28 +1002,52 @@ function onBookServiceChange() {
   }
 }
 
-// One adapter from the User portal to the shared scheduling engine. Resolves
-// the service, asks SmartScheduling which slots are actually bookable, and
-// returns 12h slot labels for the existing <select> markup — the form is not
-// redesigned and the engine never returns UI.
+// One adapter from the User portal to REAL slot availability. The Laravel
+// backend (GET /api/availability) is the source of truth: it applies the
+// same resource-aware capacity rules the booking endpoint enforces
+// (On Duty doctor pool per exact slot, per-service capacity for non-doctor
+// services, same-day past slots excluded), so the form can never offer a
+// slot the server will refuse. The shared SmartScheduling engine is kept
+// ONLY as the offline fallback (it reads the same mirrored server data),
+// and the backend re-validates atomically on submit either way.
 //
-// options: { serviceId?, excludeAppointmentId? }. With no service resolved
-// (nothing chosen yet, or the engine not loaded) this falls back to the
-// clinic's own configured hours, which is exactly what the form did before.
+// Returns a Promise of 12h slot labels for the existing <select> markup —
+// the form is not redesigned and the adapter never returns UI.
+// options: { serviceId?, excludeAppointmentId?, serviceSelectId? }.
 function _smartSchedulingSlots(dateStr, options) {
+  var o = options || {};
+  var users = window.SharedMockUsers;
+  var svc = null;
+  if (o.serviceId && users && typeof users.serviceById === 'function') {
+    svc = users.serviceById(o.serviceId);
+  } else if (!o.serviceId) {
+    var sel = document.getElementById(o.serviceSelectId || 'service_id');
+    svc = (sel && sel.value && users && typeof users.serviceByValue === 'function')
+      ? users.serviceByValue(sel.value) : null;
+  }
+
+  var reads = window.VHSReads;
+  if (reads && typeof reads.availability === 'function') {
+    var params = { date: dateStr };
+    if (svc) { params.service = svc.value; params.serviceId = svc.serviceId; }
+    if (o.excludeAppointmentId) params.excludeId = o.excludeAppointmentId;
+    return reads.availability(params).then(function (r) {
+      if (r.ok && r.data && r.data.display_slots) return r.data.display_slots;
+      return _localSchedulingSlots(dateStr, o, svc);
+    });
+  }
+  return Promise.resolve(_localSchedulingSlots(dateStr, o, svc));
+}
+
+// OFFLINE FALLBACK ONLY — the pre-existing shared-engine path, used just
+// when the availability API cannot answer (never as a second authority).
+function _localSchedulingSlots(dateStr, options, svc) {
   var o = options || {};
   var allHours = getVHSTimeSlots(dateStr);
   var sched = window.SmartScheduling;
-  var users = window.SharedMockUsers;
-  if (!sched || typeof sched.getAvailableSlots !== 'function' ||
-      !users || typeof users.serviceByValue !== 'function') return allHours;
+  if (!sched || typeof sched.getAvailableSlots !== 'function') return allHours;
 
-  var serviceId = o.serviceId;
-  if (!serviceId) {
-    var sel = document.getElementById('service_id');
-    var svc = (sel && sel.value && users.serviceByValue(sel.value)) || null;
-    serviceId = svc ? svc.serviceId : null;
-  }
+  var serviceId = (svc && svc.serviceId) || o.serviceId || null;
   // Nothing to check capacity against yet — list the clinic's own hours.
   if (!serviceId) return allHours;
 
@@ -1036,6 +1060,7 @@ function _smartSchedulingSlots(dateStr, options) {
 }
 
 // ─── TIME SLOT LOGIC ─────────────────────────────────────────────────────────
+var _bookSlotsToken = 0;
 function _refreshBookSlots() {
   var dateInput = document.getElementById('appointment_date');
   var timeSelect = document.getElementById('time_slot');
@@ -1045,18 +1070,24 @@ function _refreshBookSlots() {
     timeSelect.innerHTML = '<option value="">Select a date first</option>';
     return;
   }
-  // Availability comes from the ONE shared scheduling engine, so the User
-  // form, Vetti and Admin can never disagree about what is bookable.
-  // TODO(BACKEND): slot availability comes from the API's availability check.
-  var slots = _smartSchedulingSlots(dateVal);
-  // Same-day bookable slots = strictly AFTER now (times are STARTS; the last
-  // slot of the day must remain selectable all day).
-  slots = _filterPastSlots(slots, dateVal);
-  timeSelect.innerHTML = slots.length
-    ? '<option value="">Select time</option>' + slots.map(function(s) {
-        return '<option value="' + s + '">' + s + '</option>';
-      }).join('')
-    : '<option value="">No available slots</option>';
+  // Availability comes from the backend (GET /api/availability) through the
+  // ONE scheduling adapter above, so the User form, Vetti and Admin can
+  // never disagree about what is bookable. The token discards a slower
+  // response for a superseded date/service selection.
+  var token = ++_bookSlotsToken;
+  timeSelect.innerHTML = '<option value="">Loading slots...</option>';
+  _smartSchedulingSlots(dateVal).then(function (slots) {
+    if (token !== _bookSlotsToken) return;
+    // Same-day bookable slots = strictly AFTER now (times are STARTS; the last
+    // slot of the day must remain selectable all day). The API already
+    // excludes past slots; this stays as the local-fallback guard.
+    slots = _filterPastSlots(slots || [], dateVal);
+    timeSelect.innerHTML = slots.length
+      ? '<option value="">Select time</option>' + slots.map(function(s) {
+          return '<option value="' + s + '">' + s + '</option>';
+        }).join('')
+      : '<option value="">No available slots</option>';
+  });
 }
 
 
@@ -2810,29 +2841,33 @@ function openRescheduleModal(apptId) {
   openModal('rescheduleModal');
 }
 
+var _rescheduleSlotsToken = 0;
 function _populateRescheduleSlots(dateStr) {
   var timeSelect = document.getElementById('rescheduleTime');
   if (!timeSelect) return;
   var targetDate = dateStr || new Date().toISOString().split('T')[0];
-  // Same shared engine as the booking form. excludeAppointmentId keeps this
-  // appointment from blocking its OWN current slot while it still holds it.
-  // TODO(BACKEND): slot availability comes from the API availability check.
+  // Same backend availability source as the booking form.
+  // excludeAppointmentId keeps this appointment from blocking its OWN
+  // current slot while it still holds it.
   var apptId = document.getElementById('rescheduleApptId') ? document.getElementById('rescheduleApptId').value : null;
   var _store = window.SharedMockAppointments;
   var _appt = (apptId && _store) ? _store.byId(apptId) : null;
   var _svc = (_appt && window.SharedMockUsers && window.SharedMockUsers.serviceByValue)
     ? window.SharedMockUsers.serviceByValue(_appt.service) : null;
-  var slots = _smartSchedulingSlots(targetDate, {
+  var token = ++_rescheduleSlotsToken;
+  timeSelect.innerHTML = '<option value="">Loading slots...</option>';
+  _smartSchedulingSlots(targetDate, {
     serviceId: _svc ? _svc.serviceId : null,
     excludeAppointmentId: apptId || null
+  }).then(function (slots) {
+    if (token !== _rescheduleSlotsToken) return;
+    slots = _filterPastSlots(slots || [], targetDate);
+    timeSelect.innerHTML = slots.length
+      ? '<option value="">Select time</option>' + slots.map(function(s) {
+          return '<option value="' + s + '">' + s + '</option>';
+        }).join('')
+      : '<option value="">No available slots today</option>';
   });
-  slots = _filterPastSlots(slots, targetDate);
-  timeSelect.innerHTML = '<option value="">Select time</option>' + slots.map(function(s) {
-    return '<option value="' + s + '">' + s + '</option>';
-  }).join('');
-  if (!slots.length) {
-    timeSelect.innerHTML = '<option value="">No available slots today</option>';
-  }
 }
 
 function _onRescheduleDateChange() {

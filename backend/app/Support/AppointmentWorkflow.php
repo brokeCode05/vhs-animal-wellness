@@ -5,11 +5,35 @@ namespace App\Support;
 use App\Models\Appointment;
 use App\Models\ClinicSetting;
 use App\Models\DoctorProfile;
+use App\Models\Service;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 
 class AppointmentWorkflow
 {
+    /*
+     * RESOURCE MODEL — backend is the single source of truth.
+     *
+     * Services split into two resource classes, mirroring the canonical
+     * SERVICE_SCHEDULING table in shared/mock-users.js:
+     *   · doctor-required → consumes one On Duty doctor for the exact slot;
+     *   · non-doctor      → consumes only its own per-slot capacity
+     *                        (grooming, boarding, confinement, home service)
+     *                        and never touches doctor capacity.
+     * Fail CLOSED: any service value not listed below counts as
+     * doctor-required, so an unknown/retired service can never silently
+     * free a doctor slot.
+     */
+    private const NON_DOCTOR_SERVICE_VALUES = [
+        'dog_grooming', 'cat_grooming', 'boarding', 'confinement', 'home_service',
+    ];
+
+    /** Per-slot capacity of ONE non-doctor service (capacityPerSlot in the canonical catalog). */
+    private const NON_DOCTOR_CAPACITY_PER_SLOT = 2;
+
+    /** Statuses that DO NOT hold capacity (neither a slot nor a doctor). */
+    private const RELEASING_STATUSES = ['canceled', 'completed', 'no_show'];
+
     public static function settings(): ClinicSetting
     {
         /*
@@ -60,19 +84,177 @@ class AppointmentWorkflow
         $out=[]; for($m=$start;$m<=$end;$m+=$step){$out[]=sprintf('%02d:%02d',intdiv($m,60),$m%60);} return $out;
     }
 
-    public static function slotTaken(string $date, string $time, ?int $excludeId = null): bool
+    // ── SERVICE CLASSIFICATION ──────────────────────────────────────────
+
+    /**
+     * True when the service needs a veterinarian present. Non-doctor
+     * services (grooming / boarding / confinement / home service) draw from
+     * their own per-slot capacity instead of the doctor pool. Unknown or
+     * retired service values fail CLOSED as doctor-required.
+     */
+    public static function serviceRequiresDoctor(Service $service): bool
     {
-        $q=Appointment::whereDate('appointment_date',$date)->whereTime('appointment_time',$time.':00')->whereNotIn('status',['canceled','completed','no_show']);
-        if($excludeId)$q->where('id','<>',$excludeId);
-        return $q->exists();
+        return ! in_array($service->value, self::NON_DOCTOR_SERVICE_VALUES, true);
     }
 
-    public static function validateSlot(string $date, string $time, ?int $excludeId = null): void
+    /** Per-slot capacity of ONE non-doctor service. */
+    public static function nonDoctorCapacityPerSlot(): int
     {
-        abort_unless(in_array($time,self::slotsFor($date),true),422,'Appointment time is outside clinic booking slots.');
+        return self::NON_DOCTOR_CAPACITY_PER_SLOT;
+    }
+
+    // ── CAPACITY QUERIES ────────────────────────────────────────────────
+
+    /** Active appointments that still hold capacity at one exact slot. */
+    private static function holdingQuery(string $date, string $time, ?int $excludeId = null)
+    {
+        $q = Appointment::whereDate('appointment_date', $date)
+            ->whereTime('appointment_time', $time . ':00')
+            ->whereNotIn('status', self::RELEASING_STATUSES);
+
+        if ($excludeId) $q->where('id', '<>', $excludeId);
+
+        return $q;
+    }
+
+    /** Doctor ids with an active appointment at this exact slot (any service). */
+    public static function busyDoctorIdsAt(string $date, string $time, ?int $excludeId = null): array
+    {
+        return self::holdingQuery($date, $time, $excludeId)
+            ->whereNotNull('assigned_vet_id')
+            ->distinct()
+            ->pluck('assigned_vet_id')
+            ->map(fn ($id) => (int) $id)
+            ->all();
+    }
+
+    /** True when doctor $doctorId already holds an appointment at this exact slot. */
+    public static function doctorBusyAt(string $date, string $time, int $doctorId, ?int $excludeId = null): bool
+    {
+        return self::holdingQuery($date, $time, $excludeId)
+            ->where('assigned_vet_id', $doctorId)
+            ->exists();
+    }
+
+    /** Active appointments of one non-doctor service holding this slot. */
+    public static function nonDoctorUsedAt(string $date, string $time, int $serviceId, ?int $excludeId = null): int
+    {
+        return (int) self::holdingQuery($date, $time, $excludeId)
+            ->where('service_id', $serviceId)
+            ->count();
+    }
+
+    /** Active On Duty veterinarians (profile + account + user all active). */
+    public static function onDutyDoctorIds(): array
+    {
+        return DoctorProfile::query()
+            ->where('account_status', 'active')
+            ->where('availability_status', 'on_duty')
+            ->whereHas('user', fn ($q) => $q->where('status', 'active'))
+            ->orderBy('id')
+            ->pluck('id')
+            ->map(fn ($id) => (int) $id)
+            ->all();
+    }
+
+    /**
+     * Least-loaded On Duty doctor FREE at this exact slot — the existing
+     * least-loaded rule (day load, ties to the lowest doctor_profiles id),
+     * narrowed so one doctor can never hold two appointments at the same
+     * time. Returns null when every eligible doctor is busy.
+     */
+    public static function freeDoctorIdAt(string $date, string $time, ?int $excludeId = null): ?int
+    {
+        $busy = array_flip(self::busyDoctorIdsAt($date, $time, $excludeId));
+        $free = array_values(array_filter(
+            self::onDutyDoctorIds(),
+            fn ($id) => ! isset($busy[$id])
+        ));
+
+        if (! $free) return null;
+
+        $loads = Appointment::query()
+            ->whereIn('assigned_vet_id', $free)
+            ->whereDate('appointment_date', $date)
+            ->whereNotIn('status', self::RELEASING_STATUSES)
+            ->when($excludeId, fn ($q) => $q->where('id', '<>', $excludeId))
+            ->groupBy('assigned_vet_id')
+            ->selectRaw('assigned_vet_id, COUNT(*) as load_count')
+            ->get()
+            ->keyBy('assigned_vet_id');
+
+        usort($free, function ($a, $b) use ($loads) {
+            $la = (int) ($loads[$a]->load_count ?? 0);
+            $lb = (int) ($loads[$b]->load_count ?? 0);
+
+            return $la === $lb ? $a <=> $b : $la <=> $lb;
+        });
+
+        return $free[0];
+    }
+
+    /**
+     * Source-of-truth slot validation for a booking or reschedule, in order:
+     *   1. inside the clinic's configured slots for that date;
+     *   2. not in the past — a same-day time that has already started is
+     *      rejected here even when the frontend filtering failed;
+     *   3. resource capacity for the booked service:
+     *        · doctor-required → at least one On Duty doctor must be free at
+     *          this exact slot, or — when a vet was explicitly requested —
+     *          THAT doctor must be free;
+     *        · non-doctor      → the service's own per-slot capacity, and an
+     *          explicitly requested doctor must also be free (they are then
+     *          personally booked).
+     */
+    public static function validateSlot(
+        string $date,
+        string $time,
+        Service $service,
+        ?int $requestedVetId = null,
+        ?int $excludeId = null
+    ): void {
+        abort_unless(in_array($time, self::slotsFor($date), true), 422, 'Appointment time is outside clinic booking slots.');
+
         $scheduled = Carbon::createFromFormat('Y-m-d H:i', $date.' '.$time);
         abort_if($scheduled->lte(now()), 422, 'appointment_time_passed');
-        abort_if(self::slotTaken($date,$time,$excludeId),409,'slot_taken');
+
+        if (self::serviceRequiresDoctor($service)) {
+            abort_if(
+                $requestedVetId !== null
+                    && self::doctorBusyAt($date, $time, $requestedVetId, $excludeId),
+                422,
+                'The selected veterinarian is already booked at that time. Choose a different doctor or time.'
+            );
+
+            if ($requestedVetId === null) {
+                abort_if(
+                    self::onDutyDoctorIds() === [],
+                    422,
+                    'No on-duty veterinarian is available for this appointment.'
+                );
+
+                abort_unless(
+                    self::freeDoctorIdAt($date, $time, $excludeId),
+                    422,
+                    'No veterinarian is free at that time. Please choose a different slot.'
+                );
+            }
+        } else {
+            abort_if(
+                self::nonDoctorUsedAt($date, $time, $service->id, $excludeId)
+                    >= self::NON_DOCTOR_CAPACITY_PER_SLOT,
+                422,
+                'That time is already fully booked for this service. Please choose a different slot.'
+            );
+
+            if ($requestedVetId !== null) {
+                abort_if(
+                    self::doctorBusyAt($date, $time, $requestedVetId, $excludeId),
+                    422,
+                    'The selected veterinarian is already booked at that time. Choose a different doctor or time.'
+                );
+            }
+        }
     }
 
     /**
@@ -103,23 +285,6 @@ class AppointmentWorkflow
             if(!Appointment::where('reference_no',$ref)->exists())return $ref;
         }
         return $prefix.strtoupper(substr(bin2hex(random_bytes(4)),0,4));
-    }
-
-    public static function hasAvailableDoctor(): bool
-    {
-        return DoctorProfile::query()
-            ->where('account_status', 'active')
-            ->where('availability_status', 'on_duty')
-            ->exists();
-    }
-
-    public static function assignedDoctorId(string $date): ?int
-    {
-        $doctor=DoctorProfile::query()
-            ->where('account_status','active')->where('availability_status','on_duty')
-            ->withCount(['appointments'=>fn($q)=>$q->whereDate('appointment_date',$date)->whereNotIn('status',['canceled','completed','no_show'])])
-            ->orderBy('appointments_count')->orderBy('id')->first();
-        return $doctor?->id;
     }
 
     public static function canTransition(string $from, string $to): bool
