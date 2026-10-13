@@ -7,14 +7,15 @@
    only knows "pets", "appointments", "services", "documents", "clinic".
    Below it, nothing about WHERE a record came from is allowed to leak.
 
-   TODAY this adapter is LOCAL. The shared mock stores and their
-   localStorage backing stay the single source of truth. Nothing is
-   copied, cached or duplicated here — every read goes to the same store
-   My Pets and My Appointments already read, so the two screens can
-   never disagree.
+   EVERY read goes through the shared stores, which the portal hydrates
+   from server truth at boot and after every write (GET /api/users/me/pets,
+   GET /api/appointments, the shared active-service catalog): Vetti,
+   My Pets and My Appointments all read the SAME records, so the screens
+   can never disagree. Nothing is copied, cached or duplicated here.
 
-   TOMORROW an API-backed adapter replaces this one and Vetti UI does
-   not change, because nothing above this line knows the difference.
+   The ONE write (createPet) goes through the authenticated pets endpoint
+   (POST /api/pets) and re-hydrates from the server's response, so a pet
+   Vetti shows is always a persisted record — never a local save.
 
    FAILURE RULE: a missing store yields [] / null, never a throw and
    never an invented record, so Vetti can honestly say "I don't have
@@ -24,7 +25,7 @@
    pet form is the one place Vetti legitimately creates a record today.
    Every other mutation stays in the portal's own screens.
 
-   v5.0.0
+   v5.1.0
    ============================================================ */
 (function (global) {
   'use strict';
@@ -119,23 +120,47 @@
     };
   }
 
-  // The single write Vetti makes. Creates ONE pet through the shared
-  // store, exactly like the full Add Pet form. No appointment, document
-  // or history is fabricated for it.
-  // TODO(BACKEND): replace with the authenticated pets create endpoint;
-  // ownership is resolved server-side, never by a name match.
+  // The single write Vetti makes. Creates ONE pet through the
+  // AUTHENTICATED pets endpoint (POST /api/pets) — ownership is resolved
+  // server-side from the session, never sent by the caller and never
+  // matched by name — then re-hydrates the shared store from server truth
+  // so every later pet read reflects the persisted record. No appointment,
+  // document or history is fabricated for it.
+  // Returns a Promise<{ ok, pet?, error?, message? }>:
+  //   no write adapter → { ok:false, error:'unavailable' } (never a local save)
+  //   no session       → { ok:false, error:'no_session' }
   function createPet(fields) {
-    var u = users();
-    if (!u || typeof u.addPet !== 'function') return { ok: false, error: 'unavailable' };
-    var owner = getOwnerId();
-    if (!owner) return { ok: false, error: 'no_session' };
-    var f = Object.assign({}, fields || {});
-    f.ownerId = owner;                 // never taken from the caller
-    var result = u.addPet(f);
-    if (!result || !result.ok) {
-      return { ok: false, error: (result && result.error) || 'invalid' };
+    var writes = global.VHSWrites;
+    var ownerId = getOwnerId();
+    if (!ownerId) return Promise.resolve({ ok: false, error: 'no_session' });
+    if (!writes || typeof writes.createPet !== 'function') {
+      return Promise.resolve({ ok: false, error: 'unavailable' });
     }
-    return { ok: true, pet: result.pet };
+    var f = Object.assign({}, fields || {});
+    // No owner id is ever sent: PetsController@store scopes the new pet to
+    // the authenticated session's user.
+    return writes.createPet(f).then(function (res) {
+      if (!res || !res.ok) {
+        var msg = (res && res.message) || '';
+        if (!msg && res && res.errors) {
+          var keys = Object.keys(res.errors);
+          if (keys.length) msg = res.errors[keys[0]][0] || '';
+        }
+        return { ok: false, error: 'failed', message: msg };
+      }
+      var pet = res.pet || (res.data && res.data.pet) || null;
+      var reads = global.VHSReads;
+      if (pet && reads && typeof reads.hydrateMyPets === 'function') {
+        // Await the re-hydration: the caller renders the pet list right
+        // after this resolves, and it must show server truth — not a
+        // half-updated store.
+        return reads.hydrateMyPets(getCurrentUser(), { ownerId: ownerId })
+          .then(function () { return { ok: true, pet: pet }; });
+      }
+      return pet ? { ok: true, pet: pet } : { ok: false, error: 'invalid' };
+    }).catch(function () {
+      return { ok: false, error: 'network', message: 'Network error. Please try again.' };
+    });
   }
 
   // ── SERVICES ──────────────────────────────────────────────────────
@@ -214,9 +239,10 @@
     };
   }
 
-  // TODO(BACKEND): replace with the owner's authenticated appointments
-  // endpoint. Until then this is the shared store, filtered to the
-  // current owner.
+  // The owner's appointments from the shared store, which the portal
+  // hydrates from the authenticated endpoint (GET /api/appointments) at
+  // boot and after every booking — so this is server truth for the
+  // current owner, filtered locally.
   //
   // SAFETY: an unresolvable owner id returns NOTHING. The shared store
   // holds more than one owner's appointments, so falling back to the
@@ -306,25 +332,52 @@
     return null;
   }
 
-  // ── SMART SCHEDULING (adapter boundary) ───────────────────────────
-  // Vetti never decides availability itself: it asks the shared engine
-  // and reports only what the engine returned. Vetti UI keeps talking to
-  // VettiData, so the VettiData/VettiTools abstraction is unchanged and
-  // SmartScheduling stays swappable for a backend API.
-  // TODO(BACKEND): replace with GET /api/scheduling/slots.
+  // ── SMART AVAILABILITY (adapter boundary) ─────────────────────────
+  // Vetti never decides availability itself: the SAME backend endpoint the
+  // booking wizard uses — GET /api/availability (doctor capacity, non-doctor
+  // capacity, on-duty doctor pool, same-day past-slot filtering, backend
+  // slot conflicts) — answers here first. The shared engine is kept ONLY as
+  // the offline fallback (it reads the same mirrored server data), never as
+  // a second authority. Returns a Promise of { ok, slots, reason } where
+  // slots are 12h display labels.
   function getAvailableSlots(options) {
+    var o = options || {};
+    var reads = global.VHSReads;
+    if (reads && typeof reads.availability === 'function' && o.date) {
+      return reads.availability({
+        date: o.date,
+        serviceId: o.serviceId,
+        doctorId: o.doctorId,
+        excludeId: o.excludeAppointmentId
+      }).then(function (r) {
+        if (r && r.ok && r.data) {
+          return { ok: true, slots: arr(r.data.display_slots), reason: null };
+        }
+        return engineSlots(o, r && r.message);
+      }, function () {
+        return engineSlots(o, 'availability_unreachable');
+      });
+    }
+    return Promise.resolve(engineSlots(o, 'no_date'));
+  }
+
+  // OFFLINE FALLBACK ONLY — the pre-existing shared-engine path, used just
+  // when the availability API cannot answer (never as a second authority).
+  function engineSlots(o, apiMessage) {
     var sched = window.SmartScheduling;
     if (!sched || typeof sched.getAvailableSlots !== 'function') {
-      return { ok: false, slots: [], reason: 'scheduling_unavailable' };
+      return { ok: false, slots: [], reason: apiMessage || 'scheduling_unavailable' };
     }
-    var o = options || {};
     var result = sched.getAvailableSlots({
       serviceId: o.serviceId,
       date: o.date,
       doctorId: o.doctorId,
       excludeAppointmentId: o.excludeAppointmentId
     });
-    return { ok: result.ok === true, slots: result.slots || [], reason: result.reason || null };
+    var slots = (result.slots || []).map(function (s) {
+      return (s && s.time !== undefined) ? s.time : s;
+    });
+    return { ok: result.ok === true, slots: slots, reason: result.reason || null };
   }
 
   // Scheduling metadata for one service (duration, requiresDoctor,

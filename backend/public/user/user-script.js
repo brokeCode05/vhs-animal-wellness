@@ -702,7 +702,15 @@ function openBookModal(serviceName, bookingHandoff) {
   // Load user's pets into pet_id select (scoped to the logged-in owner)
   var petSelect = document.getElementById('pet_id');
   if (petSelect) {
-    var pets = _currentPets.length ? _currentPets : mockPetsData;
+    // In the integrated runtime the pet list comes from the owner's REAL
+    // pets (boot-hydrated via GET /api/users/me/pets, or derived from the
+    // same server-backed store). The demo list is reserved for static
+    // (no-backend) hosting, so a signed-in owner is never offered a mock
+    // pet to book.
+    var pets = _currentPets.length ? _currentPets
+      : ((window.VHSAuth || (user && (user.id || user.userId)))
+          ? _derivePetsFromStore()
+          : mockPetsData);
     petSelect.innerHTML = pets.length
       ? '<option value="">Choose a pet</option>' + pets.map(function(p) {
           return '<option value="' + p.id + '">' + escapeHtml(p.name) + ' (' + escapeHtml(p.species || p.type || '') + ')</option>';
@@ -747,7 +755,17 @@ function openBookModal(serviceName, bookingHandoff) {
   // field is RESOLVED before it is applied: an unknown pet/service or an
   // invalid date stays blank and the wizard behaves exactly as before.
   var handoffCtx = _bookingHandoffContext(bookingHandoff);
+  _pendingHandoffTime = null;
   if (handoffCtx) _prefillBookingFields(bookingHandoff, handoffCtx);
+
+  // The exact preferred time is applied AFTER the real slot list lands:
+  // the <select> is rebuilt asynchronously by _refreshBookSlots, which
+  // re-applies this value once (see _pendingHandoffTime), so a time the
+  // conversation already chose can never be wiped by the reload — and a
+  // time the refreshed REAL list does not offer selects nothing at all.
+  if (handoffCtx && handoffCtx.preferredTime) {
+    _pendingHandoffTime = String(handoffCtx.preferredTime);
+  }
 
   // Existing dependent refresh, in the normal order: pet, service and
   // date are all set by now, so the slot list is rebuilt from Smart
@@ -1061,6 +1079,12 @@ function _localSchedulingSlots(dateStr, options, svc) {
 
 // ─── TIME SLOT LOGIC ─────────────────────────────────────────────────────────
 var _bookSlotsToken = 0;
+// One-shot: the exact time a conversational booking context asked for,
+// carried here because the <select> rebuilds ASYNCHRONOUSLY — the sync
+// prefill in openBookModal() runs before the real options exist. The FIRST
+// refresh after the wizard opens consumes it: an offered label selects,
+// anything else selects nothing (never invented, never stale).
+var _pendingHandoffTime = null;
 function _refreshBookSlots() {
   var dateInput = document.getElementById('appointment_date');
   var timeSelect = document.getElementById('time_slot');
@@ -1087,6 +1111,11 @@ function _refreshBookSlots() {
           return '<option value="' + s + '">' + s + '</option>';
         }).join('')
       : '<option value="">No available slots</option>';
+    if (_pendingHandoffTime !== null) {
+      var wantTime = _pendingHandoffTime;
+      _pendingHandoffTime = null;
+      if (wantTime && _hasSelectOption(timeSelect, wantTime)) timeSelect.value = wantTime;
+    }
   });
 }
 
@@ -1223,7 +1252,9 @@ function openOtpModal() {
       if (hint) hint.textContent = 'Verification code request failed.';
     });
   } else {
-    if (hint) hint.textContent = 'A 6-digit verification code has been sent to your registered contact details.';
+    // No booking OTP adapter: no code exists, so never claim one was sent.
+    if (hint) hint.textContent = 'Booking verification is unavailable. Please refresh the page and try again.';
+    if (window.showToast) showToast('Booking verification is unavailable — no code was sent.', 'error');
   }
 }
 
@@ -1259,7 +1290,8 @@ function _resendOtp() {
       else showToast('Verification code resent.', 'info');
     }).catch(function () { showToast('Failed to resend verification code.', 'error'); });
   } else {
-    showToast('Verification code resent.', 'info');
+    // No booking OTP adapter: no code exists, so never claim one was sent.
+    showToast('Booking verification is unavailable. Please refresh the page and try again.', 'error');
   }
 }
 
@@ -1303,9 +1335,12 @@ function verifyOtp() {
       _pendingBookingDisplay = null;
       _pendingBookingAlternatives = null;
       _showBookingSuccess(ref, { id: aid, reference_no: ref });
-      // Refresh server truth so My Appointments/dashboard show the new booking immediately
-      if (window.VHSReads && typeof window.VHSReads.hydrateMyAppointments === 'function') {
-        window.VHSReads.hydrateMyAppointments({ replace: true }).catch(function () {});
+      // REFRESH SERVER TRUTH: reload the owner's appointments from
+      // GET /api/appointments and re-render My Appointments + the dashboard
+      // from those canonical records, so the booking (with its server-
+      // assigned id/reference) appears immediately — no hard refresh.
+      if (typeof loadUserAppointments === 'function') {
+        loadUserAppointments();
       }
     }).catch(function () {
       if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Verify & Confirm'; }
@@ -1313,9 +1348,13 @@ function verifyOtp() {
     });
     return;
   }
-  // Fallback to legacy local finalize if adapter missing
+  // The integrated portal always ships the booking write adapter. If it is
+  // somehow missing, fail HONESTLY: the legacy local finaliser below mints
+  // ids and references in the browser, and a real booking must only ever
+  // come back from the server — no fake OTP success, no client-generated
+  // reference number.
   closeOtpModal();
-  _finalizeBooking();
+  showToast('Booking service unavailable — no appointment was created. Please refresh the page and try again.', 'error');
 }
 
 function _finalizeBooking() {
@@ -3083,17 +3122,38 @@ function _renderPetCards(pets, grid, dashGrid, petCount) {
 
 
 
+var _petSessionWaited = false;
 function loadPets() {
   var user = _getSessionUser();
   var userId = user.id || user.userId;
+
+  // ── SESSION WAIT (integrated runtime) ────────────────────────────────────────
+  // On a cold tab the /api/auth/me guard may still be in flight when this
+  // runs, so an empty session here does not yet mean "no session". Wait for
+  // the guard's own me() call ONCE before choosing between the owner's real
+  // pets and the static-hosting fallback — otherwise real pets never
+  // hydrate and a signed-in owner would be offered demo records.
+  if (window.VHSAuth && !userId && !_petSessionWaited) {
+    _petSessionWaited = true;
+    return Promise.resolve(window.VHSAuth.me()).then(
+      function () { return loadPets(); },
+      function () { return loadPets(); }
+    );
+  }
 
   var grid = document.getElementById('petsGrid');
   var dashGrid = document.getElementById('dashPetsGrid');
   var petCount = document.getElementById('statPetCount');
 
-  // If no session (e.g. GitHub Pages), render mock data directly
   if (!userId) {
-    _renderPetCards(mockPetsData, grid, dashGrid, petCount);
+    // Integrated runtime without a session: the portal guard is already
+    // redirecting to /auth, so render an honest empty state — demo pets
+    // must never masquerade as a signed-in owner's records. Static
+    // (no-backend) hosting keeps the original mock list.
+    _renderPetCards(window.VHSAuth ? [] : mockPetsData, grid, dashGrid, petCount);
+    if (window.VHSReads && typeof window.VHSReads.markPetsSettled === 'function') {
+      window.VHSReads.markPetsSettled();
+    }
     return;
   }
 

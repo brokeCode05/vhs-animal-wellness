@@ -268,7 +268,7 @@
       state: 'booking',
       // NOTE: no bare "appointment" here — see the order note above, and
       // "reschedule" belongs to the appointment_actions intent above.
-      keywords: ['book', 'booking', 'schedule', 'magreserv'],
+      keywords: ['book', 'booking', 'schedule', 'magreserv', 'slot', 'availability'],
       reply: function (ctx) {
         // ZERO-PET GATE: never move a booking request toward scheduling
         // until the owner has a pet to book FOR.
@@ -281,15 +281,27 @@
             action: 'openPetForm'
           };
         }
-        // TODO(BACKEND): real availability, smart scheduling and slot
-        // locking do not exist yet. KAN-50 replaces this with the
-        // deterministic booking tools. Until then Vetti routes to the
-        // portal's own booking flow rather than pretending to book.
+        // REAL AVAILABILITY: this reply never quotes a schedule itself —
+        // it hands off to the portal's booking wizard, whose slot list is
+        // GET /api/availability (the same Smart Scheduling source the
+        // manual booking flow uses: doctor/non-doctor capacity, on-duty
+        // pool, same-day past slots, backend conflicts). The wizard's
+        // review step and the booking OTP own the confirmation; nothing
+        // here books, holds a slot or claims availability.
         var who = (ctx.activePet && ctx.activePet.name) || 'your pet';
+        // A direct slot question gets a direct pointer to where the times
+        // live: the booking form lists them straight from the clinic's
+        // schedule, so Vetti never repeats (or invents) a timeslot here.
+        var slotQuery = /\b(slots?|availability)\b/.test(ctx.query || '');
         var reply = {
-          text: 'I can help you get started with an appointment for ' + who + '. '
-              + 'Vetti booking is not connected yet, so I\u2019ll open the existing '
-              + 'booking flow for now.',
+          text: slotQuery
+            ? 'I\u2019ll open the booking form for you \u2014 the times listed there '
+              + 'come straight from the clinic\u2019s live schedule, so what you '
+              + 'see is what you can actually book.'
+            : 'I can help you get started with an appointment for ' + who + '. '
+              + 'I\u2019ll open the booking form with whatever you\u2019ve already '
+              + 'told me \u2014 you pick an open time, then confirm with the '
+              + 'verification code the clinic sends you.',
           action: 'openBooking',
           suggestions: ['What services do you offer?', 'Show my appointments']
         };
@@ -318,10 +330,10 @@
         }
         var up = ctx.appointments ? ctx.appointments.upcoming.length : 0;
         return {
-          // TODO(BACKEND): read the owner's real appointment list from the
-          // API instead of the shared demo store. Until then the card
-          // below is the SAME list My Appointments renders, not a
-          // paraphrase of it, and the wording says so.
+          // The shared store is hydrated from the owner's authenticated
+          // endpoint (GET /api/appointments) at boot and after every
+          // booking, so the count below IS the list My Appointments
+          // renders — not a paraphrase of it.
           text: up
             ? 'You have ' + up + (up === 1 ? ' upcoming visit' : ' upcoming visits')
               + ' on your account.'

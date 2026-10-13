@@ -169,9 +169,13 @@
       .then(function (r) {
         var out = normalize(r);
         // The channel is the server's decision, never the client's guess — the
-        // UI must tell the owner where the code actually went.
-        out.channel = (r && r.channel) || (out.data && out.data.channel) || null;
-        out.destination = (r && r.destination) || (out.data && out.data.destination) || null;
+        // UI must tell the owner where the code actually went. VHSAuth.send()
+        // exposes the parsed JSON body on r.raw (its own fields are only
+        // ok/status/message/errors/data), so the top-level channel and
+        // destination are read from there.
+        var body = (r && r.raw) || null;
+        out.channel = (body && body.channel) || (r && r.channel) || (out.data && out.data.channel) || null;
+        out.destination = (body && body.destination) || (r && r.destination) || (out.data && out.data.destination) || null;
         return out;
       })
       .catch(function (e) {
@@ -187,6 +191,14 @@
       appointment_data: appointmentData || {}
     }).then(function (r) {
       var out = normalize(r, { appointmentKey: true });
+      // VHSAuth.send() exposes the parsed JSON body on r.raw (its own fields
+      // are only ok/status/message/errors/data). The OTP booking endpoints
+      // return their authoritative fields at the TOP LEVEL of that body —
+      // reference_no, appointment_id and the appointment itself — so they
+      // are read from there as well as from any nested data shape. The UI
+      // shows ONLY these server values; no client-minted reference exists.
+      var body = (r && r.raw) || null;
+      if (!out.appointment && body && body.appointment) out.appointment = body.appointment;
       // The server response is the authoritative booking: mirror it so every
       // portal re-renders from the DB-assigned id + reference number.
       var s = store();
@@ -196,8 +208,12 @@
         s.upsertFromServer(canonical);
         out.canonical = canonical;
       }
-      out.referenceNo = (r && r.reference_no) || (out.appointment && (out.appointment.referenceNo || out.appointment.reference_no)) || null;
-      out.appointmentId = (r && r.appointment_id) || (out.appointment && (out.appointment.appointmentId || out.appointment.id)) || null;
+      out.referenceNo = (body && body.reference_no)
+        || (out.appointment && (out.appointment.referenceNo || out.appointment.reference_no))
+        || null;
+      out.appointmentId = (body && body.appointment_id)
+        || (out.appointment && (out.appointment.appointmentId || out.appointment.id))
+        || null;
       return out;
     })
       .catch(function (e) {

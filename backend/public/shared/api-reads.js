@@ -207,17 +207,57 @@ window.VHSReads = (function () {
   }
 
   /** Fetch one owner's pets (e.g. the signed-in User) and hydrate the store.
-   *  opts.ownerId re-points the store identity boundary at the real owner. */
+   *  opts.ownerId re-points the store identity boundary at the real owner.
+   *
+   *  PETS-SETTLED SEAM: hydration is async and first paint can race it, so
+   *  every outcome settles `vhs:pets-loaded` and releases whenPetsSettled()
+   *  waiters — success AND honest empty alike. Consumers (Vetti's welcome /
+   *  zero-pet decision) wait for server truth instead of guessing against a
+   *  store that has not loaded yet. Failure paths that hydrate OUTSIDE this
+   *  function must call markPetsSettled() so waiters are never stranded. */
+  var _petsSettled = false;
+  var _petsWaiters = [];
+
+  function petsSettled() { return _petsSettled; }
+
+  function whenPetsSettled(cb) {
+    if (typeof cb !== 'function') return;
+    if (_petsSettled) { cb(); return; }
+    _petsWaiters.push(cb);
+  }
+
+  function markPetsSettled() {
+    if (_petsSettled) return;
+    _petsSettled = true;
+    if (document.dispatchEvent) {
+      try {
+        document.dispatchEvent(new CustomEvent('vhs:pets-loaded', { detail: { settled: true } }));
+      } catch (e) { /* CustomEvent unsupported */ }
+    }
+    var waiters = _petsWaiters.slice();
+    _petsWaiters = [];
+    waiters.forEach(function (fn) {
+      try { fn(); } catch (e) { /* one waiter must not block the rest */ }
+    });
+  }
+
   function hydrateMyPets(owner, opts) {
     var store = window.SharedMockUsers;
+    var settle = function () { markPetsSettled(); return; };
     return myPets().then(function (r) {
-      if (!store) return r;
-      if (!r.ok) {
-        store.replaceWithServer(owner ? [owner] : [], [], opts || {});
-        return r;
+      if (store) {
+        if (!r.ok) store.replaceWithServer(owner ? [owner] : [], [], opts || {});
+        else store.replaceWithServer(owner ? [owner] : [], r.data.pets, opts || {});
       }
-      store.replaceWithServer(owner ? [owner] : [], r.data.pets, opts || {});
+      settle();
       return r;
+    }, function (e) {
+      // Rejected transport: settle into an honest empty state (never demo
+      // seeds) so waiting UIs unblock with "no pets" instead of a 4s stall,
+      // then keep the rejection contract for the caller.
+      if (store) store.replaceWithServer(owner ? [owner] : [], [], opts || {});
+      settle();
+      throw e;
     });
   }
 
@@ -278,6 +318,9 @@ window.VHSReads = (function () {
     hydrateClients: hydrateClients,
     hydrateMyPets: hydrateMyPets,
     hydrateDoctors: hydrateDoctors,
+    petsSettled: petsSettled,
+    whenPetsSettled: whenPetsSettled,
+    markPetsSettled: markPetsSettled,
     messageOf: messageOf,
   };
 })();

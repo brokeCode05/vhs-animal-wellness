@@ -406,7 +406,7 @@
                 + '</dt><dd>' + esc(r[1]) + '</dd></div>';
             }).join('')
           + '</dl>' : '')
-      + '  <p class="vetti-card-note">From your records on this device.</p>'
+      + '  <p class="vetti-card-note">From your account.</p>'
       + '</div>';
   }
 
@@ -444,7 +444,7 @@
             + '</button></li>';
         }).join('')
       + '  </ul>'
-      + '  <p class="vetti-card-note">From your records on this device.</p>'
+      + '  <p class="vetti-card-note">From your account.</p>'
       + '</div>';
   }
 
@@ -498,7 +498,7 @@
             + '</li>';
         }).join('')
       + '  </ul>'
-      + '  <p class="vetti-card-note">From the clinic service list on this device.</p>'
+      + '  <p class="vetti-card-note">From the clinic\u2019s current service list.</p>'
       + '</div>';
   }
 
@@ -574,7 +574,7 @@
       + '<div class="vetti-block vetti-block-appts">'
       + group('Upcoming', upcoming, '')
       + group('Recent visits', past, 'past')
-      + '<p class="vetti-card-note">From the clinic demo records on this device.</p>'
+      + '<p class="vetti-card-note">From your appointments with the clinic.</p>'
       + '</div>';
   }
 
@@ -1186,6 +1186,7 @@
 
   // ── OPENING ─────────────────────────────────────────────────────
   function showOpening() {
+    ui.opened = true;   // first-paint marker — mount defers the very first call
     renderGreeting();
     renderPetSelector();
 
@@ -1275,46 +1276,79 @@
   function handlePetFormSubmit(event) {
     event.preventDefault();
     var result = Onboarding.submitPetForm();
-    if (!result.ok) {
-      // Validation already shows inline field errors and moves focus.
-      if (result.error === 'validation') return;
-      setPresence('error');
-      renderVetti(
-        result.error === 'no_session'
-          ? 'I could not tell who you are, so I stopped rather than save the pet to the wrong account.'
-          : 'Something went wrong saving that pet. Please try again.'
-      );
+
+    // SYNC answers come back BEFORE any write is attempted: inline field
+    // validation, or no session. Nothing was saved, so nothing else runs.
+    if (result && typeof result.then !== 'function') {
+      if (!result.ok) {
+        // Validation already shows inline field errors and moves focus.
+        if (result.error === 'validation') return;
+        setPresence('error');
+        renderVetti(
+          result.error === 'no_session'
+            ? 'I could not tell who you are, so I stopped rather than save the pet to the wrong account.'
+            : 'Something went wrong saving that pet. Please try again.'
+        );
+        return;
+      }
+      finishPetSave(result.pet);
       return;
     }
 
-    var pet = result.pet;
+    // REAL ENDPOINT PATH: the pet is being written through the
+    // authenticated pets API (POST /api/pets). The form stays open until
+    // the server answers, so a failure never claims a save that did not
+    // happen and the owner can correct the entry right here.
+    var nameInput = el('vettiPetName');
+    var savingName = (nameInput && nameInput.value.trim()) || 'your pet';
+    ui.saving = true;
+    setPresence('thinking');
+    showTransient('Saving ' + savingName + '\u2026', false);
+
+    result.then(function (r) {
+      ui.saving = false;
+      clearTransient();              // removed before the reply renders
+      if (!r || !r.ok) {
+        setPresence('error');
+        renderVetti(
+          r && r.error === 'no_session'
+            ? 'I could not tell who you are, so I stopped rather than save the pet to the wrong account.'
+            : ((r && r.message) || 'Something went wrong saving that pet. Please try again.')
+        );
+        return;
+      }
+      finishPetSave(r.pet);
+    }, function () {
+      ui.saving = false;
+      clearTransient();
+      setPresence('error');
+      renderVetti('Something went wrong saving that pet. Please try again.');
+    });
+  }
+
+  // The pet the SERVER persisted: close the form, make it active through
+  // the one setter, and acknowledge with the save message — the card below
+  // renders the stored record, never a local one.
+  function finishPetSave(pet) {
+    if (!pet) return;
     closePetForm();
     // The pet just saved IS the active one, and it goes in through the one
     // setter so the dropdown cannot lag behind. Its acknowledgement is
     // the save message below, not a second "now talking about" line.
     applyActivePet(pet.petId);
 
-    // §9/§AC: a transient "Saving Bruno…" bubble, then success.
-    ui.saving = true;
-    setPresence('thinking');
-    showTransient('Saving ' + pet.name + '\u2026', false);
+    setPresence('success');
+    renderVetti(pet.name + ' is now part of your account.');
+    renderVetti('You can add more details anytime from My Pets, or ask me to help '
+      + 'you complete them later.');
+    renderBlock(petCardMarkup(pet), 'vetti-card-block');
 
-    window.setTimeout(function () {
-      ui.saving = false;
-      clearTransient();              // removed before the reply renders
-      setPresence('success');
-      renderVetti(pet.name + ' is now part of your account.');
-      renderVetti('You can add more details anytime from My Pets, or ask me to help '
-        + 'you complete them later.');
-      renderBlock(petCardMarkup(pet), 'vetti-card-block');
+    renderPetSelector();
+    renderGreeting();
+    renderCarousel(successSuggestions(pet));
+    scrollToBottom(true);
 
-      renderPetSelector();
-      renderGreeting();
-      renderCarousel(successSuggestions(pet));
-      scrollToBottom(true);
-
-      Tools.refreshPetViews();
-    }, 460);
+    Tools.refreshPetViews();
   }
 
   // ── Actions that hand off to the portal's own UI ───────────────────────
@@ -1975,6 +2009,27 @@
   }
 
   // ── Mount ─────────────────────────────────────────────────────────────
+  // ── PETS-SETTLED WAIT ─────────────────────────────────────────────
+  // Vetti's first render must read server-truth pets: the welcome line,
+  // the active-pet greeting and the zero-pet form are all decisions that
+  // depend on them. VHSReads signals hydration completion — success OR
+  // honest empty — and this waits for that signal with a hard cap so a
+  // missing/slow API can never leave the workspace unrendered. Without
+  // the seam (static hosting), render immediately.
+  var PETS_SETTLE_CAP_MS = 4000;
+  function whenPetsSettled(cb) {
+    var reads = global.VHSReads;
+    if (!reads || typeof reads.whenPetsSettled !== 'function') { cb(); return; }
+    var done = false;
+    var timer = window.setTimeout(function () { done = true; cb(); }, PETS_SETTLE_CAP_MS);
+    reads.whenPetsSettled(function () {
+      if (done) return;
+      done = true;
+      window.clearTimeout(timer);
+      cb();
+    });
+  }
+
   function mount() {
     cacheDom();
     if (!dom.canvas) return;
@@ -1986,7 +2041,19 @@
      State.mascotFor('thinking'), State.mascotFor('thinking_alt')]
       .forEach(function (src) { var pre = new Image(); pre.src = src; });
 
-    showOpening();
+    // First paint waits for the owner's REAL pets (see whenPetsSettled):
+    // a hydration landing after the welcome/zero-pet decision would leave
+    // a wrong answer on screen.
+    whenPetsSettled(function () {
+      if (!ui.opened) showOpening();
+    });
+    // If server-truth pets land AFTER the cap already painted, repair the
+    // greeting/selector and drop an add-pet form that is no longer needed.
+    document.addEventListener('vhs:pets-loaded', function () {
+      if (!ui.booted || !ui.opened) return;
+      refresh();
+      if (ui.petFormOpen && pets().length) closePetForm();
+    });
 
     bindComposer();
     bindClicks();

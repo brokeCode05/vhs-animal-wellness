@@ -118,10 +118,10 @@
         + 'and simple care guidance.';
   }
 
-  // The honest disclaimer that used to sit under the intro buttons. Kept
-  // short, because a first-run screen should not lead with a warning.
+  // The one-line note under the intro buttons. Kept short, because a
+  // first-run screen should not lead with a wall of text.
   function welcomeNote() {
-    return 'This is a working demo on this device. Nothing is sent to the clinic yet.';
+    return 'I work with your account — anything we book together goes straight to the clinic.';
   }
 
   // ── THE GUIDED WALKTHROUGH ────────────────────────────────────────────
@@ -396,7 +396,7 @@
       + '    <button type="button" class="btn-link" data-vetti-action="cancel-pet-form">Not now</button>'
       + '  </div>'
       + '  <p class="vetti-petform-footnote">'
-      + '    Saved on this device only in this demo.' + fallbackLink
+      + '    Saved securely to your account.' + fallbackLink
       + '  </p>'
       + '</form>';
   }
@@ -650,9 +650,9 @@
   // ── SAVE ──────────────────────────────────────────────────────────────
   // Writes through the adapter, exactly like the full Add Pet form.
   // Creates ONE pet. Nothing else is fabricated.
-  // TODO(BACKEND): the adapter's createPet becomes the authenticated pets
-  // create endpoint; ownership is the authenticated owner id server-side,
-  // never a name match.
+  // The adapter's createPet writes through the AUTHENTICATED pets endpoint
+  // (POST /api/pets); ownership is the authenticated owner id server-side,
+  // never a name match. It returns a Promise of { ok, pet | error, message }.
   function submitPetForm() {
     if (!validatePetForm()) return { ok: false, error: 'validation' };
 
@@ -662,7 +662,10 @@
 
     var species = trimmed('vettiPetSpecies');
     // The owner id is resolved by the adapter, never passed in here.
-    var result = Data.createPet({
+    // Returns a Promise: the real endpoint persists the pet, the adapter
+    // re-hydrates from server truth, and the caller renders ONLY the
+    // persisted record (or an honest failure) — never a local save.
+    return Data.createPet({
       name: trimmed('vettiPetName'),
       species: species,
       speciesCustom: resolvedSpeciesCustom(),
@@ -672,11 +675,6 @@
       age: parseInt(trimmed('vettiPetAge'), 10) || 0,
       weightKg: parseFloat(trimmed('vettiPetWeight')) || 0
     });
-
-    if (!result || !result.ok) {
-      return { ok: false, error: (result && result.error) || 'invalid' };
-    }
-    return { ok: true, pet: result.pet };
   }
 
   function ownerId() {
