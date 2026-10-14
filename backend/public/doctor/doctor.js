@@ -1465,7 +1465,11 @@ const MEDICINE_LIMITS = { medicine: 100, frequency: 50, instructions: 500 };
   async function _loadPatientHistory(patient, recordEl) {
     if (!window.VHSReads || !patient.appointmentId) return;
     const res = await window.VHSReads.appointmentHistory(patient.appointmentId);
-    if (recordEl.dataset.historyFor !== patient.id) return; // selection moved on
+    // dataset stores a STRING; real appointment ids are NUMBERS. A strict
+    // !== between '42' and 42 is always true, which made this guard silently
+    // drop every server-loaded history response — the EMR kept showing the
+    // empty-state helper forever. Compare normalized strings.
+    if (String(recordEl.dataset.historyFor) !== String(patient.id)) return; // selection moved on
     if (!res.ok) return;
     const rows = (res.data && res.data.history) || [];
     const entries = rows
@@ -1812,6 +1816,15 @@ const MEDICINE_LIMITS = { medicine: 100, frequency: 50, instructions: 500 };
       return;
     }
     captureDraft();
+    // REVIEW ACKNOWLEDGEMENT — completion is blocked until the Doctor has
+    // explicitly confirmed the review, exactly like Save Draft. Prescriptions
+    // and lab requests stay optional; only the acknowledgement gates the
+    // finalization (the backend transition remains authoritative either way).
+    if (!document.getElementById('reviewed').checked) {
+      status.textContent = 'Check "I have reviewed this consultation draft." before completing the consultation.';
+      document.getElementById('reviewed').focus();
+      return;
+    }
     const incomplete = window.doctorFirstPrescriptionIssue && window.doctorFirstPrescriptionIssue();
     if (incomplete) {
       history.replaceState(null, '', '#orders');
@@ -1834,6 +1847,11 @@ const MEDICINE_LIMITS = { medicine: 100, frequency: 50, instructions: 500 };
     // rather than trusted: the record must still be finalizable at the moment
     // it actually completes.
     if (statusFor(selectedPatient) !== 'in_consultation') { status.textContent = 'Start the consultation before completing it.'; return; }
+    if (!document.getElementById('reviewed').checked) {
+      status.textContent = 'Check "I have reviewed this consultation draft." before completing the consultation.';
+      document.getElementById('reviewed').focus();
+      return;
+    }
     if (window.doctorValidateClinical && !window.doctorValidateClinical()) {
       const rx = window.doctorFirstPrescriptionIssue && window.doctorFirstPrescriptionIssue();
       status.textContent = rx ? rx.message : 'Fix the highlighted clinical fields before completing the consultation.';
@@ -1905,7 +1923,9 @@ const MEDICINE_LIMITS = { medicine: 100, frequency: 50, instructions: 500 };
     // dataset guard keeps a stale response from overwriting a newer
     // selection, exactly like the initial load.
     const _historyRecord = document.getElementById('patient-record');
-    if (_historyRecord && _historyRecord.dataset.historyFor === selectedPatient.id) {
+    // String-normalized: dataset is a string, appointment ids are numbers
+    // (see the matching guard inside _loadPatientHistory).
+    if (_historyRecord && String(_historyRecord.dataset.historyFor) === String(selectedPatient.id)) {
       _loadPatientHistory(selectedPatient, _historyRecord);
     }
     syncScribePanel(); // completion is Doctor-controlled; the Scribe goes read-only

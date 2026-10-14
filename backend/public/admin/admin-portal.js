@@ -113,12 +113,45 @@ window.onQrScan = function(qrPayload) {
   openCheckInModal(String(qrPayload || '').trim());
 };
 
+// ── DOCTOR PICKER vs NON-DOCTOR SERVICES ────────────────────────────────
+// The catalog's scheduling metadata (SharedMockUsers.serviceByValue →
+// requiresDoctor, the same table SmartScheduling and the backend
+// NON_DOCTOR_SERVICE_VALUES agree on) decides whether the Doctor selector
+// belongs to the booking at all. Non-doctor services (dog/cat grooming,
+// boarding, confinement, home service) never carry a veterinarian: the
+// picker is hidden, disabled and CLEARED so no assigned_vet_id can ride
+// along, and a concise note explains why. With no service chosen yet the
+// picker stays visible in its neutral Auto-assign state.
+function _syncAdminDoctorField() {
+  var svcSel = document.getElementById('adminBookService');
+  var docSel = document.getElementById('adminBookDoctor');
+  var docField = document.getElementById('adminBookDoctorField');
+  var docNote = document.getElementById('adminBookDoctorNote');
+  if (!svcSel || !docSel) return;
+  var svc = (svcSel.value && window.SharedMockUsers && typeof window.SharedMockUsers.serviceByValue === 'function')
+    ? window.SharedMockUsers.serviceByValue(svcSel.value) : null;
+  var requiresDoctor = !svc || svc.requiresDoctor !== false; // unknown ⇒ doctor-required (fails closed, like the backend)
+  if (requiresDoctor) {
+    docSel.disabled = false;
+    docSel.hidden = false;
+    if (docField) docField.hidden = false;
+    if (docNote) docNote.hidden = true;
+    return;
+  }
+  docSel.value = '';           // never submit assigned_vet_id for a non-doctor service
+  docSel.disabled = true;
+  docSel.hidden = true;
+  if (docNote) docNote.hidden = false;
+  if (docField) docField.hidden = false; // wrapper stays visible: it carries the note
+}
+
 function openAdminBookModal(prefilledDate, prefilledTime) {
   var modal = document.getElementById('adminBookModal');
   if (!modal) return;
   modal.classList.add('show');
   document.body.classList.add('modal-open');
   document.getElementById('adminBookForm')?.reset();
+  _syncAdminDoctorField(); // service is empty after the reset — neutral picker state
 
   var dateInput = document.getElementById('adminBookDate');
   if (dateInput) {
@@ -519,6 +552,12 @@ document.addEventListener('change', function(e) {
     refreshAdminTimeSlots();
   }
   if (e.target.id === 'adminBookService') {
+    // Resource model first: a non-doctor service (grooming, boarding,
+    // confinement, home service) books WITHOUT a veterinarian, so the Doctor
+    // picker is hidden and cleared — offering it there misrepresents the
+    // booking and tempts an explicit pick the backend would only partially
+    // honour. Doctor-required services keep the picker as before.
+    _syncAdminDoctorField();
     // Availability is per SERVICE (doctor capacity and capacityPerSlot differ
     // per service), so changing the service must recompute the slot list. The
     // date handler alone left the dropdown showing whatever was rendered for
@@ -715,7 +754,10 @@ function submitAdminBooking(e) {
   // least-loaded on-duty rule; a backend refusal (e.g. the doctor went
   // inactive between load and submit) surfaces through the real error toast
   // below — the write is never mirrored without server confirmation.
-  if (doctorId > 0) payload.assigned_vet_id = doctorId;
+  // A NON-DOCTOR service never carries a veterinarian, whatever the (hidden)
+  // picker might hold — the resource model is enforced at submit, not just
+  // hidden in the UI.
+  if (doctorId > 0 && (!svc || svc.requiresDoctor !== false)) payload.assigned_vet_id = doctorId;
 
   window.VHSWrites.createAppointment(payload).then(function (res) {
     if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Book Appointment'; }
