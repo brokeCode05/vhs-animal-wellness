@@ -156,20 +156,54 @@ header::after {
 
 .stat-label {
   color: #8a7a9f;
+}/* Hero depth decorative elements — warm theme */
+.hero-depth--1 {
+  background: radial-gradient(circle, rgba(139, 92, 246, 0.05) 0%, transparent 70%);}
+.hero-depth--2 {
+  background: radial-gradient(circle, rgba(183, 156, 249, 0.04) 0%, transparent 70%);}
+
+/* Trust points — compact, readable, clinic-first */
+.hero-trust-points {
+  display: flex;
+  gap: 1.5rem;
+  margin: 1rem 0;
+  flex-wrap: wrap;
+}
+.hero-trust-point {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: #4a3a5e;
+  font-size: 0.875rem;
+  line-height: 1.4;
+}
+.hero-trust-icon {
+  flex-shrink: 0;
+  color: #6d4ab1;
+  width: 16px;
+  height: 16px;
 }
 
-/* Hero depth decorative elements — warm theme */
-.hero-depth--1 {
-  background: radial-gradient(circle, rgba(139, 92, 246, 0.05) 0%, transparent 70%);
+/* Vetti supporting link */
+.hero-vetti-link {
+  margin-top: 1rem;
+  font-size: 0.875rem;
+  color: #6d4ab1;
+  text-align: center;
 }
-.hero-depth--2 {
-  background: radial-gradient(circle, rgba(183, 156, 249, 0.04) 0%, transparent 70%);
+.hero-vetti-link a {
+  color: #6d4ab1;
+  text-decoration: none;
+  font-style: italic;
+}
+.hero-vetti-link a:hover {
+  text-decoration: underline;
 }
 
 /* Image glow warm theme */
 .hero-visual__glow {
-  background: radial-gradient(ellipse at 50% 40%, rgba(139, 92, 246, 0.06) 0%, transparent 70%);
-}
+  background: radial-gradient(ellipse at 50% 40%, rgba(139, 92, 246, 0.06) 0%, transparent 70%);}
+
 
 /* Highlight pill backgrounds — warm theme */
 .hero-highlight {
