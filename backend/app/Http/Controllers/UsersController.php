@@ -20,6 +20,8 @@ class UsersController extends Controller
 
     public function index(Request $r)
     {
+        abort_unless($r->user()->role === 'Admin', 403, 'Access denied.');
+
         $q = User::query()->where('role', 'User')->orderBy('created_at');
         if ($r->filled('status')) {
             $q->where('status', $r->string('status'));

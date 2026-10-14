@@ -188,18 +188,27 @@
   var VITAL_EXTRACTORS = [
     {
       key: 'weight',
-      // "weight is 6.8 kg", "Weight: 6.8kg", "weighs 6.8 kg"
-      re: /(?:body\s*weight|weight|weighs|weighed)\s*(?:of\s+|is\s+|:\s*|at\s+|now\s+)?(\d{1,4}(?:[.,]\d{1,2})?)\s*(?:kgs?|kilograms?)\b/gi
+      // "weight is 6.8 kg", "Weight: 6.8kg", "weighs 6.8 kg", the spoken
+      // abbreviation "Wt 12 kg", and dictation fillers ("around 8.2 kg").
+      re: /(?:body\s*weight|weight|\bwt\b|weighs|weighed)\s*(?:(?:of|is|at|now)\s+|(?:is\s+)?(?:around|about|approximately|roughly|approx(?:imately)?\.?)\s+|:\s*)?(\d{1,4}(?:[.,]\d{1,2})?)\s*(?:kgs?|kilograms?)\b/gi
     },
     {
       key: 'temperature',
-      // "temperature is 39.4°C", "Temp 39.4 degrees", "fever of 39.1"
-      re: /(?:temperature|temps?|pyrexia|fever)\s*(?:of\s+|is\s+|:\s*|at\s+)?(\d{1,2}(?:[.,]\d)?)\s*(?:°\s*[cf]\b|degrees?(?:\s+celsius|\s+fahrenheit)?\b|celsius\b|centigrade\b|fahrenheit\b)?/gi
+      // "temperature is 39.4°C", "Temp 39.4 degrees", "fever of 39.1",
+      // dictation fillers ("temp is around 39").
+      re: /(?:temperature|temps?|pyrexia|fever)\s*(?:(?:of|is|at)\s+|(?:is\s+)?(?:around|about|approximately|roughly|approx(?:imately)?\.?)\s+|:\s*)?(\d{1,2}(?:[.,]\d)?)\s*(?:°\s*[cf]\b|degrees?(?:\s+celsius|\s+fahrenheit)?\b|celsius\b|centigrade\b|fahrenheit\b)?/gi
+    },
+    {
+      key: 'temperature',
+      // Spoken shorthand WITH a unit: "T 38.2 C", "T: 39.4 °C". A bare "T"
+      // with no unit is ambiguous in dictation and is deliberately not read.
+      re: /(?:^|[\s,;(])t\s*(?:(?:of|is)\s+|:\s*)?(\d{1,2}(?:[.,]\d)?)\s*(?:°\s*[cf]\b|c\b|degrees?\b)/gi
     },
     {
       key: 'heartRate',
-      // "heart rate is 125 bpm", "pulse 140", "HR: 110"
-      re: /(?:heart\s*rate|heartrate|\bpulse\b|\bhr\b)\s*(?:of\s+|is\s+|:\s*|at\s+)?(\d{1,3})\s*(?:bpm\b|beats per minute\b)?/gi
+      // "heart rate is 125 bpm", "pulse 140", "HR: 110", dictation fillers
+      // ("heart rate around 110").
+      re: /(?:heart\s*rate|heartrate|\bpulse\b|\bhr\b)\s*(?:(?:of|is|at)\s+|(?:is\s+)?(?:around|about|approximately|roughly|approx(?:imately)?\.?)\s+|:\s*)?(\d{1,3})\s*(?:bpm\b|beats per minute\b)?/gi
     }
   ];
   // Unit-only fallbacks: a degree-Celsius value or a bpm reading cannot mean

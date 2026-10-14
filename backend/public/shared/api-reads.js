@@ -161,6 +161,14 @@ window.VHSReads = (function () {
       if (!store) return r;
       if (!r.ok) {
         store.replaceWithServer([]); // honest empty state, no mock fallback
+        // Settled with an EMPTY store, so the same event fires here as on
+        // success: dashboard stat cards recount to the honest zero instead of
+        // holding their pre-hydration "—" forever.
+        if (document.dispatchEvent) {
+          try {
+            document.dispatchEvent(new CustomEvent('vhs:appointments-loaded', { detail: { count: 0, failed: true } }));
+          } catch (e) { /* CustomEvent unsupported */ }
+        }
         return r;
       }
       store.replaceWithServer(r.data.appointments, opts || {});
@@ -182,6 +190,13 @@ window.VHSReads = (function () {
     _clientsFlight = users().then(function (uRes) {
       if (!uRes.ok) {
         if (store) store.replaceWithServer([], []);
+        // Same settlement rule as the appointments hydration above: an honest
+        // empty store still announces itself so the dashboard cards show 0.
+        if (document.dispatchEvent) {
+          try {
+            document.dispatchEvent(new CustomEvent('vhs:clients-loaded', { detail: { users: 0, pets: 0, failed: true } }));
+          } catch (e) { /* CustomEvent unsupported */ }
+        }
         return uRes;
       }
       var userList = uRes.data.users;

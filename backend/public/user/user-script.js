@@ -160,16 +160,31 @@ function _getSessionUser() {
   if (window.VHSAuth) {
     var sessionUser = window.VHSAuth.currentUser();
     if (sessionUser && (sessionUser.id || sessionUser.userId)) {
+      // The `vhs_user` UI cache carries only {id, name, email, role} — no
+      // split name parts, phone or address. Derive the name parts from the
+      // full display name so My Profile and the greeting never render blank
+      // identity fields for a hydrated session.
+      var _fullName = sessionUser.name || sessionUser.fullName || '';
+      var _fn = sessionUser.firstName || sessionUser.first_name || '';
+      var _ln = sessionUser.lastName || sessionUser.last_name || '';
+      if (!_fn && !_ln && _fullName) {
+        var _parts = String(_fullName).trim().split(/\s+/).filter(Boolean);
+        if (_parts.length) {
+          _ln = _parts.length > 1 ? _parts.pop() : '';
+          _fn = _parts.join(' ');
+        }
+      }
       return {
         id: sessionUser.id || sessionUser.userId,
         userId: sessionUser.userId || sessionUser.id,
-        name: sessionUser.name || sessionUser.fullName || '',
-        firstName: sessionUser.firstName || sessionUser.first_name || '',
-        lastName: sessionUser.lastName || sessionUser.last_name || '',
+        name: _fullName || (_fn + ' ' + _ln).trim(),
+        firstName: _fn,
+        lastName: _ln,
         middleName: sessionUser.middleName || sessionUser.middle_name || '',
         phone: sessionUser.phone || '',
         email: sessionUser.email || '',
         address: sessionUser.address || '',
+        birthdate: sessionUser.birthdate || sessionUser.bday || '',
         role: sessionUser.role || ''
       };
     }
@@ -963,9 +978,11 @@ function _renderBookSummary() {
   var ownerName = ((user.firstName || '') + ' ' + (user.lastName || '')).trim();
   var ownerPhone = user.phone || user.contact || '';
   var ownerEmail = user.email || '';
-  if (!ownerName) ownerName = 'John Bryan Capellan';
-  if (!ownerPhone) ownerPhone = '0917-123-4567';
-  if (!ownerEmail) ownerEmail = 'user@example.com';
+  // Honest placeholders: never fabricate an owner identity in a summary
+  // that is about to become a real booking.
+  if (!ownerName) ownerName = '\u2014';
+  if (!ownerPhone) ownerPhone = '\u2014';
+  if (!ownerEmail) ownerEmail = '\u2014';
   var summary = document.getElementById('bookSummary');
   if (summary) {
     summary.innerHTML = '<div class="book-summary-title">Booking Summary</div>'
@@ -3854,12 +3871,26 @@ function autoLabelTables() {
 
 // ─── USER DATA ────────────────────────────────────────────────────────────────
 
+var _profileSessionWaited = false;
 function loadUserData() {
 
   // Fall back to the resolved identity so the portal never greets someone by
   // a name that does not match the account it is rendering.
 
   const user = _getSessionUser();
+
+  // ── SESSION WAIT (integrated runtime) ────────────────────────────────────
+  // On a cold tab the /api/auth/me guard may still be in flight when
+  // DOMContentLoaded fires, so an empty session here does not yet mean
+  // "no session". Wait for the guard's me() ONCE, then re-run: otherwise
+  // the static markup ("Maria Santos" / "Welcome back, Maria!") and the
+  // blank My Profile fields are what a signed-in owner actually sees.
+  if (window.VHSAuth && !(user && (user.firstName || user.lastName)) && !_profileSessionWaited) {
+    _profileSessionWaited = true;
+    var rerun = function () { loadUserData(); };
+    Promise.resolve(window.VHSAuth.me()).then(rerun, rerun);
+    return;
+  }
 
   if (!user || (!user.firstName && !user.lastName)) return;
 

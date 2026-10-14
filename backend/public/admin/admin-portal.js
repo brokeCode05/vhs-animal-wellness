@@ -884,13 +884,26 @@ document.addEventListener('click', function (e) {
     var store = window.SharedMockAppointments;
     var users = window.SharedMockUsers;
     var contract = window.AppointmentContract;
-    if (store && contract) {
+    // READ INTEGRATION — the cards count the SAME server-hydrated stores the
+    // Appointments page renders from (VHSReads replaces the store contents via
+    // replaceWithServer). Before that first hydration the store still holds
+    // the demo seed, which would advertise counts matching nothing on the
+    // Appointments page — so in an API-backed session the card keeps its
+    // honest "—" until 'vhs:appointments-loaded' / 'vhs:clients-loaded'
+    // carries the real records. serverMode() is only true after a successful
+    // replaceWithServer, and a FAILED fetch replaces the store with [] while
+    // still dispatching the event, so a real zero is shown as 0, not hidden.
+    var appointmentsHydrated = !window.VHSReads
+      || (store && typeof store.serverMode === 'function' && store.serverMode());
+    if (store && contract && appointmentsHydrated) {
       var confirmed = store.getAll().filter(function (a) {
         return contract.normalizeStatus(a.status) === 'confirmed';
       }).length;
       setStat('Confirmed Appointments', String(confirmed));
     }
-    if (users) {
+    var clientsHydrated = !window.VHSReads
+      || (users && typeof users.serverMode === 'function' && users.serverMode());
+    if (users && clientsHydrated) {
       setStat('Total Clients', String(users.users().length));
       setStat('Total Pets', String(users.pets().length));
     }

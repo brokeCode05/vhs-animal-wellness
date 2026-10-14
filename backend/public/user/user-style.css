@@ -4185,10 +4185,42 @@ body {
   /* Document viewer modal: un-hide only the chain leading to the open modal
      so the record prints without the portal around it. (:has() is supported
      in all current Chrome/Edge/Safari; older browsers simply keep the
-     previous behavior for this surface.) */
-  body:has(.modal-overlay.show) > *:not(.print-area) { display: block !important; }
+     previous behavior for this surface.) The top navbar is excluded — it is
+     a body child like .main-wrapper and would otherwise print above the
+     record. */
+  body:has(.modal-overlay.show):not(:has(.print-area)) > *:not(.print-area):not(.top-navbar) { display: block !important; }
+  body:has(.modal-overlay.show) .top-navbar { display: none !important; }
+
+  /* Print/export builds a dedicated .print-area (vaccine certificate,
+     medical-history export). While one exists, NO open modal may reach the
+     paper — the history modal sits open behind the Print button and would
+     otherwise print alongside the certificate. Specificity outranks both the
+     generic un-hide rule above and `.modal-overlay.show`'s own display. */
+  body:has(.print-area) > .modal-overlay.show { display: none !important; }
   body:has(.modal-overlay.show) .page-section:not(:has(.modal-overlay.show)) { display: none !important; }
   body:has(.modal-overlay.show) .page-section:has(.modal-overlay.show) > *:not(.modal-overlay.show) { display: none !important; }
+
+  /* The document viewer is BODY-level (it must render even when its home
+     section is inactive). Isolate it completely: when it is the open
+     surface, nothing else on the page — including a medical-history modal
+     open underneath it — reaches the paper. Its id-specificity outranks the
+     generic un-hide rule above. */
+  body:has(#userDocViewerModal.show) > *:not(#userDocViewerModal):not(.print-area) { display: none !important; }
+  #userDocViewerModal.show {
+    position: static !important;
+    display: block !important;
+    background: none !important;
+    padding: 0 !important;
+  }
+  #userDocViewerModal.show .modal-content {
+    box-shadow: none !important;
+    max-width: 100% !important;
+    max-height: none !important;
+    border-radius: 0 !important;
+    padding: 0 !important;
+    overflow: visible !important;
+  }
+  #userDocViewerModal.show .modal-header { display: none !important; }
 
   .modal-overlay.show {
     position: static !important;

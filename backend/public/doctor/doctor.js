@@ -1897,6 +1897,17 @@ const MEDICINE_LIMITS = { medicine: 100, frequency: 50, instructions: 500 };
     renderQueue();
     renderHeader(currentView);
     renderRecordActions(selectedPatient);
+    // EMR HISTORY REFRESH — the backend's history mode includes THIS
+    // appointment's consultation once the appointment is completed, so the
+    // freshly finalized visit is immediately available. Re-pulling it here
+    // (instead of waiting for a reload or a patient switch) makes the EMR
+    // history panel show the just-completed consultation right away. The
+    // dataset guard keeps a stale response from overwriting a newer
+    // selection, exactly like the initial load.
+    const _historyRecord = document.getElementById('patient-record');
+    if (_historyRecord && _historyRecord.dataset.historyFor === selectedPatient.id) {
+      _loadPatientHistory(selectedPatient, _historyRecord);
+    }
     syncScribePanel(); // completion is Doctor-controlled; the Scribe goes read-only
     const timerLine = document.getElementById('context-timer');
     timerLine.hidden = true;

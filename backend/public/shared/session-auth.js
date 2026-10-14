@@ -127,7 +127,10 @@
   function currentUser() {
     if (user) return user;
     try {
-      var raw = sessionStorage.getItem('vhs_user') || sessionStorage.getItem('user');
+      // Prefer the FULL identity cache (`user`): `vhs_user` is a reduced
+      // {id,name,email,role} projection and would blank out name parts,
+      // phone and address for profile rendering.
+      var raw = sessionStorage.getItem('user') || sessionStorage.getItem('vhs_user');
       var parsed = raw ? JSON.parse(raw) : null;
       return parsed && (parsed.id || parsed.userId) ? parsed : null;
     } catch (e) { return null; }

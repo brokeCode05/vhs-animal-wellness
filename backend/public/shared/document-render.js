@@ -50,9 +50,15 @@
       '</div>';
   }
 
-  function sig() {
+  // Signature block: the attending veterinarian comes from the DOCUMENT record
+  // (server truth — ConsultationsController::finalizeDocuments stamps
+  // veterinarian_name from the consultation's actual vet). Never hardcoded.
+  function sig(doc) {
+    var vet = doc && doc.veterinarian && doc.veterinarian.name
+      ? doc.veterinarian.name + (doc.veterinarian.role ? ', ' + doc.veterinarian.role : ', Veterinarian')
+      : 'Attending Veterinarian';
     return '<div style="display:flex;justify-content:space-between;gap:2rem;margin-top:2rem;font-size:0.8rem;color:#374151;">' +
-      '<div style="flex:1;border-top:1px solid #d1d5db;padding-top:0.3rem;">Dr. Santos, Veterinarian</div>' +
+      '<div style="flex:1;border-top:1px solid #d1d5db;padding-top:0.3rem;">' + esc(vet) + '</div>' +
       '<div style="flex:1;border-top:1px solid #d1d5db;"></div>' +
       '</div>' +
       '<p style="font-size:0.7rem;color:#9ca3af;margin-top:1.5rem;">Confidential — for the pet owner' + "'" + 's records.</p>';
@@ -116,28 +122,28 @@
         ]) +
         section('Assessment', '<p style="margin:0;font-size:0.88rem;color:#111827;white-space:pre-wrap;overflow-wrap:anywhere;word-break:break-word;max-width:100%;box-sizing:border-box;overflow:visible;">' + (esc(d.assessment) || '—') + '</p>') +
         section('Plan / Home Care', '<p style="margin:0;font-size:0.88rem;color:#111827;white-space:pre-wrap;">' + (esc(d.plan) || '—') + '</p>') +
-        sig();
+        sig(doc);
     } else if (doc.type === 'prescription') {
       body = header('Prescription', 'Reference ' + (doc.referenceNo || '')) +
         common +
         section('Medicines', medicinesTable((doc.data && doc.data.medicines) || [])) +
-        sig();
+        sig(doc);
     } else if (doc.type === 'lab_request') {
       body = header('Lab Request', 'Reference ' + (doc.referenceNo)) +
         common +
         section('Requested Tests', testsList((doc.data && doc.data.tests) || [])) +
-        sig();
+        sig(doc);
     } else if (doc.type === 'lab_result') {
       body = header('Lab Result', 'Reference ' + (doc.referenceNo || '')) +
         common +
         section('Result Summary', '<p style="margin:0;font-size:0.88rem;color:#111827;white-space:pre-wrap;overflow-wrap:anywhere;word-break:break-word;max-width:100%;box-sizing:border-box;overflow:visible;">Result details are delivered by the laboratory once processed. ' +
           (doc.data && doc.data.note ? esc(doc.data.note) : '') + '</p>') +
-        sig();
+        sig(doc);
     } else if (doc.type === 'receipt') {
       body = header('Receipt', 'Reference ' + (doc.referenceNo || '')) +
         common +
         section('Amount', '<p style="margin:0;font-size:0.95rem;font-weight:600;">' + esc((doc.data && doc.data.amount) || '—') + '</p>') +
-        sig();
+        sig(doc);
     }
     return head + body;
   }

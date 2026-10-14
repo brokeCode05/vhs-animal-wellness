@@ -58,7 +58,7 @@
             <span id="sidebarAvatarEmoji" style="display:flex;align-items:center;justify-content:center;"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M6 21v-2a6 6 0 0 1 12 0v2"/></svg></span>
           </div>
           <div class="sidebar-user-info">
-            <span class="sidebar-user-name">Maria Santos</span>
+            <span class="sidebar-user-name">&mdash;</span>
             <span class="sidebar-user-role">Pet Owner</span>
           </div>
         </div>
@@ -375,7 +375,7 @@
         <!-- ===== DASHBOARD OVERVIEW ===== -->
         <section id="section-dashboard" class="page-section">
           <div class="page-header">
-            <h1>Welcome back, Maria!</h1>
+            <h1>Welcome back!</h1>
             <p class="page-subtitle">
               Here's a quick overview of your account.
             </p>
@@ -824,20 +824,6 @@
                  (SharedDocuments.forUser). No cross-user data is rendered.
                  TODO(BACKEND): GET /documents?user_id=me. -->
           </div>
-          <!-- Document viewer (print-style) -->
-          <div class="modal-overlay" id="userDocViewerModal">
-            <div class="modal-content" style="max-width:720px;max-height:88vh;overflow-y:auto;">
-              <div class="modal-header">
-                <h2 class="modal-title">Document Preview</h2>
-                <button class="modal-close" onclick="closeUserDocViewer()">&times;</button>
-              </div>
-              <div id="userDocViewerBody" style="border:1px solid #e5e7eb;border-radius:0.75rem;padding:1.5rem;background:#fff;"></div>
-              <div style="display:flex;gap:0.75rem;margin-top:1rem;">
-                <button type="button" class="btn-secondary" id="userDocPrint">Print</button>
-                <button type="button" class="btn-primary" onclick="closeUserDocViewer()">Done</button>
-              </div>
-            </div>
-          </div>
         </section>
       </main>
     </div>
@@ -1256,6 +1242,25 @@
         <p style="font-size:0.82rem;color:var(--text-dim);margin-bottom:1rem;line-height:1.6;">You may contact us at <strong>0917 108 4174</strong> or visit the clinic front desk for urgent rescheduling or cancellation requests.</p>
         <div class="form-actions">
           <button class="btn-secondary" onclick="closeModal('cutoffModal')">Understood</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Document viewer (print-style). Body-level on purpose: when it lived
+         inside #section-documents the inactive page-section (display:none)
+         swallowed it — Medical History → View Record showed nothing and the
+         print output was blank. z-index 2100 keeps it above medHistoryModal
+         (both are 2000) so a record opened FROM the history modal is visible. -->
+    <div class="modal-overlay" id="userDocViewerModal" style="z-index:2100;">
+      <div class="modal-content" style="max-width:720px;max-height:88vh;overflow-y:auto;">
+        <div class="modal-header">
+          <h2 class="modal-title">Document Preview</h2>
+          <button class="modal-close" onclick="closeUserDocViewer()">&times;</button>
+        </div>
+        <div id="userDocViewerBody" style="border:1px solid #e5e7eb;border-radius:0.75rem;padding:1.5rem;background:#fff;"></div>
+        <div style="display:flex;gap:0.75rem;margin-top:1rem;">
+          <button type="button" class="btn-secondary" id="userDocPrint">Print</button>
+          <button type="button" class="btn-primary" onclick="closeUserDocViewer()">Done</button>
         </div>
       </div>
     </div>

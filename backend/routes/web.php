@@ -82,6 +82,9 @@ Route::prefix('api')->group(function () {
         Route::get('announcements', [AnnouncementsController::class, 'index']);
         Route::get('users/me/pets', [PetsController::class, 'me']);
         Route::get('users/{user}/pets', [PetsController::class, 'forUser']);
+
+        // Client/self-facing user routes. Admin must use GET /api/users;
+        // Doctor-scoped partial listings are not exposed here.
         Route::get('users/{user}', [UsersController::class, 'show']);
         Route::patch('users/{user}', [UsersController::class, 'update']);
 
