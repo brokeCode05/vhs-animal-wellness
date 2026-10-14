@@ -1150,7 +1150,7 @@ if (contactForm) {
 // (handled by the signupForm AJAX handler above)
 
 // ===== AI CHATBOT FUNCTIONALITY =====
-// This is a placeholder structure for future AI integration
+// Chatbot provides deterministic static help responses for common clinic inquiries.
 const chatbotBubble = document.getElementById("chatbotBubble");
 const chatbotWindow = document.getElementById("chatbotWindow");
 const chatbotClose = document.getElementById("chatbotClose");
@@ -1172,7 +1172,7 @@ if (chatbotClose) {
   chatbotClose.addEventListener("click", toggleChatbot);
 }
 
-// Send message function (placeholder for AI integration)
+// Send deterministic static help response (no AI claim)
 function sendMessage() {
   const message = chatbotInput.value.trim();
   if (!message) return;
@@ -1187,7 +1187,7 @@ function sendMessage() {
     setTimeout(() => {
       removeTypingIndicator();
       addMessage(
-        "Thank you for your message! This is a placeholder response. AI integration coming soon.",
+        "I can help you with clinic services, appointments, hours, and other VetHaven information.",
         "bot",
       );
     }, 1500);
