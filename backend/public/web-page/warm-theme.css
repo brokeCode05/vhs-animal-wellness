@@ -200,10 +200,45 @@ header::after {
   text-decoration: underline;
 }
 
-/* Image glow warm theme */
-.hero-visual__glow {
-  background: radial-gradient(ellipse at 50% 40%, rgba(139, 92, 246, 0.06) 0%, transparent 70%);}
 
+/* Hero background — subtle veterinary pet motif. */
+.hero::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><circle cx='16' cy='16' r='8' fill='none' stroke='%238b5cf6' stroke-width='1.2' opacity='0.5'/><circle cx='48' cy='14' r='7' fill='none' stroke='%23a78bfa' stroke-width='1' opacity='0.35'/><circle cx='32' cy='50' r='6' fill='none' stroke='%238b5cf6' stroke-width='1' opacity='0.45'/><path d='M12 28q2 6 8 8t10 0 8-4' fill='none' stroke='%23a78bfa' stroke-width='1.2' opacity='0.4'/><circle cx='56' cy='44' r='5' fill='none' stroke='%238b5cf6' stroke-width='0.8' opacity='0.3'/></svg>");
+  background-repeat: repeat;
+  background-size: 260px 260px;
+  opacity: 0.5;
+}
+
+/* Single restrained under-layer — no second backing card. */
+.hero-visual::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 1.25rem;
+  border: 1px solid rgba(139, 92, 246, 0.07);
+  pointer-events: none;
+}
+
+/* Defense against any leftover glow layer behind the public hero. */
+.hero-visual__glow {
+  display: none;
+}
+
+/* Ready-to-Care hero-signup icon — a small approved Vetti state, no generic smiley. */
+.vetti-icon-ready {
+  display: block;
+  width: 64px;
+  height: 64px;
+  border-radius: 16px;
+  background: rgba(139, 92, 246, 0.10);
+  border: 1px solid rgba(139, 92, 246, 0.18);
+  object-fit: cover;
+}
 
 /* Highlight pill backgrounds — warm theme */
 .hero-highlight {
@@ -895,4 +930,12 @@ footer a:hover {
   .navbar {
     background: #fffdfe;
   }
+}
+
+
+/* Homepage inline Vetti mascot — idle → greeting swap, no bounce. */
+.vetti-inline__head:hover .vetti-inline__mascot,
+.vetti-inline__mascot:focus-visible {
+  animation: none;
+  transform: none;
 }

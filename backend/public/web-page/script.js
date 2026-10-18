@@ -356,6 +356,125 @@ document.addEventListener("keydown", (e) => {
   else if (modal?.classList.contains("active")) closeModal();
 });
 
+/* ============================================================
+   HOMEPAGE ASK VETTI HELPER — small floating button that appears only
+   when the inline Vetti section is off-screen, so the user can jump back
+   to Vetti without a floating chat remaining on the page.
+   ============================================================ */
+
+const askVettiHelper = () => {
+  const host = document.createElement("div");
+  host.id = "askVettiHelper";
+  host.className = "ask-vetti-helper";
+  host.innerHTML = `
+    <button type="button" class="ask-vetti-helper__btn" aria-label="Ask Vetti">
+      <img src="../shared/assets/vetti/vetti-idle-a.png" alt="" aria-hidden="true" class="ask-vetti-helper__icon">
+      <span class="ask-vetti-helper__label">Ask Vetti</span>
+    </button>
+  `;
+  const btn = host.querySelector(".ask-vetti-helper__btn");
+  const icon = host.querySelector(".ask-vetti-helper__icon");
+
+  // State: currently hidden, shown only when Vetti section is off-screen.
+  let hidden = true;
+  const HELPER_SHOW_DELAY = 600;
+  const HELPER_HIDE_DELAY = 800;
+
+  function show() {
+    if (hidden) {
+      hidden = false;
+      host.classList.add("is-visible");
+      host.classList.remove("is-hidden");
+      // After the visual appears, if the Vetti section remains off-screen,
+      // pin the helper in place so it never disappears mid-session.
+      if (!isVettiVisible()) {
+        hidden = false;
+      }
+    }
+  }
+
+  function hide() {
+    if (!hidden) {
+      hidden = true;
+      host.classList.remove("is-visible");
+      host.classList.add("is-hidden");
+    }
+  }
+
+  function isVettiVisible() {
+    const section = document.getElementById("vetti");
+    if (!section) return true;
+    const rect = section.getBoundingClientRect();
+    // The section is "visible" when any part of it is in the viewport.
+    return rect.top < window.innerHeight && rect.bottom > 0;
+  }
+
+  // IntersectionObserver: watch the Vetti section, show the helper only when
+  // it scrolls out of view.
+  if (typeof IntersectionObserver === "undefined") {
+    // Fallback: scroll listener.
+    let scrollTimer = null;
+    window.addEventListener("scroll", () => {
+      if (scrollTimer) return;
+      scrollTimer = setTimeout(() => {
+        scrollTimer = null;
+        if (isVettiVisible()) hide();
+        else show();
+      }, 80);
+    }, { passive: true });
+    return;
+  }
+
+  const observer = new IntersectionObserver((entries) => {
+    for (const entry of entries) {
+      if (entry.target.id !== "vetti") continue;
+      if (entry.isIntersecting) {
+        hide();
+      } else {
+        show();
+      }
+    }
+  }, { rootMargin: "0px", threshold: 0.1 });
+  const vettiSection = document.getElementById("vetti");
+  if (vettiSection) observer.observe(vettiSection);
+
+  btn.addEventListener("click", (e) => {
+    e.preventDefault();
+    const section = document.getElementById("vetti");
+    if (section) {
+      // Scroll so the section top lands below the sticky navbar, never
+      // behind it; the navbar's rendered height is measured, not guessed.
+      const nav = document.querySelector("header");
+      const navHeight = nav ? nav.getBoundingClientRect().height : 68;
+      const step = Math.max(navHeight + 8, 84);
+      const top = section.getBoundingClientRect().top + window.pageYOffset;
+      window.scrollTo({ top: top - step, behavior: "smooth" });
+    }
+    // Focus the Vetti input after the scroll settles.
+    window.setTimeout(() => {
+      const input = document.querySelector(".vetti-card--inline .vetti-input");
+      if (input) input.focus({ preventScroll: true });
+    }, 650);
+  });
+
+  return host;
+};
+
+// Initialize after DOM is ready.
+document.addEventListener("DOMContentLoaded", () => {
+  // Only on the homepage.
+  if (location.pathname.endsWith("index.html")) {
+    const helper = askVettiHelper();
+    document.body.appendChild(helper);
+  }
+});
+
+document.addEventListener("keydown", (e) => {
+  if (e.key !== "Escape") return;
+  if (serviceModal?.classList.contains("active")) closeServiceModal();
+  else if (modal?.classList.contains("active")) closeModal();
+});
+
 // Option buttons - show respective forms
 document.querySelectorAll(".switch-form").forEach((link) => {
   link.addEventListener("click", (e) => {
@@ -1149,116 +1268,6 @@ if (contactForm) {
 // ===== REGISTRATION FORM VALIDATION =====
 // (handled by the signupForm AJAX handler above)
 
-// ===== AI CHATBOT FUNCTIONALITY =====
-// Chatbot provides deterministic static help responses for common clinic inquiries.
-const chatbotBubble = document.getElementById("chatbotBubble");
-const chatbotWindow = document.getElementById("chatbotWindow");
-const chatbotClose = document.getElementById("chatbotClose");
-const chatbotInput = document.getElementById("chatbotInput");
-const chatbotSend = document.getElementById("chatbotSend");
-const chatbotMessages = document.getElementById("chatbotMessages");
-
-// Toggle chatbot window
-function toggleChatbot() {
-  chatbotBubble.classList.toggle("active");
-  chatbotWindow.classList.toggle("active");
-}
-
-if (chatbotBubble) {
-  chatbotBubble.addEventListener("click", toggleChatbot);
-}
-
-if (chatbotClose) {
-  chatbotClose.addEventListener("click", toggleChatbot);
-}
-
-// Send deterministic static help response (no AI claim)
-function sendMessage() {
-  const message = chatbotInput.value.trim();
-  if (!message) return;
-
-  // Add user message
-  addMessage(message, "user");
-  chatbotInput.value = "";
-
-  // Simulate bot response (replace with actual AI integration)
-  setTimeout(() => {
-    addTypingIndicator();
-    setTimeout(() => {
-      removeTypingIndicator();
-      addMessage(
-        "I can help you with clinic services, appointments, hours, and other VetHaven information.",
-        "bot",
-      );
-    }, 1500);
-  }, 500);
-}
-
-// Add message to chat
-function addMessage(text, sender) {
-  const messageDiv = document.createElement("div");
-  messageDiv.className = `chatbot-message ${sender}-message`;
-
-  const avatar = document.createElement("div");
-  avatar.className = "message-avatar";
-  avatar.innerHTML = `<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z"/>
-  </svg>`;
-
-  const content = document.createElement("div");
-  content.className = "message-content";
-  content.innerHTML = `<p>${text}</p>`;
-
-  messageDiv.appendChild(avatar);
-  messageDiv.appendChild(content);
-  chatbotMessages.appendChild(messageDiv);
-
-  // Scroll to bottom
-  chatbotMessages.scrollTop = chatbotMessages.scrollHeight;
-}
-
-// Add typing indicator
-function addTypingIndicator() {
-  const typingDiv = document.createElement("div");
-  typingDiv.className = "chatbot-message bot-message typing-indicator-message";
-  typingDiv.innerHTML = `
-    <div class="message-avatar">
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z"/>
-      </svg>
-    </div>
-    <div class="message-content typing-indicator">
-      <div class="typing-dot"></div>
-      <div class="typing-dot"></div>
-      <div class="typing-dot"></div>
-    </div>
-  `;
-  chatbotMessages.appendChild(typingDiv);
-  chatbotMessages.scrollTop = chatbotMessages.scrollHeight;
-}
-
-// Remove typing indicator
-function removeTypingIndicator() {
-  const typingIndicator = chatbotMessages.querySelector(
-    ".typing-indicator-message",
-  );
-  if (typingIndicator) {
-    typingIndicator.remove();
-  }
-}
-
-// Send button click
-if (chatbotSend) {
-  chatbotSend.addEventListener("click", sendMessage);
-}
-
-// Enter key to send
-if (chatbotInput) {
-  chatbotInput.addEventListener("keypress", (e) => {
-    if (e.key === "Enter") {
-      sendMessage();
-    }
-  });
-}
-
-
+// Vetti on the public site is owned by public-vetti.js: one shared
+// conversation for the homepage inline card and the floating panel, with a
+// scripted rule table instead of a model. Nothing chat-related lives here.

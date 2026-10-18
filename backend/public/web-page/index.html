@@ -7,6 +7,7 @@
     <title>VHS Animal Wellness Center</title>
     <link rel="stylesheet" href="style.css?v=1.0.2" />
     <link rel="stylesheet" href="warm-theme.css?v=1.0.1" />
+    <link rel="stylesheet" href="public-vetti.css?v=2.0.8" />
     <link rel="stylesheet" href="../shared/vhs-ui.css" />
     <link rel="stylesheet" href="../shared/signup-wizard.css?v=1.1.0" />
   </head>
@@ -46,14 +47,14 @@
           <li><a href="about.html" class="nav-link">About</a></li>
           <li><a href="contact.html" class="nav-link">Contact</a></li>
           <li class="nav-menu-auth">
-            <button class="nav-auth-btn" id="navMenuLoginBtn" type="button">Login</button>
+            <button class="nav-auth-btn nav-auth-btn-login" id="navMenuLoginBtn" type="button">Login</button>
             <button class="nav-auth-btn nav-auth-btn-primary" id="navMenuSignupBtn" type="button">Sign Up</button>
           </li>
         </ul>
 
         <div class="navbar-btns">
-          <button class="btn-outline" id="navLoginBtn">Login</button>
-          <button class="btn-primary" id="navSignupBtn">Sign Up</button>
+          <button class="btn-outline nav-btn-login" id="navLoginBtn">Login</button>
+          <button class="btn-primary nav-btn-signup" id="navSignupBtn">Sign Up</button>
         </div>
 
         <button class="hamburger" id="hamburger" aria-label="Toggle menu">
@@ -69,66 +70,90 @@
     <main>
       <!-- HERO -->
       <section id="hero" class="hero">
-        <!-- Subtle depth layers -->
-        <div class="hero-depth hero-depth--1" aria-hidden="true"></div>
-        <div class="hero-depth hero-depth--2" aria-hidden="true"></div>
-        <div class="hero-depth hero-depth--3" aria-hidden="true"></div>
         <div class="hero-container">
-          <!-- Hero Content -->
+          <!-- Left: content column -->
           <div class="hero-content">
-            <div class="hero-eyebrow">VHS Animal Wellness Center</div>
-<h1 class="hero-title">Compassionate care for every stage of your pet's life.</h1><p>Veterinary consultations, preventive care, diagnostics, and convenient appointment booking through VetHaven.</p>
+            <span class="hero-eyebrow">
+              <span class="hero-eyebrow-dot" aria-hidden="true"></span>
+              VHS Animal Wellness Center &bull; Cubao
+            </span>
 
-            <!-- Hero trust points --!>
-            <div class="hero-trust-points">
-              <div class="hero-trust-point">
-                <svg class="trust-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v11l3 3"/></svg>
-                <span>Preventive Care</span>
-              </div>
-              <div class="hero-trust-point">
-                <svg class="trust-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg>
-                <span>Diagnostics</span>
-              </div>
-              <div class="hero-trust-point">
-                <svg class="trust-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
-                <span>Home Visits</span>
-              </div>
-            </div>
+            <h1 class="hero-title">Compassionate care for every stage of your pet's life.</h1>
 
-            <!-- Vetti supporting entry point -->
-            <div class="hero-vetti-link">
-              <a href="#" class="vetti-link" onclick="document.getElementById('chatbotBubble').click(); return false;">Need help choosing a service? Ask Vetti.</a>
-            </div>
+            <p class="hero-description">
+              Veterinary consultations, preventive care, diagnostics, and
+              convenient appointment booking with trusted professionals who
+              treat your pets like family.
+            </p>
 
             <div class="hero-cta">
               <button class="btn btn-primary" id="heroSignupBtn">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
                 <span>Book an Appointment</span>
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7" /></svg>
               </button>
-              <button class="btn btn-secondary" id="heroLoginBtn">
-                <span>View Services</span>
+              <button class="btn btn-secondary" type="button" data-open-vetti>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                <span>Ask Vetti</span>
               </button>
             </div>
 
-            
+            <!-- Small credibility line -->
+            <p class="hero-credential">
+              <img src="image/vhs-assets/vhs-logo.png" alt="" aria-hidden="true" />
+              <span>Licensed veterinary doctors serving Cubao &amp; Metro Manila</span>
+            </p>
           </div>
 
-          <!-- Hero Visual -->
+          <!-- Right: the clinic hero image -->
           <div class="hero-visual">
-                        <div class="hero-image-wrapper">
+            <div class="hero-image-wrapper">
               <img
-                src="https://images.unsplash.com/photo-1574158622682-e40e69881006?w=1200&h=1200&fit=crop&q=90"
-                alt="Happy cat"
-                class="hero-pet active"
-                data-pet="0"
+                class="hero-photo"
+                src="../shared/assets/VHS-hero.png"
+                alt="A happy dog at VHS Animal Wellness Center in Cubao"
+                width="1264"
+                height="848"
+                fetchpriority="high"
               />
-              <img
-                src="https://images.unsplash.com/photo-1587300003388-59208cc962cb?w=1200&h=1200&fit=crop&q=90"
-                alt="Happy dog"
-                class="hero-pet"
-                data-pet="1"
-              /></div>
+            </div>
           </div>
+        </div>
+
+        <!-- Scroll cue: the hero owns the first screen on purpose, so its
+             bottom band hands the visitor on to Vetti. Carries
+             data-open-vetti, i.e. the same scroll + focus path as the
+             hero's Ask Vetti button — no second behaviour to maintain. -->
+        <button class="hero-scroll-cue" type="button" data-open-vetti>
+          <span>Explore Vetti</span>
+          <svg class="hero-scroll-cue__chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+        </button>
+      </section>
+
+      <!-- VETTI — the homepage's Vetti experience.
+           Public and lightweight: the full pet-aware Vetti lives in the User
+           Portal, and this page deliberately has no floating launcher so Vetti
+           has exactly one entry point here. -->
+      <section id="vetti" class="vetti-inline">
+        <div class="vetti-inline__inner">
+          <!-- ONE canonical Vetti header: mascot (state display) above the
+               centered heading + subtitle. public-vetti.js builds only the
+               chat card into the mount below — no second mascot or heading. -->
+          <div class="vetti-inline__head">
+            <div class="vetti-state-swapper vetti-state-swapper--main-idle" data-vetti-state-class="main-idle" role="img" aria-label="Vetti mascot">
+              <img src="../shared/assets/vetti/vetti-idle-a.png" alt="" aria-hidden="true" class="is-hidden">
+              <img src="../shared/assets/vetti/vetti-idle-a.png" alt="" aria-hidden="true">
+            </div>
+            <h2>Meet Vetti, Your Pet-Care Assistant</h2>
+            <p>Ask about our services, clinic hours, booking, or preparing for a visit.</p>
+            <!-- Live state label: public-vetti.js syncs its text with the
+                 mascot state machine (idle -> thinking -> success -> idle). -->
+            <span class="vetti-inline__status vetti-inline__status--idle" id="vettiStatus">
+              <span class="vetti-inline__status-dot" aria-hidden="true"></span>
+              <span class="vetti-inline__status-txt">Ready to help</span>
+            </span>
+          </div>
+          <!-- public-vetti.js builds the chat card into this mount -->
+          <div class="vetti-mount" data-vetti-mount data-vetti-variant="inline"></div>
         </div>
       </section>
 
@@ -351,26 +376,15 @@
       </section>
 
       <!-- BOOK -->
-      <section class="cta">
-        <span class="icon" aria-hidden="true">
-          <svg
-            width="64"
-            height="64"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="1.5"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-          >
-            <path
-              d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z"
+      <section class="cta">          <span class="icon" aria-hidden="true">
+            <img
+              class="vetti-icon-ready"
+              src="../shared/assets/vetti/vetti-listening.png"
+              alt=""
+              width="64"
+              height="64"
             />
-            <path d="M8 14s1.5 2 4 2 4-2 4-2" />
-            <line x1="9" y1="9" x2="9.01" y2="9" />
-            <line x1="15" y1="9" x2="15.01" y2="9" />
-          </svg>
-        </span>
+          </span>
         <h2>Ready to Care for Your Pet?</h2>
         <p>
           Schedule a consultation or request home veterinary service for your pet.
@@ -384,144 +398,7 @@
       </section>
     </main>
 
-    <!-- ========================================
-       AI CHATBOT INTEGRATION AREA
-       Replace the content inside #chatbotMessages and #chatbotInput
-       with your AI chatbot logic when ready.
-  ======================================== -->
-    <div id="chatbotContainer" class="chatbot-container">
-      <!-- Chatbot Bubble Button -->
-      <button id="chatbotBubble" class="chatbot-bubble" aria-label="Open Chat">
-        <svg
-          class="chatbot-icon"
-          width="28"
-          height="28"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2"
-        >
-          <path
-            d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"
-          />
-        </svg>
-        <svg
-          class="chatbot-close-icon"
-          width="24"
-          height="24"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2"
-        >
-          <line x1="18" y1="6" x2="6" y2="18" />
-          <line x1="6" y1="6" x2="18" y2="18" />
-        </svg>
-      </button>
-
-      <!-- Chatbot Window -->
-      <div id="chatbotWindow" class="chatbot-window">
-        <!-- Chatbot Header -->
-        <div class="chatbot-header">
-          <div class="chatbot-header-info">
-            <div class="chatbot-avatar">
-              <svg
-                width="24"
-                height="24"
-                viewBox="0 0 24 24"
-                fill="currentColor"
-              >
-                <path
-                  d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z"
-                />
-              </svg>
-            </div>
-            <div>
-              <h3 class="chatbot-title">Vetti</h3>
-              <p class="chatbot-subtitle">Your VetHaven assistant</p>
-              <p class="chatbot-status">Online</p>
-            </div>
-          </div>
-          <button
-            id="chatbotClose"
-            class="chatbot-close-btn"
-            aria-label="Close Chat"
-          >
-            <svg
-              width="20"
-              height="20"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-            >
-              <line x1="18" y1="6" x2="6" y2="18" />
-              <line x1="6" y1="6" x2="18" y2="18" />
-            </svg>
-          </button>
-        </div>
-
-        <!-- Chatbot Messages Area -->
-        <div id="chatbotMessages" class="chatbot-messages">
-          <!-- Welcome Message -->
-          <div class="chatbot-message bot-message">
-            <div class="message-avatar">
-              <svg
-                width="20"
-                height="20"
-                viewBox="0 0 24 24"
-                fill="currentColor"
-              >
-                <path
-                  d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z"
-                />
-              </svg>
-            </div>
-            <div class="message-content">
-              <p>
-                Welcome to VHS Animal Wellness Center. How can I help you today?
-              </p>
-            </div>
-          </div>
-
-          <!-- AI messages will be dynamically added here -->
-        </div>
-
-        <!-- Chatbot Input Area -->
-        <div class="chatbot-input-area">
-          <input
-            type="text"
-            id="chatbotInput"
-            class="chatbot-input"
-            placeholder="Type your message..."
-            aria-label="Chat message input"
-          />
-          <button
-            id="chatbotSend"
-            class="chatbot-send-btn"
-            aria-label="Send message"
-          >
-            <svg
-              width="20"
-              height="20"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-            >
-              <line x1="22" y1="2" x2="11" y2="13" />
-              <polygon points="22 2 15 22 11 13 2 9 22 2" />
-            </svg>
-          </button>
-        </div>
-
-        <!-- Chatbot Footer -->
-        <div class="chatbot-footer">
-          <p>Vetti, your VetHaven assistant</p>
-        </div>
-      </div>
-    </div>
-    <!-- END AI CHATBOT INTEGRATION AREA -->
+    <!-- Vetti lives inline on this page (see #vetti above). -->
 
     <!-- FOOTER -->
     <footer id="footer">
@@ -941,6 +818,7 @@
     <script src="../shared/signup-wizard.js?v=1.1.0"></script>
     <script src="../shared/session-auth.js?v=1.0.0"></script>
     <script src="script.js"></script>
+    <script src="public-vetti.js?v=2.0.8"></script>
     <script>
       // Homepage service teasers sync name/price from the SAME shared catalog
       // as the portals. TODO(BACKEND): GET /api/services.
