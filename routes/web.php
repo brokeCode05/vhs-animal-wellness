@@ -22,7 +22,8 @@ use Illuminate\Support\Facades\Route;
 // Preserve the finished public frontend. Laravel is the backend underneath it.
 Route::get('/', fn () => redirect('/web-page/index.html'));
 Route::get('/terms', fn () => view('terms'));
-Route::get('/auth', fn () => view('auth'))->name('login');
+// The retired auth Blade page is absent: redirect to the existing public login modal.
+Route::get('/auth', fn () => redirect('/web-page/index.html#login'))->name('login');
 
 // Frozen legacy/public form URLs kept for the existing frontend.
 Route::middleware('throttle:30,1')->group(function () {

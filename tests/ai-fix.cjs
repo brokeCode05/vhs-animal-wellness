@@ -9,7 +9,7 @@
 var fs = require('fs');
 var path = require('path');
 var ROOT = process.cwd();
-var R = path.join(ROOT, 'shared/ai-fixtures');
+var R = path.join(ROOT, 'public/shared/ai-fixtures');
 
 function ok(name, cond, extra) {
   if (cond) {

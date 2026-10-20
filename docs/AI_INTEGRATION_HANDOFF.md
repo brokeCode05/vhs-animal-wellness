@@ -1,3 +1,12 @@
+> **Laravel-root update (2026-10-21; commit `60ce957`):** The historical `df969e4`
+> checkpoint below remains useful for frontend design history, but the active
+> integration baseline is now `integration/frontend-backend` at `60ce957`.
+> Laravel is at the repository root (`app/`, `routes/`, `artisan`); portals and
+> shared assets are under `public/`. Create future AI feature branches from
+> the latest integration branch, not the old checkpoint. Preserve the existing
+> `docs/ai-branch-preserved/` alternatives as reference artifacts only.
+> No live AI provider is added by this corrective patch. REQ009/REQ035 remain deferred.
+
 # VHS Animal Wellness Center — AI Integration Handoff
 
 Audience: backend developer wiring a real AI provider into the existing Laravel app.
@@ -16,12 +25,12 @@ Scope of THIS document: the AI seams only (User Vetti, public Vetti, Doctor Scri
 ## A. CURRENT PROJECT STATE
 
 - **Laravel is the backend application** (`backend/`, PHP 8.3, MySQL). One app serves both
-  the JSON API and the finished static frontend from `backend/public/`. There is no separate
+  the JSON API and the finished static frontend from `public/`. There is no separate
   frontend build step. (Audit §1.1, §13.1.)
-- **Public marketing assets live under `backend/public/web-page/`** (index/services/about/
+- **Public marketing assets live under `public/web-page/`** (index/services/about/
   contact + `style.css`, `warm-theme.css`, `public-vetti.css`, `script.js`, `public-vetti.js`).
-  The authenticated portals are `backend/public/{user,admin,doctor}` with a shared integration
-  layer in `backend/public/shared/`.
+  The authenticated portals are `public/{user,admin,doctor}` with a shared integration
+  layer in `public/shared/`.
 - **User / Admin / Doctor portals already exist** and are LIVE against the API. Identity comes
   from `GET /api/auth/me` via the session cookie (`shared/session-auth.js`); roles are exactly
   `User | Doctor | Admin`. (Audit §1.1, §4.3.)
@@ -108,7 +117,7 @@ JavaScript** — the provider key must never reach the client.
 This matches the audit's agreed direction (§9.A). Recommended structure:
 
 ```
-backend/app/Services/AI/
+app/Services/AI/
     AiProviderInterface.php      // contract: complete(array $messages, array $opts)
     AiGateway.php                // single entry point: timeout, size caps, validation, fallback
     <ProviderImplementation>.php // e.g. HttpAiProvider.php (real provider HTTP call)

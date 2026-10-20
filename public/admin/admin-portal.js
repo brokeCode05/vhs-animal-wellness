@@ -1848,21 +1848,58 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  // ══ SERVICES MANAGEMENT PAGE ════════════════════════════════════════════
+  // ══ SERVICES MANAGEMENT PAGE — Laravel is the source of truth ═════════
+  // GET/POST/PATCH/DELETE /api/services, authorized by Laravel. We do NOT
+  // write service changes into SharedMockUsers/localStorage: the admin table
+  // and confirmations only reflect the server response.
   var _svcSearch = '';
   var _svcCategory = 'all';
   var _svcStatus = 'all';
+  var _svcRows = [];
+  var _svcLoaded = false;
+  var _svcBusy = false;
+
+  function _svcById(id) {
+    return _svcRows.find(function (s) { return String(s.serviceId) === String(id); }) || null;
+  }
+
+  function _svcPrice(price) {
+    var n = Number(price);
+    return Number.isFinite(n) && n >= 0
+      ? '₱' + n.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+      : 'Price unavailable';
+  }
+
+  function _svcServerError(result, fallback) {
+    if (result && result.errors) {
+      var first = Object.keys(result.errors)[0];
+      if (first && result.errors[first] && result.errors[first].length) return result.errors[first][0];
+    }
+    return (result && result.message) || fallback;
+  }
+
+  async function _svcCall(path, body, method) {
+    if (!window.VHSAuth || typeof window.VHSAuth.send !== 'function') {
+      return { ok: false, message: 'Clinic server authentication is unavailable.' };
+    }
+    try {
+      return await window.VHSAuth.send(path, body, method ? { method: method } : undefined);
+    } catch (err) {
+      return { ok: false, message: 'Could not reach the clinic server. Please retry.' };
+    }
+  }
 
   function _serviceCategoryOptions() {
     var sel = document.getElementById('filterServiceCategory');
-    if (!sel || !window.SharedMockUsers) return;
+    if (!sel) return;
     var cats = {};
-    window.SharedMockUsers.services().forEach(function (s) { cats[s.group] = true; });
+    _svcRows.forEach(function (s) { cats[s.group] = true; });
     var current = sel.value || 'all';
     sel.innerHTML = '<option value="all">All Categories</option>' + Object.keys(cats).sort().map(function (c) {
       return '<option value="' + escS(c) + '">' + escS(c) + '</option>';
     }).join('');
     if ([].some.call(sel.options, function (o) { return o.value === current; })) sel.value = current;
+    else { sel.value = 'all'; _svcCategory = 'all'; }
   }
 
   function _serviceBadge(active) {
@@ -1873,10 +1910,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
   function renderServicesTable() {
     var tbody = document.getElementById('servicesTable');
-    if (!tbody || !window.SharedMockUsers) return;
-    var all = window.SharedMockUsers.services();
+    if (!tbody || !_svcLoaded) return;
     _serviceCategoryOptions();
-    var list = all.filter(function (s) {
+    var list = _svcRows.filter(function (s) {
       if (_svcCategory !== 'all' && s.group !== _svcCategory) return false;
       var inactive = s.active === false;
       if (_svcStatus === 'active' && inactive) return false;
@@ -1886,43 +1922,67 @@ document.addEventListener("DOMContentLoaded", () => {
     });
     tbody.innerHTML = list.length ? list.map(function (s) {
       var inactive = s.active === false;
-      var inUse = window.SharedMockUsers.serviceInUse(s.value) || window.SharedMockUsers.serviceInUse(s.label);
-      return '<tr data-id="' + s.serviceId + '">' +
+      return '<tr data-id="' + escS(s.serviceId) + '">' +
         '<td>#S' + String(s.serviceId).padStart(3, '0') + '</td>' +
         '<td><strong>' + escS(s.label) + '</strong><br /><span style="font-size:0.75rem;color:#6b7280;">' + escS(s.value) + '</span></td>' +
         '<td>' + escS(s.group) + '</td>' +
-        '<td>' + escS(s.price || '\u2014') + '</td>' +
+        '<td>' + escS(_svcPrice(s.price)) + '</td>' +
         '<td>' + _serviceBadge(s.active) + '</td>' +
-        '<td class="action-cell">' +
-          kebabHtml('service-' + s.serviceId, [
-            { label: 'Edit', action: 'openEditService', arg: s.serviceId },
-            inactive
-              ? { label: 'Activate', action: 'toggleServiceStatus', arg: s.serviceId, cls: 'success' }
-              : { label: 'Deactivate', action: 'toggleServiceStatus', arg: s.serviceId, cls: 'danger' }
-          ].concat(window.SharedMockUsers.canDeleteService && window.SharedMockUsers.canDeleteService(s.serviceId)
-            ? [{ label: 'Delete', action: 'deleteUnusedService', arg: s.serviceId, cls: 'danger' }]
-            : [])) +
-        '</td>' +
-        '</tr>';
+        '<td class="action-cell">' + kebabHtml('service-' + s.serviceId, [
+          { label: 'Edit', action: 'openEditService', arg: s.serviceId },
+          inactive
+            ? { label: 'Activate', action: 'toggleServiceStatus', arg: s.serviceId, cls: 'success' }
+            : { label: 'Deactivate', action: 'toggleServiceStatus', arg: s.serviceId, cls: 'danger' },
+          // The Laravel controller decides deletion eligibility based on
+          // actual database appointments (never a browser mock).
+          { label: 'Delete', action: 'deleteUnusedService', arg: s.serviceId, cls: 'danger' }
+        ]) + '</td></tr>';
     }).join('') : '<tr><td colspan="6" style="text-align:center;color:#888;">No services match the current filters.</td></tr>';
   }
 
+  async function loadServicesFromLaravel() {
+    var tbody = document.getElementById('servicesTable');
+    if (!tbody) return false;
+    _svcLoaded = false;
+    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;">Loading services from the clinic server…</td></tr>';
+    var result = await _svcCall('services', null, 'GET');
+    if (!result.ok || !result.data || !Array.isArray(result.data.services)) {
+      _svcRows = [];
+      tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#b91c1c;">' +
+        escS(_svcServerError(result, 'Unable to load services. Refresh to retry.')) + '</td></tr>';
+      return false;
+    }
+    _svcRows = result.data.services.map(function (s) {
+      return {
+        serviceId: s.serviceId != null ? s.serviceId : s.id,
+        value: String(s.value || ''), label: String(s.label || ''),
+        group: String(s.group || s.category || 'Other'), price: s.price,
+        active: s.active !== false
+      };
+    });
+    _svcLoaded = true;
+    renderServicesTable();
+    return true;
+  }
+
   window.openCreateServiceModal = function () {
+    if (!_svcLoaded || _svcBusy) { showToast('Wait for the clinic service catalog to load.', 'warning'); return; }
     document.getElementById('serviceForm').reset();
     document.getElementById('serviceIdField').value = '';
     document.getElementById('serviceModalTitle').textContent = 'Add Service';
     document.getElementById('svcActive').value = 'active';
-    // Custom-category field only shows when "Other" is selected.
     document.getElementById('svcGroupCustomWrap').style.display = 'none';
     document.getElementById('svcGroupCustom').value = '';
     document.getElementById('serviceModal').classList.add('show');
   };
   window.closeServiceModal = function () {
+    if (_svcBusy) return;
     document.getElementById('serviceModal').classList.remove('show');
   };
   window.openEditService = function (id) {
-    var s = window.SharedMockUsers.serviceById(id);
-    if (!s) { showToast('Service not found.', 'error'); return; }
+    if (_svcBusy) return;
+    var s = _svcById(id);
+    if (!s) { showToast('Service not found on the clinic server.', 'error'); return; }
     document.getElementById('serviceForm').reset();
     document.getElementById('serviceIdField').value = s.serviceId;
     document.getElementById('serviceModalTitle').textContent = 'Edit Service';
@@ -1931,79 +1991,91 @@ document.addEventListener("DOMContentLoaded", () => {
     var known = [].some.call(grp.options, function (o) { return o.value === s.group; });
     var customWrap = document.getElementById('svcGroupCustomWrap');
     var customInput = document.getElementById('svcGroupCustom');
-    if (known) {
-      grp.value = s.group;
-      customWrap.style.display = 'none';
-      customInput.value = '';
-    } else {
-      // Previously-saved custom category: show "Other" plus its original text.
-      grp.value = 'Other';
-      customWrap.style.display = '';
-      customInput.value = s.group;
-    }
-    document.getElementById('svcPrice').value = s.price || '';
+    if (known) { grp.value = s.group; customWrap.style.display = 'none'; customInput.value = ''; }
+    else { grp.value = 'Other'; customWrap.style.display = ''; customInput.value = s.group; }
+    document.getElementById('svcPrice').value = s.price == null ? '' : String(s.price);
     document.getElementById('svcActive').value = s.active === false ? 'inactive' : 'active';
     document.getElementById('serviceModal').classList.add('show');
   };
-  window.submitService = function (e) {
+
+  window.submitService = async function (e) {
     e.preventDefault();
+    if (_svcBusy || !_svcLoaded) return;
     var id = document.getElementById('serviceIdField').value;
     var grp = document.getElementById('svcGroup').value;
-    // "Other" resolves to the typed custom category (falls back to Other
-    // itself when left blank, so no empty group is ever stored).
-    var customWrap = document.getElementById('svcGroupCustomWrap');
-    if (grp === 'Other' && customWrap.style.display !== 'none') {
+    if (grp === 'Other' && document.getElementById('svcGroupCustomWrap').style.display !== 'none') {
       grp = document.getElementById('svcGroupCustom').value.trim() || 'Other';
     }
-    var fields = {
-      label: document.getElementById('svcLabel').value.trim(),
-      group: grp,
-      price: document.getElementById('svcPrice').value.trim(),
-      active: document.getElementById('svcActive').value !== 'inactive'
-    };
-    if (!fields.label) { showToast('Service name is required.', 'warning'); return; }
-    var result = id
-      ? window.SharedMockUsers.updateService(id, fields)
-      : window.SharedMockUsers.addService(fields);
-    if (!result.ok) {
-      showToast(result.error === 'duplicate'
-        ? 'A service with that name or key already exists.'
-        : 'Could not save the service.', 'error');
+    var priceText = document.getElementById('svcPrice').value.trim();
+    var label = document.getElementById('svcLabel').value.trim();
+    if (!label) { showToast('Service name is required.', 'warning'); return; }
+    if (!/^\d+(?:\.\d{1,2})?$/.test(priceText) || Number(priceText) > 99999999.99) {
+      showToast('Enter one numeric booking price in PHP (e.g. 500.00). Price ranges cannot be saved to the current database.', 'warning');
       return;
     }
-    closeServiceModal();
-    renderServicesTable();
-    showToast(id ? 'Service updated. Existing appointments keep their stored service.' : 'Service added to the catalog.', 'success');
-    _auditAdmin({ action: id ? 'service_updated' : 'service_created', entityType: 'service', entityId: result.service.serviceId, description: 'Admin ' + (id ? 'updated service' : 'created service') + ' — ' + result.service.label, metadata: { price: result.service.price || '', active: result.service.active !== false } });
+    var active = document.getElementById('svcActive').value !== 'inactive';
+    var fields = { label: label, group: grp, price: Number(priceText) };
+    _svcBusy = true;
+    try {
+      var result = id
+        ? await _svcCall('services/' + encodeURIComponent(id), fields, 'PATCH')
+        : await _svcCall('services', Object.assign({}, fields, { active: active }), 'POST');
+      if (!result.ok) { showToast(_svcServerError(result, 'Could not save service.'), 'error'); return; }
+      if (id) {
+        var old = _svcById(id);
+        if (old && old.active !== active) {
+          var statusResult = await _svcCall('services/' + encodeURIComponent(id) + '/status', { active: active }, 'PATCH');
+          if (!statusResult.ok) {
+            await loadServicesFromLaravel();
+            showToast('Service details saved, but status was not changed: ' + _svcServerError(statusResult, 'Try again.'), 'warning');
+            return;
+          }
+        }
+      }
+      document.getElementById('serviceModal').classList.remove('show');
+      var refreshed = await loadServicesFromLaravel();
+      showToast(refreshed ? (id ? 'Service updated in clinic database.' : 'Service created in clinic database.')
+        : 'Saved to clinic database, but refresh failed. Reload to confirm.', refreshed ? 'success' : 'warning');
+    } finally { _svcBusy = false; }
   };
+
   window.toggleServiceStatus = function (id) {
-    var s = window.SharedMockUsers.serviceById(id);
+    if (_svcBusy || !_svcLoaded) return;
+    var s = _svcById(id);
     if (!s) return;
     var next = s.active === false;
     confirmAction(
-      (next ? 'Activate' : 'Deactivate') + ' "' + s.label + '"?' + (next ? '' : ' It will no longer be offered for new bookings; existing appointments are unaffected.'),
-      function () {
-        window.SharedMockUsers.setServiceStatus(id, next);
-        renderServicesTable();
-        showToast('Service ' + (next ? 'activated' : 'deactivated') + '.', 'success');
-        _auditAdmin({ action: next ? 'service_activated' : 'service_deactivated', entityType: 'service', entityId: id, description: 'Admin ' + (next ? 'activated' : 'deactivated') + ' service — ' + s.label });
+      (next ? 'Activate' : 'Deactivate') + ' "' + s.label + '"?' + (next ? '' : ' Existing appointments are unaffected.'),
+      async function () {
+        if (_svcBusy) return;
+        _svcBusy = true;
+        try {
+          var result = await _svcCall('services/' + encodeURIComponent(id) + '/status', { active: next }, 'PATCH');
+          if (!result.ok) { showToast(_svcServerError(result, 'Could not change status.'), 'error'); return; }
+          var refreshed = await loadServicesFromLaravel();
+          showToast(refreshed ? 'Service status updated in clinic database.' : 'Status saved; reload to refresh the catalog.', refreshed ? 'success' : 'warning');
+        } finally { _svcBusy = false; }
       },
       { title: (next ? 'Activate' : 'Deactivate') + ' Service', danger: !next }
     );
   };
+
   window.deleteUnusedService = function (id) {
-    var s = window.SharedMockUsers.serviceById(id);
+    if (_svcBusy || !_svcLoaded) return;
+    var s = _svcById(id);
     if (!s) return;
-    confirmAction('Delete "' + s.label + '" permanently? This is only possible for unused, newly created services.', function () {
-      var r = window.SharedMockUsers.deleteService(id);
-      if (!r.ok) {
-        showToast(r.error === 'in_use' ? 'Service is referenced by appointments — archive it instead.' : 'Service cannot be deleted.', 'error');
-        renderServicesTable();
-        return;
-      }
-      renderServicesTable();
-      showToast('Service deleted.', 'success');
-      _auditAdmin({ action: 'service_deleted', entityType: 'service', entityId: id, description: 'Admin deleted service — ' + s.label });
+    confirmAction('Delete "' + s.label + '"? The server will reject deletion if any appointment references this service.', async function () {
+      if (_svcBusy) return;
+      _svcBusy = true;
+      try {
+        var result = await _svcCall('services/' + encodeURIComponent(id), null, 'DELETE');
+        if (!result.ok) {
+          showToast(_svcServerError(result, 'Could not delete this service. Deactivate it if already used.'), 'error');
+          return;
+        }
+        var refreshed = await loadServicesFromLaravel();
+        showToast(refreshed ? 'Service deleted from clinic database.' : 'Deleted on server; reload to refresh the table.', refreshed ? 'success' : 'warning');
+      } finally { _svcBusy = false; }
     }, { title: 'Delete Service', danger: true });
   };
 
@@ -2020,7 +2092,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   function initServicesPage() {
     if (!document.getElementById('servicesTable')) return;
-    renderServicesTable();
+    loadServicesFromLaravel();
     document.getElementById('searchServices')?.addEventListener('input', function (e) {
       _svcSearch = e.target.value.trim().toLowerCase();
       renderServicesTable();

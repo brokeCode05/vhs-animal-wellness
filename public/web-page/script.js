@@ -335,6 +335,13 @@ function showForm(formElement) {
   });
 });
 
+// Laravel's named login route redirects to /web-page/index.html#login.
+// Open the *existing* public login form rather than a missing Blade view.
+if (window.location.hash === '#login' && loginForm && modal) {
+  openModal();
+  showForm(loginForm);
+}
+
 // Close modal
 if (closeBtn) closeBtn.addEventListener("click", closeModal);
 
