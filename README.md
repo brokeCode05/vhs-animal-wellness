@@ -1,121 +1,32 @@
-# VHS Animal Wellness Center
+# VHS Animal Wellness Center — Laravel Integrated Project
 
-Veterinary clinic management system with a public website, role-based dashboards (admin, clerk, user), and PHP/MySQL backend.
+This is the **Laravel application** and its **integrated public frontend**, cleaned for use as the repository root. The old standalone PHP/MySQL application is **not** included.
 
-## Project Structure
+## Directory layout
 
-```
-/
-├── index.php              # Root redirect → web-page/index.php
-├── Dockerfile             # Production Docker image (PHP 8.2 + Apache)
-├── vet_db.sql             # Database schema
-├── web-page/              # Public website (Home, Services, About, Contact)
-│   ├── index.html         # Homepage
-│   ├── index.php          # Registration handler
-│   ├── login.php          # Login handler (with OTP)
-│   ├── verify.php         # Email verification page
-│   ├── script.js          # Frontend JS (login, signup, booking)
-│   ├── style.css          # Main styles
-│   ├── warm-theme.css     # Theme overrides
-│   └── image/             # Website images and assets
-├── admin/                 # Admin dashboard (canonical; also serves the retired Clerk routes)
-│   ├── index.html         # Dashboard overview
-│   ├── accounts.html      # Doctor account management (Doctor role only)
-│   ├── appointments.html  # Appointment management
-│   ├── clients-pets.html  # Client & pet management
-│   ├── documents.html     # Finalized client-facing documents
-│   ├── services.html      # Service catalog management
-│   ├── clinic-settings.html # Clinic operating configuration
-│   ├── doctors.html       # Doctor directory & availability
-│   ├── audit-log.html     # Read-only audit trail
-│   └── audit-log-renderer.js / documents-page.js / portal.css
-├── clerk/                 # RETIRED: redirect stubs to /admin/ (old URLs stay alive)
-├── user/                  # Pet owner dashboard
-│   ├── index.html         # Dashboard (pets, appointments, profile)
-│   ├── petDB.php          # Pet CRUD handler
-│   ├── get_pets_user.php  # Fetch user's pets
-│   └── get_user_appointments.php  # Fetch user's appointments
-├── shared/                # Shared UI components
-│   ├── vhs-ui.css         # Core UI styles
-│   ├── vhs-ui.js          # Core UI components
-│   ├── dashboard-theme.css    # Dashboard theme
-│   ├── dashboard-icons.css    # Dashboard icons
-│   └── dashboard-shared.js    # Dashboard shared logic
-├── php_files/             # Backend API endpoints
-│   ├── .htaccess          # Block direct access to internal files
-│   ├── config.php         # Database & mail config (env vars) — gitignored
-│   ├── db.php             # Database connection
-│   ├── book-appointment.php
-│   ├── create_staff.php
-│   ├── get_appointments.php
-│   ├── get_booked_slots.php
-│   ├── get_pets.php
-│   ├── get_staff.php
-│   ├── get_users.php
-│   ├── get_user_profile.php
-│   ├── send_email.php     # PHPMailer wrapper
-│   ├── sms_otp.php        # SMS OTP verification
-│   ├── update_appointment_status.php
-│   └── update_profile.php
-├── PHPMailer-7.1.1/       # PHPMailer library
-├── image/                 # Shared images (logo, section images)
-└── certs/                 # SSL certificates (gitignored)
+- `artisan`, `composer.json`, `app/`, `bootstrap/`, `config/`, `routes/`, `database/` — Laravel application at the **repository root**.
+- `public/admin/`, `public/doctor/`, `public/user/`, `public/web-page/`, `public/shared/` — integrated browser-facing frontend and assets.
+- `public/index.php` — Laravel request entrypoint.
+
+**Do not add back** root-level `admin/`, `doctor/`, `user/`, `shared/`, `web-page/`, `php_files/`, `clerk/`, the legacy root `Dockerfile`, or `vet_db.sql`. Do not put this project inside a second `backend/` directory. Existing legacy URLs handled by Laravel routes are not proof that the legacy physical PHP files are needed.
+
+## Local setup (PowerShell, from this directory)
+
+```powershell
+composer install
+Copy-Item .env.example .env
+php artisan key:generate
 ```
 
-## Quick Start
+Set database credentials and mail/OTP provider configuration in `.env` for your own environment. Create the MySQL database before migrating. **Only generate an APP_KEY for a fresh environment**; for an existing deployment, preserve the current `.env` and key.
 
-### Docker (recommended)
-```bash
-docker build -t vhs-app .
-docker run -p 8080:80 vhs-app
-```
-Open http://localhost:8080
-
-### PHP Built-in Server
-```bash
-php -S localhost:8000
-```
-Open http://localhost:8000
-
-## What Works Without a Backend
-
-- Public website (Home, Services, About, Contact)
-- All animations, carousels, and UI interactions
-- Admin, Clerk, and User dashboard layouts (view only)
-
-## What Requires PHP + MySQL
-
-- Login / Sign Up (with email verification + SMS OTP)
-- Appointment booking
-- Pet registration
-- Profile management
-- Staff management
-
-## Environment Variables
-
-Create `php_files/config.php` (gitignored) or set these environment variables:
-
-| Variable | Description |
-|---|---|
-| `DATABASE_URL` | MySQL connection URL (`mysql://user:pass@host:port/db`) |
-| `MAIL_HOST` | SMTP host |
-| `MAIL_PORT` | SMTP port |
-| `MAIL_USERNAME` | SMTP username |
-| `MAIL_PASSWORD` | SMTP password |
-| `MAIL_FROM` | Sender email address |
-| `MAIL_FROM_NAME` | Sender display name |
-| `SEMAPHORE_API_KEY` | Semaphore SMS API key |
-
-## Database
-
-Import `vet_db.sql` to set up the schema:
-```bash
-mysql -u root -p < vet_db.sql
+```powershell
+php artisan migrate --seed
+php artisan serve --port=8010
 ```
 
-## Deployment
+Open `http://127.0.0.1:8010/`. For production, point the web server's **document root to `public/`**, install production dependencies, and configure `.env`, storage permissions, and the production DB appropriately. Never expose Laravel repository root as the web root.
 
-Designed for PHP 8.2+ / MySQL:
-- **Shared hosting**: InfinityFree, 000webhost, any cPanel host
-- **VPS**: Apache/Nginx + PHP + MySQL
-- **Cloud**: Render, Railway, or any Docker-compatible platform
+Read `MERGE_INSTRUCTIONS.md` before merging this into an existing branch. This package does **not** overwrite your remote GitHub branch automatically.
+
+**Verification scope:** archive structure is corrected; functional integration, live mail/SMS, database settings, and production deployment were not exercised in this environment.
