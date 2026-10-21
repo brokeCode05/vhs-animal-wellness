@@ -200,8 +200,15 @@
                 'reschedule', 'i need to cancel', 'cancel', 'cancel this',
                 'what should i prepare', 'prepare for'],
       reply: function (ctx) {
-        var next = ctx.appointments && ctx.appointments.upcoming.length
-          ? ctx.appointments.upcoming[0] : null;
+        // A checked-in or in-consultation visit is no longer a FUTURE
+        // booking. Do not describe it as the owner's "next appointment".
+        var upcoming = ctx.appointments && ctx.appointments.upcoming || [];
+        var next = upcoming.find(function(a) {
+          return a.status === 'confirmed' || a.status === 'pending' || a.status === 'rescheduled';
+        }) || null;
+        var activeVisit = upcoming.find(function(a) {
+          return a.status === 'checked_in' || a.status === 'in_consultation';
+        }) || null;
 
         if (!ctx.hasPets) {
           return {
@@ -251,7 +258,12 @@
 
         if (!next) {
           return {
-            text: 'You have no upcoming visit booked right now.',
+            text: activeVisit
+              ? 'You have no future visit booked right now. ' + activeVisit.pet +
+                ' is currently ' + (activeVisit.status === 'checked_in'
+                ? 'checked in and awaiting clinic service' : 'in consultation') +
+                '. Please contact the clinic if this visit was not completed.'
+              : 'You have no upcoming visit booked right now.',
             suggestions: ['Show my appointments', 'I want to book an appointment']
           };
         }

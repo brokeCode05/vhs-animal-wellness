@@ -31,3 +31,17 @@ Artisan::command('vhs:create-doctor', function () {
     $this->info('Doctor created without a password. Use email password setup/reset at /auth.');
 });
 Schedule::call(fn () => AccountVerification::where('expires_at', '<', now()->subDay())->delete())->daily();
+
+// Automatic no-show reconciliation. Runs only after the configured clinic grace period.
+// Local development: php artisan schedule:work (in another terminal).
+Artisan::command('vhs:reconcile-no-shows {--dry-run : Preview eligible visits without changing status}', function () {
+    $service = app(\App\Services\AppointmentNoShowService::class);
+    if ($this->option('dry-run')) {
+        $this->info('Eligible confirmed/un-checked-in visits: '.$service->countDue());
+        return;
+    }
+    $count = $service->reconcile();
+    $this->info("Automatically marked {$count} missed appointment(s) as no-show.");
+})->purpose('Reconcile unattended confirmed appointments after their check-in grace period');
+
+Schedule::command('vhs:reconcile-no-shows')->everyMinute()->withoutOverlapping();

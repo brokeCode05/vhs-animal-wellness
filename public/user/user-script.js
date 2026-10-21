@@ -1576,7 +1576,7 @@ function _initOtpInputs() {
 
 
 function viewAppt(id) {
-  var appt = mockAppointmentsData.find(function(a) { return a.id === id; });
+  var appt = mockAppointmentsData.find(function(a) { return String(a.id) === String(id); });
   if (!appt) return;
 
   // Populate detail summary
@@ -2697,36 +2697,51 @@ function _apptStatusBadge(status) {
   var labels = { pending: 'Pending', confirmed: 'Confirmed', checked_in: 'Checked In', in_consultation: 'In Consultation', completed: 'Completed', canceled: 'Cancelled', no_show: 'No Show', rescheduled: 'Rescheduled' };
   var cls = map[canonical] || 'pending';
   return '<span class="status-badge ' + cls + '">' + (labels[canonical] || canonical) + '</span>';
-}function renderAppointmentCards() {
+}// UI-only time bucketing. Backend appointment status remains authoritative.
+// A checked-in visit is NOT a no-show just because its booked start time passed.
+// It stays visible as an active clinic visit through the appointment day,
+// then appears in history as an unresolved checked-in visit for clinic review.
+function _apptIsFutureTime(dateStr, timeStr, now) {
+  var dateMatch = String(dateStr || '').match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  var hhmm = window.AppointmentContract
+    ? window.AppointmentContract.timeToHHMM(timeStr)
+    : String(timeStr || '');
+  var timeMatch = String(hhmm || '').match(/^(\d{1,2}):(\d{2})$/);
+  if (!dateMatch || !timeMatch) return false;
+  var scheduled = new Date(Number(dateMatch[1]), Number(dateMatch[2]) - 1,
+    Number(dateMatch[3]), Number(timeMatch[1]), Number(timeMatch[2]));
+  return !isNaN(scheduled.getTime()) && scheduled.getTime() > now.getTime();
+}
+
+function renderAppointmentCards() {
   var now = new Date();
   var normalize = window.AppointmentContract ? window.AppointmentContract.normalizeStatus : function(s) { return s; };
   var todayStr = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
-  var ACTIVE = { pending: 1, confirmed: 1, checked_in: 1, in_consultation: 1, rescheduled: 1 };
-  // Upcoming: today or future date AND an active status. Past History:
-  // already-passed dates OR terminal statuses (completed/canceled).
-  // TODO(BACKEND): get_appointments.php?upcoming=1 / ?history=1 can do this
-  // server-side; the client grouping then disappears.
-  var upcoming = mockAppointmentsData.filter(function(a) {
-    var s = normalize(a.status);
-    if (!ACTIVE[s]) return false;
-    return String(a.date) >= todayStr;
-  }).sort(function(a, b) { return new Date(a.date) - new Date(b.date); });
-  var past = mockAppointmentsData.filter(function(a) {
-    var s = normalize(a.status);
-    if (s === 'completed' || s === 'canceled') return true;
-    return !ACTIVE[s] || String(a.date) < todayStr;
-  }).sort(function(a, b) { return new Date(b.date) - new Date(a.date); });
+  var IN_CLINIC = { checked_in: 1, in_consultation: 1 };
+  var BOOKED = { pending: 1, confirmed: 1, rescheduled: 1 };
 
-  // Update dashboard stat
+  function isUpcoming(a) {
+    var status = normalize(a.status);
+    // In-clinic visits remain visible for today's clinic workflow, but are
+    // not upcoming on subsequent dates. No status is changed here.
+    if (IN_CLINIC[status]) return String(a.date || '') === todayStr;
+    return !!BOOKED[status] && _apptIsFutureTime(a.date, a.time, now);
+  }
+
+  var upcoming = mockAppointmentsData.filter(isUpcoming).sort(function(a, b) {
+    return (String(a.date) + ' ' + String(a.time)).localeCompare(String(b.date) + ' ' + String(b.time));
+  });
+  var past = mockAppointmentsData.filter(function(a) { return !isUpcoming(a); })
+    .sort(function(a, b) {
+      return (String(b.date) + ' ' + String(b.time)).localeCompare(String(a.date) + ' ' + String(a.time));
+    });
+
   var statEl = document.getElementById('statUpcoming');
   if (statEl) statEl.textContent = upcoming.length;
   var badge = document.getElementById('apptBadge');
   if (badge) { badge.textContent = upcoming.length; badge.style.display = upcoming.length > 0 ? '' : 'none'; }
 
-  // Dashboard “Upcoming Appointments” table consumes the SAME scoped,
-  // canonical list as My Appointments — no separate dashboard data.
   _renderDashUpcoming(upcoming);
-
   _renderApptList('apptUpcoming', upcoming, 'upcoming');
   _renderApptList('apptPast', past, 'past');
 }
@@ -2789,7 +2804,7 @@ function _renderApptList(containerId, appts, mode) {
       + (a.notes ? '<div class="appt-card-notes">' + escapeHtml(a.notes) + '</div>' : '')
       + (a.reference_no ? '<div class="appt-card-ref">Ref: ' + escapeHtml(a.reference_no) + '</div>' : '')
       + (within2h || withinCancel ? '<div class="appt-card-cutoff-note">Within ' + (window.VHSClinicSettings ? window.VHSClinicSettings.cutoffLabel(within2h ? 'reschedule' : 'cancel') : '2 hours') + ' window — contact clinic for changes</div>' : '')
-      + (inClinicFlow ? '<div class="appt-card-cutoff-note">' + (canonicalStatus === 'checked_in' ? 'Checked in — please proceed to the front desk.' : 'Consultation in progress.') + '</div>' : '')
+      + (inClinicFlow ? '<div class="appt-card-cutoff-note">' + (mode === 'past' ? 'This visit was not finalized. Please contact the clinic for a status update.' : (canonicalStatus === 'checked_in' ? 'Checked in — awaiting clinic service.' : 'Consultation in progress.')) + '</div>' : '')
       + '</div>'
       + '<div class="appt-card-footer">'
       + (canAct
@@ -2874,7 +2889,7 @@ function _showCutoffModal() {
 // ─── RESCHEDULE ──────────────────────────────────────────────────────────────
 
 function openRescheduleModal(apptId) {
-  var appt = mockAppointmentsData.find(function(a) { return a.id === apptId; });
+  var appt = mockAppointmentsData.find(function(a) { return String(a.id) === String(apptId); });
   if (!appt) return;
   if (_isWithinTwoHours(appt.date, appt.time)) {
     _showCutoffModal();
@@ -3014,7 +3029,7 @@ async function submitReschedule(e) {
 // ─── CANCEL ──────────────────────────────────────────────────────────────────
 
 function openCancelModal(apptId) {
-  var appt = mockAppointmentsData.find(function(a) { return a.id === apptId; });
+  var appt = mockAppointmentsData.find(function(a) { return String(a.id) === String(apptId); });
   if (!appt) return;
   if (_isWithinCancelCutoff(appt.date, appt.time)) {
     _showCutoffModal();

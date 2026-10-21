@@ -198,12 +198,22 @@
       : String(status || 'pending');
   }
 
-  // Exactly the statuses renderAppointmentCards() treats as still ahead
-  // on My Appointments. Matching them here is what keeps Vetti's count
-  // equal to the portal's sidebar badge.
-  var ACTIVE_STATUS = {
-    pending: 1, confirmed: 1, checked_in: 1, in_consultation: 1, rescheduled: 1
-  };
+  // Keep the same time-aware buckets as My Appointments. A patient checked in
+  // today is still in clinic flow, not a FUTURE booking; old unfinished visits
+  // move to history without falsely changing their database status.
+  var BOOKED_STATUS = { pending: 1, confirmed: 1, rescheduled: 1 };
+  var IN_CLINIC_STATUS = { checked_in: 1, in_consultation: 1 };
+
+  function isFutureDateTime(date, time, now) {
+    var d = String(date || '').match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    var normalizedTime = contract() && contract().timeToHHMM
+      ? contract().timeToHHMM(time) : String(time || '');
+    var t = String(normalizedTime || '').match(/^(\d{1,2}):(\d{2})$/);
+    if (!d || !t) return false;
+    var scheduled = new Date(Number(d[1]), Number(d[2]) - 1, Number(d[3]),
+      Number(t[1]), Number(t[2]));
+    return !isNaN(scheduled.getTime()) && scheduled.getTime() > now.getTime();
+  }
 
   function todayStr() {
     var d = new Date();
@@ -259,12 +269,14 @@
 
   function sortBuckets() {
     var today = todayStr();
+    var now = new Date();
     var buckets = { upcoming: [], past: [] };
     getAppointments().forEach(function (record) {
       var status = normalizeStatus(record.status);
       var date = String(record.appointmentDate || '');
-      // Upcoming = an active status AND today or later.
-      var isUpcoming = !!ACTIVE_STATUS[status] && (!date || date >= today);
+      var isUpcoming = IN_CLINIC_STATUS[status]
+        ? date === today
+        : (!!BOOKED_STATUS[status] && isFutureDateTime(date, record.appointmentTime, now));
       var entry = shape(record);
       // Sorted on the raw date/time, before the display strings are
       // built, so ordering never depends on a formatted string.
