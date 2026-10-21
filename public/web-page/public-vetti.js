@@ -16,9 +16,10 @@
      conversation is tab-scoped and never mixes with the signed-in
      User Portal conversation, which has its own storage.
 
-   SCRIPTED, NOT AI
-     Answers come from a small deterministic rule table below. There
-     is no language model, so the wording never claims one.
+   HYBRID PUBLIC ASSISTANT
+     Laravel answers known clinic questions using backend rules; Gemini may
+     answer bounded general questions when explicitly enabled. A local
+     deterministic resolver remains the offline fallback.
 
    CAPABILITY BOUNDARY
      Public Vetti answers about the clinic: services, hours/location,
@@ -160,6 +161,72 @@
       }
     }
     return FALLBACK;
+  }
+
+  /* Phase 2: same-origin Laravel API. No Gemini key, pet data, or conversation
+     history is sent by the browser. On any failure, retain the original rules. */
+  var csrfToken = null;
+  var csrfRequest = null;
+
+  function csrfForPublicVetti() {
+    if (csrfToken) return Promise.resolve(csrfToken);
+    if (csrfRequest) return csrfRequest;
+    csrfRequest = fetch("/api/auth/csrf", {
+      method: "GET", credentials: "same-origin", cache: "no-store",
+      headers: { "Accept": "application/json" }
+    }).then(function (response) {
+      if (!response.ok) throw new Error("csrf-unavailable");
+      return response.json();
+    }).then(function (body) {
+      var value = body && body.data && body.data.csrf_token;
+      if (typeof value !== "string" || !value) throw new Error("csrf-missing");
+      csrfToken = value;
+      return value;
+    }).then(function (token) {
+      csrfRequest = null;
+      return token;
+    }, function (error) {
+      csrfRequest = null;
+      throw error;
+    });
+    return csrfRequest;
+  }
+
+  function requestPublicVetti(question) {
+    if (typeof window.fetch !== "function") return Promise.resolve(answer(question));
+    return csrfForPublicVetti().then(function (token) {
+      var controller = window.AbortController ? new AbortController() : null;
+      var timeout = window.setTimeout(function () {
+        if (controller) controller.abort();
+      }, 18000);
+      return fetch("/api/ai/public-vetti", {
+        method: "POST",
+        credentials: "same-origin",
+        cache: "no-store",
+        headers: {
+          "Accept": "application/json",
+          "Content-Type": "application/json",
+          "X-CSRF-TOKEN": token,
+          "X-Requested-With": "XMLHttpRequest"
+        },
+        body: JSON.stringify({ message: question }),
+        signal: controller ? controller.signal : undefined
+      }).then(function (response) {
+        if (response.status === 419) csrfToken = null;
+        if (!response.ok) throw new Error("public-vetti-unavailable");
+        return response.json();
+      }).then(function (body) {
+        var text = body && body.success && body.data && body.data.text;
+        if (typeof text !== "string" || !text.trim() || text.length > 1200) {
+          throw new Error("public-vetti-invalid-response");
+        }
+        return text;
+      }).finally(function () {
+        window.clearTimeout(timeout);
+      });
+    }).catch(function () {
+      return answer(question);
+    });
   }
 
   /* ---- shared state ------------------------------------------------- */
@@ -586,14 +653,20 @@
         ? 120
         : 550;
 
+    /* Start the request immediately, keeping the same minimum thinking time. */
+    var responseTask = requestPublicVetti(question);
     window.setTimeout(function () {
-      thread.push({ role: "vetti", text: answer(question) });
-      busy = false;
-      save();
-      renderAll();
-
-      /* State change: thinking -> success/happy (visible mascot swap). */
-      _setMascotSuccess(sectionMascot());
+      responseTask.then(function (reply) {
+        thread.push({ role: "vetti", text: reply });
+      }, function () {
+        thread.push({ role: "vetti", text: answer(question) });
+      }).finally(function () {
+        busy = false;
+        save();
+        renderAll();
+        /* Existing mascot behavior, layouts and mount logic remain unchanged. */
+        _setMascotSuccess(sectionMascot());
+      });
     }, thinkMs);
   }
 

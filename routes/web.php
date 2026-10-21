@@ -75,6 +75,9 @@ Route::prefix('api')->group(function () {
     Route::get('services', [ServicesController::class, 'index']);
     Route::get('clinic-settings', [ClinicSettingsController::class, 'show']);
     Route::get('public/doctors', [DoctorsController::class, 'publicIndex']);
+    // Phase 2: public information only; no authenticated data or booking writes.
+    Route::post('ai/public-vetti', [\App\Http\Controllers\AI\PublicVettiController::class, 'reply'])
+        ->middleware('throttle:10,1');
 
     Route::middleware(['auth', 'active', RecordUserAccess::class])->group(function () {
         Route::get('auth/me', [AuthController::class, 'me']);

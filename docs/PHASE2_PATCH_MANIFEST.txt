@@ -1,0 +1,27 @@
+VHS AI Phase 2 — Public Vetti (2026-10-21)
+Target Git branch: feature/ai-integration
+Target baseline commit: 9403ac9
+Requires Phase 1 already installed (AiGateway.php etc.).
+
+Baseline current Public Vetti JavaScript git blob:
+1866ee2f97da6dfd200fe328907728927c8982a0
+Patched Public Vetti JavaScript git blob:
+4dc6232572cd00f8df18806cf92c5e9ea62422a8
+
+NEW FILES:
+ app/Http/Controllers/AI/PublicVettiController.php
+ app/Services/AI/PublicClinicFacts.php
+ app/Services/AI/PublicVettiService.php
+ tests/Feature/AI/PublicVettiTest.php
+ docs/AI_PHASE2_LOCAL_SETUP.md
+ docs/PHASE2_PATCH_MANIFEST.txt
+ tools/apply_phase2_route.ps1
+
+REPLACEMENT FILES (review local differences first):
+ config/ai.php (adds public_vetti_enabled flag to Phase 1)
+ public/web-page/public-vetti.js (small fetch wiring; no DOM markup, CSS or mascot changes)
+
+PATCHED DURING INSTALL (not included as a full replacement):
+ routes/web.php — tools/apply_phase2_route.ps1 inserts POST api/ai/public-vetti in public route group
+
+NOT INCLUDED: .env, API keys, passwords, vendor, uploads, database dumps, any other frontend.
