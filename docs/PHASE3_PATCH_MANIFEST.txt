@@ -1,0 +1,21 @@
+VHS Phase 3 Authenticated User Vetti patch — baseline b964d1a
+
+NEW
+app/Http/Controllers/AI/UserVettiController.php
+app/Services/AI/UserVettiService.php
+app/Services/AI/UserVettiFacts.php
+tests/Feature/AI/UserVettiTest.php
+tools/apply_phase3_route.ps1
+docs/AI_PHASE3_LOCAL_SETUP.md
+docs/PHASE3_PATCH_MANIFEST.txt
+
+MODIFIED (full replacement from baseline)
+app/Services/AI/PublicVettiService.php  (optional internal AI flag parameter only)
+config/ai.php                            (new independent User Vetti toggle)
+public/user/vetti-ai.js                 (existing provider seam, minimal fetch binding)
+
+ROUTE CHANGE APPLIED BY INSTALLER, NOT INSIDE ZIP
+routes/web.php -> POST /api/ai/vetti inside auth/active session group + role:User + throttle
+
+NO CHANGES
+public/user/index.html, CSS, mascot assets, admin/, doctor/, web-page/, booking/OTP routes, database, .env

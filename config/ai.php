@@ -5,6 +5,8 @@ return [
     'enabled' => (bool) env('AI_ENABLED', false),
     // Phase 2 has a separate public-only switch; FAQs work with both disabled.
     'public_vetti_enabled' => (bool) env('AI_PUBLIC_VETTI_ENABLED', false),
+    // Separate user portal switch; no private account/pet context goes to the model.
+    'user_vetti_enabled' => (bool) env('AI_USER_VETTI_ENABLED', false),
     'provider' => env('AI_PROVIDER', 'gemini'),
     'model' => env('AI_MODEL', 'gemini-3.5-flash-lite'),
     'transcribe_model' => env('AI_TRANSCRIBE_MODEL', 'gemini-3.5-transcribe'),

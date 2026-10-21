@@ -81,6 +81,9 @@ Route::prefix('api')->group(function () {
 
     Route::middleware(['auth', 'active', RecordUserAccess::class])->group(function () {
         Route::get('auth/me', [AuthController::class, 'me']);
+        // Phase 3: User-only, authenticated, throttled. AI cannot write appointments.
+        Route::post('ai/vetti', [\App\Http\Controllers\AI\UserVettiController::class, 'reply'])
+            ->middleware(['role:User', 'throttle:12,1']);
         Route::post('auth/logout', [AuthController::class, 'logout']);
 
         Route::get('announcements', [AnnouncementsController::class, 'index']);

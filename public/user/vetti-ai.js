@@ -35,10 +35,11 @@
      and localStorage stays reserved for the language preference. Rich
      cards and system data never enter history.
 
-   NO network call, NO provider key, NO backend endpoint exists here.
-   setProvider()/resetProvider() let tests inject a fake provider
-   (valid answer, rejection, timeout, malformed shape); production
-   call sites never learn which provider is active.
+   PHASE 3: same-origin Laravel endpoint for authenticated text answers.
+   Existing rich cards, booking wizard actions and OTP handoffs stay on
+   the deterministic resolver. Backend call sends only text, language,
+   and optional pet ID: never whole context or conversation history.
+   No API key or direct Gemini call in browser JavaScript.
 
    Depends on: vetti-state.js (loads AFTER it, BEFORE vetti-ui.js).
 
@@ -59,7 +60,7 @@
   var MAX_TURN_CHARS = 2000;
   // How long a provider may take before the deterministic resolver
   // answers instead. Generous: the default provider is synchronous.
-  var DEFAULT_TIMEOUT_MS = 8000;
+  var DEFAULT_TIMEOUT_MS = 18000;
 
   // The ONLY action names an answer may carry. These are exactly the
   // cases runAction() already understands — nothing else executes.
@@ -367,6 +368,99 @@
       // provider's error never reaches the chat.
       return fallbackAnswer(request, ctx);
     });
+  }
+
+  // Phase 3 — preserve the existing full-featured local card/action path.
+  // The backend handles authenticated text questions; browser data/cards
+  // never become AI request context. Book/cancel/reschedule remain entirely
+  // in the existing UI and Laravel appointment/OTP workflow.
+  var authCsrfToken = null;
+  var authCsrfRequest = null;
+
+  function csrfForUserVetti() {
+    if (authCsrfToken) return Promise.resolve(authCsrfToken);
+    if (authCsrfRequest) return authCsrfRequest;
+    authCsrfRequest = global.fetch('/api/auth/csrf', {
+      method: 'GET', credentials: 'same-origin', cache: 'no-store',
+      headers: { 'Accept': 'application/json' }
+    }).then(function (response) {
+      if (!response.ok) throw new Error('user-vetti-csrf-unavailable');
+      return response.json();
+    }).then(function (body) {
+      var token = body && body.data && body.data.csrf_token;
+      if (typeof token !== 'string' || !token) throw new Error('user-vetti-csrf-missing');
+      authCsrfToken = token;
+      return token;
+    }).then(function (token) {
+      authCsrfRequest = null;
+      return token;
+    }, function (error) {
+      authCsrfRequest = null;
+      throw error;
+    });
+    return authCsrfRequest;
+  }
+
+  function hasExistingRichUI(answer) {
+    if (!isPlainObject(answer)) return false;
+    if (answer.action || answer.petCard || answer.petCards || answer.appointment ||
+        answer.appointments || answer.service || answer.serviceGroup ||
+        answer.serviceCategories || answer.capabilities) return true;
+    return false;
+  }
+
+  function userBackendProvider(request, ctx) {
+    var localAnswer = deterministicProvider(request, ctx);
+    // Existing pet cards, appointment lists, booking and cancellation
+    // actions are intentional and must never be downgraded to plain text.
+    var publicQuestion = /\b(work late|after work|after my shift|visit after work|arrange a clinic visit)\b/i.test(request.message);
+    // Never intercept an existing action (including booking) for AI, even
+    // when the sentence also mentions work hours or a clinic visit.
+    if (hasExistingRichUI(localAnswer) && (!publicQuestion || !!localAnswer.action)) return Promise.resolve(localAnswer);
+    var id = request.activePet && Number(request.activePet.petId);
+    var body = {
+      message: request.message,
+      responseLanguage: request.responseLanguage
+    };
+    if (Number.isSafeInteger(id) && id > 0) body.pet_id = id;
+    // Deliberately NEVER send request.conversation, ctx, pet name,
+    // records, document previews, phone/address or booking details.
+    return csrfForUserVetti().then(function (csrf) {
+      var controller = global.AbortController ? new global.AbortController() : null;
+      var timer = global.setTimeout(function () { if (controller) controller.abort(); }, 16000);
+      return global.fetch('/api/ai/vetti', {
+        method: 'POST', credentials: 'same-origin', cache: 'no-store',
+        headers: {
+          'Accept': 'application/json', 'Content-Type': 'application/json',
+          'X-CSRF-TOKEN': csrf, 'X-Requested-With': 'XMLHttpRequest'
+        },
+        body: JSON.stringify(body),
+        signal: controller ? controller.signal : undefined
+      }).then(function (response) {
+        if (response.status === 419) authCsrfToken = null;
+        if (!response.ok) throw new Error('user-vetti-unavailable');
+        return response.json();
+      }).then(function (result) {
+        var answer = result && result.success && result.data;
+        if (!isPlainObject(answer) || answer.source === 'fallback' ||
+            typeof answer.text !== 'string' || !answer.text.trim() ||
+            answer.text.length > 1200 || typeof answer.state !== 'string' ||
+            answer.action || answer.bookingContext || answer.petCards || answer.appointments) {
+          throw new Error('user-vetti-invalid-response');
+        }
+        // Text-only: a model cannot send executable UI actions or cards.
+        return { text: answer.text, state: answer.state, suggestions: [] };
+      }).finally(function () {
+        global.clearTimeout(timer);
+      });
+    });
+  }
+
+  // Only turn on the network seam on the authenticated User portal. In a
+  // test harness or offline page, the original deterministic provider stays.
+  if (typeof global.fetch === 'function' && global.location &&
+      /^\/user\//.test(global.location.pathname || '')) {
+    setProvider(userBackendProvider);
   }
 
   global.VettiAI = {

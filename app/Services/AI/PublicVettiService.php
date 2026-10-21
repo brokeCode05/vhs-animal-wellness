@@ -20,7 +20,7 @@ final class PublicVettiService
     }
 
     /** @return array{text:string,source:string,intent:string,requires_confirmation:bool} */
-    public function reply(string $message): array
+    public function reply(string $message, ?bool $allowAi = null): array
     {
         $message = trim($message);
         $facts = $this->facts->load();
@@ -71,7 +71,7 @@ final class PublicVettiService
             return $this->response($this->ruleAnswer($intent, $facts), 'rule', $intent);
         }
         // Don't send off-topic text or ungrounded clinic queries to Gemini.
-        if (! $facts['available'] || ! $this->publicTopic($lower) || ! (bool) config('ai.public_vetti_enabled', false)) {
+        if (! $facts['available'] || ! $this->publicTopic($lower) || ! ($allowAi ?? (bool) config('ai.public_vetti_enabled', false))) {
             return $this->response(self::SAFE_FALLBACK, 'fallback', 'unsupported');
         }
 
