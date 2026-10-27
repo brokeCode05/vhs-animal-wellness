@@ -272,10 +272,22 @@ function loadAppointments() {
     var localToday = _now.getFullYear() + '-' + String(_now.getMonth() + 1).padStart(2, '0') + '-' + String(_now.getDate()).padStart(2, '0');
     renderTodaysScheduleTable(all.filter(function(a) { return a.date === localToday; }));
     renderAllAppointmentsTable(all);
+    // Calendar Week/Day views compare the 12h display time against clinic
+    // slot labels. The previous projection DROPPED time entirely, leaving
+    // every real appointment invisible in both views.
     CalendarState.appointments = all.map(function(a) {
-      return { id: a.id, date: a.date, owner: a.owner_name, pet: a.pet_name, service: a.service, status: a.status, type: a.status };
+      var contract = window.AppointmentContract;
+      var hhmm = contract && contract.timeToHHMM ? contract.timeToHHMM(a.time) : a.time;
+      return {
+        id: a.id, referenceNo: a.reference_no,
+        date: a.date,
+        time: contract && contract.timeTo12h ? contract.timeTo12h(hhmm) : a.time,
+        owner: a.owner_name, pet: a.pet_name, service: a.service,
+        status: a.status, type: a.status
+      };
     });
-    generateCalendar();
+    // Retain the selected view when a server refresh finishes.
+    updateCalendarDisplay();
     return res;
   }).finally(function () { _loadAppointmentsPending = null; });
 

@@ -25,7 +25,7 @@ final class UserVettiService
         $lower = mb_strtolower($input);
         $taglish = $language === 'taglish';
 
-        if (preg_match('/\b(emergency|urgent|not breathing|unconscious|seizure|poison|collapse)\b|hindi makahinga|nahihirapan huminga/iu', $lower)) {
+        if (preg_match('/\b(emergency|urgent|not breathing|unconscious|seizures?|convulsions?|poison|collapse|difficulty breathing)\b|hindi makahinga|nahihirapan huminga|nangingisay/iu', $lower)) {
             return $this->answer($taglish
                 ? 'Kung emergency ito, tawagan agad ang veterinarian o emergency clinic. Huwag maghintay ng chat reply.'
                 : 'If this may be an emergency, call a veterinarian or emergency clinic immediately rather than waiting for chat.', 'rule', 'urgent');
@@ -41,8 +41,20 @@ final class UserVettiService
             $names = array_map(fn (array $pet): string => $pet['name'].' ('.$pet['species'].')', $pets);
             return $this->answer('Your registered pets: '.implode(', ', $names).'.', 'rule', 'pets');
         }
+        if (preg_match('/\b(?:what happens if|what if|miss my appointment|missed appointment|no[- ]?show (?:policy|fee)|ma[- ]?miss ko)\b/iu', $lower)) {
+            return $this->answer('If you miss an appointment, contact the clinic about its no-show and rescheduling policies. I cannot verify fees or change an appointment from chat.', 'rule', 'missed_visit_help');
+        }
+        if (preg_match('/\b(?:what vaccines? (?:has|did)|which vaccines? (?:has|did)|vaccines? received|vaccination history|vaccine history)\b/iu', $lower)) {
+            return $this->answer('For the actual vaccines administered, check your pet\'s Medical Records or Documents. Please ask the veterinarian to verify the record; I will not guess.', 'rule', 'vaccination_records_help');
+        }
         if (preg_match('/\b(?:medical (?:history|record)|vaccination (?:record|passport)|prescription|laboratory result|lab result|clinical history)\b|health records?/iu', $lower)) {
             return $this->answer('Please open your pet\'s Medical Records or Documents section to view authorized records. For interpretation, ask the clinic veterinarian.', 'rule', 'records');
+        }
+        // How-to guidance must be routed BEFORE private appointment queries.
+        // A question such as "Paano magpa-appointment?" must never list history
+        // or send identifying context to Gemini.
+        if (preg_match('/(?:^|\s)paano\s+(?:po\s+)?(?:(?:ako|kami|ko)\s+)?(?:mag(?:pa)?[- ]?(?:appointment|book|schedule|reserve)|makapag[- ]?book)\b|\bhow\s+(?:(?:do|can|could|should)\s+(?:i|we)\s+|to\s+)(?:book|schedule|make|request|arrange|get|reserve)\b|\b(?:what is the (?:booking|appointment) (?:process|procedure)|how does (?:the )?booking work)\b/iu', $lower)) {
+            return $this->answer('To book an appointment, open Book an Appointment in your User Dashboard. Choose one of your registered pets, select a service, date, and available time, then review and confirm using the verification code. You can also ask Vetti to start the booking form.', 'rule', 'booking_help');
         }
         // Read-only appointment queries. An optional pet selector must already
         // have passed the controller's ownership check. Resolve a named pet
@@ -70,7 +82,7 @@ final class UserVettiService
                 $a['pet_name'].' — '.$a['date'].' at '.$a['time'].' ('.$a['service'].'; '.$a['status'].')', $appointments);
             return $this->answer('Your upcoming appointments: '.implode('; ', $lines).'.', 'rule', 'appointments');
         }
-        if (preg_match('/\b(?:book|booking|reschedule|cancel|available slot|appointment otp)\b|magpa.?book|mag.?book/iu', $lower)) {
+        if (preg_match('/\b(?:book|booking|reschedule|cancel|available slot|appointment otp|reserve)\b|magpa.?book|mag.?book|ipa[- ]?groom|magpa[- ]?groom|magpa[- ]?bakuna/iu', $lower)) {
             return $this->answer('You can use the existing Book an Appointment, Reschedule, or Cancel controls. Available slots and any changes are verified by Laravel; Vetti never completes a booking for you.', 'rule', 'booking_guidance');
         }
         if (preg_match('/\b(?:diagnose|diagnosis|prescribe|dosage|medication|vomit|diarrhea|fever|sick|symptoms?|parvo|treat|treatment|pain)\b|nagsusuka|may sakit|pagtatae/iu', $lower)) {

@@ -65,7 +65,9 @@
       // never substitute the active pet for a reference we failed to
       // identify. The pet selector stays blank for manual choice.
       if (bookingContext.petUnresolved === true) return null;
-      return activePet || null;
+      // No explicit choice in the request is not consent to use the
+      // currently highlighted pet. Leave the wizard's selector blank.
+      return null;
     }
     var list = Array.isArray(pets) ? pets : [];
     var hits = list.filter(function (p) {
@@ -167,6 +169,12 @@
 
   // ── NAVIGATION ────────────────────────────────────────────────────
 
+  // Navigation only. The existing User Portal owns current clinic details.
+  function openClinicInfo() {
+    if (goTo('clinic')) return { ok: true, handledBy: 'clinic-info-page' };
+    return { ok: false, error: 'clinic_info_unavailable' };
+  }
+
   function openServices() {
     if (goTo('services')) return { ok: true, handledBy: 'services-page' };
     return { ok: false, error: 'services_page_unavailable' };
@@ -175,6 +183,19 @@
   function openAppointments() {
     if (goTo('appointments')) return { ok: true, handledBy: 'appointments-page' };
     return { ok: false, error: 'appointments_page_unavailable' };
+  }
+
+  // Only navigates to the existing authenticated, owner-scoped document
+  // screen. Does not enumerate or render documents inside the chat.
+  // Read-only navigation; the User Portal owns account editing and saving.
+  function openAccountProfile() {
+    if (goTo('profile')) return { ok: true, handledBy: 'account-profile-page' };
+    return { ok: false, error: 'account_profile_unavailable' };
+  }
+
+  function openMyDocuments() {
+    if (goTo('documents')) return { ok: true, handledBy: 'documents-page' };
+    return { ok: false, error: 'documents_page_unavailable' };
   }
 
   // Vetti's own section. Used once, at mount, so the workspace is the
@@ -203,8 +224,11 @@
     openPetProfile: openPetProfile,
     openPetCreation: openPetCreation,
     openMyPets: openMyPets,
+    openClinicInfo: openClinicInfo,
     openServices: openServices,
     openAppointments: openAppointments,
+    openMyDocuments: openMyDocuments,
+    openAccountProfile: openAccountProfile,
     openWorkspace: openWorkspace,
     refreshPetViews: refreshPetViews,
     notify: notify

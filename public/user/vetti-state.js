@@ -169,6 +169,26 @@
   // every answer is a fixed script — nothing here is inference.
   var INTENTS = [
     {
+      // Account details are NOT pet profiles. Route owner's account-editing
+      // language before the broader pet-profile keyword (which includes
+      // 'profile'). Do not open the editor automatically or edit user data.
+      id: 'account_profile',
+      state: 'idle',
+      keywords: [
+        'my profile', 'edit profile', 'update profile', 'change profile',
+        'account profile', 'personal profile', 'profile ko',
+        'account details', 'account information', 'personal information',
+        'account settings', 'my phone number', 'my address', 'my password',
+        'edit my account', 'update my account'
+      ],
+      reply: function () {
+        return {
+          text: 'I can help you reach My Profile. Select Open My Profile, then Edit Profile to change your phone number, address, profile photo or password. Your registered name and email are read-only in that form. I cannot change account details directly in this chat.',
+          suggestions: ['Open My Profile', 'Show my pets']
+        };
+      }
+    },
+    {
       id: 'greeting_hello',
       state: 'excited',
       keywords: ['hello', 'hi', 'hey', 'kumusta', 'good morning', 'good afternoon', 'good evening'],
@@ -221,11 +241,71 @@
         }
 
         var q = ctx.query || '';
+        var mentionedVisits = referencedPets(q, ctx.pets || []);
+        if (mentionedVisits.length > 1) {
+          // A contrastive instruction names the EXCLUDED pet explicitly.
+          // Remove only that negated name, never select the active pet.
+          var contrast = q.match(/\b(?:not|except|hindi)\s+([a-z][a-z'-]*)\b/i);
+          if (contrast) {
+            mentionedVisits = mentionedVisits.filter(function(p) {
+              return String(p.name || '').toLowerCase() !== contrast[1].replace(/'s$/i, '');
+            });
+          }
+          if (mentionedVisits.length !== 1) return {
+            text: 'Please choose one pet so I can identify the correct appointment.',
+            suggestions: ['Show my appointments'] };
+        }
+        if (mentionedVisits.length === 1) {
+          var requestedName = String(mentionedVisits[0].name || '').toLowerCase();
+          next = upcoming.find(function(a) {
+            return /^(confirmed|pending|rescheduled)$/.test(String(a.status || '')) &&
+              String(a.pet || '').toLowerCase() === requestedName;
+          }) || null;
+          activeVisit = upcoming.find(function(a) {
+            return /^(checked_in|in_consultation)$/.test(String(a.status || '')) &&
+              String(a.pet || '').toLowerCase() === requestedName;
+          }) || null;
+        }
         var wantsReschedule = q.indexOf('reschedul') !== -1;
         var wantsCancel = q.indexOf('cancel') !== -1;
         var wantsPrep = q.indexOf('prepare') !== -1;
 
         if (wantsReschedule || wantsCancel) {
+          // Never launch a modal for a different pet or arbitrarily pick one
+          // when the owner has multiple open visits. The portal still owns
+          // the actual cancellation/reschedule confirmation.
+          var targetedPets = referencedPets(q, ctx.pets || []);
+          // "Cancel John's appointment, not Bornok's" targets John only.
+          // If negation makes the target unclear, never open a modal.
+          var excluded = q.match(/\b(?:not|except|hindi)\s+([a-z][a-z'-]*)\b/i);
+          if (excluded) {
+            var excludedName = excluded[1].replace(/'s$/i, '');
+            targetedPets = targetedPets.filter(function(p) {
+              return String(p.name || '').toLowerCase() !== excludedName;
+            });
+            if (targetedPets.length !== 1) return {
+              text:'I cannot safely identify the intended appointment. Please select it directly in My Appointments.',
+              suggestions:['Show my appointments'] };
+          }
+          if (targetedPets.length > 1) {
+            return { text: 'You mentioned more than one pet. Please choose which appointment to change in My Appointments.',
+              suggestions: ['Show my appointments'] };
+          }
+          var choices = upcoming.filter(function(a) {
+            if (!/^(confirmed|pending|rescheduled)$/.test(String(a.status || ''))) return false;
+            if (!targetedPets.length) return true;
+            return String(a.pet || '').toLowerCase() === String(targetedPets[0].name || '').toLowerCase();
+          });
+          // A named but unknown pet must not silently target the first visit.
+          if (!targetedPets.length && /\b(?:cancel|reschedul\w*)\s+(?!my\b|the\b|an?\b|this\b|appointment\b)([a-z][a-z'-]*)\b/.test(q)) {
+            return { text: 'I could not identify that pet on your account. Please select the specific appointment in My Appointments.',
+              suggestions: ['Show my appointments'] };
+          }
+          if (choices.length > 1) {
+            return { text: 'You have more than one eligible appointment. Please select the specific visit in My Appointments before changing it.',
+              suggestions: ['Show my appointments'] };
+          }
+          next = choices[0] || null;
           if (!next) {
             return {
               text: 'There is no upcoming visit to ' + (wantsCancel ? 'cancel' : 'reschedule')
@@ -300,18 +380,19 @@
         // pool, same-day past slots, backend conflicts). The wizard's
         // review step and the booking OTP own the confirmation; nothing
         // here books, holds a slot or claims availability.
-        var who = (ctx.activePet && ctx.activePet.name) || 'your pet';
+        var bookingPets = referencedPets(ctx.query || '', ctx.pets || []);
+        var who = bookingPets.length === 1 ? bookingPets[0].name : (ctx.activePet && ctx.activePet.name) || 'your pet';
         // A direct slot question gets a direct pointer to where the times
         // live: the booking form lists them straight from the clinic's
         // schedule, so Vetti never repeats (or invents) a timeslot here.
         var slotQuery = /\b(slots?|availability)\b/.test(ctx.query || '');
         var reply = {
           text: slotQuery
-            ? 'I\u2019ll open the booking form for you \u2014 the times listed there '
+            ? 'I can show you the booking form after you select Continue to Booking. The times listed there '
               + 'come straight from the clinic\u2019s live schedule, so what you '
               + 'see is what you can actually book.'
             : 'I can help you get started with an appointment for ' + who + '. '
-              + 'I\u2019ll open the booking form with whatever you\u2019ve already '
+              + 'After you review this, select Continue to Booking. The form can use what you\u2019ve already '
               + 'told me \u2014 you pick an open time, then confirm with the '
               + 'verification code the clinic sends you.',
           action: 'openBooking',
@@ -417,6 +498,49 @@
           petCard: next,
           suggestions: ['Show all my pets', 'Help me add another pet',
                         'I want to book ' + next.name + ' an appointment']
+        };
+      }
+    },
+    {
+      // Keep documents ABOVE pet_profile: "my pet's documents" must not
+      // match the broader "my pet" pet-list cue first.
+      id: 'documents',
+      state: 'idle',
+      keywords: ['document', 'documents', 'record', 'records', 'result', 'results'],
+      reply: function (ctx) {
+        var q = String(ctx.query || '');
+        // No one else's records may be displayed or opened from Vetti.
+        if (/\b(?:someone else(?:'s)?|another (?:owner|person)(?:'s)?|neighbor(?:'s)?|neighbour(?:'s)?|friend(?:'s)?|other owner(?:'s)?|not (?:my|our))\b/i.test(q)) {
+          return {
+            text: 'I can only help you reach documents for pets on your own account. Please ask the owner to access their documents.',
+            suggestions: ['Show my pets']
+          };
+        }
+        var found = referencedPets(q, ctx.pets || []);
+        if (found.length > 1) {
+          return {
+            text: 'You mentioned more than one pet. Please name one registered pet, or open My Documents to review the documents on your account.',
+            suggestions: ['Show my pets', 'Open My Documents']
+          };
+        }
+        // Recognize specifically named but unverified pets. Never select
+        // the active pet when the requested name cannot be confirmed.
+        var named = q.match(/\b(?:i want|show(?: me)?|view|open|find|see|for)\s+(?:the\s+)?([a-z][a-z'-]{1,39})(?:'s)?\s+(?:documents?|records?|results?)\b/i)
+          || q.match(/\b([a-z][a-z'-]{1,39})'s\s+(?:documents?|records?|results?)\b/i);
+        if (named && !found.length && !/^(?:my|our|pet|pets|the|some|these|all)$/i.test(named[1])) {
+          return {
+            text: 'I could not verify that pet among the pets on your account. Check My Pets before looking for its documents.',
+            suggestions: ['Show my pets']
+          };
+        }
+        var name = found.length === 1 ? String(found[0].name || '') : '';
+        return {
+          // The portal loads documents from its existing authenticated
+          // My Documents page; Vetti never fetches or exposes file contents.
+          text: name
+            ? 'For ' + name + ', you can view issued documents on My Documents. Look for the documents labeled ' + name + '. I cannot read or interpret them in this chat.'
+            : 'You can view your pets\' issued documents on My Documents. I can open that page for you, but I cannot read their contents in this chat.',
+          suggestions: ['Open My Documents', 'Show my pets']
         };
       }
     },
@@ -553,19 +677,6 @@
       }
     },
     {
-      id: 'documents',
-      state: 'idle',   // §11: never rest in thinking
-      keywords: ['document', 'documents', 'record', 'records', 'result', 'results'],
-      reply: function () {
-        // TODO(BACKEND): no document retrieval yet.
-        return {
-          text: 'Documents issued after a consultation appear on My Documents. '
-              + 'I cannot open them for you yet \u2014 please use that page.',
-          suggestions: ['Show my appointments', 'What can Vetti do?']
-        };
-      }
-    },
-    {
       id: 'sick',
       state: 'concerned',
       keywords: ['sick', 'ill', 'fever', 'vomit', 'vomiting', 'cough', 'hurt', 'pain',
@@ -658,13 +769,26 @@
   function bookingDayIso(offset) {
     var d = new Date();
     d.setDate(d.getDate() + offset);
-    return d.toISOString().split('T')[0];
+    // Local calendar date: UTC conversion can shift midnight in PH time.
+    return String(d.getFullYear()) + '-' + String(d.getMonth() + 1).padStart(2, '0')
+      + '-' + String(d.getDate()).padStart(2, '0');
   }
 
   // A real calendar date — a round-trip rejects 2026-02-31.
   function isRealIsoDate(iso) {
     var parsed = new Date(iso + 'T12:00:00');
     return !isNaN(parsed.getTime()) && parsed.toISOString().split('T')[0] === iso;
+  }
+
+  // Past dates are NOT booking instructions. Do not open the wizard
+  // and then claim we rejected the request: the UI executes answer.action
+  // independently of answer.text. Never treat an impossible ISO date as
+  // a real appointment date either.
+  function hasPastBookingDate(text) {
+    if (/\b(?:yesterday|kahapon)\b/i.test(text)) return true;
+    var dates = String(text || '').match(/\b\d{4}-\d{2}-\d{2}\b/g) || [];
+    var today = bookingDayIso(0);
+    return dates.some(function(date) { return isRealIsoDate(date) && date < today; });
   }
 
   // ── NARROW BOOKING-VERB GUARD (no intent-table reordering) ─────────
@@ -725,11 +849,13 @@
     day: 1, days: 1, weekday: 1, weekdays: 1,
     monday: 1, tuesday: 1, wednesday: 1, thursday: 1,
     friday: 1, saturday: 1, sunday: 1,
-    book: 1, booking: 1, schedule: 1
+    book: 1, booking: 1, schedule: 1, arrange: 1, reserve: 1,
+    groom: 1, grooming: 1, wash: 1, washed: 1, bath: 1,
+    magpa: 1, ipa: 1, ko: 1, si: 1, sa: 1, bukas: 1, kahapon: 1
   };
 
   function hasUnresolvedPetReference(text, pets, services) {
-    var re = /\b(?:book|booking|schedule|for)\s+([a-z][a-z'-]*)/g;
+    var re = /\b(?:book|booking|schedule|for|si|kay|can|could|may)\s+(?:my\s+|our\s+|the\s+)?([a-z][a-z'-]*)/g;
     var m;
     while ((m = re.exec(text))) {
       var token = m[1].toLowerCase().replace(/'(s)?$/, '');
@@ -752,6 +878,11 @@
       if (knownName) continue;
       return true;
     }
+    // "Can Amelia get a bath?" or "Can Bornok get a bath?" — the
+    // proper-name slot before 'get' is not necessarily in the owner's list.
+    var subject = text.match(/\b(?:can|could|may|pwede bang|puwede bang)\s+([a-z][a-z'-]*)\s+(?:get|have|receive|take)\b/i);
+    if (subject && !PET_REFERENCE_STOPWORDS[subject[1].toLowerCase()] &&
+        !pets.some(function(p) { return p && String(p.name || '').toLowerCase() === subject[1].toLowerCase(); })) return true;
     return false;
   }
 
@@ -809,24 +940,17 @@
       found.petUnresolved = true;
     }
 
-    // DATE — "today", "tomorrow", or an explicit YYYY-MM-DD already in
-    // the text, resolved to a real date. Two DIFFERENT dates in one
-    // message omit. Phrases like "next tuesday" match nothing here.
-    var dates = {};
-    if (hasPhrase(text, 'today')) dates[bookingDayIso(0)] = true;
-    if (hasPhrase(text, 'tomorrow')) dates[bookingDayIso(1)] = true;
-    var isoMatches = text.match(/\b\d{4}-\d{2}-\d{2}\b/g) || [];
-    isoMatches.forEach(function (iso) {
-      if (isRealIsoDate(iso)) dates[iso] = true;
-    });
-    var dateKeys = Object.keys(dates);
-    if (dateKeys.length === 1) found.preferredDate = dateKeys[0];
+    // DATE — validated against the very same parser as the booking gate.
+    // Never prefill a past, impossible, conflicting or >30-day date.
+    var parsedDate = bookingDates(text);
+    if (parsedDate.date) found.preferredDate = parsedDate.date;
 
     // TIME PREFERENCE — exactly one of morning/afternoon/evening, kept
     // as a PREFERENCE only. It never selects or implies a slot.
     var prefs = {};
     ['morning', 'afternoon', 'evening'].forEach(function (pref) {
-      if (hasPhrase(text, pref)) prefs[pref] = true;
+      var aliases = { morning: ['umaga'], afternoon: ['hapon', 'tanghali'], evening: ['gabi'] };
+      if (hasPhrase(text, pref) || aliases[pref].some(function (name) { return hasPhrase(text, name); })) prefs[pref] = true;
     });
     var prefKeys = Object.keys(prefs);
     if (prefKeys.length === 1) found.timePreference = prefKeys[0];
@@ -874,6 +998,216 @@
     return prompts;
   }
 
+  // Natural-language booking gate: recognized phrasing is routed into the
+  // existing openBooking action, not a new booking implementation.
+  function wantsBooking(query) {
+    var q = String(query || '');
+    return /\b(?:book|booking|schedule|reserve|reservation|magbook|magpa[- ]?book|ipa[- ]?book|pa[- ]?book|magpa[- ]?checkup|magpa[- ]?check-up|magpa[- ]?konsulta)\b/i.test(q)
+      || /\b(?:gusto ko|pwede bang|puwede bang|paki|need to|i want to|can you|could you|please|can |could |may |need a|needs a)\b.{0,75}\b(?:bath|bathe|wash|groom|bakuna|vaccinat\w*|deworm|konsulta|consult|check[ -]?up|vet visit)\b/i.test(q)
+      || /\b(?:ipa[- ]?groom|magpa[- ]?groom|ipa[- ]?bakuna|magpa[- ]?bakuna|ipa[- ]?vaccine|magpa[- ]?vaccine|pa[- ]?groom)\b/i.test(q)
+      || /\b(?:arrange|set up|reserve)\b.{0,35}\b(?:wash|bath|groom|visit|appointment|checkup|check-up)\b/i.test(q)
+      || /\b(?:appointment for|need an appointment|need (?:a )?consultation(?: for)?|want (?:a )?consultation(?: for)?)\b/i.test(q);
+  }
+
+  // An informational question about HOW to book is not a request to
+  // view existing appointments or to submit/open a booking automatically.
+  // This takes priority over the broad "appointment" keyword matcher.
+  function isBookingHowTo(query) {
+    var text = String(query || '');
+    return /(?:^|\s)paano\s+(?:po\s+)?(?:(?:ako|kami|ko)\s+)?(?:mag(?:pa)?[- ]?(?:appointment|book|schedule|reserve)|makapag[- ]?book)\b/i.test(text)
+      || /\bhow\s+(?:(?:do|can|could|should)\s+(?:i|we)\s+|to\s+)(?:book|schedule|make|request|arrange|get|reserve)\b/i.test(text)
+      || /\b(?:what is the (?:booking|appointment) (?:process|procedure)|how does (?:the )?booking work)\b/i.test(text);
+  }
+
+  // Questions about clinic cancellation/rescheduling policy are NOT a
+  // request to open an action modal. The exact cutoff is owned by Laravel.
+  function appointmentChangeQuestion(q) {
+    return /\b(?:how\s+(?:do|can|could|would)\s+(?:i|we)\b|how to\b|paano\b|what (?:is|are)\b|how much\b|is there\b|can i\b|could i\b|should i\b|may i\b).{0,80}\b(?:cancel(?:lation)?|reschedul\w*)\b/i.test(q)
+      || /\b(?:cancellation|rescheduling)\s+(?:fees?|charges?|policy|policies|rules?|process)\b/i.test(q);
+  }
+
+  // Stop commands that are explicitly negated, before any modal action.
+  function actionOptOut(query) {
+    return /\b(?:do not|don't|dont|never|not going to|no need to|do not want to|don't want to|dont want to)\s+(?:(?:want|need|plan|wish)\s+to\s+)?(?:book|schedule|reserve|cancel|reschedul\w*)\b/i.test(query)
+      || /\b(?:i am not|i'm not|im not)\s+(?:trying|planning|going)\s+to\s+(?:book|schedule|reserve|cancel|reschedul\w*)\b/i.test(query)
+      || /\bcancel\s+(?:the\s+)?booking request\b/i.test(query);
+  }
+
+  // Exact registered-name lookup. Multiple mentioned owners/pets or a
+  // duplicate registered name should always ask for clarification.
+  function referencedPets(query, pets) {
+    var seen = {};
+    (Array.isArray(pets) ? pets : []).forEach(function(p) {
+      if (!p || !p.name || !hasPhrase(query, p.name)) return;
+      var id = p.petId !== undefined && p.petId !== null ? p.petId : p.id;
+      if (id !== undefined && id !== null) seen[String(id)] = p;
+    });
+    return Object.keys(seen).map(function(id) { return seen[id]; });
+  }
+
+  // Safety rule: never silently choose the active pet when a request
+  // explicitly joins a registered pet with a second, *unresolved* name.
+  // The old check only counted pets present in the currently hydrated
+  // client list, so 'Bornok and John' failed open when John was absent
+  // from that list (stale hydration, another owner's pet, etc.).
+  // A booking is for ONE verified owner pet; clarify rather than guess.
+  function multiplePetReferenceIssue(query, pets, services) {
+    var owned = referencedPets(query, pets);
+    if (owned.length > 1) return true;
+    if (!owned.length) return false;
+
+    var text = String(query || '');
+    var knownNames = (Array.isArray(pets) ? pets : []).map(function(p) {
+      return String(p && p.name || '').toLowerCase().trim();
+    }).filter(Boolean);
+    var nonPetWords = {
+      a:1, an:1, the:1, my:1, our:1, your:1, i:1, me:1, you:1,
+      he:1, she:1, we:1, they:1, their:1, his:1, her:1, pet:1, pets:1,
+      dog:1, dogs:1, cat:1, cats:1, puppy:1, kitten:1,
+      today:1, tomorrow:1, yesterday:1, bukas:1, next:1, later:1,
+      morning:1, afternoon:1, evening:1, night:1, at:1, for:1,
+      groom:1, grooming:1, bath:1, bathing:1, wash:1, washed:1,
+      vaccination:1, vaccine:1, vaccines:1, consultation:1, consult:1,
+      checkup:1, deworming:1, boarding:1, spay:1, neuter:1,
+      appointment:1, appointments:1, schedule:1, service:1, services:1,
+      time:1, slot:1, date:1, please:1, also:1, include:1,
+      monday:1, tuesday:1, wednesday:1, thursday:1, friday:1,
+      saturday:1, sunday:1
+    };
+    var svcWords = {};
+    (Array.isArray(services) ? services : []).forEach(function(svc) {
+      String((svc && svc.label || '') + ' ' + (svc && svc.value || ''))
+        .toLowerCase().split(/[^a-z0-9]+/).forEach(function(word) {
+          if (word) svcWords[word] = true;
+        });
+    });
+    function secondPetCandidate(word) {
+      word = String(word || '').toLowerCase().replace(/'s$/, '');
+      if (!word || nonPetWords[word] || svcWords[word]) return false;
+      // A complete known name is handled above, but an unknown name
+      // still requires explicit selection instead of active-pet fallback.
+      return !knownNames.some(function(name) { return name === word; });
+    }
+    return owned.some(function(pet) {
+      var name = escapeRegex(String(pet.name || '').toLowerCase().trim());
+      if (!name) return false;
+      // 'Bornok and John' / 'Bornok & John'. Keep word boundaries to
+      // prevent matching substrings of other registered pet names.
+      var following = new RegExp('(?:^|[^a-z0-9])' + name +
+        "\\s+(?:and|&)\\s+([a-z][a-z'-]{0,39})(?=$|[^a-z])", 'i');
+      var after = text.match(following);
+      if (after && secondPetCandidate(after[1])) return true;
+      // Symmetric phrase 'John and Bornok'. Don't treat natural service
+      // conjunctions as unknown pet names.
+      var preceding = new RegExp("(?:^|[^a-z0-9])([a-z][a-z'-]{0,39})" +
+        '\\s+(?:and|&)\\s+' + name + '(?=$|[^a-z0-9])', 'i');
+      var before = text.match(preceding);
+      return !!(before && secondPetCandidate(before[1]));
+    });
+  }
+
+  // A single clinic-local calendar parser is used for BOTH validation and
+  // wizard prefill. The 30-day limit comes from the existing booking wizard.
+  // Do not use Date.parse on free text: JS normalizes impossible dates.
+  function bookingDates(query) {
+    var text = String(query || '');
+    var dates = {}, errors = [];
+    function add(year, month, day) {
+      var iso = [String(year).padStart(4, '0'), String(month).padStart(2, '0'), String(day).padStart(2, '0')].join('-');
+      if (!isRealIsoDate(iso)) errors.push('invalid');
+      else dates[iso] = true;
+    }
+    if (/\b(?:yesterday|kahapon)\b/i.test(text)) errors.push('past');
+    (text.match(/\b\d{4}-\d{2}-\d{2}\b/g) || []).forEach(function(date) {
+      add(+date.slice(0, 4), +date.slice(5, 7), +date.slice(8, 10));
+    });
+    // Distinguish numeric US MM/DD/YYYY dates from year-first ISO strings.
+    Array.from(text.matchAll(/\b(\d{1,2})\/(\d{1,2})\/(\d{4})\b/g)).forEach(function(m) {
+      add(+m[3], +m[1], +m[2]);
+    });
+    var months = {january:1, february:2, march:3, april:4, may:5, june:6,
+      july:7, august:8, september:9, october:10, november:11, december:12};
+    Array.from(text.matchAll(/\b(january|february|march|april|may|june|july|august|september|october|november|december)\s+(\d{1,2})(?:st|nd|rd|th)?(?:,?\s+(\d{4}))?\b/gi)).forEach(function(m) {
+      // Yearless named dates are ambiguous around a year boundary: ask.
+      if (!m[3]) errors.push('ambiguous');
+      else add(+m[3], months[m[1].toLowerCase()], +m[2]);
+    });
+    if (/\b(?:day after tomorrow|makalawa)\b/i.test(text)) dates[bookingDayIso(2)] = true;
+    else if (/\b(?:tomorrow|bukas)\b/i.test(text)) dates[bookingDayIso(1)] = true;
+    if (/\btoday\b|\bngayon\b/i.test(text)) dates[bookingDayIso(0)] = true;
+    var weekdays = ['monday','tuesday','wednesday','thursday','friday','saturday','sunday'];
+    var offset = (new Date().getDay() + 6) % 7;
+    var named = Array.from(text.matchAll(/\bnext\s+(monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b/gi));
+    named.forEach(function(m) { dates[bookingDayIso(7-offset+weekdays.indexOf(m[1].toLowerCase()))] = true; });
+    if (!named.length) Array.from(text.matchAll(/\b(?:sa|on)\s+(monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b/gi)).forEach(function(m) {
+      var delta=(weekdays.indexOf(m[1].toLowerCase())-offset+7)%7;
+      dates[bookingDayIso(delta || 7)] = true;
+    });
+    if (/\bnext week\b|\bsa susunod na linggo\b/i.test(text) && !named.length) errors.push('ambiguous');
+    var list = Object.keys(dates);
+    if (list.some(function(date) { return date < bookingDayIso(0); })) errors.push('past');
+    if (list.some(function(date) { return date > bookingDayIso(30); })) errors.push('too_far');
+    if (list.length > 1) errors.push('ambiguous');
+    return { date: errors.length || list.length !== 1 ? null : list[0],
+      error: errors[0] || null };
+  }
+
+  function bookingDateIssue(query) {
+    return bookingDates(query).error;
+  }
+
+  function bookingTimeIssue(query) {
+    // This is a requested time, not an available slot; the wizard will
+    // fetch availability. Obvious impossible/outside-window requests are
+    // rejected before a modal can be offered.
+    var q = String(query || '');
+    if (/\b(?:midnight|hatinggabi|12\s*:?\s*00\s*am|(?:10|11)\s*:?\s*\d{0,2}\s*pm|1\s*am|2\s*am|3\s*am|4\s*am|5\s*am)\b/i.test(q)) return 'outside_hours';
+    var times = Array.from(q.matchAll(/\b(\d{1,2}):(\d{2})\s*(am|pm)\b/gi));
+    if (times.length > 1) return 'ambiguous';
+    if (times.some(function(t) { return +t[1] < 1 || +t[1] > 12 || +t[2] > 59; })) return 'invalid';
+    return null;
+  }
+
+  function thirdPartyPetRequest(q) {
+    return /\b(?:neighbor(?:'s|s')?|neighbour(?:'s|s')?|friend(?:'s|s')?|someone else(?:'s)?|other owner(?:'s)?|not my|not our)\s+(?:(?:pet|dog|cat|animal)\b)?|\b(?:pet|dog|cat)\s+(?:of|belonging to)\s+(?:my\s+)?(?:neighbor|neighbour|friend)\b/i.test(q);
+  }
+
+  // Information requests cannot be converted into mutating actions just
+  // because they mention a service, an appointment or a scheduling word.
+  function informationalQuestion(q) {
+    if (/\b(?:what happens if|what if|if i miss|if we miss|miss my appointment|miss an appointment|no[- ]?show policy|missed appointment|ma[- ]?miss (?:ko|namin))\b/i.test(q)) {
+      return { id:'missed_visit_help', state:'reminder', action:'',
+        text:'If you miss a visit, contact the clinic to ask about its no-show and rebooking policy. I cannot confirm any fees or reschedule it automatically.',
+        suggestions:['Show my appointments', 'Clinic information'] };
+    }
+    if (/\b(?:what (?:vaccines|shots|vaccinations) (?:has|did)|vaccination history|vaccine history|vaccines? received|bakuna (?:na|ni))\b/i.test(q)) {
+      return { id:'vaccination_records_help', state:'reminder', action:'',
+        text:'For actual vaccines administered, check your pet\'s Medical Records or Documents. I won\'t guess which vaccines were given; ask your veterinarian to verify the record.',
+        suggestions:['Show my pets', 'Clinic information'] };
+    }
+    if (/\b(?:what|which|tell me|explain|list|describe|information|details|magkano|ano(?:ng)?|alin)\b.{0,75}\b(?:services?|grooming|vaccination|bath|bakuna|appointment policy)\b/i.test(q) ||
+        /\b(?:services?|grooming|vaccination)\b.{0,45}\b(?:offer|available|include|price|cost|requirements|policy)\b/i.test(q)) return null; // Existing service/catalog FAQ.
+    return false;
+  }
+
+  function deniedBookingRequest(query) {
+    return /\b(?:do not book|don't book|dont book|never book|cancel (?:the )?booking request)\b/i.test(query)
+      || /\b(?:pet that (?:is not|isn't|isnt) mine|(?:isn't|isnt|is not) (?:my|our) pet|not (?:my|our) pet|someone else's pet|another owner's pet|pet (?:i|we) (?:do not|don't|dont) own|not owned by me)\b/i.test(query)
+      || /\b(?:pet|dog|cat|animal|puppy|kitten)\b.{0,35}\b(?:that is|that isn't|that isnt|is|isn't|isnt|not|don't|dont)\s+(?:not\s+)?(?:mine|ours|my\b|owned by me)\b/i.test(query)
+      || /\b(?:both|two|multiple|several)\s+(?:of\s+)?(?:my\s+)?pets\b/i.test(query)
+      || /\b(?:hindi (?:ko|akin|namin) (?:alaga|pet)|hindi (?:sa akin|akin) (?:yung|ang)? ?(?:pet|alaga))\b/i.test(query);
+  }
+
+  function bookingAnswer(context) {
+    var booking = INTENTS.filter(function (intent) { return intent.id === 'booking'; })[0];
+    var answer = booking.reply(context) || {};
+    return {
+      id: 'booking', state: answer.state || booking.state, text: answer.text || '',
+      suggestions: answer.suggestions || [], action: answer.action || '',
+      bookingContext: answer.bookingContext || null
+    };
+  }
+
   // The single resolver. Returns { id, state, text, suggestions, ... }
   // plus whichever STRUCTURED payload the intent asked for. An unmatched
   // message is a deterministic "I did not understand" with the closest
@@ -881,11 +1215,162 @@
   //
   // ctx.query is the normalized message, so a reply can read WHICH
   // service category was named instead of guessing.
+  // Clinic information is a safe public-data read, not a pet, booking,
+  // document, or medical-record request. Keep phrases narrow so requests
+  // such as "book a clinic visit" stay with the booking wizard.
+  function isClinicInformationRequest(q) {
+    return /\b(?:clinic|vhs)(?:['\u2019]s)?\s+(?:info(?:rmation)?|details?|contact(?:s|\s+details?|\s+info)?|address|location|phone(?:\s+number)?|email|hours?|opening\s+hours|operating\s+hours)\b/i.test(q) ||
+      /\b(?:give|show|tell|share|provide)\s+(?:me\s+)?(?:the\s+)?(?:clinic|vhs)(?:['\u2019]s)?\s+(?:info(?:rmation)?|details?)\b/i.test(q) ||
+      /\b(?:information|details?)\s+(?:about|of|for)\s+(?:the\s+|your\s+)?clinic\b/i.test(q) ||
+      /\b(?:where\s+(?:are\s+you|is\s+(?:the|your)\s+clinic)\s+located|how\s+(?:can|do)\s+i\s+(?:contact|reach)\s+(?:you|the\s+clinic)|tell\s+me\s+about\s+(?:the\s+|your\s+)?clinic)\b/i.test(q) ||
+      /\b(?:saan\s+(?:matatagpuan|located)(?:\s+ang)?\s+(?:clinic|vhs)|anong\s+oras\s+(?:kayo|ang\s+clinic)\s+(?:bukas|open)|impormasyon\s+(?:ng|sa)\s+clinic)\b/i.test(q);
+  }
+
+  function clinicInformationAnswer(ctx) {
+    // Contact information comes from the same clinic-settings adapter as
+    // the User Portal. Do not freeze admin-editable details in this file.
+    var info = ctx && ctx.clinicInfo;
+    var lines = [];
+    if (info && typeof info === 'object') {
+      ['name', 'address', 'phone', 'email'].forEach(function (key) {
+        var value = info[key];
+        if (typeof value === 'string' && value.trim()) {
+          var label = key.charAt(0).toUpperCase() + key.slice(1);
+          lines.push(label + ': ' + value.trim().slice(0, 300));
+        }
+      });
+    }
+    return {
+      id: 'clinic_info', state: 'idle', action: '',
+      text: lines.length
+        ? 'Here is the clinic information available in your User Portal:\n' + lines.join('\n')
+          + '\nFor appointment hours, directions and other details, select Open Clinic Info.'
+        : 'You can find the clinic\'s contact information, location and appointment hours in Clinic Info. Select Open Clinic Info to view the latest details.',
+      suggestions: ['Open Clinic Info', 'What services do you offer?']
+    };
+  }
+
   function resolve(message, ctx) {
     var q = normalize(message);
     var context = Object.assign({}, ctx, { query: q });
     if (!q) {
       return { id: 'empty', state: 'idle', text: 'Type a message and I will do my best.', suggestions: ctx.suggestionsWithPet };
+    }
+    // Resolve explicit clinic-information questions before broad pet and booking terms.
+    if (isClinicInformationRequest(q) && !wantsBooking(q)) return clinicInformationAnswer(context);
+    // Explicitly informational requests are never executable appointment
+    // commands, even if the older keyword table happens to match.
+    var information = informationalQuestion(q);
+    if (information && information !== true) return information;
+    if (thirdPartyPetRequest(q) && wantsBooking(q)) {
+      return { id:'booking_ownership', state:'reminder', action:'',
+        text:'I can only start appointments for pets registered to your account. For someone else\'s pet, please ask the owner to book or contact the clinic.',
+        suggestions:['Clinic information'] };
+    }
+    if (/\b(?:grooming|bath|wash|check[ -]?up|consultation|vaccination|bakuna)\b.{0,60}\b(?:and|&)\b.{0,60}\b(?:grooming|bath|wash|check[ -]?up|consultation|vaccination|bakuna)\b/i.test(q) && wantsBooking(q)) {
+      return { id:'booking_service_ambiguous', state:'reminder', action:'',
+        text:'I found multiple requested services. Please request one pet and one service per appointment, or specify which visit to start first.',
+        suggestions:['Book an appointment', 'What services do you offer?'] };
+    }
+    // Urgent and clinical descriptions are NOT a grooming/booking shortcut.
+    // A real veterinarian, not the booking interpreter, must triage them.
+    if (/\b(?:bleed(?:ing)?|poison(?:ed|ing)?|seizures?|convulsions?|fits|collapse|unconscious|not breathing|can\x27t breathe|difficulty breathing|emergency|urgent|vomit(?:ing)?|diarrhea|fever|pain|injur(?:y|ed)|dosage|medication|medicine|prescri(?:be|ption))\b|hindi makahinga|nahihirapan huminga|nagsusuka|nangingisay|kinukumbulsyon/iu.test(q)) {
+      return {
+        id: 'urgent_safety', state: 'concerned', action: '',
+        text: 'This may need urgent veterinary care. Call a veterinarian or emergency clinic now. Do not give medicines or doses based on a chatbot, and do not wait for an appointment chat response.',
+        suggestions: ['Clinic information']
+      };
+    }
+    if (actionOptOut(q)) {
+      var infoGroom = /\b(?:grooming|bath|wash|paligo)\b/i.test(q) &&
+        /\b(?:tell|explain|services?|about|ano|serbisyo|lang)\b/i.test(q);
+      var listed = (context.services || []).filter(function(service) {
+        return service && service.active !== false && /\bgroom/i.test(String(service.label || ''));
+      }).map(function(service) { return service.label; });
+      return { id: 'action_opt_out', state: 'reminder', action: '',
+        text: infoGroom
+          ? 'No booking or change was made. Listed grooming services: ' +
+            (listed.length ? listed.join(', ') : 'Please check the Services page for current options and prices.') + '.'
+          : 'Understood. I will not open or change any appointment. No booking or cancellation was made.',
+        suggestions: ['Show my appointments', 'What services do you offer?'] };
+    }
+    if (appointmentChangeQuestion(q)) {
+      return { id: 'appointment_change_help', state: 'reminder', action: '',
+        text: 'You can review cancellation or rescheduling options in My Appointments. The clinic applies its current cutoff and eligibility rules when you select a visit. For fees or policy details, please contact the clinic.',
+        suggestions: ['Show my appointments', 'Clinic information'] };
+    }
+    // A request naming multiple owned pets cannot become one wizard booking
+    // by silently substituting the currently selected pet.
+    if (wantsBooking(q) && multiplePetReferenceIssue(q, context.pets, context.services)) {
+      return { id: 'booking_pet_ambiguous', state: 'reminder', action: '',
+        text: 'You mentioned more than one pet or an unrecognized pet name. Please choose one pet registered to your account for this booking.',
+        suggestions: ['Show my pets', 'Book an appointment'] };
+    }
+    if (wantsBooking(q) && /\b(?:both|two|multiple|several)\s+(?:of\s+)?(?:my\s+)?pets\b/i.test(q)) {
+      return { id: 'booking_pet_ambiguous', state: 'reminder', action: '',
+        text: 'The booking wizard handles one pet per appointment. Please name or choose a single registered pet.',
+        suggestions: ['Show my pets', 'Book an appointment'] };
+    }
+    if (/\b(?:my other pet|another pet|other pet|ibang alaga)\b/i.test(q) &&
+        /\b(?:appointments?|visits?|bookings?|schedule)\b/i.test(q)) {
+      return {id:'appointments_pet_clarify', state:'reminder', action:'',
+        text:'Which registered pet do you mean? Please tell me the pet name so I can show the correct appointment information.',
+        suggestions:['Show my pets', 'Show my appointments']};
+    }
+    // A negated booking or an explicitly unowned pet is NEVER silently
+    // changed into a booking for the currently selected pet.
+    if (deniedBookingRequest(q)) {
+      return {
+        id: 'booking_ownership', state: 'reminder', action: '',
+        text: 'I can only help you book a visit for pets registered to your account. Please choose one of your own pets, or contact the clinic for assistance.',
+        suggestions: ['Show my pets', 'Book an appointment']
+      };
+    }
+    // "Paano magpa-appointment?" is HOW-TO guidance, not "show my
+    // appointments". Explain the existing process and suggest the trusted
+    // wizard, but do not open it automatically or show private history.
+    if (isBookingHowTo(q)) {
+      return {
+        id: 'booking_help', state: 'booking', action: '',
+        text: 'To book an appointment, select Book an Appointment in the User Dashboard, choose your registered pet and the service, then pick a date and an available time. Review the details and confirm with the verification code. I can also open the booking form when you ask me to book a visit.',
+        suggestions: ['Book an appointment', 'What services do you offer?']
+      };
+    }
+    if (wantsBooking(q) && hasUnresolvedPetReference(q, context.pets || [], context.services || [])) {
+      return {id:'booking_pet_ambiguous', state:'reminder', action:'',
+        text:'I could not verify the pet you named among your registered pets. Please confirm the name in My Pets before opening a booking.',
+        suggestions:['Show my pets', 'Book an appointment']};
+    }
+    // Reject explicitly past booking dates BEFORE any openBooking action
+    // is issued. Otherwise the booking reply may say "date has passed"
+    // while runAction still opens the wizard (reported browser bug).
+    if (wantsBooking(q)) {
+      var dateIssue = bookingDateIssue(q);
+      var timeIssue = bookingTimeIssue(q);
+      if (timeIssue) {
+        return { id:'booking_invalid_time', state:'reminder', action:'', bookingContext:null,
+          text: timeIssue === 'outside_hours'
+            ? 'That time is outside normal appointment hours. Please choose an available time in the booking window.'
+            : 'The requested time is invalid or ambiguous. Please give a single valid time preference.',
+          suggestions:['Book an appointment', 'Clinic information'] };
+      }
+      if (dateIssue) {
+        var dateHelp = {
+          past: 'That appointment date has already passed. Please request a future date instead.',
+          invalid: 'That calendar date does not exist. Please provide a real date.',
+          too_far: 'The booking form accepts dates up to 30 days ahead. Please choose a date within that range.',
+          ambiguous: 'I need one exact appointment date. Please specify a single day within the next 30 days.'
+        };
+        return { id: 'booking_invalid_date', state: 'reminder', action: '', bookingContext: null,
+          text: dateHelp[dateIssue] + ' No booking form was opened and no appointment was created.',
+          suggestions: ['Book an appointment', 'What services do you offer?'] };
+      }
+    }
+    // Route new English/Taglish wording BEFORE broad appointment/clinic
+    // keyword matches. Pure information questions still use their intents.
+    if (wantsBooking(q) && !scheduleIsReminderNoun(q, context) &&
+        !/\b(?:how (?:do|can|to) (?:i |we )?book|how does booking|paano (?:magbook|magpa book)|(?:show|list|view|check) my (?:existing |next |upcoming )?(?:appointments?|bookings?)|reschedul\w*|cancel\w*)\b/i.test(q)) {
+      return bookingAnswer(context);
     }
     for (var i = 0; i < INTENTS.length; i++) {
       var intent = INTENTS[i];
@@ -1062,6 +1547,9 @@
     motionFor: motionFor,
     restingState: restingState,
     resolve: resolve,
+    // Diagnostic build ID: verify the actual JavaScript loaded by the
+    // running browser, especially when using Cloudflare or older tabs.
+    version: '5.6.0-capstone-audit',
     greetingWord: greetingWord,
     warmLine: warmLine,
     isFirstTime: isFirstTime,

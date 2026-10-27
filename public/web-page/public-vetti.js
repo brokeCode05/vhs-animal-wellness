@@ -74,7 +74,7 @@
       reply:
         "That needs your own clinic details, so please log in or sign up and " +
         "open Vetti in the User Portal — the full Vetti is pet-aware and can " +
-        "see your pets, appointments and records. Here I can help with general " +
+        "help you navigate your pets, appointments and records. Here I can help with general " +
         "clinic questions."
     },
     {
@@ -154,6 +154,19 @@
 
   function answer(question) {
     var q = String(question || "").toLowerCase();
+    // Public-only FAQ aliases; never reference private owner/pet data.
+    // Retain the original privacy/emergency rules ahead of general intents.
+    // Immediate safety advice must not be hidden by the "my pet" privacy
+    // rule or by a broad service/appointment keyword in offline mode.
+    if (/\b(?:emergency|urgent|poison|bleeding|seizures?|convulsions?|collapsed?|unconscious|not breathing|difficulty breathing)\b|hindi makahinga|nahihirapan huminga|nangingisay/i.test(q)) return RULES[1].reply;
+    if (/\b(?:my pet|my pets|my dog|my cat|my appointment|my booking|my records|aking alaga|mga alaga ko)\b/i.test(q)) return RULES[0].reply;
+    if (/\b(?:medicine|medication|dosage|prescri(?:be|ption)|diagnos(?:e|is)|vomit(?:ing)?|diarrhea|fever|sick)\b/i.test(q))
+      return 'I cannot diagnose or recommend medication in chat. Please contact a veterinarian for an assessment; for severe symptoms seek emergency care.';
+    if (/\b(?:paano magbook|paano magpa[- ]?book|paano magpa[- ]?appointment|magpa[- ]?book|mag[- ]?book)\b/i.test(q)) return RULES[2].reply;
+    if (/\b(?:anong (?:services|serbisyo)|services ninyo|serbisyo nyo|may grooming|may bakuna)\b/i.test(q)) return RULES[3].reply;
+    if (/\b(?:saan (?:kayo|ang clinic)|paano pumunta|address ng clinic|anong oras|oras ng clinic|what time bukas)\b/i.test(q)) return RULES[4].reply;
+    if (/\b(?:paano mag[- ]?register|paano mag[- ]?login|paano mag[- ]?signup)\b/i.test(q)) return RULES[6].reply;
+    if (/\b(?:magkano|presyo|price ng clinic)\b/i.test(q)) return RULES[7].reply;
     for (var i = 0; i < RULES.length; i++) {
       var rule = RULES[i];
       for (var j = 0; j < rule.keys.length; j++) {

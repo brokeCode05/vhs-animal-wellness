@@ -87,6 +87,8 @@
     busy: false,
     booted: false,
     epoch: 0,                // bumped by New Conversation to void in-flight replies
+    bookingTicket: 0,
+    pendingBooking: null,
     presenceState: 'idle',
     presenceMotion: '',
     presenceReturn: 0,
@@ -1386,6 +1388,29 @@
     }
   }
 
+  // A booking proposal must be reviewed in the chat before the wizard is
+  // opened. No artificial timeout and no auto-click. We keep one ephemeral
+  // proposal per thread; any subsequent user turn invalidates the button.
+  function invalidateBookingProposal() {
+    ui.pendingBooking = null;
+    if (dom.canvas) {
+      dom.canvas.querySelectorAll('[data-vetti-action="continue-booking"]').forEach(function(btn) {
+        btn.disabled = true;
+        btn.setAttribute('aria-disabled', 'true');
+      });
+    }
+  }
+
+  function renderBookingProposal(answer) {
+    invalidateBookingProposal();
+    ui.bookingTicket += 1;
+    var ticket = String(ui.bookingTicket);
+    ui.pendingBooking = { ticket: ticket, epoch: ui.epoch, answer: answer };
+    renderBlock('<button type="button" class="vetti-continue-booking" '
+      + 'data-vetti-action="continue-booking" data-vetti-booking-ticket="' + ticket + '">'
+      + 'Continue to Booking</button>', 'vetti-booking-proposal');
+  }
+
   // ── Sending a message ─────────────────────────────────────────────────
   function buildContext() {
     var list = pets();
@@ -1403,6 +1428,7 @@
       // Future AI request context: the saved preference rides along.
       // Today's deterministic resolver ignores it; the Gemini controller
       // will read it when composing the request.
+      clinicInfo: Data.getClinicInfo(),
       responseLanguage: State.getResponseLanguage()
     };
   }
@@ -1480,6 +1506,7 @@
     var message = String(text || '').trim();
     if (!message || ui.busy) return;
 
+    invalidateBookingProposal();
     renderUser(message);
     hideCarousel();
     scrollToBottom(true);
@@ -1523,6 +1550,31 @@
         if (answer.capabilities) {
           renderBlock(capabilityListMarkup(), 'vetti-card-block');
         }
+        // Explicit owner action, not an automatic redirect or a data edit.
+        if (answer.id === 'account_profile' &&
+            Array.isArray(answer.suggestions) &&
+            answer.suggestions.indexOf('Open My Profile') !== -1) {
+          renderBlock('<button type="button" class="vetti-continue-booking" '
+            + 'data-vetti-action="open-account-profile">Open My Profile</button>',
+            'vetti-profile-navigation');
+        }
+        // This opens only the portal's authenticated My Documents page;
+        // no private document content is placed in the Vetti conversation.
+        if (answer.id === 'documents' &&
+            Array.isArray(answer.suggestions) &&
+            answer.suggestions.indexOf('Open My Documents') !== -1) {
+          renderBlock('<button type="button" class="vetti-continue-booking" '
+            + 'data-vetti-action="open-my-documents">Open My Documents</button>',
+            'vetti-documents-navigation');
+        }
+        // Clinic facts are read from the existing shared settings; the user
+        // explicitly chooses whether to open the full Clinic Info page.
+        if (answer.id === 'clinic_info' && Array.isArray(answer.suggestions) &&
+            answer.suggestions.indexOf('Open Clinic Info') !== -1) {
+          renderBlock('<button type="button" class="vetti-continue-booking" '
+            + 'data-vetti-action="open-clinic-info">Open Clinic Info</button>',
+            'vetti-clinic-navigation');
+        }
         if (answer.service) {
           renderBlock(serviceDetailMarkup(answer.service), 'vetti-card-block');
         } else if (answer.serviceGroup) {
@@ -1534,7 +1586,8 @@
         // Manual fallbacks. KAN-50 owns the real mutations, so every one of
         // these hands off to the portal's own UI rather than pretending the
         // change was made in conversation.
-        runAction(answer);
+        if (answer.action === 'openBooking') renderBookingProposal(answer);
+        else runAction(answer);
 
         // A completed exchange feeds the controller's bounded history.
         // Recorded only AFTER the epoch check above, so turns from a
@@ -1671,6 +1724,7 @@
     // language preference and every account/pet/appointment record are
     // untouched — history is conversation scratch, not stored state.
     AI.clearHistory();
+    invalidateBookingProposal();
     ui.busy = false;
     ui.thinking = false;
     ui.saving = false;
@@ -1792,6 +1846,18 @@
       // handled with the other data-vetti-action names below.
       if (menuOpen() && !target.closest('#vettiMenu')) closeMenu(false);
 
+      var continueBooking = target.closest('[data-vetti-action="continue-booking"]');
+      if (continueBooking) {
+        var pending = ui.pendingBooking;
+        if (!pending || continueBooking.disabled || pending.epoch !== ui.epoch ||
+            pending.ticket !== continueBooking.getAttribute('data-vetti-booking-ticket')) return;
+        invalidateBookingProposal(); // double-click cannot open twice
+        // Existing tool and wizard remain the only way to prepare a booking;
+        // live availability and OTP are still validated by Laravel.
+        runAction(pending.answer);
+        return;
+      }
+
       var prompt = target.closest('[data-vetti-prompt]');
       if (prompt) { send(prompt.getAttribute('data-vetti-prompt')); return; }
 
@@ -1809,6 +1875,12 @@
         } else if (name === 'open-my-pets') {
           closePetForm();
           Tools.openMyPets();
+        } else if (name === 'open-my-documents') {
+          Tools.openMyDocuments();
+        } else if (name === 'open-account-profile') {
+          Tools.openAccountProfile();
+        } else if (name === 'open-clinic-info') {
+          Tools.openClinicInfo();
         } else if (name === 'open-services') {
           Tools.openServices();
         } else if (name === 'toggle-menu') {

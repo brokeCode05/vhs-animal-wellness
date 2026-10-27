@@ -55,6 +55,16 @@ class AvailabilityController extends Controller
 
         $doctorId = isset($v['doctor_id']) ? (int) $v['doctor_id'] : null;
         $excludeId = isset($v['exclude_id']) ? (int) $v['exclude_id'] : null;
+        if ($excludeId !== null) {
+            $excluded = Appointment::findOrFail($excludeId);
+            $actor = $r->user();
+            abort_unless(
+                $actor && ($actor->role === 'Admin'
+                    || ($actor->role === 'User' && (int) $excluded->user_id === (int) $actor->id)),
+                403,
+                'You cannot exclude an appointment belonging to another owner.'
+            );
+        }
         $date = $v['date'];
 
         $all = AppointmentWorkflow::slotsFor($date);

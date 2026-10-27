@@ -60,7 +60,7 @@
   var MAX_TURN_CHARS = 2000;
   // How long a provider may take before the deterministic resolver
   // answers instead. Generous: the default provider is synchronous.
-  var DEFAULT_TIMEOUT_MS = 18000;
+  var DEFAULT_TIMEOUT_MS = 65000;
 
   // The ONLY action names an answer may carry. These are exactly the
   // cases runAction() already understands — nothing else executes.
@@ -77,6 +77,10 @@
   // stored record. The language preference lives in localStorage and
   // is untouched by anything here.
   var history = [];
+  // Anonymous per-chat identifier: Laravel session owns the actual pending state.
+  // This is NOT an authentication token, ID, or user record.
+  var semanticConversationId = 'chat_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 12);
+  var semanticAvailability = null;
   var provider = null;   // null = the deterministic default is active
 
   // ── Small helpers ─────────────────────────────────────────────────
@@ -111,6 +115,7 @@
 
   function clearHistory() {
     history = [];
+    semanticConversationId = 'chat_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 12);
   }
 
   // ── Request building ──────────────────────────────────────────────
@@ -330,6 +335,26 @@
     }
   }
 
+  function applyBookingFollowUp(request) {
+    var q = String(request.message || '');
+    if (!/^(?:actually|instead|change (?:it|that)|make it|rather|ay|palitan|gawin nating)[,\s]/i.test(q) &&
+        !/^(?:the )?day after tomorrow\.?$/i.test(q)) return request;
+    if (!/\b(?:tomorrow|bukas|makalawa|day after tomorrow|today|on (?:monday|tuesday|wednesday|thursday|friday|saturday|sunday)|next (?:monday|tuesday|wednesday|thursday|friday|saturday|sunday))\b/i.test(q)) return request;
+    var turns = request.conversation || [];
+    var previous = null;
+    // Follow only the immediately preceding user turn, not an earlier
+    // booking separated by unrelated questions or an action opt-out.
+    for (var i = turns.length - 1; i >= 0; --i) {
+      if (turns[i].role === 'user') { previous = turns[i].text; break; }
+    }
+    if (!previous || !/\b(?:book|booking|schedule|appointment|magpa[- ]?checkup|magpa[- ]?groom)\b/i.test(previous) ||
+        /\b(?:don't|do not|not|hindi|neighbor|neighbour|emergency|medicine)\b/i.test(previous)) return request;
+    // Replace *only* the date expression; pet and service remain local and
+    // must still be validated against the currently hydrated owner records.
+    var base = previous.replace(/\b(?:day after tomorrow|tomorrow|today|bukas|makalawa|next\s+(?:monday|tuesday|wednesday|thursday|friday|saturday|sunday)|(?:on|sa)\s+(?:monday|tuesday|wednesday|thursday|friday|saturday|sunday)|\d{4}-\d{2}-\d{2})\b/gi, '');
+    return Object.assign({}, request, {message: base + ' ' + q});
+  }
+
   // THE API. Always returns a Promise resolving to a valid answer in
   // the existing shape — it never rejects, whatever a provider does.
   //
@@ -342,7 +367,9 @@
   function ask(seed, ctx, options) {
     var request;
     try {
-      request = buildRequest(seed, ctx);
+      var original = buildRequest(seed, ctx);
+      request = applyBookingFollowUp(original);
+      request.semanticOriginalMessage = original.message;
     } catch (error) {
       // Request building is the caller's data, not trusted input: if
       // it cannot be built, answer deterministically with what we have.
@@ -370,7 +397,7 @@
     });
   }
 
-  // Phase 3 — preserve the existing full-featured local card/action path.
+  // Phases 3-4: retain the original cards/actions, add advisory booking hints.
   // The backend handles authenticated text questions; browser data/cards
   // never become AI request context. Book/cancel/reschedule remain entirely
   // in the existing UI and Laravel appointment/OTP workflow.
@@ -409,8 +436,335 @@
     return false;
   }
 
+  // Phase 4: backend returns *hints*, never executable booking actions.
+  // The action remains the trusted local openBooking; existing OTP and
+  // server-side availability validation are unchanged.
+  var PHASE4_SERVICE_HINTS = [
+    'grooming', 'vaccination', 'consultation', 'deworming', 'microchipping',
+    'spay', 'neuter', 'boarding', 'confinement', 'dental'
+  ];
+  var PHASE4_TIME_HINTS = ['morning', 'afternoon', 'evening'];
+
+  // Read-only, client-side guards against a partial deterministic match
+  // accidentally selecting one of several services in the user's request.
+  // This also protects the offline fallback, before the Laravel classifier
+  // is available. Never use these cues to *choose* a medical procedure.
+  var PHASE4_WORD_GUARDS = {
+    grooming: /\b(?:groom(?:ing)?|bath(?:ing|e)?|wash(?:ed|ing)?|nail trim(?:ming)?|ipa[- ]?groom|magpa[- ]?groom|pa[- ]?groom|paliguan)\b/i,
+    vaccination: /\b(?:vaccinat(?:e|ed|ing|ion|ions)|vaccin(?:e|es)|booster|bakuna|magpa[- ]?bakuna|ipa[- ]?bakuna)\b/i,
+    consultation: /\b(?:consultation|consult|check[ -]?up)\b/i,
+    deworming: /\bdeworm(?:ing)?\b/i,
+    microchipping: /\bmicro[ -]?chipp?(?:ing)?\b/i,
+    spay: /\bspay(?:ing)?\b/i,
+    neuter: /\bneuter(?:ing)?\b/i,
+    boarding: /\bboard(?:ing)?\b/i,
+    confinement: /\bconfinement\b/i,
+    dental: /\b(?:dental|teeth cleaning)\b/i
+  };
+
+  function phase4MultipleServices(text) {
+    var count = 0;
+    for (var name in PHASE4_WORD_GUARDS) {
+      if (Object.prototype.hasOwnProperty.call(PHASE4_WORD_GUARDS, name) &&
+          PHASE4_WORD_GUARDS[name].test(String(text || '')) && ++count > 1) return true;
+    }
+    return false;
+  }
+
+  // The wizard <select> has options with the canonical VALUE, not the
+  // numeric `serviceId`; use value for all new suggestions.
+  function phase4CanonicalService(services, valueOrId) {
+    var list = Array.isArray(services) ? services : [];
+    var hit = list.filter(function (s) {
+      return s && (String(s.serviceId) === String(valueOrId) || String(s.value) === String(valueOrId));
+    });
+    return hit.length === 1 && typeof hit[0].value === 'string' ? hit[0].value : null;
+  }
+
+  // A unique owner-selected cat/dog may disambiguate Dog Grooming vs
+  // Cat Grooming. But never pick an animal or a medical service by guess.
+  function phase4PetSpecies(ctx, bookingContext) {
+    if (bookingContext && bookingContext.petUnresolved === true) return null;
+    var chosenId = bookingContext && bookingContext.petId;
+    var pets = Array.isArray(ctx && ctx.pets) ? ctx.pets : [];
+    var pet = null;
+    if (chosenId !== undefined && chosenId !== null && chosenId !== '') {
+      var hits = pets.filter(function (p) {
+        return p && String(p.petId !== undefined ? p.petId : p.id) === String(chosenId);
+      });
+      if (hits.length === 1) pet = hits[0];
+    } else if (ctx && ctx.activePet) {
+      pet = ctx.activePet;
+    }
+    var species = String(pet && (pet.species || pet.type) || '').toLowerCase().trim();
+    if (/\b(cat|feline)\b/.test(species)) return 'cat';
+    if (/\b(dog|canine)\b/.test(species)) return 'dog';
+    return null;
+  }
+
+  function phase4CatalogMatch(services, hint, ctx, bookingContext) {
+    if (PHASE4_SERVICE_HINTS.indexOf(hint) === -1) return null;
+    var list = Array.isArray(services) ? services : [];
+    var words = {
+      grooming: /\bgroom(?:ing)?\b/i,
+      vaccination: /\b(?:vaccination|vaccinations|vaccinate|vaccine)\b/i,
+      consultation: /\bconsult(?:ation)?\b|\bcheck[ -]?up\b/i,
+      deworming: /\bdeworm(?:ing)?\b/i,
+      microchipping: /\bmicro[ -]?chip(?:ping)?\b/i,
+      spay: /\bspay\b/i,
+      neuter: /\bneuter\b/i,
+      boarding: /\bboard(?:ing)?\b/i,
+      confinement: /\bconfinement\b/i,
+      dental: /\bdental\b|\bteeth cleaning\b/i
+    };
+    var matches = list.filter(function (s) {
+      return s && s.active !== false &&
+        words[hint].test(String(s.label || '') + ' ' + String(s.value || '').replace(/_/g, ' '));
+    });
+    if (hint === 'grooming' && matches.length > 1) {
+      var species = phase4PetSpecies(ctx, bookingContext);
+      if (species) {
+        matches = matches.filter(function (s) {
+          var title = String(s.label || '') + ' ' + String(s.value || '').replace(/_/g, ' ');
+          return new RegExp('\\b' + species + '\\b', 'i').test(title);
+        });
+      }
+    }
+    if (matches.length !== 1) return null;
+    var value = matches[0].value;
+    return typeof value === 'string' && value.trim() ? value : null;
+  }
+
+  function phase4RemoveUnsafeLocalService(localAnswer, text) {
+    if (!isPlainObject(localAnswer) || localAnswer.action !== 'openBooking') return localAnswer;
+    if (phase4MultipleServices(text) && isPlainObject(localAnswer.bookingContext)) {
+      delete localAnswer.bookingContext.serviceId;
+    }
+    return localAnswer;
+  }
+
+  function phase4ApplyHints(localAnswer, ctx, data, message) {
+    if (!isPlainObject(localAnswer) || localAnswer.action !== 'openBooking' ||
+        !isPlainObject(data) || data.booking_created !== false ||
+        data.requires_confirmation !== true ||
+        ['ai', 'rule'].indexOf(data.source) === -1) return localAnswer;
+    if (PHASE4_SERVICE_HINTS.concat(['none']).indexOf(data.service_hint) === -1 ||
+        PHASE4_TIME_HINTS.concat(['none']).indexOf(data.time_preference) === -1 ||
+        typeof data.service_ambiguous !== 'boolean') return localAnswer;
+    var current = isPlainObject(localAnswer.bookingContext) ? localAnswer.bookingContext : {};
+    var update = {};
+    for (var key in current) {
+      if (Object.prototype.hasOwnProperty.call(current, key)) update[key] = current[key];
+    }
+    // Local veto is also required if a future server regression returns a
+    // single service for a plainly conflicting two-service request.
+    if (data.service_ambiguous || phase4MultipleServices(message)) {
+      // Veto a partial match from the original deterministic resolver.
+      delete update.serviceId;
+      localAnswer.id = 'booking_service_ambiguous';
+      localAnswer.action = '';
+      localAnswer.text = 'I found more than one requested service. Please choose one pet and one service to start with. No booking form has been opened.';
+      delete localAnswer.bookingContext;
+      return localAnswer;
+    } else if (data.service_hint !== 'none') {
+      var matched = phase4CatalogMatch(ctx && ctx.services, data.service_hint, ctx, update);
+      // A LOCAL mismatch (e.g. "wash" accidentally selecting Consultation)
+      // must not defeat a unique, explicitly mentioned service determined
+      // by Laravel. Only override when the original message really contains
+      // the suggested category; never trust an unsolicited AI hint.
+      var mentioned = PHASE4_WORD_GUARDS[data.service_hint] &&
+        PHASE4_WORD_GUARDS[data.service_hint].test(String(message || ''));
+      var canonical = update.serviceId
+        ? phase4CanonicalService(ctx && ctx.services, update.serviceId) : null;
+      if (matched && mentioned) update.serviceId = matched;
+      else if (canonical) update.serviceId = canonical;
+      else delete update.serviceId;
+      if (!update.serviceId) {
+        localAnswer.text = 'I could not verify an exact service; please select it in the booking form after reviewing this proposal.';
+      }
+    }
+    if (!update.timePreference && data.time_preference !== 'none') {
+      update.timePreference = data.time_preference;
+    }
+    if (Object.keys(update).length) localAnswer.bookingContext = update;
+    else delete localAnswer.bookingContext;
+    return localAnswer;
+  }
+
+  // Present only verified local context; this is a proposal, NOT a
+  // confirmation or availability claim. Never list a different active pet
+  // as though it were named in the user's booking request.
+  function phase4BookingSummary(answer, ctx, originalMessage) {
+    if (!answer || answer.action !== 'openBooking') return answer;
+    var c = answer.bookingContext || {};
+    // A verified service alias may be resolved using the EXISTING local
+    // guard vocabulary and active catalog when Laravel is unavailable.
+    // Never let an LLM's unspecified response invent a service.
+    if (!c.serviceId && originalMessage && !phase4MultipleServices(originalMessage)) {
+      var cues = PHASE4_SERVICE_HINTS.filter(function(k) {
+        return PHASE4_WORD_GUARDS[k].test(originalMessage);
+      });
+      if (cues.length === 1) {
+        var canonicalHint = phase4CatalogMatch(ctx && ctx.services, cues[0], ctx, c);
+        if (canonicalHint) {
+          c = Object.assign({}, c, {serviceId: canonicalHint});
+          answer.bookingContext = c;
+        }
+      }
+    }
+    var pets = Array.isArray(ctx && ctx.pets) ? ctx.pets : [];
+    var services = Array.isArray(ctx && ctx.services) ? ctx.services : [];
+    var pet = pets.filter(function(p) { return p && String(p.petId !== undefined ? p.petId : p.id) === String(c.petId); });
+    var service = services.filter(function(s) { return s && s.active !== false && String(s.value) === String(c.serviceId); });
+    var petLabel = pet.length === 1 ? pet[0].name : 'not selected';
+    var serviceLabel = service.length === 1 ? service[0].label : 'not selected';
+    answer.text = 'Here is what I understood for your proposed appointment:\n'
+      + 'Pet: ' + petLabel + '\n'
+      + 'Service: ' + serviceLabel + '\n'
+      + 'Date: ' + (c.preferredDate || 'not selected') + '\n'
+      + 'Time: ' + (c.preferredTime || (c.timePreference ? c.timePreference + ' preference (not a confirmed slot)' : 'not selected')) + '\n'
+      + 'No appointment has been made. Review this summary, then select Continue to Booking to open the existing form. The available times and OTP confirmation are checked there.';
+    return answer;
+  }
+
+  function phase4BookingProvider(request, ctx, localAnswer) {
+    // Pet identities and names stay in the local resolver. Only text reaches
+    // OUR Laravel endpoint; the backend builds provider-safe cue tags.
+    return csrfForUserVetti().then(function (csrf) {
+      var controller = global.AbortController ? new global.AbortController() : null;
+      var timer = global.setTimeout(function () { if (controller) controller.abort(); }, 9000);
+      return global.fetch('/api/ai/booking-intent', {
+        method: 'POST', credentials: 'same-origin', cache: 'no-store',
+        headers: {
+          'Accept': 'application/json', 'Content-Type': 'application/json',
+          'X-CSRF-TOKEN': csrf, 'X-Requested-With': 'XMLHttpRequest'
+        },
+        body: JSON.stringify({ message: request.message }),
+        signal: controller ? controller.signal : undefined
+      }).then(function (response) {
+        if (response.status === 419) authCsrfToken = null;
+        if (!response.ok) throw new Error('booking-intent-unavailable');
+        return response.json();
+      }).then(function (response) {
+        return response && response.success === true
+          ? phase4BookingSummary(phase4ApplyHints(localAnswer, ctx, response.data, request.message), ctx, request.message)
+          : phase4BookingSummary(localAnswer, ctx, request.message);
+      }).finally(function () {
+        global.clearTimeout(timer);
+      });
+    }).catch(function () {
+      // No broken booking wizard even if CSRF, provider or network fails.
+      return phase4BookingSummary(localAnswer, ctx, request.message);
+    });
+  }
+
+  // Phase 5 pilot runs BEFORE the keyword resolver for ordinary messages.
+  // The server is the only component that can turn a semantic interpretation
+  // into a read-only proposal; Gemini cannot send executable UI actions.
+  function semanticCandidate(request, ctx) {
+    // Frontend opt-in as well as mandatory backend/privacy gates.
+    if (global.VHS_SEMANTIC_VETTI !== true || semanticAvailability === false) return Promise.resolve(null);
+    return csrfForUserVetti().then(function(csrf) {
+      var controller = global.AbortController ? new global.AbortController() : null;
+      var timer = global.setTimeout(function() { if (controller) controller.abort(); }, 45000);
+      return global.fetch('/api/ai/semantic-vetti', {
+        method: 'POST', credentials: 'same-origin', cache: 'no-store',
+        headers: {'Accept':'application/json', 'Content-Type':'application/json',
+          'X-CSRF-TOKEN':csrf, 'X-Requested-With':'XMLHttpRequest'},
+        body: JSON.stringify({message: request.semanticOriginalMessage || request.message, conversation_id: semanticConversationId}),
+        signal: controller ? controller.signal : undefined
+      }).then(function(response) {
+        if (response.status === 419) authCsrfToken = null;
+        if (!response.ok) throw new Error('semantic-unavailable');
+        return response.json();
+      }).then(function(body) {
+        var data = body && body.success === true && body.data;
+        if (!isPlainObject(data)) return null;
+        if (data.mode === 'disabled') { semanticAvailability = false; return null; }
+        if (data.mode !== 'semantic') return null;
+        semanticAvailability = true;
+        if (data.kind === 'information' && typeof data.text === 'string' &&
+            data.text.length < 1000 && data.text.trim() &&
+            ['idle','reminder','concerned'].indexOf(data.state) !== -1) {
+          return {id:'semantic_information', state:data.state, text:data.text, suggestions:[]};
+        }
+        if (data.kind !== 'booking_proposal' || data.booking_created !== false ||
+            data.requires_confirmation !== true ||
+            typeof data.pet_id !== 'number' || !Number.isSafeInteger(data.pet_id) ||
+            typeof data.preferred_date !== 'string' ||
+            !/^\d{4}-\d{2}-\d{2}$/.test(data.preferred_date) ||
+            PHASE4_SERVICE_HINTS.indexOf(data.service_hint) === -1 ||
+            PHASE4_TIME_HINTS.concat(['none']).indexOf(data.time_preference) === -1) return null;
+        // Defense in depth: id must be in the already authorized local pet list.
+        var pets = Array.isArray(ctx && ctx.pets) ? ctx.pets : [];
+        var owned = pets.filter(function(p) {
+          return p && String(p.petId !== undefined ? p.petId : p.id) === String(data.pet_id);
+        });
+        if (owned.length !== 1) return null;
+        var date = new Date(data.preferred_date + 'T12:00:00');
+        if (isNaN(date.getTime()) ||
+            date.getFullYear() + '-' + String(date.getMonth()+1).padStart(2,'0') + '-' + String(date.getDate()).padStart(2,'0') !== data.preferred_date) return null;
+        var context = {petId:String(data.pet_id),preferredDate:data.preferred_date};
+        if (data.time_preference !== 'none') context.timePreference = data.time_preference;
+        // The AI classification is a suggestion, NOT verified service identity.
+        // Only the local owner's active catalog + explicit service vocabulary
+        // may prefill. Novel paraphrases still get a useful interpretation,
+        // while the form leaves the service unselected for user review.
+        var guard = PHASE4_WORD_GUARDS[data.service_hint];
+        var matched = guard && guard.test(request.semanticOriginalMessage || request.message)
+          ? phase4CatalogMatch(ctx && ctx.services, data.service_hint, ctx, context) : null;
+        if (matched) context.serviceId = matched;
+        var answer = {id:'semantic_booking_proposal',state:'booking',
+          action:'openBooking',bookingContext:context,suggestions:[],
+          text:'Please review your proposed booking.'};
+        phase4BookingSummary(answer, ctx, '');
+        if (!matched) {
+          answer.text = answer.text.replace('Service: not selected',
+            'Service: not selected (possible ' + data.service_hint + '; choose and verify in the form)');
+        }
+        return answer;
+      }).finally(function() { global.clearTimeout(timer); });
+    }).catch(function() { return null; });
+  }
+
   function userBackendProvider(request, ctx) {
-    var localAnswer = deterministicProvider(request, ctx);
+    var local = phase4RemoveUnsafeLocalService(deterministicProvider(request, ctx), request.message);
+    // Never let provider semantic output overrule a hard local refusal.
+    if (local && ['booking_ownership','urgent_safety','booking_invalid_date',
+        'booking_invalid_time','action_opt_out','booking_pet_ambiguous'].indexOf(local.id) !== -1) {
+      return Promise.resolve(local);
+    }
+    // Account data cards, actual appointment history and other rich
+    // authenticated UI are served locally; no need to interpret with Gemini.
+    // Document navigation is an authenticated local portal action, never an LLM reply.
+    if (local && (local.id === 'documents' || local.id === 'account_profile')) return Promise.resolve(local);
+    if (local && local.id === 'clinic_info') return Promise.resolve(local);
+    if (hasExistingRichUI(local) && local.action !== 'openBooking') return Promise.resolve(local);
+    return semanticCandidate(request, ctx).then(function(answer) {
+      return answer || legacyUserBackendProvider(request, ctx);
+    });
+  }
+
+  function legacyUserBackendProvider(request, ctx) {
+    var localAnswer = phase4RemoveUnsafeLocalService(deterministicProvider(request, ctx), request.message);
+    if (localAnswer && localAnswer.action === 'openBooking' && phase4MultipleServices(request.message)) {
+      return Promise.resolve({id:'booking_service_ambiguous', state:'reminder', action:'',
+        text:'You asked for multiple services. Please request one service for one pet at a time.',
+        suggestions:['Book an appointment', 'What services do you offer?']});
+    }
+    // Negated requests / unowned-pet references are safety decisions.
+    // Never let a generic text-only backend answer overwrite that refusal.
+    if (localAnswer && ['booking_ownership', 'urgent_safety', 'booking_invalid_date',
+        'action_opt_out', 'booking_pet_ambiguous', 'appointment_change_help'].indexOf(localAnswer.id) !== -1) return Promise.resolve(localAnswer);
+    // Booking instructions are a trusted local FAQ, not an appointments
+    // listing or a model instruction. Keep the explanation and suggestions
+    // even when the authenticated text endpoint is available.
+    if (localAnswer && localAnswer.id === 'booking_help') return Promise.resolve(localAnswer);
+    if (localAnswer && (localAnswer.id === 'documents' || localAnswer.id === 'account_profile')) return Promise.resolve(localAnswer);
+    if (localAnswer && localAnswer.id === 'clinic_info') return Promise.resolve(localAnswer);
+    if (localAnswer && localAnswer.action === 'openBooking') {
+      return phase4BookingProvider(request, ctx, localAnswer);
+    }
     // Existing pet cards, appointment lists, booking and cancellation
     // actions are intentional and must never be downgraded to plain text.
     var publicQuestion = /\b(work late|after work|after my shift|visit after work|arrange a clinic visit)\b/i.test(request.message);
@@ -474,6 +828,6 @@
     resetProvider: resetProvider,
     ALLOWED_ACTIONS: ALLOWED_ACTIONS,
     MAX_HISTORY: MAX_HISTORY,
-    version: '5.1.2'
+    version: '5.7.0-semantic-pilot'
   };
 })(window);

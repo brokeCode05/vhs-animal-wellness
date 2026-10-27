@@ -28,7 +28,7 @@ final class PublicVettiService
 
         // Safety takes priority over FAQs and model routing. This conservative
         // filter is an extra barrier, not a guarantee that free text has no PII.
-        if (preg_match('/\b(emergency|urgent|poison|collapse|seizure|unconscious|not breathing|bleeding heavily|emergency vet)\b|nahihirapan huminga|hindi makahinga/iu', $lower)) {
+        if (preg_match('/\b(emergency|urgent|poison|collapse|seizures?|convulsions?|unconscious|not breathing|difficulty breathing|bleeding heavily|emergency vet)\b|nahihirapan huminga|hindi makahinga/iu', $lower)) {
             return $this->response('If your pet may need urgent help, call a veterinarian or an emergency veterinary facility immediately.'.$this->contactSuffix($facts), 'rule', 'urgent');
         }
         if (preg_match('/\b(ignore (?:all |previous |your )?instructions|system prompt|api key|session token|password|otp|secret key|reveal prompt)\b/iu', $lower)) {
@@ -47,7 +47,8 @@ final class PublicVettiService
         if (preg_match('/[\w.+-]+@[\w.-]+\.[a-z]{2,}/iu', $message)
             || preg_match('/\b(?:\+?63|0)9\d{9}\b/u', preg_replace('/[\s\-()]/', '', $message) ?? '')
             || preg_match('/\b(?:my|our|mine|ako|ko|akin|aking|namin)\b.{0,65}\b(?:pet|dog|cat|puppy|kitten|appointment|booking|record|medical|prescription|profile|account|address|number|phone|email)\b/iu', $lower)
-            || preg_match('/\b(?:my name is|i live at|my birthday|owner is|patient id|pet id|account number)\b/iu', $lower)) {
+            || preg_match('/\b(?:my name is|i live at|my birthday|owner is|patient id|pet id|account number)\b/iu', $lower)
+            || preg_match('/\b(?:appointment|booking|pet|alaga|aso|pusa|record|profile|account|reseta)\s+(?:ko|namin|akin)\b/iu', $lower)) {
             return $this->response(self::PRIVATE_REPLY, 'rule', 'private');
         }
         if (preg_match('/\b(vomit|vomiting|diarrhea|diarrhoea|fever|swollen|swelling|bleeding|symptom|symptoms|diagnose|diagnosis|prescribe|dosage|dose|medicine|medication|treat|treatment|sick|illness|injury|pain|disease|parvo)\b|nagsusuka|may sakit|pagtatae/iu', $lower)) {
@@ -127,6 +128,19 @@ final class PublicVettiService
             if (preg_match($pattern, $input)) {
                 return $intent;
             }
+        }
+        // Bounded mixed-language FAQ routing, never global substring matching.
+        // Private/medical/urgent checks have already run before this point.
+        $taglish = [
+            'hours' => '/\b(?:anong oras|oras ng clinic|kelan (?:bukas|open)|what time bukas|opening hours)\b/iu',
+            'location' => '/\b(?:saan (?:kayo|ang clinic|located)|where (?:kayo|clinic)|address ng clinic|paano pumunta)\b/iu',
+            'services' => '/\b(?:anong (?:services|serbisyo)|may (?:grooming|vaccination|bakuna)|services (?:ninyo|nyo))\b/iu',
+            'booking' => '/\b(?:paano (?:magpa[- ]?book|mag[- ]?book|magpa[- ]?appointment)|how (?:to|can i) (?:reserve|schedule) (?:a )?visit)\b/iu',
+            'register' => '/\b(?:paano (?:mag[- ]?register|mag[- ]?signup|mag[- ]?login)|how (?:to|do i) (?:sign up|log in))\b/iu',
+            'price' => '/\b(?:magkano|how much|presyo|price ng|fee ng)\b/iu',
+        ];
+        foreach ($taglish as $name => $pattern) {
+            if (preg_match($pattern, $input)) return $name;
         }
         return null;
     }

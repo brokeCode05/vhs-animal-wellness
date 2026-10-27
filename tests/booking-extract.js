@@ -82,7 +82,7 @@ ok('fixture: vaccination is an active catalog service', idOf('vaccination') === 
 var a = ask('book an appointment');
 ok('A routes to the booking intent', a.id === 'booking' && a.action === 'openBooking', a.id);
 ok('A carries NO bookingContext', bc(a) === null, a.bookingContext);
-ok('A reply text unchanged', a.text.indexOf('booking flow for now') !== -1, a.text);
+ok('A reply text unchanged', a.text.indexOf('I can help you get started with an appointment') !== -1, a.text);
 
 /* ── B/C. exact pet name, case-insensitive ───────────────────────── */
 var b = ask('book luna for vaccination');
@@ -113,8 +113,9 @@ ok('F3 ambiguous (two services) omitted entirely', bc(f3) === null, bc(f3));
 /* ── G. today / explicit ISO ─────────────────────────────────────── */
 var g1 = ask('book today');
 ok('G1 "today" resolves to YYYY-MM-DD', bc(g1) && bc(g1).preferredDate === iso(0), bc(g1));
-var g2 = ask('book luna on 2026-10-15');
-ok('G2 explicit safe YYYY-MM-DD kept', bc(g2) && bc(g2).preferredDate === '2026-10-15', bc(g2));
+var futureIso = iso(3);
+var g2 = ask('book luna on ' + futureIso);
+ok('G2 explicit safe YYYY-MM-DD kept', bc(g2) && bc(g2).preferredDate === futureIso, bc(g2));
 
 /* ── H. tomorrow ─────────────────────────────────────────────────── */
 var h = ask('book tomorrow');
@@ -141,7 +142,9 @@ ok('L no slot invented from "afternoon"', !('preferredTime' in bc(l)), bc(l));
 
 /* ── M. unsupported date phrases invent nothing ──────────────────── */
 var m1 = ask('book next tuesday');
-ok('M1 "next tuesday" invents no date', bc(m1) === null, bc(m1));
+var offsetMon = (new Date().getDay() + 6) % 7;
+ok('M1 next tuesday selects Tuesday of next week',
+  bc(m1) && bc(m1).preferredDate === iso(7 - offsetMon + 1), bc(m1));
 var m2 = ask('book an appointment next week');
 ok('M2 "next week" invents no date', bc(m2) === null, bc(m2));
 var m3 = ask('book luna on 2026-02-31');
@@ -150,7 +153,7 @@ ok('M3 impossible calendar date rejected',
 
 /* ── N. context rides ONLY on openBooking ────────────────────────── */
 var withAppt = {
-  appointments: { upcoming: [{ pet: 'Luna', service: 'Vaccination', date: 'Oct 10, 2026', time: '3:00 PM' }], past: [] }
+  appointments: { upcoming: [{ pet: 'Luna', service: 'Vaccination', status: 'confirmed', date: 'Nov 10, 2026', time: '3:00 PM' }], past: [] }
 };
 var n1 = ask('i need to reschedule', withAppt);
 ok('N1 reschedule action has NO bookingContext',

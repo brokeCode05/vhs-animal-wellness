@@ -816,6 +816,12 @@ function _hasSelectOption(sel, value) {
   return false;
 }
 
+// Format local clinic day without letting UTC toISOString shift the date.
+function _localBookDay(d) {
+  return String(d.getFullYear()) + '-' + String(d.getMonth() + 1).padStart(2, '0')
+    + '-' + String(d.getDate()).padStart(2, '0');
+}
+
 // Resolve preferredDate to a YYYY-MM-DD string the date input accepts.
 // Accepts 'today', 'tomorrow' or an explicit YYYY-MM-DD; the literal
 // words never reach the input. Returns null when the value is malformed,
@@ -838,13 +844,13 @@ function _resolveBookingDate(value) {
     if (isNaN(resolved.getTime())) return null;
     // Round-trip rejects impossible dates (2026-02-31) that a lenient
     // parser would silently roll over into March.
-    if (resolved.toISOString().split('T')[0] !== v) return null;
+    if (_localBookDay(resolved) !== v) return null;
   }
-  var iso = resolved.toISOString().split('T')[0];
-  var min = today.toISOString().split('T')[0];
+  var iso = _localBookDay(resolved);
+  var min = _localBookDay(today);
   var maxDate = new Date(today.getTime());
   maxDate.setDate(today.getDate() + 30);
-  var max = maxDate.toISOString().split('T')[0];
+  var max = _localBookDay(maxDate);
   if (iso < min || iso > max) return null;
   return iso;
 }
@@ -1005,8 +1011,8 @@ function _setBookDateConstraints() {
   var today = new Date();
   var maxDate = new Date();
   maxDate.setDate(today.getDate() + 30);
-  dateInput.min = today.toISOString().split('T')[0];
-  dateInput.max = maxDate.toISOString().split('T')[0];
+  dateInput.min = _localBookDay(today);
+  dateInput.max = _localBookDay(maxDate);
   dateInput.value = '';
 }
 
@@ -1027,14 +1033,10 @@ function onBookDateChange() {
 function onBookServiceChange() {
   var timeSelect = document.getElementById('time_slot');
   var previous = timeSelect ? timeSelect.value : '';
+  // Selection can only be reinstated AFTER async availability responds.
+  // Existing handoff exact-time preference, if any, takes priority.
+  if (previous && !_pendingHandoffTime) _pendingHandoffTime = previous;
   _refreshBookSlots();
-  // _refreshBookSlots() rebuilds the <select>, so an unavailable time is
-  // already cleared. Re-select the previous choice ONLY when it is still
-  // bookable under the new service, so a valid pick is never thrown away.
-  if (!previous || !timeSelect) return;
-  for (var i = 0; i < timeSelect.options.length; i++) {
-    if (timeSelect.options[i].value === previous) { timeSelect.value = previous; return; }
-  }
 }
 
 // One adapter from the User portal to REAL slot availability. The Laravel
@@ -1061,17 +1063,19 @@ function _smartSchedulingSlots(dateStr, options) {
       ? users.serviceByValue(sel.value) : null;
   }
 
+  // Never offer a slot from cached browser data if the server cannot verify
+  // live capacity. A stale dropdown can otherwise advertise booked times.
+  // The appointment write endpoint remains the final concurrency authority.
   var reads = window.VHSReads;
-  if (reads && typeof reads.availability === 'function') {
-    var params = { date: dateStr };
-    if (svc) { params.service = svc.value; params.serviceId = svc.serviceId; }
-    if (o.excludeAppointmentId) params.excludeId = o.excludeAppointmentId;
-    return reads.availability(params).then(function (r) {
-      if (r.ok && r.data && r.data.display_slots) return r.data.display_slots;
-      return _localSchedulingSlots(dateStr, o, svc);
-    });
+  if (!svc || !reads || typeof reads.availability !== 'function') {
+    return Promise.resolve([]);
   }
-  return Promise.resolve(_localSchedulingSlots(dateStr, o, svc));
+  var params = { date: dateStr, service: svc.value, serviceId: svc.serviceId };
+  if (o.excludeAppointmentId) params.excludeId = o.excludeAppointmentId;
+  return reads.availability(params).then(function (r) {
+    return (r.ok && r.data && Array.isArray(r.data.display_slots))
+      ? r.data.display_slots : [];
+  }).catch(function () { return []; });
 }
 
 // OFFLINE FALLBACK ONLY — the pre-existing shared-engine path, used just
@@ -1104,24 +1108,25 @@ var _bookSlotsToken = 0;
 var _pendingHandoffTime = null;
 function _refreshBookSlots() {
   var dateInput = document.getElementById('appointment_date');
+  var serviceSelect = document.getElementById('service_id');
   var timeSelect = document.getElementById('time_slot');
   if (!timeSelect) return;
+  // Invalidate any earlier asynchronous slot request before checking inputs.
+  var token = ++_bookSlotsToken;
   var dateVal = dateInput ? dateInput.value : '';
   if (!dateVal) {
     timeSelect.innerHTML = '<option value="">Select a date first</option>';
     return;
   }
-  // Availability comes from the backend (GET /api/availability) through the
-  // ONE scheduling adapter above, so the User form, Vetti and Admin can
-  // never disagree about what is bookable. The token discards a slower
-  // response for a superseded date/service selection.
-  var token = ++_bookSlotsToken;
+  if (serviceSelect && !serviceSelect.value) {
+    // A generic availability lookup cannot validate a service-dependent
+    // slot. Keep the exact requested time until the user chooses a service.
+    timeSelect.innerHTML = '<option value="">Select a service first</option>';
+    return;
+  }
   timeSelect.innerHTML = '<option value="">Loading slots...</option>';
   _smartSchedulingSlots(dateVal).then(function (slots) {
     if (token !== _bookSlotsToken) return;
-    // Same-day bookable slots = strictly AFTER now (times are STARTS; the last
-    // slot of the day must remain selectable all day). The API already
-    // excludes past slots; this stays as the local-fallback guard.
     slots = _filterPastSlots(slots || [], dateVal);
     timeSelect.innerHTML = slots.length
       ? '<option value="">Select time</option>' + slots.map(function(s) {
@@ -1131,7 +1136,13 @@ function _refreshBookSlots() {
     if (_pendingHandoffTime !== null) {
       var wantTime = _pendingHandoffTime;
       _pendingHandoffTime = null;
-      if (wantTime && _hasSelectOption(timeSelect, wantTime)) timeSelect.value = wantTime;
+      if (wantTime && _hasSelectOption(timeSelect, wantTime)) {
+        timeSelect.value = wantTime;
+      } else if (wantTime && typeof showToast === 'function') {
+        // Requested time not offered by real Laravel availability: tell
+        // the owner why it was left blank without inventing a slot.
+        showToast('Your requested time is not available. Please choose a time from the offered slots.', 'warning');
+      }
     }
   });
 }
@@ -2932,6 +2943,10 @@ function _populateRescheduleSlots(dateStr) {
   var _svc = (_appt && window.SharedMockUsers && window.SharedMockUsers.serviceByValue)
     ? window.SharedMockUsers.serviceByValue(_appt.service) : null;
   var token = ++_rescheduleSlotsToken;
+  if (!_svc || !apptId) {
+    timeSelect.innerHTML = '<option value="">Unable to verify the appointment service</option>';
+    return;
+  }
   timeSelect.innerHTML = '<option value="">Loading slots...</option>';
   _smartSchedulingSlots(targetDate, {
     serviceId: _svc ? _svc.serviceId : null,

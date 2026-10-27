@@ -2129,3 +2129,13 @@ body.vetti-active .chatbot-container { display: none; }
   .vetti-canvas { overflow: visible; }
   .vetti-turn > .vetti-row { animation: none; }
 }
+/* Chat-reviewed booking handoff; no changes to the booking wizard. */
+.vetti-continue-booking {
+  display: inline-flex; align-items: center; justify-content: center;
+  border: 0; border-radius: 12px; padding: 11px 18px;
+  background: #7044b8; color: #fff; font: inherit; font-weight: 700;
+  cursor: pointer; min-height: 44px;
+}
+.vetti-continue-booking:hover, .vetti-continue-booking:focus-visible { background: #58339c; }
+.vetti-continue-booking:focus-visible { outline: 3px solid #baa0e7; outline-offset: 2px; }
+.vetti-continue-booking:disabled { opacity: .48; cursor: not-allowed; }

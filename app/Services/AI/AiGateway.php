@@ -12,7 +12,7 @@ use Throwable;
 final class AiGateway
 {
     private const TASKS = [
-        'public_vetti', 'user_vetti', 'booking_intent', 'scribe', 'scheduling_intent',
+        'public_vetti', 'user_vetti', 'booking_intent', 'scribe', 'scheduling_intent', 'semantic_vetti',
     ];
 
     private const DATA_CLASSES = ['public', 'sanitized', 'personal', 'clinical'];

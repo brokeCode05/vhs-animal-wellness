@@ -416,6 +416,11 @@ function _populateAdminRescheduleSlots() {
   var appt = (apptId && window.SharedMockAppointments) ? window.SharedMockAppointments.byId(apptId) : null;
   var svc = (appt && users && users.serviceByValue) ? users.serviceByValue(appt.service) : null;
   var token = ++_adminRescheduleSlotsToken;
+  if (!svc || !apptId) {
+    timeSel.innerHTML = '<option value="">Unable to verify the appointment service</option>';
+    if (typeof timeSel._cdRefresh === 'function') timeSel._cdRefresh();
+    return;
+  }
   var render = function (list) {
     if (token !== _adminRescheduleSlotsToken) return;
     list = _filterAdminPastSlots(list || [], dateVal);
@@ -425,16 +430,19 @@ function _populateAdminRescheduleSlots() {
     if (typeof timeSel._cdRefresh === 'function') timeSel._cdRefresh();
   };
   var reads = window.VHSReads;
-  if (reads && typeof reads.availability === 'function' && svc) {
+  if (reads && typeof reads.availability === 'function') {
     timeSel.innerHTML = '<option value="">Loading slots...</option>';
-    reads.availability({ date: dateVal, service: svc.value, serviceId: svc.serviceId, excludeId: apptId || null })
+    reads.availability({ date: dateVal, service: svc.value, serviceId: svc.serviceId, excludeId: apptId })
       .then(function (r) {
-        if (r.ok && r.data && r.data.display_slots) { render(r.data.display_slots); return; }
-        render(_adminRescheduleLocalSlots(dateVal, apptId, svc));
-      });
+        if (r.ok && r.data && Array.isArray(r.data.display_slots)) {
+          render(r.data.display_slots);
+        } else {
+          render([]); // No speculative local slots on failed live API checks.
+        }
+      }).catch(function () { render([]); });
     return;
   }
-  render(_adminRescheduleLocalSlots(dateVal, apptId, svc));
+  render([]);
 }
 
 // OFFLINE FALLBACK ONLY — the pre-existing shared-engine / taken-slot path.
@@ -611,10 +619,12 @@ function _filterAdminPastSlots(slots, dateStr) {
 // cannot be resolved and the caller must fall back.
 function _adminSchedulingSlots(dateStr) {
   var users = window.SharedMockUsers;
-  if (!users || typeof users.serviceByValue !== 'function') return Promise.resolve(null);
+  if (!users || typeof users.serviceByValue !== 'function') {
+    return Promise.resolve({ ok: false, slots: [] });
+  }
   var value = document.getElementById('adminBookService');
   var svc = (value && value.value) ? users.serviceByValue(value.value) : null;
-  if (!svc) return Promise.resolve(null);
+  if (!svc) return Promise.resolve({ ok: false, slots: [] });
 
   // Explicit doctor choice scopes the answer to that doctor's own conflicts.
   var docSel = document.getElementById('adminBookDoctor');
@@ -628,11 +638,13 @@ function _adminSchedulingSlots(dateStr) {
       if (r.ok && r.data && r.data.display_slots) {
         return { ok: true, reason: null, service: svc, slots: r.data.display_slots };
       }
-      // Offline fallback only — never a second authority.
-      return { ok: true, reason: null, service: svc, slots: _adminLocalSchedulingSlots(dateStr, svc) };
+      // Fail closed when the live clinic capacity could not be verified.
+      return { ok: false, reason: 'availability_unavailable', service: svc, slots: [] };
+    }).catch(function () {
+      return { ok: false, reason: 'availability_unavailable', service: svc, slots: [] };
     });
   }
-  return Promise.resolve({ ok: true, reason: null, service: svc, slots: _adminLocalSchedulingSlots(dateStr, svc) });
+  return Promise.resolve({ ok: false, reason: 'availability_unavailable', service: svc, slots: [] });
 }
 
 // OFFLINE FALLBACK ONLY — the pre-existing shared-engine path.
@@ -666,13 +678,14 @@ function refreshAdminTimeSlots(prefilledTime) {
     return;
   }
 
-  // No service picked yet: there is nothing to check capacity against, so list
-  // the clinic's own hours (minus today's past times) — exactly what the User
-  // form does. This is a normal UI state, not an API failure.
+  // An unselected service has no resource-specific capacity. Do not imply
+  // all clinic hours are available before a service is chosen.
   var svcValue = document.getElementById('adminBookService')
     ? document.getElementById('adminBookService').value : '';
   if (!svcValue) {
-    _renderAdminSlotOptions(timeSelect, _filterAdminPastSlots(getVHSTimeSlots(dateInput.value), dateInput.value), prefilledTime);
+    ++_adminSlotsToken;
+    timeSelect.innerHTML = '<option value="">Select a service first</option>';
+    if (typeof timeSelect._cdRefresh === 'function') timeSelect._cdRefresh();
     return;
   }
 
@@ -683,14 +696,12 @@ function refreshAdminTimeSlots(prefilledTime) {
   _adminSchedulingSlots(dateInput.value).then(function (viaEngine) {
     if (token !== _adminSlotsToken) return;
     if (!viaEngine) {
-      _renderAdminSlotOptions(timeSelect, _filterAdminPastSlots(getVHSTimeSlots(dateInput.value), dateInput.value), prefilledTime);
+      _renderAdminSlotOptions(timeSelect, [], null);
       return;
     }
     if (!viaEngine.ok) {
-      timeSelect.innerHTML = '<option value="">' +
-        (window.SmartScheduling && window.SmartScheduling.describeReason && viaEngine.reason
-          ? window.SmartScheduling.describeReason(viaEngine.reason)
-          : 'No available slots that day') + '</option>';
+      timeSelect.innerHTML = '<option value="">Could not verify available slots</option>';
+      if (typeof timeSelect._cdRefresh === 'function') timeSelect._cdRefresh();
       return;
     }
     _renderAdminSlotOptions(timeSelect, _filterAdminPastSlots(viaEngine.slots, dateInput.value), prefilledTime);

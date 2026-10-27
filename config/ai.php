@@ -7,6 +7,11 @@ return [
     'public_vetti_enabled' => (bool) env('AI_PUBLIC_VETTI_ENABLED', false),
     // Separate user portal switch; no private account/pet context goes to the model.
     'user_vetti_enabled' => (bool) env('AI_USER_VETTI_ENABLED', false),
+    // Phase 4: sanitized public booking *preferences* only, never appointment writes.
+    'booking_intent_enabled' => (bool) env('AI_BOOKING_INTENT_ENABLED', false),
+    // Phase 5 pilot: requires explicit provider/privacy clearance, OFF by default.
+    'semantic_vetti_enabled' => (bool) env('AI_SEMANTIC_VETTI_ENABLED', false),
+    'semantic_privacy_cleared' => (bool) env('AI_SEMANTIC_PRIVACY_CLEARED', false),
     'provider' => env('AI_PROVIDER', 'gemini'),
     'model' => env('AI_MODEL', 'gemini-3.5-flash-lite'),
     'transcribe_model' => env('AI_TRANSCRIBE_MODEL', 'gemini-3.5-transcribe'),

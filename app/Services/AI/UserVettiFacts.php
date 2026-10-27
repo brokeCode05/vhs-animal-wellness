@@ -34,8 +34,16 @@ class UserVettiFacts
             ->with(['pet:id,name', 'service:id,label'])
             ->where('user_id', $user->id)
             ->when($petId, fn ($q) => $q->where('pet_id', $petId))
-            ->whereDate('appointment_date', '>=', Carbon::today()->toDateString())
-            ->whereNotIn('status', ['canceled', 'no_show', 'completed'])
+            // Future bookings only. Checked-in/in-consultation patients are
+            // part of the clinic's active workflow, not "next appointments".
+            ->whereIn('status', ['confirmed', 'pending', 'rescheduled'])
+            ->where(function ($query) {
+                $query->whereDate('appointment_date', '>', Carbon::today()->toDateString())
+                    ->orWhere(function ($sameDay) {
+                        $sameDay->whereDate('appointment_date', Carbon::today()->toDateString())
+                            ->whereTime('appointment_time', '>', Carbon::now()->format('H:i:s'));
+                    });
+            })
             ->orderBy('appointment_date')->orderBy('appointment_time')->limit(5)->get()
             ->map(fn (Appointment $a): array => [
                 'pet_id' => (int) $a->pet_id,

@@ -21,7 +21,7 @@ final class GeminiProvider implements AiProviderInterface
         }
         // Only known-safe model-id characters may reach the URL path.
         if (! preg_match('/\A[a-zA-Z0-9][a-zA-Z0-9._-]{0,99}\z/D', $model)) {
-            throw new AiProviderException('Invalid Gemini model configuration.');
+        throw new AiProviderException('Invalid Gemini model configuration.');
         }
 
         $generation = [
@@ -29,11 +29,11 @@ final class GeminiProvider implements AiProviderInterface
             'temperature' => 0.2,
         ];
         if ($jsonSchema !== null) {
-            $generation['responseFormat'] = [
-                'text' => [
-                    'mimeType' => 'application/json',
-                    'schema' => $jsonSchema,
-                ],
+        $generation['responseFormat'] = [
+        'text' => [
+            'mimeType' => 'APPLICATION_JSON',
+            'schema' => $jsonSchema,
+            ],
             ];
         }
         $payload = [
