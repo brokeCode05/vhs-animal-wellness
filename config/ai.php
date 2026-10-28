@@ -12,7 +12,11 @@ return [
     // Phase 5 pilot: requires explicit provider/privacy clearance, OFF by default.
     'semantic_vetti_enabled' => (bool) env('AI_SEMANTIC_VETTI_ENABLED', false),
     'semantic_privacy_cleared' => (bool) env('AI_SEMANTIC_PRIVACY_CLEARED', false),
+    // Opt-in until the grounded service lookup is verified with the provider.
+    'service_lookup_enabled' => (bool) env('AI_SERVICE_LOOKUP_ENABLED', false),
     'provider' => env('AI_PROVIDER', 'gemini'),
+    // Logs only task, failure category and HTTP status; never prompts or bodies.
+    'diagnostics_enabled' => (bool) env('AI_DIAGNOSTICS_ENABLED', false),
     'model' => env('AI_MODEL', 'gemini-3.5-flash-lite'),
     'transcribe_model' => env('AI_TRANSCRIBE_MODEL', 'gemini-3.5-transcribe'),
     'api_key' => env('AI_API_KEY', ''),

@@ -37,12 +37,26 @@
   "use strict";
 
   var THREAD_KEY = "vhs.publicVetti.thread.v2";
+  // Opaque tab-scoped identifier; server stores only a bounded public topic.
+  // The previous chat text is never included in network requests.
+  var CONTEXT_KEY = 'vhs.publicVetti.contextId.v1';
+  function freshContextId() {
+    return 'vpub_' + Math.random().toString(36).slice(2, 14) + '_' + Date.now().toString(36);
+  }
+  function loadContextId() {
+    try {
+      var existing = window.sessionStorage.getItem(CONTEXT_KEY);
+      if (/^vpub_[a-z0-9_]{12,60}$/.test(existing || '')) return existing;
+      var next = freshContextId();
+      window.sessionStorage.setItem(CONTEXT_KEY, next);
+      return next;
+    } catch (e) { return freshContextId(); }
+  }
+  var conversationId = loadContextId();
   var VETTI_ASSET_BASE = "../shared/assets/vetti/";
   var CHAT_AVATAR = VETTI_ASSET_BASE + "vetti-chat-head.png";
   var LAUNCHER_ASSET = VETTI_ASSET_BASE + "vetti-idle-a.png";
 
-  var CLINIC_PHONE = "0917 108 4174";
-  var CLINIC_TEL = "tel:+639171084174";
 
   var GREETING = {
     role: "vetti",
@@ -80,15 +94,13 @@
     {
       keys: ["emergency", "urgent", "critical", "bleeding", "poison", "collapse"],
       reply:
-        "For anything urgent or emergency, please call the clinic right away at " +
-        CLINIC_PHONE + " rather than waiting on chat."
+        "If your pet may need urgent care, contact a veterinarian or emergency veterinary facility immediately. Do not wait for chat."
     },
     {
       keys: ["book", "appointment", "schedule", "reschedule", "slot", "available time"],
       reply:
         "Booking is done online: sign up or log in, then choose Book an " +
-        "Appointment and pick a service, date and time. For same-day or urgent " +
-        "cases, please call the clinic at " + CLINIC_PHONE + "."
+        "Appointment and pick a service, date and time. For same-day requests, contact the clinic via its Contact page."
     },
     {
       keys: [
@@ -99,10 +111,7 @@
         "house call"
       ],
       reply:
-        "We provide consultations, vaccination, deworming, blood tests and " +
-        "diagnostics, spay and neuter, surgery and procedures, grooming, " +
-        "boarding, microchipping, health certificates, and home veterinary " +
-        "service. The Services page lists each one in detail."
+        "Please visit the Services page for the current clinic service list. The clinic can confirm which services are presently offered."
     },
     {
       keys: [
@@ -110,10 +119,7 @@
         "address", "direction", "map", "contact", "phone", "number", "email", "clinic at"
       ],
       reply:
-        "The clinic is at 834 Aurora Boulevard cor Driod Street, Kaunlaran, " +
-        "Cubao, Quezon City. You can reach us at " + CLINIC_PHONE +
-        " or vhs.animalwellness@gmail.com — the Contact page has the full " +
-        "details and map."
+        "Please check the Contact page for the current clinic address, phone, email and directions. Appointment windows are not necessarily opening hours."
     },
     {
       keys: [
@@ -136,8 +142,7 @@
       keys: ["price", "cost", "fee", "how much", "rate", "payment"],
       reply:
         "Fees depend on the service and your pet's needs, so the clinic " +
-        "confirms them directly. Call " + CLINIC_PHONE + ", or sign up and book " +
-        "so the team can advise you."
+        "confirms them directly. Check the Services and Contact pages for current details."
     },
     {
       keys: ["hi", "hello", "hey", "good morning", "good afternoon", "thanks", "thank you"],
@@ -152,16 +157,33 @@
     "visit preparation, and login or signup questions. For anything specific " +
     "to your pet, log in and open the full Vetti in the User Portal.";
 
+  function isGeneralClinicInfo(question) {
+    var q = String(question || '').toLowerCase().replace(/[\u2018\u2019]/g, "'").trim();
+    return /\b(?:vhs\s+)?(?:vet\s+)?(?:clinics?|clinic\'s|klinika)\s+(?:info(?:rmation)?|details?|contacts?|address|location|phone(?:\s+number)?|email)\b/.test(q) ||
+      /\b(?:info(?:rmation)?|impormasyon|details?)\s+(?:about|on|of|for|ng|sa)\s+(?:the\s+|your\s+)?(?:clinic|klinika)\b/.test(q) ||
+      /\b(?:tell me about|about)\s+(?:the\s+|your\s+)?(?:clinic|klinika)\b/.test(q) ||
+      /\b(?:pahingi|bigay)\s+(?:po\s+)?(?:ng\s+)?(?:info|impormasyon|details?)\s+(?:ng|sa)\s+(?:clinic|klinika)\b/.test(q);
+  }
+
+  // Restrict FAQ keywords to token or phrase boundaries. "hi" in "this"
+  // and "book" in an unrelated larger word must never determine the intent.
+  function hasFaqTerm(text, term) {
+    var escaped = term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    var isStem = /^(vaccin|deworm|microchip|groom|magreserv)$/.test(term);
+    return new RegExp('(^|[^\\p{L}\\p{N}])' + escaped + (isStem ? '' : '(?![\\p{L}\\p{N}])'), 'iu').test(text);
+  }
+
   function answer(question) {
     var q = String(question || "").toLowerCase();
     // Public-only FAQ aliases; never reference private owner/pet data.
     // Retain the original privacy/emergency rules ahead of general intents.
     // Immediate safety advice must not be hidden by the "my pet" privacy
     // rule or by a broad service/appointment keyword in offline mode.
-    if (/\b(?:emergency|urgent|poison|bleeding|seizures?|convulsions?|collapsed?|unconscious|not breathing|difficulty breathing)\b|hindi makahinga|nahihirapan huminga|nangingisay/i.test(q)) return RULES[1].reply;
+    if (/\b(?:emergency|urgent|poison|bleeding|seizures?|convulsions?|collapsed?|unconscious|not breathing|can['\u2019]?t breathe|cannot breathe|struggling to breathe|difficulty breathing)\b|hindi makahinga|hirap huminga|nahihirapan huminga|nangingisay/i.test(q)) return RULES[1].reply;
     if (/\b(?:my pet|my pets|my dog|my cat|my appointment|my booking|my records|aking alaga|mga alaga ko)\b/i.test(q)) return RULES[0].reply;
     if (/\b(?:medicine|medication|dosage|prescri(?:be|ption)|diagnos(?:e|is)|vomit(?:ing)?|diarrhea|fever|sick)\b/i.test(q))
       return 'I cannot diagnose or recommend medication in chat. Please contact a veterinarian for an assessment; for severe symptoms seek emergency care.';
+    if (isGeneralClinicInfo(q)) return 'For current clinic information, please visit the Contact page for its verified address, phone and email, and the Services page for services.';
     if (/\b(?:paano magbook|paano magpa[- ]?book|paano magpa[- ]?appointment|magpa[- ]?book|mag[- ]?book)\b/i.test(q)) return RULES[2].reply;
     if (/\b(?:anong (?:services|serbisyo)|services ninyo|serbisyo nyo|may grooming|may bakuna)\b/i.test(q)) return RULES[3].reply;
     if (/\b(?:saan (?:kayo|ang clinic)|paano pumunta|address ng clinic|anong oras|oras ng clinic|what time bukas)\b/i.test(q)) return RULES[4].reply;
@@ -170,7 +192,7 @@
     for (var i = 0; i < RULES.length; i++) {
       var rule = RULES[i];
       for (var j = 0; j < rule.keys.length; j++) {
-        if (q.indexOf(rule.keys[j]) !== -1) return rule.reply;
+        if (hasFaqTerm(q, rule.keys[j])) return rule.reply;
       }
     }
     return FALLBACK;
@@ -211,7 +233,7 @@
       var controller = window.AbortController ? new AbortController() : null;
       var timeout = window.setTimeout(function () {
         if (controller) controller.abort();
-      }, 18000);
+      }, 50000);
       return fetch("/api/ai/public-vetti", {
         method: "POST",
         credentials: "same-origin",
@@ -222,7 +244,7 @@
           "X-CSRF-TOKEN": token,
           "X-Requested-With": "XMLHttpRequest"
         },
-        body: JSON.stringify({ message: question }),
+        body: JSON.stringify({ message: question, conversation_id: conversationId }),
         signal: controller ? controller.signal : undefined
       }).then(function (response) {
         if (response.status === 419) csrfToken = null;
@@ -559,8 +581,7 @@
        duplicated footnotes. */
     var note = el("p", "vetti-note");
     note.innerHTML =
-      'General clinic guidance only — for urgent concerns call ' +
-      '<a href="' + CLINIC_TEL + '">' + CLINIC_PHONE + "</a>.";
+      'General clinic guidance only — for urgent concerns contact a veterinarian or emergency clinic.';
     card.appendChild(note);
 
     host.appendChild(card);
@@ -892,6 +913,8 @@
       return thread.slice();
     },
     reset: function () {
+      conversationId = freshContextId();
+      try { window.sessionStorage.setItem(CONTEXT_KEY, conversationId); } catch (e) { /* no storage */ }
       thread = seedThread();
       save();
       renderAll();

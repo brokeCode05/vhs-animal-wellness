@@ -154,7 +154,8 @@ final class UserVettiTest extends TestCase
             ->assertOk()->assertJsonPath('data.source', 'ai')
             ->assertJsonPath('data.intent', 'general');
         $this->assertCount(1, $spy->calls);
-        $this->assertSame('I work late on weekdays; can I arrange a clinic visit another way?', $spy->calls[0]);
+        $this->assertSame('What general options should a visitor consider if the usual appointment windows are inconvenient?',
+        $spy->calls[0]);
     }
 
     public function test_personal_message_and_unapproved_context_do_not_reach_gemini(): void

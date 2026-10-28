@@ -96,8 +96,8 @@ function hasNoAction(answer, prompt, expectedId) {
     hasNoAction(ans,prompt);
   }
   const index=fs.readFileSync(path.join(root,'public/user/index.html'),'utf8');
-  assert.match(index, /vetti-state\.js\?v=5\.6\.0-capstone-audit/);checks++;
-  assert.match(index, /vetti-ai\.js\?v=5\.7\.0-semantic-pilot/);checks++;
+  assert.match(index, /vetti-state\.js\?v=5\.10\.10-integrated-dialogue/);checks++;
+  assert.match(index, /vetti-ai\.js\?v=5\.10\.13-service-lookup/);checks++;
   assert.equal(window.VettiState.version,'5.6.0-capstone-audit');checks++;
   assert.equal(window.VettiAI.version,'5.7.0-semantic-pilot');checks++;
   console.log(`PASS: actual uploaded User Vetti regression checks (${checks} assertions), including partial pet hydration, policy, invalid dates, provider safety, and asset versions.`);

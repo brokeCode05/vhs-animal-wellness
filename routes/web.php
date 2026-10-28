@@ -87,6 +87,8 @@ Route::prefix('api')->group(function () {
         // Phase 5: opt-in read-only semantic proposals; authenticated, throttled, no writes.
         Route::post('ai/semantic-vetti', [\App\Http\Controllers\AI\SemanticVettiController::class, 'interpret'])
             ->middleware(['role:User', 'throttle:10,1']);
+        Route::post('ai/service-lookup', [\App\Http\Controllers\AI\ServiceLookupController::class, 'lookup'])
+            ->middleware(['role:User', 'throttle:10,1']);
         // Phase 4: strictly read-only intent hints, existing OTP booking flow untouched.
         Route::post('ai/booking-intent', [\App\Http\Controllers\AI\BookingIntentController::class, 'interpret'])
             ->middleware(['role:User', 'throttle:10,1']);

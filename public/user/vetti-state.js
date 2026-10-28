@@ -668,11 +668,11 @@
             action: 'openPetForm'
           };
         }
-        // TODO(AI): vaccination intelligence is explicitly out of scope.
+        // A bare service word is ambiguous: it can mean a new booking,
+        // records, or due-date advice. Do not pretend we checked medical data.
         return {
-          text: 'Vaccination reminders come from your pet\u2019s records, which I cannot '
-              + 'read yet. Please check Documents, or ask the clinic during your next visit.',
-          suggestions: ['What services do you offer?', 'Show my appointments']
+          text: 'Vaccination is a clinic service. Would you like to start a vaccination appointment, or view an existing vaccination record? A veterinarian must confirm whether vaccination is appropriate or due.',
+          suggestions: ['Book an appointment', 'Show my pets']
         };
       }
     },
@@ -729,7 +729,7 @@
   ];
 
   function normalize(text) {
-    return String(text || '').toLowerCase().replace(/\s+/g, ' ').trim();
+    return String(text || '').toLowerCase().replace(/[\u2018\u2019\u02bc]/g, "'").replace(/\s+/g, ' ').trim();
   }
 
   // Compares category names without punctuation or spacing, so "Tell me
@@ -962,13 +962,13 @@
     var contract = global.AppointmentContract;
     if (contract && typeof contract.timeToHHMM === 'function' &&
         typeof contract.timeTo12h === 'function') {
-      var timeMatches = text.match(/\b\d{1,2}:\d{2}\s*(?:am|pm)\b/gi) || [];
-      if (timeMatches.length === 1) {
-        var tm = timeMatches[0].match(/(\d{1,2}):(\d{2})\s*(am|pm)/i);
+      var timeMatches = text.match(/\b\d{1,2}(?::\d{2})?\s*(?:am|pm)\b/gi) || [];
+      if (timeMatches.length === 1 && !/\b(?:after|before|past|between|until|by|lampas|pagkatapos)\b/i.test(text)) {
+        var tm = timeMatches[0].match(/(\d{1,2})(?::(\d{2}))?\s*(am|pm)/i);
         if (tm) {
-          var hour = parseInt(tm[1], 10), minute = parseInt(tm[2], 10);
+          var hour = parseInt(tm[1], 10), minute = parseInt(tm[2] || '00', 10);
           if (hour >= 1 && hour <= 12 && minute <= 59) {
-            var hhmm = contract.timeToHHMM(hour + ':' + tm[2] + ' ' + tm[3].toUpperCase());
+            var hhmm = contract.timeToHHMM(hour + ':' + String(minute).padStart(2,'0') + ' ' + tm[3].toUpperCase());
             if (hhmm) found.preferredTime = contract.timeTo12h(hhmm);
           }
         }
@@ -1002,9 +1002,13 @@
   // existing openBooking action, not a new booking implementation.
   function wantsBooking(query) {
     var q = String(query || '');
+    if (/\b(?:work late|after work|after my shift)\b/i.test(q) && /\b(?:another way|other options|alternatives?)\b/i.test(q) && !/\b(?:book|reserve|schedule)\b/i.test(q)) return false;
+    if (/\b(?:not booking|not (?:trying|looking|planning) to book|not (?:a )?booking|only asking|just asking)\b/i.test(q)) return false;
+    if (/\b(?:want to know|information about|tell me about)\b/i.test(q) && !/\b(?:book|schedule|reserve)\b/i.test(q)) return false;
     return /\b(?:book|booking|schedule|reserve|reservation|magbook|magpa[- ]?book|ipa[- ]?book|pa[- ]?book|magpa[- ]?checkup|magpa[- ]?check-up|magpa[- ]?konsulta)\b/i.test(q)
       || /\b(?:gusto ko|pwede bang|puwede bang|paki|need to|i want to|can you|could you|please|can |could |may |need a|needs a)\b.{0,75}\b(?:bath|bathe|wash|groom|bakuna|vaccinat\w*|deworm|konsulta|consult|check[ -]?up|vet visit)\b/i.test(q)
-      || /\b(?:ipa[- ]?groom|magpa[- ]?groom|ipa[- ]?bakuna|magpa[- ]?bakuna|ipa[- ]?vaccine|magpa[- ]?vaccine|pa[- ]?groom)\b/i.test(q)
+      || /\b(?:ipa[- ]?groom|magpa[- ]?groom|ipa[- ]?bakuna|magpa[- ]?bakuna|ipa[- ]?vaccine|magpa[- ]?vaccine|(?:i\s*)?pa[- ]?vaccine|(?:i\s*)?pa[- ]?bakuna|pa[- ]?groom)\b/i.test(q)
+      || /\b(?:pwede|puwede|gusto)(?:\s+ko)?\s+(?:bang|kong|sana)?\s+(?:i\s*)?pa[- ]?(?:vaccine|bakuna|vaccination)\b/i.test(q)
       || /\b(?:arrange|set up|reserve)\b.{0,35}\b(?:wash|bath|groom|visit|appointment|checkup|check-up)\b/i.test(q)
       || /\b(?:appointment for|need an appointment|need (?:a )?consultation(?: for)?|want (?:a )?consultation(?: for)?)\b/i.test(q);
   }
@@ -1023,7 +1027,8 @@
   // request to open an action modal. The exact cutoff is owned by Laravel.
   function appointmentChangeQuestion(q) {
     return /\b(?:how\s+(?:do|can|could|would)\s+(?:i|we)\b|how to\b|paano\b|what (?:is|are)\b|how much\b|is there\b|can i\b|could i\b|should i\b|may i\b).{0,80}\b(?:cancel(?:lation)?|reschedul\w*)\b/i.test(q)
-      || /\b(?:cancellation|rescheduling)\s+(?:fees?|charges?|policy|policies|rules?|process)\b/i.test(q);
+      || /\b(?:cancellation|rescheduling)\s+(?:fees?|charges?|policy|policies|rules?|process)\b/i.test(q)
+      || /\bpaano\b.{0,75}\b(?:kanselahin|kakanselahin|i[- ]?cancel|ikansela|ilipat|ililipat|i[- ]?reschedule)\b.{0,60}\b(?:appointment|booking|schedule)\b/i.test(q);
   }
 
   // Stop commands that are explicitly negated, before any modal action.
@@ -1162,7 +1167,7 @@
     // rejected before a modal can be offered.
     var q = String(query || '');
     if (/\b(?:midnight|hatinggabi|12\s*:?\s*00\s*am|(?:10|11)\s*:?\s*\d{0,2}\s*pm|1\s*am|2\s*am|3\s*am|4\s*am|5\s*am)\b/i.test(q)) return 'outside_hours';
-    var times = Array.from(q.matchAll(/\b(\d{1,2}):(\d{2})\s*(am|pm)\b/gi));
+    var times = Array.from(q.matchAll(/\b(\d{1,2})(?::(\d{2}))?\s*(am|pm)\b/gi));
     if (times.length > 1) return 'ambiguous';
     if (times.some(function(t) { return +t[1] < 1 || +t[1] > 12 || +t[2] > 59; })) return 'invalid';
     return null;
@@ -1208,6 +1213,31 @@
     };
   }
 
+  // Catalog-category information is evaluated from the current shared
+  // active UI catalog, never a fixed services table. Laravel independently
+  // answers the same request from the authoritative database.
+  function groupQuestion(message, ctx) {
+    var q=String(message||'');
+    if(q.length>180 || !/\b(?:services?|serbisyo|serbisyong|under|category|categories|nasa|what about|how about)\b/i.test(q) ||
+       /\b(?:book|appointment|my|mine|records?|diagnos|prescri|treat|emergency|cancel)\b/i.test(q))return null;
+    var groups=Array.isArray(ctx.serviceGroups)?ctx.serviceGroups:[];
+    var hits=groups.filter(function(g){
+      var label=String(g&&g.name||'').toLowerCase().trim();
+      if(!label)return false;
+      // Punctuation-neutral exact category phrase (not partial words).
+      var target=label.replace(/[^a-z0-9]+/g,' ' ).trim();
+      var source=q.toLowerCase().replace(/[^a-z0-9]+/g,' ');
+      return (' '+source+' ').indexOf(' '+target+' ')!==-1;
+    });
+    if(hits.length>1)return {id:'service_category_ambiguous',state:'reminder',action:'',text:'Which service category would you like to explore?',suggestions:[]};
+    if(hits.length!==1)return null;
+    var group=hits[0];
+    var names=Array.isArray(group.names)?group.names:[];
+    return {id:'services_filtered',state:'idle',action:'',
+      text:'Currently listed services under '+group.name+': '+(names.length?names.join(', '):'none listed')+'. Check the Services page for current fees.',
+      serviceGroup:group,suggestions:names.slice(0,3).map(function(n){return 'Tell me about '+n;})};
+  }
+
   // The single resolver. Returns { id, state, text, suggestions, ... }
   // plus whichever STRUCTURED payload the intent asked for. An unmatched
   // message is a deterministic "I did not understand" with the closest
@@ -1219,11 +1249,20 @@
   // document, or medical-record request. Keep phrases narrow so requests
   // such as "book a clinic visit" stay with the booking wizard.
   function isClinicInformationRequest(q) {
-    return /\b(?:clinic|vhs)(?:['\u2019]s)?\s+(?:info(?:rmation)?|details?|contact(?:s|\s+details?|\s+info)?|address|location|phone(?:\s+number)?|email|hours?|opening\s+hours|operating\s+hours)\b/i.test(q) ||
-      /\b(?:give|show|tell|share|provide)\s+(?:me\s+)?(?:the\s+)?(?:clinic|vhs)(?:['\u2019]s)?\s+(?:info(?:rmation)?|details?)\b/i.test(q) ||
-      /\b(?:information|details?)\s+(?:about|of|for)\s+(?:the\s+|your\s+)?clinic\b/i.test(q) ||
-      /\b(?:where\s+(?:are\s+you|is\s+(?:the|your)\s+clinic)\s+located|how\s+(?:can|do)\s+i\s+(?:contact|reach)\s+(?:you|the\s+clinic)|tell\s+me\s+about\s+(?:the\s+|your\s+)?clinic)\b/i.test(q) ||
-      /\b(?:saan\s+(?:matatagpuan|located)(?:\s+ang)?\s+(?:clinic|vhs)|anong\s+oras\s+(?:kayo|ang\s+clinic)\s+(?:bukas|open)|impormasyon\s+(?:ng|sa)\s+clinic)\b/i.test(q);
+    // Recognize natural possessives and colloquial plural spellings ("clinics info")
+    // as the same public clinic-details intent. Do NOT relax booking or
+    // medical-record access rules just to accommodate spelling variation.
+    var text = String(q || '').toLowerCase().replace(/[\u2018\u2019]/g, "'").replace(/\s+/g, ' ').trim();
+    if (/\b(?:my|our|another|someone(?:\s+else)?'s)\s+(?:pets?|dogs?|cats?|documents?|records?|appointments?|prescriptions?|lab\s+results?)\b/.test(text)) return false;
+    if (/\b(?:cancel|reschedule|book|booking|reserve|schedule|appointment\s+(?:status|history))\b/.test(text)) return false;
+    var place = "(?:the\\s+|your\\s+|our\\s+)?(?:vhs\\s+)?(?:vet\\s+)?(?:clinic(?:'s|s)?|klinika|vhs)";
+    var info = '(?:info(?:rmation|s)?|impormasyon|details?|contact(?:s|\\s+(?:details?|info))?|address|location|phone(?:\\s+number)?|email|hours?|opening\\s+hours|operating\\s+hours)';
+    var direct = new RegExp('\\b' + place + '\\s+' + info + '\\b','i');
+    var reversed = new RegExp('\\b' + info + '\\s+(?:about|of|for|on|ng|sa)\\s+' + place + '\\b','i');
+    return direct.test(text) || reversed.test(text) ||
+      /\b(?:tell|give|show|share|provide)\s+(?:me\s+)?(?:about\s+)?(?:the\s+|your\s+)?(?:vhs\s+)?(?:vet\s+)?(?:clinic|klinika)\b/i.test(text) ||
+      /\b(?:where\s+(?:are\s+you|is\s+(?:the|your)\s+clinic)\s+located|how\s+(?:can|do)\s+i\s+(?:contact|reach)\s+(?:you|the\s+clinic)|saan\s+(?:matatagpuan|located)(?:\s+ang)?\s+(?:clinic|vhs)|anong\s+oras\s+(?:kayo|ang\s+clinic)\s+(?:bukas|open))\b/i.test(text) ||
+      /\b(?:pahingi|bigay|pakibigay|ano|anong)\s+(?:po\s+)?(?:ng\s+)?(?:info|impormasyon|details?)\s+(?:ng|sa|about)\s+(?:clinic|klinika|vhs)\b/i.test(text);
   }
 
   function clinicInformationAnswer(ctx) {
@@ -1250,12 +1289,65 @@
     };
   }
 
+  function isUrgentVettiMessage(message) {
+    var q = String(message || '').toLowerCase();
+    return /\b(?:emergency|urgent|poison(?:ed|ing)?|seizures?|convulsions?|collapse|unconscious|not breathing|can['\u2019]?t breathe|cannot breathe|bleed(?:ing)? heavily|difficulty breathing|struggling to breathe|having trouble breathing|has trouble breathing|hard time breathing|gasping|choking)\b|\b(?:having|has|have|with|experiencing|showing)\s+(?:(?:a|some)\s+)?(?:trouble|problems?|difficulty|difficulties|a hard time)\s+(?:with\s+)?breathing\b|hindi makahinga|hirap huminga|nahihirapan huminga|nahihirapang huminga/iu.test(q);
+  }
+
   function resolve(message, ctx) {
     var q = normalize(message);
     var context = Object.assign({}, ctx, { query: q });
     if (!q) {
       return { id: 'empty', state: 'idle', text: 'Type a message and I will do my best.', suggestions: ctx.suggestionsWithPet };
     }
+    // Safety has absolute priority over greeting, service, booking and personal-data intents.
+    // Free-form emergencies are never sent to Gemini or treated as a greeting.
+    if (isUrgentVettiMessage(q)) {
+      return {id:'urgent_safety',state:'concerned',action:'',
+        text:'This may be an emergency. Contact a veterinarian or emergency veterinary facility immediately. Do not wait for a chatbot or give medicine based on this chat.',
+        suggestions:['Clinic information']};
+    }
+    if (/\b(?:gcash|maya|credit card|debit card|cash|payment methods?|payment options?|mode of payment)\b/i.test(q) && /\b(?:accept|take|pay|payment|pwede|puwede|tumatanggap|bayad|gamitin)\b/i.test(q) && !/\b(?:book|reserve|cancel|reschedule|emergency|urgent|sick|pain|fever|vomit\w*|nagsusuka|may sakit|hindi makahinga)\b/i.test(q)) {
+      return {id:'payment_policy',state:'idle',action:'',text:/\b(?:pwede|puwede|tumatanggap|bayad|gamitin)\b/i.test(q) ? 'Hindi ko makumpirma kung anong payment methods ang tinatanggap ng clinic. Tumawag muna sa clinic para makasiguro.' : 'I cannot verify which payment methods the clinic accepts. Please contact the clinic to confirm before your visit.',suggestions:['Clinic information']};
+    }
+    if (/\b(?:late|running late|mahuhuli|male[- ]?late|ma[- ]?late)\b/i.test(q) && /\b(?:appointment|visit|booking|check[ -]?up)\b/i.test(q) && !/\b(?:book|reserve|cancel|reschedule|emergency|urgent|sick|pain|fever|vomit\w*|nagsusuka|may sakit|hindi makahinga)\b/i.test(q)) {
+      return {id:'late_visit_guidance',state:'idle',action:'',text:/\b(?:mahuhuli|male[- ]?late|ma[- ]?late)\b/i.test(q) ? 'Kung mahuhuli ka, tawagan agad ang clinic para malaman kung puwede ka pa nilang tanggapin o kailangan mong mag-reschedule. Hindi ko makumpirma ang late-arrival policy, at walang binago sa appointment mo.' : 'If you may arrive late, contact the clinic as soon as possible to ask whether they can still see you or need to reschedule. I cannot verify its late-arrival policy; your appointment has not been changed.',suggestions:['Clinic information','Show my appointments']};
+    }
+    // Policy questions are informational: never infer permission to change a visit.
+    if (/\b(?:walk[ -]?in|walkin)\b/i.test(q) && !/\b(?:book|reserve|cancel|reschedule|emergency|urgent|sick|pain|fever|vomit\w*|nagsusuka|may sakit|hindi makahinga)\b/i.test(q)) {
+      return {id:'walk_in_policy',state:'idle',action:'',text:/\b(?:pwede|puwede|maaari|ba|po)\b/i.test(q) ? 'Hindi ko makumpirma kung tumatanggap ang clinic ng walk-in. Tumawag muna sa clinic para malaman ang patakaran at availability.' : 'I cannot verify whether the clinic accepts walk-ins. Please contact the clinic to confirm its policy and availability.',suggestions:['Clinic information']};
+    }
+    if (/\b(?:bayad|fee|fees|charge|cost|penalty|magkano)\b/i.test(q) && /\b(?:cancel\w*|kansela\w*|kinansela\w*|kakanselahin|reschedul\w*|reschedule)\b/i.test(q) && !/\b(?:emergency|urgent|sick|pain|fever|vomit\w*|nagsusuka|may sakit|hindi makahinga)\b/i.test(q)) {
+      return {id:'appointment_change_help',state:'idle',action:'',text:/\b(?:bayad|magkano|kansela\w*|kinansela\w*|kakanselahin)\b/i.test(q) ? 'Hindi ko makumpirma kung may bayad sa pagkansela o pagpapalit ng appointment. Makipag-ugnayan sa clinic para sa kasalukuyang patakaran. Walang binago sa appointment mo.' : 'I cannot verify cancellation or rescheduling fees. Please contact the clinic for its current policy. No appointment was changed.',suggestions:['Clinic information','Show my appointments']};
+    }
+    if (/\b(?:bukas|open)\b.{0,25}\b(?:clinic|klinika|kayo)\b.{0,35}\b(?:linggo|sunday|weekend)\b/i.test(q) && !/\b(?:book|reserve|cancel|reschedule|emergency|urgent|sick|pain|fever|vomit\w*|nagsusuka|may sakit|hindi makahinga)\b/i.test(q)) {
+      var sundayAnswer = clinicInformationAnswer(context);
+      sundayAnswer.text = 'Hindi ko makumpirma kung bukas ang clinic tuwing Linggo. Tumawag sa clinic bago pumunta; ang oras ng appointment ay hindi palaging oras ng pagbubukas.\n' + sundayAnswer.text;
+      return sundayAnswer;
+    }
+    if (!/\b(?:vomit\w*|diarrh\w*|fever|pain|injur\w*|medicine|medication|dosage|prescri\w*)\b/i.test(q) && /(?:\b(?:clinic|opening|operating)\s+hours\b|\bwhen (?:do you|does the clinic) (?:open|close)\b|\banong oras (?:po )?(?:kayo|ang clinic|ang klinika) (?:bukas|open)\b)/i.test(q)) {
+      var hoursAnswer = clinicInformationAnswer(context);
+      hoursAnswer.text = (/\banong oras\b/i.test(q) ? 'Hindi ko makumpirma ang oras ng pagbubukas. Tingnan ang Clinic Info o tumawag sa clinic bago pumunta.\n' : 'I cannot verify the clinic’s opening hours from the available information. Please check Clinic Info or call the clinic to confirm before visiting.\n') + hoursAnswer.text;
+      return hoursAnswer;
+    }
+    if (/^(?:kumusta|kamusta)\s+(?:ka|po)(?:\s+(?:po|vetti))?(?:\s+vetti)?[?!. ]*$/i.test(q)) {
+      return {id:'tagalog_greeting',state:'greeting',action:'',text:'Kumusta! Handa akong tumulong. Ano ang gusto mong malaman tungkol sa iyong alaga o sa clinic?',suggestions:context.suggestionsWithPet};
+    }
+    if (/^(?:hi|hello|hey)(?:\s+vetti)?[!,. ]+(?:how are you|kumusta ka)[?!. ]*$/i.test(q)) {
+      return {id:'greeting_hello',state:'greeting',action:'',text:'Hello! I’m here and ready to help. What would you like to know about your pets or the clinic?',suggestions:context.suggestionsWithPet};
+    }
+    // Information about a listed service is not a request to make a visit.
+    if (/\b(?:want to know|tell me|information|details|learn)\b.{0,60}\b(?:vaccination|vaccine|grooming|deworming)\b/i.test(q) && !/\b(?:book|schedule|reserve|vomit\w*|diarrh\w*|fever|pain|injur\w*|medicine|medication|dosage|prescri\w*)\b/i.test(q)) {
+      var namedServices = (context.services || []).filter(function(s) {
+        return s && s.active !== false && s.label && q.indexOf(String(s.label).toLowerCase()) !== -1;
+      });
+      if (namedServices.length === 1) {
+        var service = namedServices[0];
+        return {id:'service_information',state:'idle',action:'',text:service.label + ' is listed by the clinic. ' + (service.price && /\d/.test(service.price) ? 'The listed fee is ' + service.price + '. ' : 'Please contact the clinic for the current fee. ') + 'A veterinarian can advise on the right care for your pet.',suggestions:['What services do you offer?','Clinic information']};
+      }
+    }
+    var categoryRequest=groupQuestion(q,context);
+    if(categoryRequest)return categoryRequest;
     // Resolve explicit clinic-information questions before broad pet and booking terms.
     if (isClinicInformationRequest(q) && !wantsBooking(q)) return clinicInformationAnswer(context);
     // Explicitly informational requests are never executable appointment
@@ -1274,7 +1366,7 @@
     }
     // Urgent and clinical descriptions are NOT a grooming/booking shortcut.
     // A real veterinarian, not the booking interpreter, must triage them.
-    if (/\b(?:bleed(?:ing)?|poison(?:ed|ing)?|seizures?|convulsions?|fits|collapse|unconscious|not breathing|can\x27t breathe|difficulty breathing|emergency|urgent|vomit(?:ing)?|diarrhea|fever|pain|injur(?:y|ed)|dosage|medication|medicine|prescri(?:be|ption))\b|hindi makahinga|nahihirapan huminga|nagsusuka|nangingisay|kinukumbulsyon/iu.test(q)) {
+    if (/\b(?:bleed(?:ing)?|poison(?:ed|ing)?|seizures?|convulsions?|fits|collapse|unconscious|not breathing|can[\x27\u2019]?t breathe|cannot breathe|struggling to breathe|difficulty breathing|emergency|urgent|vomit(?:ing)?|diarrhea|fever|pain|injur(?:y|ed)|dosage|medication|medicine|prescri(?:be|ption))\b|hindi makahinga|hirap huminga|nahihirapan huminga|nagsusuka|nangingisay|kinukumbulsyon/iu.test(q)) {
       return {
         id: 'urgent_safety', state: 'concerned', action: '',
         text: 'This may need urgent veterinary care. Call a veterinarian or emergency clinic now. Do not give medicines or doses based on a chatbot, and do not wait for an appointment chat response.',
@@ -1294,9 +1386,22 @@
           : 'Understood. I will not open or change any appointment. No booking or cancellation was made.',
         suggestions: ['Show my appointments', 'What services do you offer?'] };
     }
+    if (/\b(?:how much|price|cost|fee|magkano|presyo)\b/i.test(q) && /\b(?:grooming|groom|paligo)\b/i.test(q) && !/\b(?:book|reserve|schedule|cancel|reschedule|record|history|diagnos\w*|treat\w*|symptom|sick)\b/i.test(q)) {
+      var cat = /\b(?:cat|kitten|pusa)\b/i.test(q), dog = /\b(?:dog|puppy|aso)\b/i.test(q);
+      var grooming = (context.services || []).filter(function(s) {
+        return s && s.active !== false && ((cat && !dog && /^cat grooming$/i.test(s.label || '')) || (dog && !cat && /^dog grooming$/i.test(s.label || '')));
+      });
+      if (grooming.length === 1) return {id:'service_price_local',state:'idle',action:'',text:grooming[0].label + ': ' + (grooming[0].price || 'Please contact the clinic for the current fee.'),suggestions:['What services do you offer?']};
+    }
+    if (/\b(?:work late|after work|after my shift)\b/i.test(q) && /\b(?:another way|other options|alternatives?)\b/i.test(q) && !/\b(?:book|reserve|schedule|cancel|reschedule)\b/i.test(q)) {
+      return {id:'visit_options',state:'idle',action:'',text:'Please contact the clinic to discuss visit options that fit your schedule. I cannot confirm availability here.',suggestions:['Clinic information']};
+    }
+    if (/\b(?:consultation|consult|check[ -]?up|vet visit)\b/i.test(q) && /\b(?:what happens|what to expect|how does|explain|tell me about|what is|ano ang|paano)\b/i.test(q) && !/\b(?:book|schedule|reserve|cancel|reschedule|my appointment|records?|history|symptom|sick|diagnos\w*|treat\w*)\b/i.test(q)) {
+      return {id:'consultation_information',state:'idle',action:'',text:/\b(?:ano|paano)\b/i.test(q) ? 'Sa consultation, karaniwang magtatanong ang beterinaryo tungkol sa iyong alaga at mga alalahanin mo, susuriin ang alaga, at ipapaliwanag ang susunod na hakbang. Ang mga pagsusuri o gamutan ay nakadepende sa pagtatasa ng beterinaryo. Maaaring magtanong sa clinic tungkol sa kanilang proseso.' : 'During a consultation, the veterinarian typically asks about your pet and your concerns, examines your pet, and discusses their findings and next steps with you. Any tests or treatment depend on the veterinarian’s assessment. The clinic can explain its specific process.',suggestions:['What should I bring?', 'What services do you offer?']};
+    }
     if (appointmentChangeQuestion(q)) {
       return { id: 'appointment_change_help', state: 'reminder', action: '',
-        text: 'You can review cancellation or rescheduling options in My Appointments. The clinic applies its current cutoff and eligibility rules when you select a visit. For fees or policy details, please contact the clinic.',
+        text: /\bpaano\b/i.test(q) ? 'Buksan ang My Appointments at piliin ang appointment. Gamitin ang Cancel o Reschedule at suriin ang mga detalye bago kumpirmahin. Ang clinic ang nagtatakda ng mga patakaran at cutoff; tawagan sila para sa fees o iba pang detalye. Walang binago sa appointment mo.' : 'You can review cancellation or rescheduling options in My Appointments. The clinic applies its current cutoff and eligibility rules when you select a visit. For fees or policy details, please contact the clinic.',
         suggestions: ['Show my appointments', 'Clinic information'] };
     }
     // A request naming multiple owned pets cannot become one wizard booking
@@ -1372,10 +1477,31 @@
         !/\b(?:how (?:do|can|to) (?:i |we )?book|how does booking|paano (?:magbook|magpa book)|(?:show|list|view|check) my (?:existing |next |upcoming )?(?:appointments?|bookings?)|reschedul\w*|cancel\w*)\b/i.test(q)) {
       return bookingAnswer(context);
     }
+    // Service-specific catalog questions use actual currently loaded service
+    // labels, not a fixed keyword category list or invented pricing.
+    // Never execute booking or expose any user record from this path.
+    var serviceNarrow = /^(?:what|which)\s+([a-z][a-z\s-]{1,55}?)\s+services?\s+(?:do you offer|are available)[?!. ]*$/i.exec(q);
+    if (!wantsBooking(q) && serviceNarrow) {
+      var wanted = serviceNarrow[1].trim().toLowerCase();
+      var matches = (context.services || []).filter(function(s) {
+        return s && s.active !== false &&
+          String(s.label || '').toLowerCase().indexOf(wanted) !== -1;
+      }).slice(0, 10);
+      if (matches.length) {
+        return {id:'services_filtered',state:'idle',action:'',
+          text:'Currently listed ' + wanted + ' services: ' +
+            matches.map(function(s) { return s.label; }).join(', ') +
+            '. Check the Services page for the latest details and listed fees.',
+          suggestions:['Show all service categories']};
+      }
+    }
     for (var i = 0; i < INTENTS.length; i++) {
       var intent = INTENTS[i];
       for (var k = 0; k < intent.keywords.length; k++) {
         if (q.indexOf(intent.keywords[k]) !== -1) {
+          // 'hi' is a substring of 'breathing'. Greetings must be their own utterance.
+          if (intent.id === 'greeting_hello' &&
+              !/^(?:hi|hello|hey|kumusta|good morning|good afternoon|good evening)[!.,? ]*$/i.test(q)) continue;
           // Narrow booking-verb guard: "schedule" only claims the
           // booking intent when it is spoken as scheduling language,
           // never inside a medical noun phrase like "vaccination
@@ -1547,6 +1673,9 @@
     motionFor: motionFor,
     restingState: restingState,
     resolve: resolve,
+    extractBookingContext: extractBookingContext,
+    bookingDateIssue: bookingDateIssue,
+    bookingTimeIssue: bookingTimeIssue,
     // Diagnostic build ID: verify the actual JavaScript loaded by the
     // running browser, especially when using Cloudflare or older tabs.
     version: '5.6.0-capstone-audit',

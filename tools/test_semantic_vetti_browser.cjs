@@ -7,7 +7,7 @@ const path=require('node:path');
 const root=path.resolve(__dirname,'..');
 const source=f=>fs.readFileSync(path.join(root,f),'utf8');
 const pets=[{petId:7,name:'Bornok',species:'Cat'},{petId:8,name:'John',species:'Dog'}];
-const ctx={pets,activePet:pets[0],hasPets:true,firstName:'Owner',
+const ctx={pets,activePet:pets[0],anotherPet:pets[1],hasPets:true,firstName:'Owner',
   services:[{serviceId:22,value:'cat_grooming',label:'Cat Grooming',active:true},
     {serviceId:21,value:'dog_grooming',label:'Dog Grooming',active:true},
     {serviceId:5,value:'consultation',label:'Consultation',active:true}],
@@ -18,7 +18,8 @@ function create(serverAnswer){
     setTimeout,clearTimeout,fetch:async (url,options)=>{
       calls.push({url,options});
       if(url==='/api/auth/csrf')return {ok:true,json:async()=>({data:{csrf_token:'fake'}})};
-      if(url==='/api/ai/semantic-vetti')return {ok:true,json:async()=>({success:true,data:serverAnswer})};
+      if(url==='/api/ai/service-lookup')return {ok:true,json:async()=>({success:true,data:serverAnswer.serviceLookup || {kind:'declined'}})};
+      if(url==='/api/ai/semantic-vetti')return {ok:true,json:async()=>({success:true,data:typeof serverAnswer==='function'?serverAnswer(JSON.parse(options.body).message):serverAnswer})};
       return {ok:false,json:async()=>({success:false})};
     }};
   window.window=window;
@@ -55,5 +56,36 @@ function create(serverAnswer){
   assert.equal(fallback.action,'openBooking');checks++;
   const legacy=disabled.calls.filter(c=>c.url==='/api/ai/booking-intent');
   assert.equal(legacy.length,1);checks++;
+  const unavailable=create({mode:'fallback'});
+  const error=await unavailable.ask('Could Bornok get grooming tomorrow?');
+  assert.match(error.text,/could not process.*AI/i);checks++;
+  assert.match(error.text,/No appointment was made/);checks++;
+  assert.ok(!error.action);checks++;
+  const contextual=create(q=> /another one/i.test(q)
+    ? {mode:'semantic',kind:'information',state:'reminder',text:'Do you want to change the current proposal or start a new booking? No appointment has been made.'}
+    : proposal);
+  await contextual.ask('Gusto ko sana paliguan si Bornok bukas');
+  const review=await contextual.ask('Ano na ulit yung booking details?');
+  assert.equal(review.id,'semantic_booking_proposal');checks++;
+  assert.match(review.text,/No appointment has been made/);checks++;
+  for (const prompt of ['Please remind me of the proposed appointment','Paki-ulit ang detalye ng booking']) {
+    const repeat=await contextual.ask(prompt);
+    assert.equal(repeat.id,'semantic_booking_proposal');checks++;
+  }
+  const ambiguous=await contextual.ask('What about another one?');
+  assert.match(ambiguous.text,/change the current proposal or start a new booking/);checks++;
+  assert.ok(!ambiguous.petCard);checks++;
+  assert.equal(contextual.calls.filter(c=>c.url==='/api/ai/semantic-vetti').length,5);checks++;
+  const beforeSafety=contextual.calls.length;
+  const urgent=await contextual.ask('My pet is not breathing');
+  assert.notEqual(urgent.id,'semantic_booking_proposal');checks++;
+  assert.equal(contextual.calls.length,beforeSafety);checks++;
+  const lookup=create({serviceLookup:{kind:'answer',state:'idle',text:'The clinic lists: Cat Grooming, Dog Grooming.'}});
+  for (const prompt of ['Do you offer grooming?','May grooming ba kayo?']) {
+    const response=await lookup.ask(prompt);
+    assert.equal(response.id,'verified_service_lookup');checks++;
+    assert.match(response.text,/Cat Grooming, Dog Grooming/);checks++;
+  }
+  assert.equal(lookup.calls.filter(c=>c.url==='/api/ai/service-lookup').length,2);checks++;
   console.log(`PASS: opt-in semantic Vetti browser integration (${checks} assertions)`);
 })().catch(e=>{console.error(e);process.exitCode=1});

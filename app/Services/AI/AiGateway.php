@@ -92,6 +92,17 @@ final class AiGateway
             ];
         } catch (JsonException) {
             return $this->fallback('invalid_json');
+        } catch (AiProviderException $e) {
+            $category = in_array($e->category, ['configuration','timeout','transport','rate_limit','http_error','safety_refusal','empty_response'], true)
+                ? $e->category : 'unknown';
+            if ((bool) config('ai.diagnostics_enabled', false)) {
+                \Illuminate\Support\Facades\Log::notice('AI provider failure', [
+                    'task' => $task, 'category' => $category, 'http_status' => $e->httpStatus,
+                ]);
+            }
+            $fallback = $this->fallback('provider_unavailable');
+            $fallback['provider_failure'] = $category;
+            return $fallback;
         } catch (Throwable) {
             // Never leak raw provider exceptions, prompt text, or personal data.
             return $this->fallback('provider_unavailable');

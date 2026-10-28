@@ -19,19 +19,28 @@ final class UserVettiService
     }
 
     /** @return array<string,mixed> */
-    public function reply(User $user, string $message, string $language = 'en', ?int $petId = null): array
+    public function reply(User $user, string $message, string $language = 'en', ?int $petId = null, ?string $previousTopic = null, ?string $selectedService = null, array $pendingChoices = [], ?string $selectedCategory = null): array
     {
         $input = trim($message);
         $lower = mb_strtolower($input);
         $taglish = $language === 'taglish';
 
-        if (preg_match('/\b(emergency|urgent|not breathing|unconscious|seizures?|convulsions?|poison|collapse|difficulty breathing)\b|hindi makahinga|nahihirapan huminga|nangingisay/iu', $lower)) {
+        if (preg_match('/\b(?:emergency|urgent|not breathing|can[\x27\x{2019}]?t breathe|cannot breathe|unconscious|seizures?|convulsions?|poison|collapse|difficulty breathing|having trouble breathing|has trouble breathing|hard time breathing|gasping|choking)\b|\b(?:having|has|have|experiencing|with)\s+(?:(?:a|some)\s+)?(?:trouble|problems?|difficulty|difficulties|a hard time)\s+(?:with\s+)?breathing\b|hindi makahinga|hirap huminga|nahihirapan huminga|nangingisay/iu', $lower)) {
             return $this->answer($taglish
                 ? 'Kung emergency ito, tawagan agad ang veterinarian o emergency clinic. Huwag maghintay ng chat reply.'
                 : 'If this may be an emergency, call a veterinarian or emergency clinic immediately rather than waiting for chat.', 'rule', 'urgent');
         }
         if (preg_match('/\b(ignore (?:previous|all) instructions|system prompt|secret|password|otp|api key|token)\b/iu', $lower)) {
             return $this->answer('I can help with your pets, appointments, and clinic questions, but not account secrets.', 'rule', 'unsupported');
+        }
+        // Handle standalone social turns without interrupting questions that
+        // happen to start with a greeting or contain a request for help.
+        $social = trim($lower, " \t\n\r\0\x0B.!?,");
+        if (preg_match('/\A(?:hi|hello|hey|good morning|good afternoon|good evening|kumusta|kamusta)(?:\s+vetti)?\z/iu', $social)) {
+            return $this->answer($taglish ? 'Hello! Kumusta? Paano kita matutulungan sa iyong pets o pagbisita sa clinic?' : 'Hello! How can I help you and your pet today?', 'rule', 'greeting');
+        }
+        if (preg_match('/\A(?:thanks|thank you|salamat)(?:\s+(?:you|vetti|po|very much))?\z/iu', $social)) {
+            return $this->answer($taglish ? 'Walang anuman! May iba pa ba akong maitutulong?' : "You're welcome! Is there anything else I can help with?", 'rule', 'greeting');
         }
         if (preg_match('/\b(show|list|display|view|what are|who are)\b.{0,15}\b(my pets|my pet|pets)\b|\b(my pets|mga alaga ko|mga pets ko)\b/iu', $lower)) {
             $pets = $this->facts->pets($user);
@@ -89,6 +98,41 @@ final class UserVettiService
             return $this->answer('I cannot diagnose symptoms or recommend medication. Please contact your veterinarian for guidance.', 'rule', 'medical');
         }
 
+        // Public service-category lookups are read-only and use authoritative
+        // active service categories, even in an authenticated chat. Do not
+        // send owner context or category messages to Gemini.
+        if (preg_match('/\b(?:services?|serbisyo|serbisyong|under|category|categories|nasa)\b/iu', $lower)
+            && !preg_match('/\b(?:book|reserve|schedule|appointment|record|history|my pet|medical|symptom)\b/iu', $lower)) {
+            $public = $this->publicVetti->reply($input, false, $previousTopic, $selectedService, $pendingChoices, $selectedCategory);
+            if ($public['intent'] === 'services') {
+                return $this->answer($public['text'], $public['source'], 'services');
+            }
+        }
+
+        // A pending public-service clarification is handled by the same
+        // authoritative catalog logic as Public Vetti. Never by Gemini.
+        if ($pendingChoices !== [] && (VettiServiceContext::choose($input, $pendingChoices, array_values($pendingChoices)) !== null
+            || VettiServiceContext::unresolvedFollowUp($input, $pendingChoices, array_values($pendingChoices)))) {
+            $public = $this->publicVetti->reply($input, false, $previousTopic, $selectedService, $pendingChoices, $selectedCategory);
+            return $this->answer($public['text'], $public['source'], $public['intent']);
+        }
+
+        // A bounded PUBLIC service question can be passed verbatim to
+        // Laravel's catalog matcher, never to Gemini or protected queries.
+        // This is NOT booking intent inheritance (reserved for Stage 3).
+        if (VettiServiceContext::serviceQuestion($input) || (preg_match('/\b(?:how much|price|cost|fee|magkano|presyo)\b/iu', $input) && !preg_match('/\b(?:my|mine|medical|record|book|cancel|reschedule|emergency|symptom|diagnos|treat|prescri|otp)\b|@|\d/iu', $input))) {
+            $public = $this->publicVetti->reply($input, false, $previousTopic, $selectedService, $pendingChoices, $selectedCategory);
+            return $this->answer($public['text'], $public['source'], $public['intent']);
+        }
+
+        // Contextual follow-ups are permitted ONLY for public information.
+        // Private records and booking actions above retain their own guards.
+        // Neither previous turns nor pet data are forwarded to Gemini.
+        if (VettiConversationContext::followUp($input, $previousTopic) !== null) {
+            $public = $this->publicVetti->reply($input, false, $previousTopic, $selectedService, $pendingChoices, $selectedCategory);
+            return $this->answer($public['text'], $public['source'], $public['intent']);
+        }
+
         // Reconstruct a completely public, fixed question from approved topics.
         // Crucially, the raw user text (even a free-form message with a name,
         // number, or private detail) is NEVER forwarded to an AI provider.
@@ -111,7 +155,14 @@ final class UserVettiService
         if (preg_match('/\d|@|https?:|\b(?:my|mine|pet named|named|owner|patient|record|private|address is|phone|email|password|otp|allerg|disease|medic|surgery|blood|chronic|history|prescri|diagnos|injury)\b|\b(?:ko|akin|namin)\b/iu', $input)) {
             return null;
         }
+        // Public visiting hours are NOT the owner's appointment history.
+        if (preg_match('/\A(?:what time can i visit(?: (?:the clinic|you|there))?|when can i visit(?: (?:the clinic|you|there))?|anong oras (?:ako )?puwedeng pumunta(?: sa clinic)?)\??\z/iu', trim($input))) {
+            return 'What are your clinic hours?';
+        }
         // Exact known intent -> rules inside the Public Vetti service.
+        if (preg_match('/\b(?:clinics?|klinika)(?:[\x27\x{2019}]s)?\s+(?:info(?:rmation)?|details?)\b|\b(?:info(?:rmation)?|impormasyon|details?)\s+(?:about|on|of|for|ng|sa)\s+(?:the\s+|your\s+)?(?:clinic|klinika)\b|\btell me about (?:the |your )?clinic\b/iu', $input)) {
+            return 'Clinic information'; // Reconstructed public question, not original input.
+        }
         if (preg_match('/\b(?:services?|serbisyo|grooming|vaccination|microchipping|deworming)\b/iu', $input)) {
             return 'What services do you offer?';
         }

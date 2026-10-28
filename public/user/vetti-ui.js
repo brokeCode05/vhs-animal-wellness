@@ -1468,10 +1468,11 @@
       var name = s.group || 'Other';
       if (!byGroup[name]) byGroup[name] = { name: name, services: [], min: null, max: null };
       byGroup[name].services.push(s);
-      var p = priceNumber(s.price);
-      if (p === null) return;
-      if (byGroup[name].min === null || p < byGroup[name].min) byGroup[name].min = p;
-      if (byGroup[name].max === null || p > byGroup[name].max) byGroup[name].max = p;
+      var prices = priceNumbers(s.price);
+      prices.forEach(function (p) {
+        if (byGroup[name].min === null || p < byGroup[name].min) byGroup[name].min = p;
+        if (byGroup[name].max === null || p > byGroup[name].max) byGroup[name].max = p;
+      });
     });
     return Object.keys(byGroup).map(function (name) {
       var g = byGroup[name];
@@ -1492,10 +1493,10 @@
     });
   }
 
-  // "₱300.00 – ₱2,000.00" -> 300; "₱900.00" -> 900; "Contact us" -> null.
-  function priceNumber(value) {
-    var m = String(value || '').replace(/,/g, '').match(/(\d+(?:\.\d+)?)/);
-    return m ? parseFloat(m[1]) : null;
+  // Include both ends of a service price range in the category summary.
+  function priceNumbers(value) {
+    var matches = String(value || '').replace(/,/g, '').match(/\d+(?:\.\d+)?/g) || [];
+    return matches.map(Number);
   }
 
   function peso(value) {
