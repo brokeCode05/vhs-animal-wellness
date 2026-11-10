@@ -1,0 +1,56 @@
+<?php
+
+use App\Models\AccountVerification;
+use App\Models\DoctorProfile;
+use App\Models\User;
+use App\Support\Identity;
+use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schedule;
+
+Artisan::command('vhs:create-admin', function () {
+    $email = Identity::email($this->ask('Admin email'));
+    $first = $this->ask('First name');
+    $last = $this->ask('Last name');
+    validator(['email' => $email, 'first_name' => $first, 'last_name' => $last], ['email' => 'required|email|max:254|unique:users,email', 'first_name' => 'required|string|max:50', 'last_name' => 'required|string|max:50'])->validate();
+    $u = new User;
+    $u->forceFill(['email' => $email, 'first_name' => $first, 'last_name' => $last, 'name' => $first.' '.$last, 'role' => 'Admin', 'status' => 'active'])->save();
+    $this->info('Admin created without a password. At /auth request an email password setup/reset code to set your password and prove mailbox ownership.');
+})->purpose('Provision the initial Admin from the trusted server console');
+Artisan::command('vhs:create-doctor', function () {
+    $email = Identity::email($this->ask('Doctor email'));
+    $first = $this->ask('First name');
+    $last = $this->ask('Last name');
+    validator(compact('email', 'first', 'last'), ['email' => 'required|email|max:254|unique:users,email', 'first' => 'required|string|max:50', 'last' => 'required|string|max:50'])->validate();
+    DB::transaction(function () use ($email, $first, $last) {
+        $u = new User;
+        $u->forceFill(['email' => $email, 'first_name' => $first, 'last_name' => $last, 'name' => $first.' '.$last, 'role' => 'Doctor', 'status' => 'active'])->save();
+        $d = new DoctorProfile;
+        $d->forceFill(['user_id' => $u->id, 'display_name' => 'Dr. '.$last, 'account_status' => 'active', 'availability_status' => 'on_duty'])->save();
+    });
+    $this->info('Doctor created without a password. Use email password setup/reset at /auth.');
+});
+Schedule::call(fn () => AccountVerification::where('expires_at', '<', now()->subDay())->delete())->daily();
+
+// Automatic no-show reconciliation. Runs only after the configured clinic grace period.
+// Local development: php artisan schedule:work (in another terminal).
+Artisan::command('vhs:reconcile-no-shows {--dry-run : Preview eligible visits without changing status}', function () {
+    $service = app(\App\Services\AppointmentNoShowService::class);
+    if ($this->option('dry-run')) {
+        $this->info('Eligible confirmed/un-checked-in visits: '.$service->countDue());
+        return;
+    }
+    $count = $service->reconcile();
+    \Illuminate\Support\Facades\Cache::forever('vhs:scheduler:last_no_show_run', now()->toIso8601String());
+    $this->info("Automatically marked {$count} missed appointment(s) as no-show.");
+})->purpose('Reconcile unattended confirmed appointments after their check-in grace period');
+
+Schedule::command('vhs:reconcile-no-shows')->everyMinute()->withoutOverlapping();
+
+Artisan::command('vhs:purge-scribe-transcripts', function () {
+    if (!config('vhs.scribe_transcript_retention_days')) { $this->info('No approved transcript retention period is configured. Nothing removed.'); return; }
+    $count = app(\App\Services\ScribeTranscriptRetention::class)->purge();
+    $this->info("Expired transcripts removed: {$count}.");
+})->purpose('Remove expired working transcripts under the configured clinic-approved retention policy');
+
+Schedule::command('vhs:purge-scribe-transcripts')->daily()->withoutOverlapping();

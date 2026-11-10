@@ -1,0 +1,4 @@
+<?php
+require __DIR__.'/../vendor/autoload.php';$app=require __DIR__.'/../bootstrap/app.php';$app->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap();
+$text='The veterinarian said the cause was uncertain and advised a follow-up next week.';$inv=['ok'=>true,'complete'=>true,'transcript'=>$text,'chunks'=>[['id'=>1,'offset'=>0,'length'=>strlen($text),'text'=>$text,'status'=>'complete','segments'=>[['id'=>1,'offset'=>0,'text'=>$text,'quotes'=>[['text'=>'the cause was uncertain','category'=>'assessment'],['text'=>'advised a follow-up next week','category'=>'plan']]]]]]];
+$g=new App\Services\AI\AiGateway(new App\Services\AI\Providers\GeminiProvider());$g->startScribeDeadline(35);$r=(new App\Services\AI\ScribeEvidenceSummary($g))->generate($inv);echo json_encode(['code'=>$r['code']??null,'draft'=>$r['draft']??null,'flagged'=>array_column($r['attention']??[],'reason')],JSON_UNESCAPED_UNICODE)."\n";

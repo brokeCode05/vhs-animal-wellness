@@ -1,0 +1,9 @@
+# Doctor Scribe evidence-bound workflow: design note
+
+Baseline: `php vendor/bin/phpunit --do-not-cache-result` passed 418 tests / 2396 assertions before this work.
+
+The existing workflow selects verbatim SOAP sections, retains a source-based fallback, applies privacy and doctor authorization gates in the controller, and requires doctor review before applying. The experimental grounded summary is disabled by default. Its current model-based claim and meaning checks can miss changes. ScribeFactInventory preserves transcript segments and validates exact quote containment, but is research-only and does not establish speaker or semantic truth. The portal stores working drafts on the clinic server and can send transcript content to an approved external provider; do not extend that surface without the existing controls.
+
+Plan: preserve the flag-off path; extend the inventory to record source spans and unresolved context, with chunk manifests and explicit incomplete status. Require doctor review of missing or ambiguous evidence; do not infer doctor attribution from unlabeled speech. Build a review-only draft with evidence links, preserve transcript and manual vitals, and test against fictional multilingual cases, provider failures, and authorized portal review.
+
+Important technical boundary: deterministic quote containment and structured field consistency can detect invented quotes, invalid references and changed metadata, but they cannot independently establish the polarity, certainty or speaker role of arbitrary unlabeled natural language or prove a free-text paraphrase equivalent. Treat unverified or ambiguous content as requiring doctor review; avoid claiming deterministic semantic verification. A safe implementation may need verbatim evidence for content whose meaning cannot be independently verified, with paraphrases presented as unverified suggestions rather than certified facts.

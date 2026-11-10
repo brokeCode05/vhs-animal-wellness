@@ -1,0 +1,201 @@
+<?php
+
+use App\Http\Controllers\AccessLogsController;
+use App\Http\Controllers\AnnouncementsController;
+use App\Http\Controllers\AppointmentsController;
+use App\Http\Controllers\AuditLogsController;
+use App\Http\Controllers\AuthController;
+use App\Http\Controllers\AvailabilityController;
+use App\Http\Controllers\ClinicSettingsController;
+use App\Http\Controllers\ConsultationsController;
+use App\Http\Controllers\DoctorsController;
+use App\Http\Controllers\DocumentsController;
+use App\Http\Controllers\LegacyAuthController;
+use App\Http\Controllers\LegacyDataController;
+use App\Http\Controllers\PetsController;
+use App\Http\Controllers\ServicesController;
+use App\Http\Controllers\UsersController;
+use App\Http\Controllers\VaccinationsController;
+use App\Http\Middleware\RecordUserAccess;
+use Illuminate\Support\Facades\Route;
+
+// Preserve the finished public frontend. Laravel is the backend underneath it.
+Route::get('/', fn () => redirect('/web-page/index.html'));
+Route::get('/terms', fn () => view('terms'));
+Route::get('/clinic-check-in', [\App\Http\Controllers\ClinicCheckInController::class, 'enter'])->name('clinic.checkin')->middleware('throttle:30,1');
+// The retired auth Blade page is absent: redirect to the existing public login modal.
+Route::get('/arrival', [\App\Http\Controllers\ArrivalVerificationController::class,'page']);
+Route::get('/auth', fn () => redirect('/web-page/index.html#login'))->name('login');
+
+// Frozen legacy/public form URLs kept for the existing frontend.
+Route::middleware('throttle:30,1')->group(function () {
+    // New Laravel-safe endpoints
+    Route::post('/legacy/register', [LegacyAuthController::class, 'register']);
+    Route::post('/legacy/login', [LegacyAuthController::class, 'login']);
+
+    // Keep old compatibility routes
+    Route::post('/web-page/index.php', [LegacyAuthController::class, 'register']);
+    Route::post('/web-page/login.php', [LegacyAuthController::class, 'login']);
+
+    // This one already works
+    Route::post('/php_files/sms_otp.php', [LegacyAuthController::class, 'sendSignupSms']);
+});
+    Route::get('/legacy/verify-email/{user}', [LegacyAuthController::class, 'verifyEmail'])->name('legacy.verify.email');
+
+Route::prefix('api')->group(function () {
+    Route::get('health', fn () => response()->json(['success' => true, 'message' => 'Laravel is running.', 'data' => ['phase' => 'defense-ready'] ]));
+    Route::get('recaptcha-config', function () {
+        $siteKey = trim((string) config('services.recaptcha.site_key'));
+
+        if ($siteKey === '') {
+            return response()->json([
+                'success' => false,
+                'message' => 'reCAPTCHA is not configured.',
+                'data' => ['site_key' => null],
+            ], 503);
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => 'reCAPTCHA configuration loaded.',
+            'data' => ['site_key' => $siteKey],
+        ]);
+    });
+
+    Route::prefix('arrival')->middleware(['throttle:12,1', \App\Http\Middleware\PrivateResponse::class])->group(function(){
+        $c=\App\Http\Controllers\ArrivalVerificationController::class;
+        Route::get('options',[$c,'options']);
+        Route::post('request-code',[$c,'requestCode']);
+        Route::post('verify-code',[$c,'verify']);
+        Route::post('resend-code',[$c,'resend']);
+        Route::get('appointments',[$c,'appointments']);
+        Route::post('check-in/{appointment}',[$c,'checkIn']);
+    });
+    Route::get('auth/csrf', fn () => response()->json(['success' => true, 'message' => 'CSRF initialized.', 'data' => ['csrf_token' => csrf_token()]]));
+
+    Route::middleware('throttle:30,1')->group(function () {
+        Route::post('auth/register', [AuthController::class, 'register']);
+        Route::post('auth/login', [AuthController::class, 'login']);
+        Route::post('auth/verify-otp', [AuthController::class, 'verify']);
+        Route::post('auth/resend-otp', [AuthController::class, 'resend']);
+        Route::post('auth/password-reset', [AuthController::class, 'requestReset']);
+        Route::post('auth/password-reset/confirm', [AuthController::class, 'confirmReset']);
+    });
+
+    // Public read-only clinic data used by the finished website.
+    Route::get('services', [ServicesController::class, 'index']);
+    Route::get('clinic-settings', [ClinicSettingsController::class, 'show']);
+    Route::get('public/doctors', [DoctorsController::class, 'publicIndex']);
+    // Phase 2: public information only; no authenticated data or booking writes.
+    Route::post('ai/public-vetti', [\App\Http\Controllers\AI\PublicVettiController::class, 'reply'])
+        ->middleware('throttle:10,1');
+
+    Route::middleware(['auth', 'active', \App\Http\Middleware\PrivateResponse::class, RecordUserAccess::class])->group(function () {
+        Route::get('auth/me', [AuthController::class, 'me']);
+        Route::get('check-in/qr', [\App\Http\Controllers\ClinicCheckInController::class, 'issue'])->middleware(['role:Admin', 'throttle:20,1']);
+        Route::get('check-in/appointments', [\App\Http\Controllers\ClinicCheckInController::class, 'appointments'])->middleware(['role:User', 'throttle:20,1']);
+        Route::post('check-in/{appointment}', [\App\Http\Controllers\ClinicCheckInController::class, 'store'])->middleware(['role:User', 'throttle:20,1']);
+        // Phase 3: User-only, authenticated, throttled. AI cannot write appointments.
+        Route::post('ai/vetti', [\App\Http\Controllers\AI\UserVettiController::class, 'reply'])
+            ->middleware(['role:User', 'throttle:12,1']);
+        // Phase 5: opt-in read-only semantic proposals; authenticated, throttled, no writes.
+        Route::post('ai/semantic-vetti', [\App\Http\Controllers\AI\SemanticVettiController::class, 'interpret'])
+            ->middleware(['role:User', 'throttle:10,1']);
+        Route::post('ai/service-lookup', [\App\Http\Controllers\AI\ServiceLookupController::class, 'lookup'])
+            ->middleware(['role:User', 'throttle:10,1']);
+        // Phase 4: strictly read-only intent hints, existing OTP booking flow untouched.
+        Route::post('ai/booking-intent', [\App\Http\Controllers\AI\BookingIntentController::class, 'interpret'])
+            ->middleware(['role:User', 'throttle:10,1']);
+        Route::post('auth/logout', [AuthController::class, 'logout']);
+
+        Route::get('announcements', [AnnouncementsController::class, 'index']);
+        Route::get('users/me/pets', [PetsController::class, 'me']);
+        Route::get('users/{user}/pets', [PetsController::class, 'forUser']);
+
+        // Client/self-facing user routes. Admin must use GET /api/users;
+        // Doctor-scoped partial listings are not exposed here.
+        Route::get('users/{user}', [UsersController::class, 'show']);
+        Route::get('users/{user}/photo', [\App\Http\Controllers\ProfilePhotoController::class, 'show']);
+        Route::patch('users/{user}', [UsersController::class, 'update']);
+
+        Route::get('pets/{pet}/vaccinations', [VaccinationsController::class, 'index']);
+        Route::get('pets/{pet}/medical-records', [PetsController::class, 'medicalRecords']);
+        Route::get('pets/{pet}', [PetsController::class, 'show']);
+        Route::post('pets', [PetsController::class, 'store']);
+        Route::patch('pets/{pet}', [PetsController::class, 'update']);
+        Route::delete('pets/{pet}', [PetsController::class, 'destroy']);
+
+        Route::get('doctors', [DoctorsController::class, 'index']);
+        Route::patch('doctors/{doctor}/availability', [DoctorsController::class, 'availability']);
+
+        Route::get('appointments', [AppointmentsController::class, 'index']);
+        Route::get('appointments/{appointment}', [AppointmentsController::class, 'show']);
+        Route::post('appointments', [AppointmentsController::class, 'store']);
+        Route::patch('appointments/{appointment}', [AppointmentsController::class, 'update']);
+        Route::patch('appointments/{appointment}/status', [AppointmentsController::class, 'status']);
+        Route::get('availability', [AvailabilityController::class, 'index']);
+
+        Route::get('documents', [DocumentsController::class, 'index']);
+        Route::get('documents/{document}', [DocumentsController::class, 'show']);
+
+        Route::middleware('role:Admin')->group(function () {
+            Route::get('operations/health', [\App\Http\Controllers\OperationsHealthController::class, 'show']);
+            Route::get('users', [UsersController::class, 'index']);
+            Route::post('users', [UsersController::class, 'store']);
+            Route::patch('users/{user}/status', [UsersController::class, 'status']);
+            Route::post('doctors', [DoctorsController::class, 'store']);
+            Route::patch('doctors/{doctor}', [DoctorsController::class, 'update']);
+            Route::patch('doctors/{doctor}/status', [DoctorsController::class, 'status']);
+            Route::get('scheduling/durations', [\App\Http\Controllers\SchedulingDurationController::class, 'index']);
+            Route::post('services', [ServicesController::class, 'store']);
+            Route::patch('services/{service}', [ServicesController::class, 'update']);
+            Route::patch('services/{service}/status', [ServicesController::class, 'status']);
+            Route::delete('services/{service}', [ServicesController::class, 'destroy']);
+            Route::patch('clinic-settings', [ClinicSettingsController::class, 'update']);
+            Route::get('announcements/manage', [AnnouncementsController::class, 'manage']);
+            Route::post('announcements', [AnnouncementsController::class, 'store']);
+            Route::patch('announcements/{announcement}', [AnnouncementsController::class, 'update']);
+            Route::delete('announcements/{announcement}', [AnnouncementsController::class, 'destroy']);
+            Route::get('audit-logs', [AuditLogsController::class, 'index']);
+            Route::get('access-logs', [AccessLogsController::class, 'index']);
+        });
+
+        Route::middleware('role:Doctor')->group(function () {
+            Route::get('ai/doctor-scribe-audio-limits', [\App\Http\Controllers\AI\DoctorScribeController::class, 'audioLimits']);
+            Route::post('ai/doctor-scribe-audio', [\App\Http\Controllers\AI\DoctorScribeController::class, 'transcribe'])
+                ->middleware('throttle:6,1');
+            // Phase 6: read-only SOAP proposal; doctor ownership and active consultation required.
+            Route::post('ai/doctor-scribe', [\App\Http\Controllers\AI\DoctorScribeController::class, 'draft'])
+                ->middleware('throttle:6,1');
+            Route::get('consultations', [ConsultationsController::class, 'index']);
+            Route::get('consultations/{consultation}', [ConsultationsController::class, 'show']);
+            Route::get('consultations/{consultation}/working-draft', [\App\Http\Controllers\ConsultationWorkingDraftController::class, 'show']);
+            Route::put('consultations/{consultation}/working-draft', [\App\Http\Controllers\ConsultationWorkingDraftController::class, 'update']);
+            Route::post('consultations', [ConsultationsController::class, 'store']);
+            Route::patch('consultations/{consultation}', [ConsultationsController::class, 'update']);
+            Route::post('consultations/{consultation}/complete', [ConsultationsController::class, 'complete']);
+        });
+
+        // Compatibility URLs already hard-coded in the original User frontend.
+        Route::post('pets/save_pet.php', [LegacyDataController::class, 'savePet']);
+        Route::post('pets/delete_pet.php', [LegacyDataController::class, 'deletePet']);
+        Route::post('appointments/request_otp.php', [LegacyDataController::class, 'requestAppointmentOtp']);
+        Route::post('appointments/verify_otp.php', [LegacyDataController::class, 'verifyAppointmentOtp']);
+    });
+});
+
+// Legacy PHP-shaped endpoints. They are Laravel routes now; no PHP files execute from public/.
+Route::middleware(['auth', 'active', \App\Http\Middleware\PrivateResponse::class, RecordUserAccess::class])->group(function () {
+    Route::get('/legacy/user/pets', [LegacyDataController::class, 'getUserPets']);
+    Route::get('/legacy/user/appointments', [LegacyDataController::class, 'getUserAppointments']);
+    Route::get('/php_files/get_users.php', [LegacyDataController::class, 'getUsers']);
+    Route::get('/php_files/get_pets.php', [LegacyDataController::class, 'getPets']);
+    Route::get('/php_files/get_booked_slots.php', [LegacyDataController::class, 'bookedSlots']);
+    Route::get('/php_files/get_appointments.php', [LegacyDataController::class, 'getAppointments']);
+    Route::post('/php_files/book-appointment.php', [LegacyDataController::class, 'bookAppointment']);
+    Route::post('/php_files/update_appointment_status.php', [LegacyDataController::class, 'updateAppointmentStatus']);
+    Route::post('/php_files/reschedule_appointment.php', [LegacyDataController::class, 'rescheduleAppointmentLegacy']);
+    Route::post('/php_files/update_profile.php', [LegacyDataController::class, 'updateProfile']);
+    Route::get('/user/get_pets_user.php', [LegacyDataController::class, 'getUserPets']);
+    Route::get('/user/get_user_appointments.php', [LegacyDataController::class, 'getUserAppointments']);
+});

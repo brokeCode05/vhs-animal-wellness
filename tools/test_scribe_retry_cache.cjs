@@ -1,0 +1,17 @@
+'use strict';
+const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
+const data=new Map();
+const storage={get length(){return data.size;},key(i){return [...data.keys()][i]??null;},setItem(k,v){data.set(k,v);},getItem(k){return data.get(k)??null;},removeItem(k){data.delete(k);}};
+const sandbox={window:{},Date};vm.createContext(sandbox);vm.runInContext(fs.readFileSync('public/doctor/scribe-retry-cache.js','utf8'),sandbox);
+let now=1000000;const cache=sandbox.window.ScribeRetryCache.create(storage,()=>now);
+assert.equal(cache.save(12,'encrypted-token'),'encrypted-token');assert.equal(cache.load(12),'encrypted-token');
+assert.equal(cache.load(13),null);assert.equal(cache.save('other','token'),false);
+assert.ok(!JSON.stringify([...data]).includes('Fictional transcript'));
+cache.clear(13);assert.equal(cache.load(12),'encrypted-token');
+assert.equal(cache.save(12,'newer-complete',8,8),'newer-complete');assert.equal(cache.save(12,'stale-partial',3,8),'newer-complete');assert.equal(cache.load(12),'newer-complete');
+now+=14*60*1000;assert.equal(cache.load(12),null);assert.equal(data.size,0);
+cache.save(12,'encrypted-token');data.set('vhs-scribe-retry-v1:12','not-json');assert.equal(cache.load(12),null);assert.equal(data.size,0);
+cache.save(12,'one');cache.save(13,'two');data.set('unrelated','keep');cache.clearAll();assert.equal(data.get('unrelated'),'keep');assert.equal(data.size,1);
+const blocked=sandbox.window.ScribeRetryCache.create({setItem(){throw Error();},getItem(){throw Error();},removeItem(){throw Error();}},()=>now);
+assert.equal(blocked.save(12,'token'),false);assert.equal(blocked.load(12),null);blocked.clear(12);
+console.log('PASS encrypted retry cache isolation, expiry, malformed data and unavailable storage');

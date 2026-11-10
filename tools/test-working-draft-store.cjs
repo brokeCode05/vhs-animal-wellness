@@ -1,0 +1,40 @@
+'use strict';
+const assert=require('node:assert/strict');
+const fs=require('node:fs'); const path=require('node:path'); const vm=require('node:vm');
+const context={window:{},setTimeout,clearTimeout};
+vm.runInNewContext(fs.readFileSync(path.join(__dirname,'../public/doctor/working-draft-store.js'),'utf8'),context);
+const create=context.window.createDoctorWorkingDraftStore;
+
+(async function () {
+  let revision=0, saved=null, calls=0, fail=false;
+  const auth={send:async (_path, body) => {
+    if (!body) return {ok:true,data:{draft:saved,revision}};
+    calls++;
+    if (fail) return {ok:false,status:0};
+    if (body.revision!==revision) return {ok:false,status:409};
+    revision++; saved=body.draft; return {ok:true,data:{revision}};
+  }};
+  const store=create(auth);
+  assert.equal(store.set(1,{fields:{subjective:'before load'}}),false);
+  assert.equal((await store.load(1)).ok,true);
+  store.set(1,{clinicalRevision:7,fields:{subjective:'Fictional draft'},scribe:{transcript:'Fictional transcript'},ignored:'not stored'});
+  assert.equal(await store.flushAll(),true);
+  assert.equal(saved.scribe.transcript,'Fictional transcript');
+  assert.equal(saved.clinicalRevision,7,'Clinical snapshot revision must survive autosave and reload');
+  const reloaded=create(auth);assert.equal((await reloaded.load(1)).draft.clinicalRevision,7);
+  assert.equal(saved.ignored,undefined);
+  assert.equal(store.hasUnsaved(),false);
+  fail=true; store.set(1,{fields:{subjective:'Unsaved update'}});
+  assert.equal(await store.flushAll(),false);
+  assert.equal(store.hasUnsaved(),true);
+  assert.equal(saved.fields.subjective,'Fictional draft');
+  fail=false; assert.equal(await store.flushAll(),true);
+  assert.equal(saved.fields.subjective,'Unsaved update');
+  const other=create(auth); await other.load(1);
+  store.set(1,{fields:{subjective:'Newer'}}); assert.equal(await store.flushAll(),true);
+  other.set(1,{fields:{subjective:'Stale'}}); assert.equal(await other.flushAll(),false);
+  assert.match(other.state(1).error,/another window/);
+  assert.equal(saved.fields.subjective,'Newer');
+  assert.ok(calls>=4);
+  console.log('PASS: server working draft preserves edits on failure and rejects stale windows');
+})().catch(error=>{console.error(error);process.exitCode=1;});

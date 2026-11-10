@@ -1,0 +1,13 @@
+'use strict';
+const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
+const source=fs.readFileSync('public/doctor/doctor.js','utf8');
+const start=source.indexOf('  function validScribeSourceViews('),end=source.indexOf('  function showScribeReview(',start);
+assert.ok(start>=0 && end>start);const c={};vm.createContext(c);vm.runInContext(source.slice(start,end)+'\nglobalThis.valid=validScribeSourceViews;',c);
+const text='🐕 Alert, tender, possible irritation.';
+const views=[{runs:[{text:'🐕 Alert, tender,',highlight:true},{text:' possible irritation.',highlight:false}]}];
+assert.equal(c.valid(text,views),true);
+assert.equal(c.valid(text,[{runs:[{text:'🐕 Alert,',highlight:true}]}]),false,'a partial context must not replace the full sentence');
+assert.equal(c.valid(text,[{runs:[{text,highlight:false}]}]),false,'a view must identify a selected fragment');
+assert.equal(c.valid(text,[{runs:[{text,highlight:'yes'}]}]),false);
+assert.equal(c.valid(text,null),false);
+console.log('PASS source highlights retain the complete original context');

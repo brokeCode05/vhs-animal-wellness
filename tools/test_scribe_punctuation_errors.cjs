@@ -1,0 +1,14 @@
+'use strict';
+const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm'),path=require('node:path');
+const source=fs.readFileSync(path.join(__dirname,'../public/doctor/doctor.js'),'utf8');
+const start=source.indexOf('  function scribePunctuationFailureMessage(response)');
+const end=source.indexOf('  punctuationButton?.addEventListener',start);
+assert.ok(start>=0 && end>start);
+const context={};vm.createContext(context);vm.runInContext(source.slice(start,end)+'\nglobalThis.message=scribePunctuationFailureMessage;',context);
+assert.match(context.message({status:429,raw:{}}),/Too many Scribe requests/);
+assert.match(context.message({status:503,raw:{code:'rate_limit'}}),/service is at its usage limit/);
+assert.match(context.message({status:503,raw:{code:'http_error'}}),/service returned an error/);
+assert.match(context.message({status:422,raw:{code:'privacy_contact_detected'}}),/not sent/);
+assert.match(context.message({status:503,raw:{code:'punctuation_changed_source'}}),/changed or omitted/);
+assert.match(context.message({status:503,raw:{code:'unknown'}}),/original transcript is unchanged/);
+console.log('PASS punctuation failure messages distinguish local throttling and provider errors');

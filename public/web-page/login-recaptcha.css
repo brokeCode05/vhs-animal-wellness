@@ -1,0 +1,34 @@
+/* VHS REQ020: right-aligned reCAPTCHA inside existing white login panel. */
+#loginForm .login-recovery-captcha-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+  margin-top: 0.25rem;
+}
+#loginForm .login-recovery-captcha-row > .forgot-password {
+  flex: 0 1 auto;
+  align-self: center;
+  white-space: nowrap;
+}
+#loginForm .login-recaptcha-panel {
+  flex: 0 1 304px;
+  width: 304px;
+  max-width: 100%;
+  min-height: 78px;
+  margin-left: auto;
+}
+#loginForm .login-recaptcha-widget { min-height: 1px; }
+#loginForm .login-captcha-status {
+  color: #7d6b95;
+  font-size: 0.75rem;
+  line-height: 1.4;
+  margin: 0.4rem 0 0;
+}
+#loginForm .login-captcha-status:empty { display: none; }
+#loginForm .login-captcha-status.is-error { color: #c92d42; }
+@media (max-width: 610px) {
+  #loginForm .login-recovery-captcha-row { align-items: flex-start; flex-direction: column; gap: 1rem; }
+  #loginForm .login-recaptcha-panel { margin-left: 0; flex-basis: auto; width: 100%; }
+}

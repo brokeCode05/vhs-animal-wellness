@@ -1,0 +1,15 @@
+'use strict';
+const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm'),path=require('node:path');
+const source=fs.readFileSync(path.join(__dirname,'../public/user/user-script.js'),'utf8');
+const start=source.indexOf('function _publicServicePrice('), end=source.indexOf('async function _renderServiceCardsFromCatalog()',start);
+assert.ok(start>=0 && end>start);
+const sandbox={};vm.runInNewContext(source.slice(start,end),sandbox);
+const format=sandbox._publicServicePrice;
+assert.equal(format({publicPricingType:'range',publicPriceMin:'100.00',publicPriceMax:'800.00'}),'₱100.00 – ₱800.00');
+assert.equal(format({publicPricingType:'starting',publicPriceMin:100}),'Starts at ₱100.00');
+assert.equal(format({publicPricingType:'single',publicPriceMin:900}),'₱900.00');
+assert.equal(format({publicPricingType:'contact',publicPriceMin:100}),'Contact us for pricing');
+assert.equal(format({price:100}),'Contact us for pricing');
+assert.equal(format({publicPricingType:'range',publicPriceMin:100,publicPriceMax:50}),'Contact us for pricing');
+assert.ok(source.slice(end,end+1000).includes('/api/services?active=1'));
+console.log('PASS: public service pricing display (7 assertions)');

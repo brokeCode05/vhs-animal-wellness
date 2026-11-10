@@ -1,0 +1,21 @@
+<?php
+// Fictional examples only. Results are recorded for human review, not labeled as clinical validation.
+require __DIR__.'/../vendor/autoload.php';$app=require __DIR__.'/../bootstrap/app.php';$app->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap();
+$none='Not provided.';
+$cases=[
+ ['en_negation',['subjective'=>'The owner reports coughing for three days. The owner has not seen vomiting or diarrhea. The dog is eating slowly but drinking normally.','objective'=>'The veterinarian observed comfortable breathing at rest.','assessment'=>$none,'plan'=>'The veterinarian advised monitoring and returning in one week.']],
+ ['fil_negation',['subjective'=>'Ayon sa may-ari tatlong araw nang inuubo ang aso. Wala siyang nakitang pagsusuka o pagtatae. Mabagal kumain ang aso ngunit normal uminom.','objective'=>'Sa pagsusuri maayos ang paghinga habang nagpapahinga.','assessment'=>$none,'plan'=>'Pinayuhan ng beterinaryo na bantayan at bumalik pagkalipas ng isang linggo.']],
+ ['tag_uncertainty',['subjective'=>'Sabi ng owner nangangati ang dog simula kahapon, pero hindi siya sure kung may nakain itong bago.','objective'=>'On examination namumula ang left ear at normal ang right ear.','assessment'=>'Sabi ng vet posibleng irritation pero hindi pa tiyak kung ano ang cause.','plan'=>'Sabi ng vet bumalik sa loob ng isang linggo para sa follow-up.']],
+ ['en_correction',['subjective'=>'The owner initially said the dog had been coughing for two days. The owner corrected this to five days after checking the calendar.','objective'=>'The veterinarian examined the dog and observed clear nasal discharge.','assessment'=>'The veterinarian said the cause was not yet known.','plan'=>'The veterinarian advised a recheck next week.']],
+ ['fil_history',['subjective'=>'Ayon sa may-ari nagsuka ang aso noong nakaraang linggo ngunit wala siyang nakitang pagsusuka ngayon. Kumakain pa rin ang aso.','objective'=>'Nakita ng beterinaryo na alerto ang aso sa pagsusuri.','assessment'=>$none,'plan'=>'Pinayuhan ng beterinaryo na bumalik pagkaraan ng isang linggo.']],
+ ['en_measurement',['subjective'=>'The owner says the dog weighed eight kilograms last month.','objective'=>'The veterinarian measured seven kilograms today. The thermometer showed 39 C, but it was broken and the reading was unreliable.','assessment'=>$none,'plan'=>'The veterinarian said the temperature must be measured again with a working thermometer.']],
+ ['tag_attribution',['subjective'=>'Sabi ng owner mukhang namumula ang right ear sa bahay noong umaga.','objective'=>'Sa pagsusuri sinabi ng vet na normal ang right ear at namumula ang left ear.','assessment'=>'Sabi ng vet hindi pa siya sigurado sa dahilan.','plan'=>'Sabi ng vet obserbahan muna at bumalik sa susunod na linggo.']],
+ ['en_treatment',['subjective'=>'The owner reports scratching since yesterday.','objective'=>'The veterinarian observed mild redness of the skin.','assessment'=>'The veterinarian said the cause is uncertain.','plan'=>'The veterinarian advised cleaning the area and returning in one week. No medication was recommended during the conversation.']],
+ ['fil_followup',['subjective'=>'Ayon sa may-ari mas madalas umubo ang aso sa gabi.','objective'=>'Sa pagsusuri hindi nahihirapang huminga ang aso habang nagpapahinga.','assessment'=>'Sinabi ng beterinaryo na hindi pa tiyak ang sanhi.','plan'=>'Sinabi ng beterinaryo na bantayan ang paghinga at tumawag agad sa klinika kung mahirapang huminga ang aso. Kung hindi lumala, bumalik pagkalipas ng isang linggo.']],
+ ['tag_mixed',['subjective'=>'Sabi ng owner okay ang appetite noong isang linggo pero mas konti ang kain ngayon. Wala raw siyang napansing diarrhea.','objective'=>'Sa examination alert ang dog at normal ang breathing at rest.','assessment'=>'Ayon sa vet possible irritation, pero uncertain pa ang cause.','plan'=>'Sabi ng vet i-monitor ang pagkain at bumalik after one week.']],
+];
+foreach($cases as [$name,$source]) {
+ $g=new App\Services\AI\AiGateway(new App\Services\AI\Providers\GeminiProvider());$g->startScribeDeadline(35);$start=microtime(true);
+ $r=(new App\Services\AI\ScribeGroundedSummary($g))->generate($source);
+ echo json_encode(['case'=>$name,'seconds'=>round(microtime(true)-$start,2),'source'=>$source,'result'=>$r],JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES)."\n";
+}

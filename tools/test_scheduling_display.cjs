@@ -1,0 +1,15 @@
+const fs=require('fs'),vm=require('vm'),assert=require('node:assert/strict');
+const nodes={};const document={getElementById:id=>nodes[id]||null,createElement:()=>({setAttribute(){},textContent:''})};
+const window={};vm.runInNewContext(fs.readFileSync('public/shared/scheduling-display.js','utf8'),{window,document,Date});
+const ui=window.VHSSchedulingDisplay;
+assert.equal(ui.describe(null),'');assert.match(ui.describe({duration_estimate:{minutes:null}}),/Duration unknown/);
+assert.match(ui.describe({duration_estimate:{minutes:null},closing_warning:'unverified'}),/closing time is unverified/);
+const data={duration_estimate:{minutes:45,buffer_minutes:15},slots:['10:00'],display_slots:['10:00 AM'],slot_details:[{time:'10:00',estimated_end:'2026-11-10T11:00:00+08:00'}]};
+assert.match(ui.describe(data,'10:00 AM'),/45 min \+ 15 min buffer/);assert.match(ui.describe(data,'10:00 AM'),/11:00/);
+let change;const select={id:'time_slot',value:'10:00 AM',insertAdjacentElement(_,node){nodes[node.id]=node;},addEventListener(_,fn){change=fn;}};
+ui.show(select,data);assert.match(nodes['time_slot-duration-info'].textContent,/11:00/);select.value='10:15 AM';change();assert.doesNotMatch(nodes['time_slot-duration-info'].textContent,/11:00/);
+ui.show(select,null);assert.equal(nodes['time_slot-duration-info'].textContent,'');assert.equal(select._schedulingData,null);
+const context={window:{},console};vm.runInNewContext(fs.readFileSync('public/shared/appointment-contract.js','utf8'),context);
+const contract=context.window.AppointmentContract;const a=contract.fromLegacy({appointmentId:1,isTest:true,durationAllocation:{allocated_minutes:45}});
+assert.equal(a.isTest,true);assert.equal(a.durationAllocation.allocated_minutes,45);assert.equal(contract.toLegacyDisplay(a).isTest,true);
+console.log('Scheduling display: unknown/known duration, buffer, estimated end, stale-selection clearing and test-marker round trip passed.');

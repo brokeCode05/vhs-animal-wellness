@@ -1,0 +1,12 @@
+'use strict';
+const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
+const context={window:{},Date,Promise,setTimeout,clearTimeout}; vm.runInNewContext(fs.readFileSync('public/doctor/doctor-scribe.js','utf8'),context);
+const s=context.window.DoctorScribe;
+const raw='Fictional test: At the previous consultation the dog weighed 12 kg. Today the veterinarian measured 9 kg.';
+const r=s.prepareReviewedCleanup({exam:raw});
+assert.equal(r.apply.exam,'At the previous consultation the dog weighed 12 kg. Today the veterinarian measured 9 kg.');
+assert.equal(r.changes[0].source,raw);assert.equal(r.changes[0].suggestion,r.apply.exam);
+assert.equal(s.prepareReviewedCleanup({exam:'Owner reports: no vomiting.'}).apply.exam,'Owner reports: no vomiting.');
+assert.equal(s.prepareReviewedCleanup({exam:'History: no vomiting.'}).apply.exam,'History: no vomiting.');
+assert.equal(s.prepareReviewedCleanup({exam:'The owner said fictional test: no vomiting.'}).apply.exam,'The owner said fictional test: no vomiting.');
+console.log('PASS neutral labels removed with visible review; clinical prefixes and source retained');

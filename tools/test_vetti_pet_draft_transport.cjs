@@ -1,0 +1,25 @@
+const assert=require('node:assert/strict'),fs=require('node:fs');
+let cancelled=false;let unavailable=false;let reviewForm=false;let openForm=true;const calls=[];const draft={name:'Quill',species:'Hamster',breed:'Syrian',gender:'Female',age:3,ageUnit:'months',weightKg:.25};
+const win={VHS_SEMANTIC_VETTI:true,location:{pathname:'/user/'},setTimeout,clearTimeout,VettiState:{isState:()=>true,resolve:()=>({id:'unused',state:'idle',text:'unused',suggestions:[]})},fetch:async(url,opts)=>{if(url==='/api/auth/csrf')return {ok:true,json:async()=>({data:{csrf_token:'fictional'}})};calls.push({url,body:JSON.parse(opts.body)});return {ok:true,json:async()=>({success:true,data:unavailable?{mode:'fallback'}:cancelled?{mode:'semantic',kind:'pet_add_cancelled',text:'The pet draft is cancelled. No pet was added.',pet_created:false,draft_cleared:true}:{mode:'semantic',kind:'pet_add',text:'Check the filled details before saving.',open_form:openForm,review_form:reviewForm,replace_draft:false,pet_created:false,pet_draft:draft}})};}};win.window=win;
+new Function('window',fs.readFileSync('public/user/vetti-ai.js','utf8'))(win);
+(async()=>{
+ const r=await win.VettiAI.ask('Add a pet Name: Quill Species: Hamster Sex: Female Age: 3 months Weight: .25kg',{});
+ assert.equal(r.action,'openPetForm');assert.equal(r.petDraft.weightKg,.25);assert.equal(r.petDraft.ageUnit,'months');assert.equal(r.petDraft.name,'Quill');assert.equal(calls.length,1);assert.equal(calls[0].url,'/api/ai/semantic-vetti');assert.ok(!calls.some(c=>c.url==='/api/pets'),'Chat proposal cannot create a pet');
+ win.VettiAI.recordTurn('user','Book my pet tomorrow');win.VettiAI.recordTurn('vetti','Choose a time.');
+ await win.VettiAI.ask('Actually day after tomorrow',{});assert.equal(calls[1].body.message,'Actually day after tomorrow','Offline rewrite must not change semantic input');
+ openForm=false;
+ reviewForm=true;
+ const update=await win.VettiAI.ask('He is 3 months old',{petFormOpen:true});assert.equal(update.action,'openPetForm');assert.equal(update.petFormReview,true);assert.equal(update.petDraftReplace,false);assert.equal(calls[2].body.pet_form_open,true);
+ const closed=await win.VettiAI.ask('Please explain registration',{petFormOpen:false});assert.equal(closed.action,'');assert.equal(calls[3].body.pet_form_open,false);
+ assert.ok(!calls.some(c=>c.url==='/api/pets'),'Draft updates must never submit a pet');
+ unavailable=true;
+ const outage=await win.VettiAI.ask('Please help me finish',{petFormOpen:true});assert.equal(outage.action,'openPetForm');assert.equal(outage.petFormReview,true);assert.equal(outage.petDraft,null);assert.equal(outage.petDraftReplace,false);assert.match(outage.text,/continue manually/);
+ assert.equal(calls.length,5,'An open draft outage must not call a different conversation endpoint');
+ unavailable=false;cancelled=true;
+ const cancel=await win.VettiAI.ask('Cancel adding pet',{petFormOpen:true});assert.equal(cancel.action,'closePetForm');
+ cancelled=false;win.VettiAI.discardPetDraft();
+ await win.VettiAI.ask('Add another pet named Finch',{petFormOpen:false});const resetId=calls.at(-1).body.pet_draft_reset_id;assert.match(resetId,/^reset_/);
+ await win.VettiAI.ask('A bird',{petFormOpen:false});assert.equal(calls.at(-1).body.pet_draft_reset_id,resetId,'Reset ID must be stable for server idempotence');
+ win.VettiAI.clearHistory();await win.VettiAI.ask('Hello',{});assert.ok(!Object.hasOwn(calls.at(-1).body,'pet_draft_reset_id'));
+ console.log('PASS: private pet draft reaches editable form action; no save and no offline message rewrite');
+})().catch(e=>{console.error(e.stack);process.exitCode=1;});

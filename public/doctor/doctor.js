@@ -1,0 +1,3618 @@
+/* Doctor Portal workflow. UI renders from mapAppointment() output only. */
+
+// ─── SHARED PRESCRIPTION CONSTANTS ─────────────────────────────────────────
+// These live in script scope, not inside either IIFE, because BOTH of them
+// need them: the workflow IIFE builds the structured dosage/frequency
+// controls, and the validation IIFE reads those controls back to decide what
+// is incomplete. Keeping one definition means the controls on screen and the
+// rules that judge them can never disagree about the allowed vocabulary.
+//
+// Dosage and Frequency used to be single free-text boxes, which made the two
+// most common prescribing slips easy to type: an amount with no unit, or a
+// frequency with no interval. Both are now structured. The lists below are a
+// CONVENIENCE, never a constraint — "Other / Custom" is always offered so any
+// legitimate veterinary instruction can still be entered verbatim.
+const DOSAGE_UNITS = ['tablet', 'capsule', 'mL', 'mg', 'mg/kg', 'drop', 'scoop'];
+const FREQUENCY_PATTERNS = [
+  ['every_hours', 'Every [__] hours'],
+  ['times_per_day', '[__] times per day'],
+  ['every_days', 'Every [__] days'],
+  ['once_daily', 'Once daily'],
+  ['as_needed', 'As needed'],
+  ['custom', 'Other / Custom'],
+];
+// Patterns that need a number beside them; the rest stand alone.
+const INTERVAL_PATTERNS = new Set(['every_hours', 'times_per_day', 'every_days']);
+// Sentinel values for the two selects' "nothing chosen yet" option.
+const CHOOSE_UNIT = 'unit';
+const CHOOSE_PATTERN = 'pattern';
+// Caps for the free-text parts of a prescription. maxlength covers typing and
+// paste; the gate re-checks them because maxlength never constrains a value
+// that was assigned programmatically.
+const MEDICINE_LIMITS = { medicine: 100, frequency: 50, instructions: 500 };
+
+(() => {
+  'use strict';
+
+  // ─── DATA DOMAINS (kept separate on purpose) ──────────────────────────────
+  // 1. Shared appointment records: window.SharedMockAppointments (loaded via
+  //    shared/mock-appointments.js) — the SAME canonical dataset the User and
+  //    Clerk portals render, normalized through appointment-contract.js.
+  // 2. Pet/EMR + consultation drafts: window.SharedMockClinical (loaded via
+  //    shared/mock-clinical.js), keyed by petId and appointmentId. Clinical
+  //    data is NOT part of the appointment record and is not owned by this UI.
+  // TODO(BACKEND): Replace the shared mock sources with the appointments and
+  // clinical endpoints once they exist. See docs/VHS_CLINICAL_CONTRACT.md.
+  // Pet/EMR seed moved to SharedMockClinical.getEmr(petId). Clinical history is
+  // not part of the appointment record.
+
+  // Portal-only extras must NOT collide with shared appointment IDs.
+  // (User keeps its own historical fixtures locally; Doctor keeps EMR
+  // history and consultation records keyed by petId/appointmentId.)
+  // Today's Patients uses the REAL current local date — the store's frozen
+  // `today` fixture ('2026-09-26') is test-only and is never consulted here.
+  // Pass SharedMockAppointments.today explicitly to exercise the fixture day.
+  // TODO(BACKEND): get_appointments.php?date=<today> returns this list.
+  const DOCTOR_TEST_DATE = null; // set '2026-09-26' ONLY to demo the fixture day
+  // ── READ INTEGRATION ──────────────────────────────────────────────────────
+  // The queue boots EMPTY and is filled from GET /api/appointments (scoped by
+  // the server to THIS veterinarian; canceled/no_show excluded) by
+  // _bootQueueFromServer() at the end of this file. The demo EMR fixture
+  // merge is deliberately gone: real rows carry pet_age through the
+  // appointment presenter, and clinical history comes from the Doctor-only
+  // consultations endpoint — never from petId-keyed fixtures.
+
+  // Data-mapping boundary: fixtures/endpoint rows are normalized through the
+  // shared canonical appointment contract first, then projected into the
+  // doctor view model. Pet/EMR data rides separately from the appointment.
+  // selectedPatient ALWAYS resolves to a patient from the current
+  // server-scoped queue only — it is null when the queue is empty.
+  function mapAppointment(appt) {
+    const a = window.AppointmentContract.fromLegacy(appt);
+    return {
+      // Canonical appointment reference.
+      appointmentId: a.appointmentId,
+      referenceNo: a.referenceNo,
+      petId: a.petId,
+      assignedVetId: a.assignedVetId,
+      isTest:a.isTest===true,
+      durationAllocation:a.durationAllocation,
+      status: a.status,
+      checkedInAt: a.checkedInAt,
+      // Doctor view model (unchanged shape for the accepted UI).
+      id: a.appointmentId,
+      name: a.pet.name,
+      species: a.pet.species,
+      breed: a.pet.breed,
+      age: appt.pet_age || '',
+      owner: a.owner.name,
+      // Display uses 12-hour AM/PM; the stored canonical value stays HH:MM.
+      time: (window.AppointmentContract && window.AppointmentContract.timeTo12h)
+        ? window.AppointmentContract.timeTo12h(a.appointmentTime)
+        : a.appointmentTime,
+      date: a.appointmentDate,
+      dateDisplay: new Date(`${a.appointmentDate}T12:00:00`).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }),
+      // Display label — the stored canonical VALUE never leaks into the UI.
+      service: svcLabel(a.service),
+      // Effective visit context: canonical option + custom text when present.
+      reason: (a.customVisitContext
+        ? (a.visitContext ? a.visitContext + ': ' + a.customVisitContext : a.customVisitContext)
+        : a.visitContext) || '',
+      severity: appt.ai_triage || 'Routine',
+      checkedIn: a.status === 'checked_in' || !!appt.checked_in,
+      // Pre-consultation summary, built by the adapter from THIS appointment
+      // only — pet, booked service and the concerns recorded at booking. The
+      // pet's `ai_summary` triage fixture is deliberately NOT reused here: it
+      // describes the same symptoms for every visit of that pet, so a patient
+      // booked for a blood test with no notes would be shown symptoms nobody
+      // reported. Read off `window` directly (not the SCRIBE const below,
+      // which is in its temporal dead zone while mapAppointment runs at init).
+      aiSummary: (window.DoctorScribe && window.DoctorScribe.buildPreConsultationSummary)
+        ? window.DoctorScribe.buildPreConsultationSummary({
+          petName: a.pet.name,
+          species: a.pet.species,
+          serviceLabel: svcLabel(a.service),
+          reason: (a.customVisitContext
+            ? (a.visitContext ? a.visitContext + ': ' + a.customVisitContext : a.customVisitContext)
+            : a.visitContext) || '',
+          notes: a.notes || ''
+        })
+        : '',
+      // Pet/EMR domain — clinical history is not part of the appointment.
+      history: appt.visits || []
+    };
+  }
+  // TODO(BACKEND): Keep this consultation record keyed by appointmentId;
+  // persist transitions server-side instead of local status flags.
+  function consultationRecord(patient) { return draftFor(patient); }
+  const patients = []; // filled by _bootQueueFromServer() from GET /api/appointments
+
+  const queue = document.getElementById('patient-queue');
+  const record = document.getElementById('patient-record');
+  const form = document.getElementById('consultation-form');
+  const saveToast = document.getElementById('save-toast');
+  const saveStatus = document.getElementById('save-status');
+  const saveToastClose = document.getElementById('save-toast-close');
+  if (saveToast && saveStatus && saveToastClose) {
+    const updateSaveToast = () => { saveToast.hidden = !saveStatus.textContent.trim(); };
+    new MutationObserver(updateSaveToast).observe(saveStatus, { childList: true, characterData: true, subtree: true });
+    saveToastClose.addEventListener('click', () => { saveStatus.textContent = ''; });
+    updateSaveToast();
+  }
+  const fields = ['subjective', 'weight', 'temperature', 'heartRate', 'exam', 'assessment', 'plan'];
+  const drafts = new Map();
+  const workingStates = new Map();
+  let selectedPatient = null;
+  const workingStatus = document.getElementById('working-draft-status');
+  const workingRetry = document.getElementById('working-draft-retry');
+  const workingRecover = document.getElementById('working-draft-recover');
+  const workingStore = window.createDoctorWorkingDraftStore(window.VHSAuth, (consultationId, state) => {
+    if (!selectedPatient || String(draftFor(selectedPatient).consultationId) !== String(consultationId)) return;
+    if (workingStatus) workingStatus.textContent = state.error || (state.dirty ? 'Saving working draft to the clinic server…' : 'Working draft saved securely to the clinic server.');
+    if (workingRetry) workingRetry.hidden = !state.error;
+  });
+  function workingState(patient) {
+    const key=String(patient.id);
+    if (!workingStates.has(key)) workingStates.set(key, {ready:false, failed:false});
+    return workingStates.get(key);
+  }
+  window.addEventListener('beforeunload', event => {
+    if (!workingStore.hasUnsaved()) return;
+    event.preventDefault(); event.returnValue = '';
+  });
+  let medicineSequence = 0;
+  // TODO(BACKEND): Veterinarian identity comes from the authenticated session.
+  // Identity comes from the shared roster, not from a literal in this file —
+  // mock-doctors.js seeded this exact doctor FROM the old constant, so nothing
+  // about the demo changes; there is now one source instead of two.
+  // MOCK identity: there is no login. TODO(BACKEND): an authenticated staff
+  // session replaces SharedMockDoctors.currentStaff(); only that changes.
+  // Identity: hydrated from GET /api/doctors by _bootQueueFromServer()
+  // (let so the boot can re-point it at the signed-in veterinarian's REAL
+  // record once the roster lands). Demo fallback kept only for static hosting.
+  let VETERINARIAN = (window.SharedMockDoctors && window.SharedMockDoctors.currentStaff)
+    ? window.SharedMockDoctors.currentStaff()
+    : { id: 'vet-001', name: 'Dr. Santos', role: 'Veterinarian', clinicalTitle: 'Veterinarian' };
+  // Display-side service label resolution: records may store the canonical
+  // catalog VALUE (wound_repair); the queue/record UI always shows the
+  // shared catalog LABEL (Wound Repair). Idempotent for label-stored rows.
+  // Hoisted function on purpose: mapAppointment runs ABOVE this point at
+  // module init, so a const/arrow here would be a TDZ reference error.
+  function svcLabel(s) {
+    return (window.SharedMockUsers && window.SharedMockUsers.serviceLabel)
+      ? (window.SharedMockUsers.serviceLabel(s) || s)
+      : (s || '');
+  }
+  const views = {
+    patients: ['Today’s Patients', 'Select a patient to review their appointment and clinical history.'],
+    notes: ['Consultation Notes', 'Document the active patient’s consultation using SOAP.'],
+    orders: ['Prescriptions & Labs', 'Prepare medication instructions and internal test requests.']
+  };
+  let currentView = 'patients';
+  // Consultation lifecycle: upcoming → checked_in → in_consultation → completed.
+  // TODO(BACKEND): Status changes are local-only; the consultation API owns
+  // the real lifecycle and timestamps once connected.
+  const STATUS_LABELS = { upcoming: 'Upcoming', 'checked_in': 'Checked In', 'in_consultation': 'In Consultation', completed: 'Completed' };
+  // One canonical status source: the shared AppointmentStore record. Draft
+  // state and the checkedIn fixture are only fallbacks when the store record
+  // is unavailable, so Admin/Front-desk transitions (check-in, and any future
+  // cross-portal change) are always reflected here.
+  // TODO(BACKEND): GET /appointments/:id returns the live status instead.
+  function statusFor(patient) {
+    // ONE lifecycle source: the shared AppointmentStore. The consultation draft
+    // used to carry its own `status` copy that could disagree with the store
+    // (and was lost on reload, stranding the Complete button). Clinical drafts
+    // now hold notes and timestamps only — never a competing status.
+    if (window.SharedMockAppointments && patient.appointmentId) {
+      const rec = window.SharedMockAppointments.byId(patient.appointmentId);
+      if (rec) {
+        const s = window.AppointmentContract
+          ? window.AppointmentContract.normalizeStatus(rec.status)
+          : rec.status;
+        if (s === 'checked_in' || s === 'in_consultation' || s === 'completed' || s === 'canceled') return s;
+      }
+    }
+    return patient.checkedIn ? 'checked_in' : 'upcoming';
+  }
+  // Time-based greeting for the patients view; other views keep their titles.
+  function greeting() {
+    const hour = new Date().getHours();
+    return `${hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening'}, ${VETERINARIAN.name}`;
+  }
+  // Practical doctor-facing header line: schedule size plus the next patient
+  // already waiting in the lobby.
+  function greetingSubtitle() {
+    const scheduled = patients.length;
+    const waiting = patients.find(p => statusFor(p) === 'checked_in');
+    if (waiting) return `You have ${scheduled} patients scheduled today. ${waiting.name} is checked in and waiting at ${waiting.time}.`;
+    return `You have ${scheduled} patients scheduled today.`;
+  }
+  function renderHeader(view, locked = false) {
+    const title = document.getElementById('view-title');
+    const subtitle = document.getElementById('view-description');
+    if (view === 'patients') {
+      title.textContent = greeting();
+      subtitle.textContent = greetingSubtitle();
+    } else if (locked) {
+      title.textContent = views[view][0];
+      subtitle.textContent = 'Start the consultation first to access clinical notes.';
+    } else {
+      title.textContent = views[view][0];
+      subtitle.textContent = views[view][1];
+    }
+  }
+  function showView(view, moveFocus = true) {
+    if (!Object.hasOwn(views, view)) view = 'patients';
+    const status = selectedPatient ? statusFor(selectedPatient) : 'upcoming';
+    const clinicalLocked = view !== 'patients' && status !== 'in_consultation' && status !== 'completed';
+    const effectiveView = clinicalLocked ? 'locked' : view;
+    captureDraft();
+    document.querySelectorAll('[data-panel]').forEach(panel => { panel.hidden = panel.dataset.panel !== effectiveView; });
+    form.hidden = effectiveView !== view || view === 'patients';
+    // Context block is only shown when a real queue patient is selected AND
+    // the view uses it. With no selection (fresh boot, empty queue) the block
+    // stays hidden and empty — never a fixture name.
+    const hasPatient = Boolean(selectedPatient);
+    document.getElementById('patient-context').hidden = view === 'patients' || !hasPatient;
+    const notice = document.getElementById('locked-notice');
+    notice.hidden = effectiveView !== 'locked';
+    if (clinicalLocked) {
+      const startBtn = document.getElementById('locked-start');
+      startBtn.hidden = status !== 'checked_in';
+      startBtn.focus({ preventScroll: true });
+    }
+    renderHeader(view, clinicalLocked);
+    currentView = view;
+    document.title = `${views[view][0]} - VHS Doctor`;
+    document.querySelectorAll('.sidebar-nav [data-view]').forEach(link => {
+      const active = link.dataset.view === view;
+      link.classList.toggle('active', active);
+      if (active) link.setAttribute('aria-current', 'page');
+      else link.removeAttribute('aria-current');
+    });
+    closeMobileSidebar();
+    if (moveFocus) {
+      document.getElementById('view-title').focus({ preventScroll: true });
+      window.scrollTo({ top: 0, behavior: 'instant' });
+    }
+  }
+  function navigate(view) {
+    if (window.location.hash !== `#${view}`) history.pushState(null, '', `#${view}`);
+    showView(view);
+  }
+  // ─── PRESCRIPTION COMPOSITION ─────────────────────────────────────────────
+  // The draft stores the individual PARTS, not the composed sentence, so a
+  // draft restored into the structured controls round-trips exactly instead of
+  // being re-parsed out of "1 tablet". Composition happens once, at
+  // finalization, and produces the same flat strings the document store and
+  // the printed prescription have always consumed.
+  const emptyMedicine = () => ({
+    medicine: '', dosageValue: '', dosageUnit: '', dosageCustom: '',
+    frequencyPattern: '', frequencyEvery: '', frequencyCustom: '',
+    duration: '', instructions: '',
+  });
+
+  function dosageText(m) {
+    const amount = String(m.dosageValue || '').trim();
+    const unit = String(m.dosageUnit || '').trim();
+    if (!amount && !unit) return '';
+    const unitLabel = unit === CHOOSE_UNIT ? '' : unit === 'custom' ? String(m.dosageCustom || '').trim() : unit;
+    return [amount, unitLabel].filter(Boolean).join(' ');
+  }
+
+  function frequencyText(m) {
+    const pattern = String(m.frequencyPattern || '').trim();
+    if (!pattern) return '';
+    if (pattern === 'custom') return String(m.frequencyCustom || '').trim();
+    const every = String(m.frequencyEvery || '').trim();
+    if (pattern === 'once_daily') return 'once daily';
+    if (pattern === 'as_needed') return 'as needed';
+    if (!every) return '';
+    if (pattern === 'every_hours') return `every ${every} hours`;
+    if (pattern === 'times_per_day') return `${every} times per day`;
+    if (pattern === 'every_days') return `every ${every} days`;
+    return '';
+  }
+
+  function draftFor(patient) {
+    // Hot working copy. It is HYDRATED from SharedMockClinical the first time a
+    // patient is opened, so a reload restores the consultation instead of
+    // losing it — the previous in-memory Map silently discarded all of it.
+    // Mutations are pushed back through persistDraft() at the edit checkpoints
+    // (captureDraft / markChanged / start / end / save), never straight to
+    // storage: this file must not own clinical persistence.
+    const key = String(patient && patient.id != null ? patient.id : '');
+    if (!drafts.has(key)) {
+      const restored = { fields: {}, medicines: [emptyMedicine()], labs: [], vaccinations: [], reviewed: false, saved: false, startedAt: null, completedAt: null, durationMinutes: null, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() };
+      drafts.set(key, restored);
+    }
+    return drafts.get(key);
+  }
+  // The working copy is encrypted and saved separately from the clinic record.
+  function persistDraft(patient, draft) {
+    if (patient && draft && draft.consultationId && statusFor(patient) === 'in_consultation' && workingState(patient).ready) {
+      workingStore.set(draft.consultationId, draft);
+    }
+    return draft;
+  }
+  // Elapsed minutes between two timestamps, for the consultation record.
+  function durationBetween(startIso, endIso) {
+    return Math.max(0, Math.round((new Date(endIso) - new Date(startIso)) / 60000));
+  }
+  function formatElapsed(startIso, now = new Date()) {
+    const totalSeconds = Math.max(0, Math.floor((now - new Date(startIso)) / 1000));
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+    return `${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
+  }
+  function captureDraft() {
+    if (!selectedPatient) return;
+    if (statusFor(selectedPatient) === 'in_consultation' && !workingState(selectedPatient).ready) return;
+    const draft = draftFor(selectedPatient);
+    fields.forEach(name => { draft.fields[name] = form.elements.namedItem(name).value; });
+    draft.medicines = Array.from(document.querySelectorAll('.medicine-row'), readMedicineRow);
+    draft.labs = Array.from(form.querySelectorAll('[name="labs"]:checked'), input => input.value);
+    draft.vaccinations = Array.from(document.querySelectorAll('.vaccination-row'), readVaccinationRow);
+    draft.reviewed = document.getElementById('reviewed').checked;
+    // AI Scribe keeps its transcript on the SAME draft record as the SOAP
+    // fields — one record, one storage owner (SharedMockClinical). Capturing it
+    // here is what makes a reload restore the notes the draft came from. No
+    // localStorage here and no new storage key anywhere.
+    if (scribe.transcript) writeScribeState(draft, { transcript: scribe.transcript.value });
+    draft.updatedAt = new Date().toISOString();
+    persistDraft(selectedPatient, draft);
+  }
+  function markChanged() {
+    const draft = draftFor(selectedPatient);
+    draft.saved = false;
+    persistDraft(selectedPatient, draft);
+    // Any clinical edit invalidates the prior review acknowledgement.
+    document.getElementById('reviewed').checked = false;
+    captureDraft();
+    document.getElementById('draft-state').textContent = 'Unsaved draft';
+    document.getElementById('save-status').textContent = '';
+  }
+  // ─── AI SCRIBE (mock) ──────────────────────────────────────────────────────
+  // The Doctor UI owns NO soap-generation rules and parses NO medical text. It
+  // hands the transcript to the adapter and writes back the `apply` map the
+  // adapter returns, keyed by the existing control names. What a draft may
+  // contain, and which control each fact belongs in, lives in
+  // doctor-scribe.js — so replacing the mock generator with the
+  // transcription/AI endpoint later changes one file instead of this workflow.
+  // Phase 6: optional authorized Laravel draft endpoint behind clinical
+  // clearance gates; otherwise the original local parser remains in use.
+  const SCRIBE = window.DoctorScribe || null;
+  let scribeGeneratePending = false;
+  let scribeRetry = null;
+  const scribeRetryButton = document.getElementById('scribe-retry-failed');
+  const scribeIncompleteReview = document.getElementById('scribe-incomplete-review');
+  const scribeIncompleteSources = document.getElementById('scribe-incomplete-sources');
+  let scribeRetryCache=null;
+  try { if (window.ScribeRetryCache) scribeRetryCache=window.ScribeRetryCache.create(window.sessionStorage, () => Date.now()); } catch (_) { /* storage may be unavailable */ }
+  function hideScribeRetry() {
+    scribeRetry=null;
+    if (scribeRetryButton) scribeRetryButton.hidden=true;
+    if (scribeIncompleteReview) { scribeIncompleteReview.hidden=true; scribeIncompleteReview.open=false; }
+    if (scribeIncompleteSources) scribeIncompleteSources.replaceChildren();
+  }
+  function clearScribeRetry() {
+    if (scribeRetryCache && selectedPatient) scribeRetryCache.clear(selectedPatient.appointmentId);
+    hideScribeRetry();
+  }
+  function rememberScribeRetry(token, patient, transcript, completed, total) {
+    const stored=scribeRetryCache ? scribeRetryCache.save(patient.appointmentId, token, completed, total) : false;
+    scribeRetry={token:typeof stored==='string'?stored:token, patient, transcript};
+    if (scribeRetryButton) scribeRetryButton.hidden=false;
+    return typeof stored==='string' && stored!==token;
+  }
+  function restoreScribeRetry(patient) {
+    hideScribeRetry();
+    if (!scribeRetryCache || !patient || patient !== selectedPatient || !scribeAccess().editable || !scribe.transcript.value) return;
+    const token=scribeRetryCache.load(patient.appointmentId);
+    if (!token) return;
+    scribeRetry={token, patient, transcript:scribe.transcript.value};
+    if (scribeRetryButton) { scribeRetryButton.hidden=false; scribeRetryButton.textContent='Retry draft generation'; }
+    setScribeNote('An encrypted retry is available for this consultation. The server will check that the transcript is unchanged.');
+  }
+  function showIncompleteSources(items) {
+    if (!scribeIncompleteReview || !scribeIncompleteSources || !Array.isArray(items)) return;
+    items.forEach(item => {
+      if (!item || typeof item.text !== 'string' || !item.text) return;
+      const p=document.createElement('p');
+      p.textContent=item.text;
+      scribeIncompleteSources.appendChild(p);
+    });
+    scribeIncompleteReview.hidden=!scribeIncompleteSources.childElementCount;
+  }
+  // Default line under the controls. Every other message is temporary.
+  const SCRIBE_HINT = 'Assistive draft only — review and edit every field. Nothing is saved or finalized until you do.';
+  // Phase 1 reads .txt only, entirely in the browser. Nothing is uploaded.
+  const TRANSCRIPT_FILE_MAX_BYTES = 128 * 1024;
+  const TRANSCRIPT_STORAGE_MAX_CHARS = 30000;
+  const scribe = {
+    panel: document.getElementById('scribe-section'),
+    status: document.getElementById('scribe-status'),
+    note: document.getElementById('scribe-note'),
+    lock: document.getElementById('scribe-lock'),
+    disclaimer: document.getElementById('scribe-disclaimer'),
+    record: document.getElementById('scribe-record'),
+    recorder: document.getElementById('scribe-recorder'),
+    stop: document.getElementById('scribe-stop'),
+    timer: document.getElementById('scribe-record-timer'),
+    indicator: document.getElementById('scribe-record-indicator'),
+    recStatus: document.getElementById('scribe-record-status'),
+    review: document.getElementById('scribe-review'),
+    reviewBody: document.getElementById('scribe-review-body'),
+    reviewApply: document.getElementById('scribe-review-apply'),
+    reviewDiscard: document.getElementById('scribe-review-discard'),
+    // The proposal awaiting the Doctor's decision. Belongs to ONE patient;
+    // switching patients drops it rather than letting it cross over.
+    pendingDraft: null,
+    paste: document.getElementById('scribe-paste-toggle'),
+    upload: document.getElementById('scribe-upload'),
+    file: document.getElementById('scribe-file'),
+    generate: document.getElementById('scribe-generate'),
+    draftLanguage: document.getElementById('scribe-draft-language'),
+    wrap: document.getElementById('scribe-transcript-wrap'),
+    transcript: document.getElementById('scribe-transcript')
+  };
+  const SOAP_LABELS = { subjective: 'Subjective', objective: 'Objective findings', assessment: 'Assessment', plan: 'Plan' };
+  const VITAL_LABELS = { weight: 'Weight (kg)', temperature: 'Temperature (°C)', heartRate: 'Heart rate (bpm)' };
+
+  // ── AI SCRIBE DICTATION (browser speech recognition) ─────────────────────
+  // Only the browser can hold a microphone, so CAPTURE lives here while every
+  // RULE about dictation — states, wording, error mapping — lives in the
+  // adapter. Dictation writes TEXT into the transcript box: the raw words are
+  // the Doctor's own, editable, and never sent anywhere. Nothing is generated
+  // automatically — the Doctor reads the transcript, then chooses Generate.
+  const REC = (window.DoctorScribe && window.DoctorScribe.RECORDING_STATES) || {
+    READY: 'ready', REQUESTING: 'requesting_permission', RECORDING: 'recording',
+    RECORDED: 'recorded', ERROR: 'error'
+  };
+  const SpeechRecognitionAPI = window.SpeechRecognition || window.webkitSpeechRecognition || null;
+  const rec = {
+    // Capability detection, not a hardcoded promise: with no speech
+    // recognition the mic control is hidden and the transcript box is the
+    // honest fallback — this panel never pretends to support a microphone.
+    supported: typeof SpeechRecognitionAPI === 'function',
+    state: REC.READY,
+    recognition: null,
+    startedAt: 0,
+    elapsed: 0,
+    tickId: null,
+    // Which patient this dictation session belongs to. A take started under
+    // one patient can never keep writing under another.
+    patientId: null
+  };
+  function formatRecTime(totalSeconds) {
+    const s = Math.max(0, Math.floor(totalSeconds || 0));
+    return `${s / 60 < 10 ? '0' : ''}${Math.floor(s / 60)}:${s % 60 < 10 ? '0' : ''}${s % 60}`;
+  }  function stopTimer() {
+    if (rec.tickId) { clearInterval(rec.tickId); rec.tickId = null; }
+  }
+  function paintRecTimer() {
+    if (scribe.timer && !scribe.timer.hidden) scribe.timer.textContent = formatRecTime(rec.elapsed);
+  }
+  function startRecTimer() {
+    stopTimer();
+    rec.elapsed = 0;
+    paintRecTimer();
+    // 250ms keeps the mm:ss readout honest without a busy 1s repaint.
+    rec.tickId = setInterval(() => {
+      rec.elapsed = (Date.now() - rec.startedAt) / 1000;
+      paintRecTimer();
+    }, 250);
+  }
+  // Drops every reference to the recognition session. Handlers are detached
+  // BEFORE abort() so an in-flight result cannot land in a discarded session.
+  function releaseRecording() {
+    stopTimer();
+    if (rec.recognition) {
+      rec.recognition.onresult = null;
+      rec.recognition.onerror = null;
+      rec.recognition.onend = null;
+      try { rec.recognition.abort(); } catch (e) { /* already stopped */ }
+    }
+    rec.recognition = null;
+    rec.patientId = null;
+    rec.startedAt = 0;
+    rec.elapsed = 0;
+  }
+  function setRecState(state, message) {
+    rec.state = state;
+    if (scribe.recorder) scribe.recorder.dataset.state = state;
+    if (scribe.recStatus) {
+      const label = SCRIBE && SCRIBE.getRecordingStatus ? SCRIBE.getRecordingStatus({ state, message }).label : '';
+      scribe.recStatus.textContent = message || label;
+    }
+    syncScribePanel();
+  }
+  // The transcript box is the single destination: dictation APPENDS to what
+  // is already there (with a separating space), never replacing typed notes.
+  function appendDictation(text) {
+    const chunk = String(text || '').trim();
+    if (!chunk || !scribe.transcript) return;
+    const current = scribe.transcript.value;
+    const combined = (current ? current.replace(/\s+$/, '') + ' ' : '') + chunk;
+    scribe.transcript.value = combined;
+    if (combined.length > TRANSCRIPT_STORAGE_MAX_CHARS) setScribeNote('Dictation exceeds 30,000 characters. All text is retained; save or copy it and shorten before generating.');
+    // Route through the ONE input listener so the draft record captures the
+    // transcript exactly as it does for typed text.
+    scribe.transcript.dispatchEvent(new Event('input', { bubbles: true }));
+  }
+  function startScribeRecording() {
+    if (recorder || audioRequestPending || audioSending) { setScribeNote('Stop audio recording or wait for transcription first.'); return; }
+    if (!SCRIBE) return;
+    if (!rec.supported) {
+      setRecState(REC.ERROR, SCRIBE.describeDictationError('unsupported').message + ' Type or upload the transcript instead.');
+      return;
+    }
+    if (!scribeAccess().editable) { setScribeNote('AI Scribe is read-only for this consultation.'); return; }
+    if (rec.state === REC.RECORDING || rec.state === REC.REQUESTING) return;
+    setRecState(REC.REQUESTING);
+    revealScribeTranscript(false);
+    try {
+      const recognition = new SpeechRecognitionAPI();
+      // Continuous with interim results: the Doctor dictates in one take and
+      // sees words appear as they are recognised. Finalised segments are
+      // appended to the transcript box; interim text is shown in the status
+      // line only, so an abandoned take never pollutes the transcript.
+      recognition.continuous = true;
+      recognition.interimResults = true;
+      recognition.lang = navigator.language || 'en';
+      rec.recognition = recognition;
+      rec.patientId = selectedPatient ? String(selectedPatient.id) : null;
+      recognition.onstart = () => {
+        rec.startedAt = Date.now();
+        startRecTimer();
+        setRecState(REC.RECORDING);
+      };
+      recognition.onresult = event => {
+        let interim = '';
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+          const result = event.results[i];
+          if (result.isFinal) appendDictation(result[0] && result[0].transcript);
+          else interim += (result[0] && result[0].transcript) || '';
+        }
+        if (rec.state === REC.RECORDING && scribe.recStatus) {
+          scribe.recStatus.textContent = interim.trim()
+            ? 'Listening… "' + interim.trim() + '…"'
+            : SCRIBE.getRecordingStatus({ state: REC.RECORDING }).label;
+        }
+      };
+      recognition.onerror = event => {
+        const code = event && event.error;
+        // 'aborted' is what our own releaseRecording() causes — not a fault.
+        if (code === 'aborted') return;
+        console.warn('[AI Scribe] speech recognition error:', code);
+        const info = SCRIBE.describeDictationError(code);
+        releaseRecording();
+        setRecState(REC.ERROR, info.message + ' Type or upload the transcript instead.');
+      };
+      recognition.onend = () => {
+        // Ends on its own after silence, or when the Doctor presses Stop.
+        stopTimer();
+        rec.recognition = null;
+        if (rec.state !== REC.RECORDING && rec.state !== REC.REQUESTING) return;
+        setRecState(REC.RECORDED, 'Dictation captured. Review the transcript below, then Generate SOAP Draft.');
+      };
+      recognition.start();
+    } catch (error) {
+      console.warn('[AI Scribe] speech recognition could not start:', error);
+      releaseRecording();
+      const info = SCRIBE.describeDictationError(error && error.name ? error.name : 'unknown');
+      setRecState(REC.ERROR, info.message + ' Type or upload the transcript instead.');
+    }
+  }
+  function stopScribeRecording() {
+    if (!rec.recognition || rec.state !== REC.RECORDING) return;
+    stopTimer();
+    try { rec.recognition.stop(); } catch (error) {
+      console.warn('[AI Scribe] stop failed:', error);
+      releaseRecording();
+      setRecState(REC.ERROR, 'Dictation could not be stopped cleanly. Try again.');
+    }
+  }
+  function discardScribeRecording(message) {
+    releaseRecording();
+    setRecState(REC.READY, message || 'Dictation stopped. Nothing was saved.');
+  }
+  // Dictation writes TEXT straight into the transcript box as it is heard, so
+  // there is no separate "process" step: after Stop, the Doctor reviews the
+  // transcript and presses Generate SOAP Draft — the same action a typed
+  // transcript uses. No audio is held anywhere.
+  // Leaving the patient while dictating is a destructive act and is confirmed
+  // first: the take is stopped, and its already-written text stays with the
+  // patient it belongs to (the transcript is part of that patient's draft).
+  async function confirmPatientSwitchForRecording() {
+    if (rec.state === REC.RECORDING || rec.state === REC.REQUESTING) {
+      const ok = await confirmAction({
+        title: 'Stop dictation and switch patients?',
+        message: 'Dictation for this patient will stop. Text already dictated stays in this patient\u2019s transcript.',
+        acceptLabel: 'Stop and Switch'
+      });
+      if (ok) discardScribeRecording();
+      return ok;
+    }
+    return true;
+  }
+  // Leaving the page releases the recognition session. Dictated text is
+  // already in the transcript box and captured into the draft like typed text.
+  window.addEventListener('pagehide', () => { releaseRecording(); });
+
+  // ── CONFIRMATION ──────────────────────────────────────────────────────────
+  // One modal serves every destructive step in the consultation: regenerating
+  // over existing notes, replacing a transcript, and completing. It resolves to
+  // a boolean, so each caller reads as "ask, then act" instead of hiding the
+  // branch inside the action itself. Fails closed: without the dialog, a
+  // destructive step is never taken.
+  const confirmUi = {
+    overlay: document.getElementById('confirm-overlay'),
+    title: document.getElementById('confirm-title'),
+    message: document.getElementById('confirm-message'),
+    cancel: document.getElementById('confirm-cancel'),
+    accept: document.getElementById('confirm-accept'),
+    close: document.getElementById('confirm-close'),
+    resolver: null,
+    lastFocus: null
+  };
+  function confirmAction(options) {
+    const cfg = options || {};
+    if (!confirmUi.overlay || confirmUi.resolver) return Promise.resolve(false);
+    return new Promise(resolve => {
+      confirmUi.resolver = resolve;
+      confirmUi.lastFocus = document.activeElement;
+      confirmUi.title.textContent = cfg.title || 'Please confirm';
+      confirmUi.message.textContent = cfg.message || '';
+      confirmUi.accept.textContent = cfg.acceptLabel || 'Confirm';
+      confirmUi.overlay.classList.add('show');
+      confirmUi.cancel.focus({ preventScroll: true }); // safe choice first
+    });
+  }
+  function settleConfirm(value) {
+    if (!confirmUi.resolver) return;
+    const resolve = confirmUi.resolver;
+    confirmUi.resolver = null;
+    confirmUi.overlay.classList.remove('show');
+    const back = confirmUi.lastFocus;
+    if (back && typeof back.focus === 'function') back.focus({ preventScroll: true });
+    resolve(value);
+  }
+  if (confirmUi.overlay) {
+    confirmUi.cancel.addEventListener('click', () => settleConfirm(false));
+    confirmUi.accept.addEventListener('click', () => settleConfirm(true));
+    confirmUi.close.addEventListener('click', () => settleConfirm(false));
+    // Clicking the backdrop or pressing Escape both mean "no".
+    confirmUi.overlay.addEventListener('click', event => { if (event.target === confirmUi.overlay) settleConfirm(false); });
+    document.addEventListener('keydown', event => { if (event.key === 'Escape' && confirmUi.resolver) settleConfirm(false); });
+  }
+
+  // Unknown keys are preserved so the draft record can grow without a migration.
+  function writeScribeState(draft, patch) {
+    const base = (draft.scribe && typeof draft.scribe === 'object') ? draft.scribe : {};
+    draft.scribe = Object.assign({}, base, patch);
+    return draft.scribe;
+  }
+  function scribeState(draft) {
+    const s = (draft && draft.scribe && typeof draft.scribe === 'object') ? draft.scribe : {};
+    return {
+      transcript: typeof s.transcript === 'string' ? s.transcript : '',
+      generatedAt: s.generatedAt || null,
+      // Snapshot of what the generator last wrote (keyed by control name), so
+      // the indicator can compare it against the live controls.
+      soap: (s.soap && typeof s.soap === 'object') ? s.soap : null,
+      transcriptAtGenerate: typeof s.transcriptAtGenerate === 'string' ? s.transcriptAtGenerate : null
+    };
+  }
+  // Lifecycle gate. statusFor() is the canonical source (the shared appointment
+  // store), so AI Scribe can never disagree with the consultation itself:
+  //   confirmed / checked_in -> locked   (no transcript, no generation)
+  //   in_consultation       -> enabled
+  //   completed             -> read-only (the draft stays visible, nothing edits)
+  function scribeAccess() {
+    const status = selectedPatient ? statusFor(selectedPatient) : 'upcoming';
+    if (status === 'in_consultation') return { status, locked: false, readOnly: false, editable: true };
+    if (status === 'completed') return { status, locked: false, readOnly: true, editable: false };
+    return { status, locked: true, readOnly: true, editable: false };
+  }
+  // DERIVED, never stored as a flag: has the Doctor changed anything the
+  // generator wrote, or the transcript it came from? Comparing the live controls
+  // against the snapshot means this can never drift out of step with the form.
+  function scribeSoapEdited() {
+    if (!SCRIBE || !selectedPatient) return false;
+    const snapshot = scribeState(draftFor(selectedPatient)).soap;
+    if (!snapshot) return false;
+    return Object.keys(snapshot).some(name => {
+      const field = form.elements.namedItem(name);
+      return field && (field.value || '') !== String(snapshot[name] || '');
+    });
+  }
+  function scribeTranscriptChanged() {
+    if (!selectedPatient) return false;
+    const state = scribeState(draftFor(selectedPatient));
+    if (!state.generatedAt) return false;
+    return state.transcript !== state.transcriptAtGenerate;
+  }
+  function setScribeNote(text) {
+    if (scribe.note) scribe.note.textContent = text;
+  }
+  function revealScribeTranscript(focus) {
+    if (!scribe.wrap) return;
+    scribe.wrap.hidden = false;
+    if (scribe.paste) scribe.paste.setAttribute('aria-expanded', 'true');
+    if (focus) scribe.transcript.focus();
+  }
+  // Would a regeneration destroy something? Any non-empty control the generator
+  // writes counts — generated or typed by hand.
+  function scribeHasContent() {
+    if (!SCRIBE) return false;
+    return SCRIBE.SOAP_FIELDS.some(name => {
+      const field = form.elements.namedItem(name);
+      return field && String(field.value || '').trim() !== '';
+    });
+  }
+  // One place decides the indicator: Ready / Transcript ready / Draft generated /
+  // Saved draft / Unsaved changes — every label comes from the adapter, so the
+  // pill and the underlying state can never disagree.
+  function syncRecordingControls() {
+    if (!scribe.recorder) return;
+    const editable = scribeAccess().editable && rec.supported;
+    const recording = rec.state === REC.RECORDING;
+    const requesting = rec.state === REC.REQUESTING;
+    if (scribe.record) {
+      scribe.record.hidden = recording || requesting;
+      scribe.record.disabled = !editable || recording || requesting;
+    }
+    if (scribe.stop) { scribe.stop.hidden = !recording; scribe.stop.disabled = !recording; }
+    if (scribe.timer) { scribe.timer.hidden = !recording; if (recording) scribe.timer.textContent = formatRecTime(rec.elapsed); }
+    if (scribe.indicator) scribe.indicator.hidden = !recording;
+  }
+  function syncScribePanel() {
+    if (!scribe.panel || !SCRIBE) return;
+    const access = scribeAccess();
+    const draft = selectedPatient ? draftFor(selectedPatient) : null;
+    const state = scribeState(draft);
+    const info = SCRIBE.getScribeStatus({
+      // Phase 2 records for real: the pill says so while audio is being
+      // captured. Everything else about a recording stays out of the draft.
+      recording: rec.state === REC.RECORDING,
+      transcript: state.transcript,
+      generatedAt: state.generatedAt,
+      saved: !!(draft && draft.saved === true && state.generatedAt),
+      // Drift from the generated draft counts as unsaved ONLY while the draft
+      // itself is unsaved — otherwise saving the draft would still read
+      // "Unsaved changes" forever.
+      unsavedChanges: !!draft && draft.saved !== true && (scribeSoapEdited() || scribeTranscriptChanged())
+    });
+    scribe.status.textContent = info.label;
+    scribe.status.dataset.state = info.state;
+    // While dictation is live the transcript actions are held: dictated text
+    // and a transcript rewrite must never race each other.
+    const recordingBusy = rec.state === REC.RECORDING || rec.state === REC.REQUESTING;
+    scribe.paste.disabled = !access.editable || recordingBusy;
+    scribe.upload.disabled = !access.editable || recordingBusy;
+    scribe.generate.disabled = !access.editable || recordingBusy || scribeGeneratePending;
+    if (scribe.draftLanguage) scribe.draftLanguage.disabled = !access.editable || recordingBusy || scribeGeneratePending;
+    scribe.transcript.readOnly = !access.editable || recordingBusy;
+    scribe.panel.classList.toggle('is-locked', access.locked);
+    const lockText = access.locked
+      ? 'AI Scribe unlocks once the consultation is in progress.'
+      : (access.readOnly ? 'This consultation is completed — AI Scribe is read-only.' : '');
+    if (scribe.lock) {
+      scribe.lock.textContent = lockText;
+      scribe.lock.hidden = !lockText;
+    }
+    syncRecordingControls();
+  }
+  // Regenerating rewrites every field the generator owns, so it is never silent:
+  // an explicit confirmation stands between the Doctor and losing notes.
+  // Generation itself writes NOTHING now — the proposal is reviewed first —
+  // so the confirmation lives at Apply time, where fields are actually touched.
+  function requestScribeGenerate() {
+    if (!scribeAccess().editable) { setScribeNote('AI Scribe is read-only for this consultation.'); return; }
+    runScribeGenerate();
+  }
+  function runScribeGenerate(retryToken) {
+    if (!scribeAccess().editable) { setScribeNote('AI Scribe is read-only for this consultation.'); return; }
+    if (scribeGeneratePending) return;
+    const target = selectedPatient;
+    if (!retryToken) clearScribeRetry();
+    const input = {
+      retryToken: typeof retryToken === 'string' ? retryToken : '',
+      transcript: scribe.transcript.value,
+      allowLongTranscript: true,
+      draftLanguage: scribe.draftLanguage && scribe.draftLanguage.value === 'source' ? 'source' : 'english',
+      appointmentId: target ? target.appointmentId : '',
+      petId: target ? target.petId : '',
+      // Pass-through identity only: the generator never derives clinical content
+      // from it.
+      patient: target ? { appointmentId: target.appointmentId, petId: target.petId, name: target.name, species: target.species } : null
+    };
+    // Validation belongs to the adapter, so the wording the Doctor reads and the
+    // rule the generator applies can never drift apart.
+    const originalTranscript = input.transcript;
+    const check = SCRIBE.validateScribeInput(input);
+    if (!check.ok) {
+      setScribeNote(check.message);
+      revealScribeTranscript(true);
+      return;
+    }
+    setScribeNote('Building the SOAP draft…');
+    scribeGeneratePending = true;
+    syncScribePanel();
+    SCRIBE.createSoapDraft(input).then(result => {
+      if (selectedPatient !== target) {
+        // Keep only the encrypted, consultation-bound recovery token. A patient
+        // switch must not throw away completed work from an in-flight request.
+        if (!result.ok && scribeRetryCache && typeof result.retryToken==='string' && result.retryToken)
+          scribeRetryCache.save(target.appointmentId, result.retryToken, result.completedChunks, result.totalChunks);
+        return;
+      }
+      if ((scribe.draftLanguage && scribe.draftLanguage.value !== input.draftLanguage) || scribe.transcript.value !== originalTranscript || !scribeAccess().editable) {
+        setScribeNote('Transcript, language or consultation changed while generating. Generate a fresh draft.');
+        return;
+      }
+      if (!result.ok || !result.apply) {
+        // Keep the prior encrypted checkpoint until a replacement has been
+        // compared, so an older response cannot roll completed work backwards.
+        hideScribeRetry();
+        if (result.error && result.error.code === 'draft_timeout') {
+          if (typeof result.retryToken === 'string' && result.retryToken) {
+            rememberScribeRetry(result.retryToken, target, originalTranscript, result.completedChunks, result.totalChunks);
+            if (scribeRetryButton) { scribeRetryButton.hidden=false; scribeRetryButton.textContent='Retry draft generation'; }
+          }
+          if (!result.retryToken) clearScribeRetry();
+          setScribeNote(result.error.message);
+          return;
+        }
+        if (typeof result.retryToken === 'string' && result.retryToken) {
+          const preservedNewer=rememberScribeRetry(result.retryToken, target, originalTranscript, result.completedChunks, result.totalChunks);
+          if (scribeRetryButton) scribeRetryButton.hidden=false;
+          showIncompleteSources(result.reviewSources);
+          const failed=Array.isArray(result.failedChunks) ? result.failedChunks : [];
+          const ids=failed.map(item=>item && item.id).filter(id=>Number.isSafeInteger(id) && id>0);
+          const limited=failed.some(item=>item && item.category==='rate_limit') || result.summaryFailure==='rate_limit';
+          const invalid=failed.some(item=>item && item.category==='invalid_quote');
+          const incomplete=failed.some(item=>item && ['invalid_segment_mapping','incomplete_inventory'].includes(item.category));
+          const stageMessages={generation:'The draft generator did not finish. ',source_check:'The draft could not pass the source check. ',source_coverage:'The automated check could not confirm that all relevant source details were covered. ',source_support:'The automated check could not confirm support for a draft statement. ',source_links:'The source check returned incomplete or inconsistent links. ',meaning_check:'The draft could not pass the meaning check. ',draft_format:'The draft could not fit the required format. ',draft_field_limit:'A draft field was empty or exceeded its length limit. ',draft_section_mismatch:'The draft added content to a section with no source, or omitted a section with source material. '};
+          const stage=stageMessages[result.summaryStage] || '';
+          const explanation=stage+(limited ? 'The AI service has reached a usage limit. Retry after the provider limit resets; this may take longer than a minute. ' : result.summaryFailure==='invalid_input' ? 'The source-check request exceeded a configured input or format limit. ' : invalid ? 'A source quotation could not be matched. ' : incomplete ? 'The AI did not return a complete mapping of the source text. ' : '');
+          const progress=result.totalChunks>0 ? result.completedChunks+' of '+result.totalChunks+' parts completed. '+(Number.isSafeInteger(result.resumedChunks) ? 'Resumed '+result.resumedChunks+' completed parts. ' : '') : '';
+          const names={gemini:'Gemini',groq:'Groq',configured:'Configured provider'};
+          const outcomes={ok:'responded',rate_limit:'usage limit',timeout:'timed out',transport:'connection failed',invalid_json:'invalid response',invalid_schema:'invalid response',empty_response:'empty response',http_error:'service error',configuration:'configuration error',safety_refusal:'refused',unknown:'unavailable'};
+          const attempts=(Array.isArray(result.providerAttempts)?result.providerAttempts:[]).filter(item=>item && names[item.provider] && outcomes[item.category]).map(item=>names[item.provider]+': '+outcomes[item.category]);
+          const providerNote=attempts.length ? ' Last AI request — '+attempts.join('; ')+'.' : '';
+          const recoveryNote=preservedNewer ? ' An earlier response was ignored; a more complete retry is retained.' : '';
+          setScribeNote(progress+(ids.length ? 'Parts '+ids.join(', ')+' are incomplete. '+explanation+'Retry failed parts or review the transcript manually.' : 'Source processing finished, but the draft could not be generated. '+explanation+'Retry to reuse the completed work, or review the transcript manually.')+providerNote+recoveryNote);
+          if (scribeRetryButton) scribeRetryButton.textContent=ids.length ? 'Retry failed parts' : 'Retry draft generation';
+          return;
+        }
+        clearScribeRetry();
+        setScribeNote(result.error && result.error.message ? result.error.message : 'The SOAP draft could not be generated. Enter the SOAP note manually.');
+        return;
+      }
+      clearScribeRetry();
+      // NOTHING is written to the fields here: the proposal goes to the review
+      // panel, and only the Doctor's Apply Draft writes it into the form.
+      showScribeReview(target, result);
+    }).catch(() => {
+      setScribeNote('Draft generation failed. The manual SOAP form is still available.');
+    }).finally(() => {
+      scribeGeneratePending = false;
+      syncScribePanel();
+    });
+  }
+  // ── REVIEW BEFORE APPLY ────────────────────────────────────────────────
+  // A generated draft NEVER touches the SOAP fields on its own. The proposal
+  // is rendered for review; only the Apply Draft button writes it into the
+  // existing controls, and even then nothing is saved — Save Draft stays the
+  // ONE persistence path. Discard drops the proposal and leaves the fields
+  // exactly as they were; the transcript is kept either way.
+  function hideScribeReview() {
+    scribe.pendingDraft = null;
+    if (scribe.review) scribe.review.hidden = true;
+    if (scribe.reviewBody) scribe.reviewBody.replaceChildren();
+  }
+  function validScribeSourceViews(source, views) {
+    return typeof source==='string' && Array.isArray(views) && views.length>0 && views.every(view => view && Array.isArray(view.runs) && view.runs.length>0 && view.runs.every(run => run && typeof run.text==='string' && typeof run.highlight==='boolean') && view.runs.some(run => run.highlight)) && views.map(view => view.runs.map(run => run.text).join('')).join('\n\n')===source;
+  }
+  function showScribeReview(patient, result) {
+    if (!scribe.review || !scribe.reviewBody) {
+      // No panel to review in (markup absent) — fail the way the task demands:
+      // never a silent write. The Doctor is told and keeps manual entry.
+      setScribeNote('The proposed draft could not be shown for review. Nothing was written to the SOAP fields.');
+      return;
+    }
+    const prepared = result.summaryMethod==='single_pass' ? {apply:result.apply || {},changes:[]} : SCRIBE.prepareReviewedCleanup(result.apply || {});
+    result = Object.assign({}, result, {apply: prepared.apply});
+    scribe.pendingDraft = { patient, result, transcript: scribe.transcript.value, reviewedSources: {}, reviewedOmissions: false, reviewedAutomated: false, revision: 0, reviewedVitals: {weight: "", temperature: "", heartRate: ""} };
+    const apply = result.apply;
+    const frag = document.createDocumentFragment();
+    if (result.summaryMethod === 'single_pass' && ['english','source'].includes(result.summaryLanguage)) frag.append(element('p', 'Requested draft language: ' + (result.summaryLanguage === 'english' ? 'English.' : 'Consultation language.'), 'scribe-review-empty'));
+    if (result.summaryMethod === 'single_pass' && result.providerMeta && result.providerMeta.backupUsed === true) frag.append(element('p', 'Groq backup contributed to this draft.', 'scribe-review-empty'));
+    if (result.summaryApplied === false || (result.meta && result.meta.engine === 'local-deterministic')) {
+      frag.append(element('p', 'This draft uses source wording and may be long. Review and edit it before applying.', 'scribe-review-vitals-notice'));
+    }
+    let automatedStatus;
+    const resetDraftConfirmations = () => {
+      const pending=scribe.pendingDraft;
+      if (!pending || pending.result!==result) return;
+      pending.revision++;
+      pending.reviewedSources={}; pending.reviewedOmissions=false; pending.reviewedAutomated=false;
+      scribe.reviewBody.querySelectorAll('input[type="checkbox"]').forEach(control=>{ control.checked=false; });
+      if (automatedStatus) automatedStatus.textContent='You edited this proposal. Automated findings apply to the generated version; review your edited note against the full transcript.';
+    };
+    if (result.summaryMethod==='single_pass' && result.automatedReview) {
+      const labels={no_issue_found:'Automated review found no issue. Errors may still be present.',flagged:'Automated review found possible differences. Review the specific issues below.',unavailable:'Automated review is unavailable. The draft has not received a completed automated check.'};
+      automatedStatus=element('p',labels[result.automatedReview.status] || 'Review the full transcript.','scribe-review-vitals-notice');
+      frag.append(automatedStatus);
+      if (result.processing && Number.isSafeInteger(result.processing.reportedTokens) && result.processing.reportedTokens>=0) frag.append(element('p','Provider-reported tokens for this draft and last review: '+result.processing.reportedTokens+(result.processing.usageIncomplete ? ' (some attempts did not report usage).' : '.'),'scribe-review-empty'));
+      if (result.reused) frag.append(element('p','Reused the completed draft; it was not generated again.','scribe-review-empty'));
+      if (result.automatedReview.status==='unavailable') frag.append(element('p','Generate again to retry only the automated review. A short cooldown may apply.','scribe-review-empty'));
+      const control=document.createElement('input');control.type='checkbox';
+      control.setAttribute('aria-label','I resolved any flagged issues and manually reviewed the current edited draft');
+      control.addEventListener('input',event=>event.stopPropagation());
+      control.addEventListener('change',()=>{if(scribe.pendingDraft && scribe.pendingDraft.result===result) scribe.pendingDraft.reviewedAutomated=control.checked;});
+      const labelNode=document.createElement('label');labelNode.append(control,document.createTextNode(' I resolved any flagged issues and reviewed the current draft against the full transcript.'));
+      frag.append(labelNode);
+    }
+    const section = (label, value, emptyText, sourceKey) => {
+      const box = element('div', '', 'scribe-review-section');
+      box.append(element('p', label, 'scribe-review-label'));
+      if (result.summaryMethod==='single_pass') {
+        const editor=document.createElement('textarea');
+        editor.value=value ? String(value) : SCRIBE.NOT_PROVIDED;
+        editor.maxLength=({subjective:2000,objective:1000,assessment:800,plan:1000})[sourceKey];
+        editor.rows=3; editor.style.width='100%';
+        editor.setAttribute('aria-label','Edit '+label+' before applying');
+        editor.setAttribute('data-scribe-section-editor',sourceKey);
+        editor.addEventListener('input',event=>{
+          event.stopPropagation();
+          if (!scribe.pendingDraft || scribe.pendingDraft.result!==result) return;
+          const key=sourceKey==='objective' ? 'exam' : sourceKey;
+          result.apply[key]=editor.value;
+          result.emptyNarrative=['subjective','exam','assessment','plan'].every(name=>!String(result.apply[name] || '').trim() || String(result.apply[name]).trim()===SCRIBE.NOT_PROVIDED);
+          resetDraftConfirmations();
+        });
+        box.append(editor);
+      } else box.append(element('p', value ? String(value) : emptyText, value ? '' : 'scribe-review-empty'));
+      if (result.automatedReview && Array.isArray(result.automatedReview.issues)) result.automatedReview.issues.filter(issue=>issue && issue.section===sourceKey && typeof issue.explanation==='string').forEach(issue=>{
+        box.append(element('p','Needs review'+(Number.isInteger(issue.statement) && issue.statement>0 ? ' (statement '+issue.statement+')' : '')+': '+issue.explanation,'scribe-review-vitals-notice'));
+      });
+      const source=result.sourceSections && result.sourceSections[sourceKey];
+      if (typeof source === 'string' && source.trim() && source !== 'Not provided.') {
+        const sourceDetails=element('details', '', 'scribe-review-details');
+        sourceDetails.append(element('summary', 'View source passage', ''));
+        const views=result.sourceViews && result.sourceViews[sourceKey];
+        const valid=validScribeSourceViews(source, views);
+        if (valid) {
+          sourceDetails.append(element('p', 'Highlighted text was selected by AI. Check the surrounding sentence and full transcript.', 'scribe-review-empty'));
+          views.forEach(view => {
+            const line=element('p', '', '');
+            view.runs.forEach(run => line.append(run.highlight ? element('mark',run.text,'scribe-source-highlight') : document.createTextNode(run.text)));
+            sourceDetails.append(line);
+          });
+        } else sourceDetails.append(element('p', source, ''));
+        box.append(sourceDetails);
+        if (['semantic','grounded','single_pass'].includes(result.summaryMethod)) {
+          const control=document.createElement('input'); control.type='checkbox';
+          control.setAttribute('aria-label','I compared '+label+' with the source and complete transcript');
+          control.addEventListener('input', event => event.stopPropagation());
+          control.addEventListener('change', () => { if (scribe.pendingDraft && scribe.pendingDraft.result === result) scribe.pendingDraft.reviewedSources[sourceKey]=control.checked; });
+          const labelNode=document.createElement('label'); labelNode.append(control, document.createTextNode(' I compared this section with its source and the complete transcript.'));
+          box.append(labelNode);
+        }
+      } else if (result.summaryMethod === 'single_pass') {
+        box.append(element('p', 'No passage was selected. Relevant information may still be in the full transcript.', 'scribe-review-empty'));
+        const control=document.createElement('input'); control.type='checkbox';
+        control.setAttribute('aria-label','I checked the complete transcript for '+label);
+        control.addEventListener('input', event => event.stopPropagation());
+        control.addEventListener('change', () => { if (scribe.pendingDraft && scribe.pendingDraft.result === result) scribe.pendingDraft.reviewedSources[sourceKey]=control.checked; });
+        const labelNode=document.createElement('label'); labelNode.append(control, document.createTextNode(' I checked the full transcript for this section.'));
+        box.append(labelNode);
+      }
+      frag.append(box);
+    };
+    section('Subjective', apply.subjective, 'No subjective content was in the transcript \u2014 "' + SCRIBE.NOT_PROVIDED + '".', 'subjective');
+    section('Objective findings', apply.exam, 'No examination findings were in the transcript \u2014 "' + SCRIBE.NOT_PROVIDED + '".', 'objective');
+    section('Assessment', apply.assessment, 'No assessment was in the transcript \u2014 "' + SCRIBE.NOT_PROVIDED + '".', 'assessment');
+    section('Plan', apply.plan, 'No plan was in the transcript \u2014 "' + SCRIBE.NOT_PROVIDED + '".', 'plan');
+    const claimLinks = Array.isArray(result.claimLinks) ? result.claimLinks : [];
+    if (claimLinks.length) {
+      const sources=element('details', '', 'scribe-review-details');
+      sources.append(element('summary', 'Review statement sources', ''));
+      claimLinks.forEach(item => {
+        if (!item || typeof item.text !== 'string') return;
+        sources.append(element('p', item.text, 'scribe-review-label'));
+        const refs=Array.isArray(item.references)?item.references:[];
+        if (item.status !== 'linked' || !refs.length) sources.append(element('p','Source location needs review.','scribe-review-empty'));
+        const seenContexts=new Set(); refs.forEach(ref=>{if (ref && typeof ref.context==='string') { const key=String(ref.contextOffset)+':'+ref.context; if (!seenContexts.has(key)) { seenContexts.add(key); sources.append(element('p',ref.context,'')); } }});
+      });
+      frag.append(sources);
+    }
+    const placementSuggestions=Array.isArray(result.placementSuggestions)?result.placementSuggestions:[];
+    if (placementSuggestions.length) {
+      const suggestions=element('details', '', 'scribe-review-details');
+      suggestions.append(element('summary', 'Review suggested sections ('+placementSuggestions.length+')', ''));
+      suggestions.append(element('p','These are suggestions only. Check who spoke and add any needed information manually.','scribe-review-empty'));
+      placementSuggestions.forEach(item=>{
+        if (!item || typeof item.context!=='string' || !['subjective','objective','assessment','plan','uncertain'].includes(item.section)) return;
+        suggestions.append(element('p','Suggested: '+item.section,'scribe-review-label'));
+        suggestions.append(element('p',item.context,''));
+      });
+      frag.append(suggestions);
+    }
+    const cleanup = element('div', '', 'scribe-review-cautions');
+    if (prepared.changes.length) {
+      cleanup.append(element('p', 'Automatically cleaned wording — review before applying', 'scribe-review-label'));
+      cleanup.append(element('p', 'Neutral transcript labels or isolated hesitations were removed. Compare every change with the original transcript.', 'scribe-review-empty'));
+      prepared.changes.forEach(change => {
+        cleanup.append(element('p', change.label + ' — original: ' + change.source, ''));
+        cleanup.append(element('p', change.label + ' — proposed: ' + change.suggestion, ''));
+      });
+      frag.append(cleanup);
+    }
+    frag.append(element('p', 'Enter verified current vital signs below. Applying this draft replaces existing vital fields; leave a field blank to clear it.', 'scribe-review-vitals-notice'));
+    const vitals = element('details', '', 'scribe-review-details');
+    vitals.append(element('summary', 'Review possible vital readings', ''));
+    const measurementSources = SCRIBE.measurementSourcePassages(scribe.pendingDraft.transcript);
+    if (measurementSources.length) {
+      vitals.append(element('p', 'Possible measurements in the transcript — check who or what each refers to, its timing, and reliability.', 'scribe-review-label'));
+      measurementSources.forEach(source => {
+        const passage = element('p', '', '');
+        SCRIBE.measurementSourceRuns(source).forEach(run => {
+          if (run.highlight) passage.append(element('mark', run.text, 'scribe-measurement-mark'));
+          else passage.append(document.createTextNode(run.text));
+        });
+        vitals.append(passage);
+      });
+    }
+    const candidates = SCRIBE.reviewableVitals(scribe.pendingDraft.transcript);
+    [['weight','Weight',' kg'], ['temperature','Temperature',' °C'], ['heartRate','Heart rate',' bpm']].forEach(([key,label,unit]) => {
+      const candidate=candidates[key], row=element('div', '', 'scribe-review-section');
+      if (!candidate) {
+        row.append(element('p', label + ': no value preselected. Check the transcript and enter a verified current value.', 'scribe-review-empty'));
+      } else {
+        row.append(element('p', label + ': ' + candidate.value + unit + ' — unverified', 'scribe-review-label'));
+        row.append(element('p', 'Source: ' + candidate.source, ''));
+        row.append(element('p', 'Review the full transcript for corrections or qualifications in other statements.', 'scribe-review-empty'));
+
+      }
+      const entry=document.createElement('input');
+      entry.type='number'; entry.min='0'; entry.step=key === 'heartRate' ? '1' : '0.01';
+      entry.setAttribute('aria-label','Verified current ' + label.toLowerCase()); entry.dataset.scribeVitalReview = 'true';
+      entry.placeholder='Enter verified current ' + label.toLowerCase();
+      entry.addEventListener('input', event => {
+        event.stopPropagation();
+        if (scribe.pendingDraft && scribe.pendingDraft.result === result) scribe.pendingDraft.reviewedVitals[key]=entry.value;
+      });
+      row.append(entry);
+      vitals.append(row);
+    });
+    frag.append(vitals);
+    const cautions = [];
+    if (result.warnings && result.warnings.length) cautions.push(...result.warnings);
+    if (result.unclassified && result.unclassified.length) {
+      cautions.push(result.unclassified.length + ' segment(s) were not classified: check the original transcript.');
+    }
+    if (result.dropped && Object.keys(result.dropped).length) {
+      cautions.push('Some transcript material was omitted because a SOAP field reached its length limit.');
+    }
+    if (cautions.length) {
+      const notice = element('details', '', 'scribe-review-cautions scribe-review-details');
+      notice.append(element('summary', 'Review warnings (' + cautions.length + ')', ''));
+      cautions.forEach(message => notice.append(element('p', message, 'scribe-review-empty')));
+      frag.append(notice);
+    }
+    if (Array.isArray(result.reviewItems)) {
+      const transcriptDetails=element('details', '', 'scribe-review-details');
+      transcriptDetails.append(element('summary', 'View full transcript', ''));
+      transcriptDetails.append(element('p', scribe.pendingDraft.transcript, ''));
+      frag.append(transcriptDetails);
+    }
+    if (Array.isArray(result.unlinkedSources) && result.unlinkedSources.length) {
+      const details=element('details','','scribe-review-details');
+      details.append(element('summary','Additional source passages ('+result.unlinkedSources.length+')',''));
+      details.append(element('p','These passages have no statement link. They may contain repetition, superseded corrections or missing details; compare with the complete transcript. A missing link alone does not establish an omission.','scribe-review-empty'));
+      result.unlinkedSources.forEach(text=>details.append(element('p',text,'')));
+      frag.append(details);
+    }
+    const omissions = scribeStatementsNeedingReview(result);
+    if (omissions.length) {
+      const box = element('details', '', 'scribe-review-cautions scribe-review-details');
+      box.append(element('summary', 'Check these statements (' + omissions.length + ')', ''));
+      frag.append(element('p', omissions.length + ' statement(s) need a closer look; other errors are still possible.', 'scribe-review-vitals-notice'));
+      box.append(element('p', 'These statements may already be represented in the draft. Compare them with the full transcript and add any missing details manually.', 'scribe-review-empty'));
+      omissions.forEach(item => {
+        box.append(element('p', item.label + ':', 'scribe-review-label'));
+        box.append(element('p', item.text, ''));
+      });
+      const control=document.createElement('input'); control.type='checkbox';
+      control.setAttribute('aria-label','I reviewed the source statements against the draft');
+      control.addEventListener('input', event => event.stopPropagation());
+      control.addEventListener('change', () => { if (scribe.pendingDraft && scribe.pendingDraft.result === result) scribe.pendingDraft.reviewedOmissions=control.checked; });
+      const labelNode=document.createElement('label'); labelNode.append(control, document.createTextNode(' I reviewed these statements against the full transcript.'));
+      box.append(labelNode);
+      frag.append(box);
+    }
+    const questionAnswerContext = Array.isArray(result.questionAnswerContext) ? result.questionAnswerContext : [];
+    if (questionAnswerContext.length) {
+      const context = element('details', '', 'scribe-review-cautions scribe-review-details');
+      context.append(element('summary', 'Question and answer context (' + questionAnswerContext.length + ')', ''));
+      context.append(element('p', 'Check that each response belongs to the preceding question. Speaker and attribution are not verified.', 'scribe-review-empty'));
+      questionAnswerContext.forEach(pair => {
+        context.append(element('p', 'Question: ' + pair.question, ''));
+        context.append(element('p', 'Following statement: ' + pair.response, ''));
+      });
+      frag.append(context);
+    }
+    if (result.emptyNarrative) frag.append(element('p', 'No SOAP narrative was generated. This empty draft cannot be applied; review the transcript and enter the note manually or generate again.', 'scribe-review-cautions'));
+    scribe.reviewBody.replaceChildren(frag);
+    scribe.review.hidden = false;
+    const source = result.meta && result.meta.engine === 'backend' ? (result.providerMeta && result.providerMeta.engine === 'experimental' ? 'Experimental AI' : result.providerMeta && result.providerMeta.engine === 'groq' ? 'Groq backup' : 'Gemini') : 'Local parser';
+    const fallbackNote = result.warnings && result.warnings.length ? ' Check the cautions below before applying.' : '';
+    const summaryNote = result.summaryMethod === 'single_pass' ? ' Unverified AI summary: review each section and the full transcript.' : result.summaryMethod === 'grounded' ? ' Experimental AI summary: automated checks can miss errors.' : result.summaryMethod === 'semantic' ? ' AI shortening: ' + (result.summaryProvider === 'groq' ? 'Groq' : 'Gemini') + '; automated check: ' + (result.summaryCheckProvider === 'groq' ? 'Groq' : 'Gemini') + '.' : '';
+    setScribeNote(source + ' SOAP proposal ready for review.' + summaryNote + ' Nothing has been applied to the SOAP fields or saved to the clinic record.' + fallbackNote);
+    syncScribePanel();
+  }
+  // Collect every omitted category in one review step. Keep original text;
+  // duplicates are shown once but are never discarded from the transcript.
+  function scribeStatementsNeedingReview(result) {
+    const items = [], seen = new Set();
+    const add = (label, text) => {
+      if (typeof text !== 'string' || !text.trim()) return;
+      const key = text.replace(/\s+/g, ' ').trim();
+      if (!seen.has(key)) { seen.add(key); items.push({label, text}); }
+    };
+    if (Array.isArray(result.unclassified)) result.unclassified.forEach(text => add('Not classified', text));
+    const omitted = result.omittedSegments && typeof result.omittedSegments === 'object' ? result.omittedSegments : {};
+    Object.keys(omitted).forEach(name => {
+      if (Array.isArray(omitted[name])) omitted[name].forEach(text => add('Exceeded ' + (SOAP_LABELS[name] || name) + ' field limit', text));
+    });
+    if (Array.isArray(result.reviewItems)) result.reviewItems.forEach(item => {
+      if (!item || typeof item.text !== 'string') return;
+      const labels = {
+        ai_meaning_review: 'Automated check flagged this section',
+        uncertain_category: 'Category or speaker unclear',
+        uncertain_classification: 'Category or speaker unclear',
+        no_extracted_evidence: 'No evidence extracted from this passage',
+        not_linked_to_draft: 'Passage not linked to a draft statement',
+        ambiguous_source: 'Source location unclear',
+        ambiguous_claim_source: 'Source location unclear',
+        source_used_in_multiple_sections: 'Passage used in multiple sections'
+      };
+      add(labels[item.reason] || 'Check context against the draft', item.text);
+    });
+    if (Array.isArray(result.sourceReview)) result.sourceReview.forEach(text => add('Check against the draft', text));
+    return items;
+  }
+  async function applyPendingDraft() {
+    const pending = scribe.pendingDraft;
+    if (!pending) return;
+    if (scribeGeneratePending) { setScribeNote('A new draft is still generating. Wait for it to finish before applying.'); return; }
+    const languageMatches = () => pending.result.summaryMethod !== 'single_pass' || !scribe.draftLanguage || !['english','source'].includes(pending.result.summaryLanguage) || scribe.draftLanguage.value === pending.result.summaryLanguage;
+    if (!languageMatches()) { setScribeNote('Language changed. Generate a new draft before applying.'); return; }
+    if (pending.result.emptyNarrative) { setScribeNote('The proposal contains no SOAP narrative. Nothing was applied.'); return; }
+    const sourcesReviewed = () => !['semantic','grounded','single_pass'].includes(pending.result.summaryMethod) || (pending.result.sourceSections && ['subjective','objective','assessment','plan'].every(key => typeof pending.result.sourceSections[key] === 'string' && pending.result.sourceSections[key].trim() !== '' && ((pending.result.summaryMethod !== 'single_pass' && pending.result.sourceSections[key] === 'Not provided.') || pending.reviewedSources[key] === true)));
+    if (!sourcesReviewed()) { setScribeNote('Compare every summary section with its source and the full transcript, then confirm each section before applying.'); return; }
+    const revision=pending.revision || 0;
+    const manualReviewConfirmed=()=>!pending.result.automatedReview || pending.reviewedAutomated===true;
+    if (!manualReviewConfirmed()) { setScribeNote('Resolve any flagged issues and confirm manual review of the current draft before applying.'); return; }
+    const narrativeValid=()=>!scribe.reviewBody || Array.from(scribe.reviewBody.querySelectorAll('[data-scribe-section-editor]')).every(input=>input.validity.valid && input.value.trim()!=='');
+    if (!narrativeValid()) { setScribeNote('Check the edited SOAP sections and their field limits before applying.'); return; }
+    const omissionsReviewed = () => scribeStatementsNeedingReview(pending.result).length === 0 || pending.reviewedOmissions === true;
+    const vitalsValid = () => !scribe.reviewBody || Array.from(scribe.reviewBody.querySelectorAll('[data-scribe-vital-review]')).every(input => input.validity.valid);
+    if (!omissionsReviewed()) { setScribeNote('Review the flagged source statements and confirm your review before applying.'); return; }
+    if (!vitalsValid()) { setScribeNote('Check the reviewed vital readings before applying.'); return; }
+    if (pending.result.meta && pending.result.meta.engine === 'local-deterministic' && Array.isArray(pending.result.unclassified) && pending.result.unclassified.length) { setScribeNote('The local draft left statements unclassified. Review the transcript and enter the SOAP fields manually, or generate again. Nothing was applied.'); return; }
+    if (!scribeAccess().editable) { hideScribeReview(); setScribeNote('AI Scribe is read-only for this consultation.'); return; }
+    if (selectedPatient !== pending.patient || scribe.transcript.value !== pending.transcript) {
+      hideScribeReview();
+      setScribeNote('Transcript or patient changed since generation. Generate a new proposal.');
+      return;
+    }
+    // The proposal is about to REPLACE fields that already hold content —
+    // written or generated — so that step always asks first.
+    if (scribeHasContent()) {
+      const confirmed = await confirmAction({
+        title: 'Apply this draft to the SOAP fields?',
+        message: 'The SOAP text and vital fields will be replaced. Vitals left blank in the review will be cleared. Nothing is saved to the clinic record until you click Save Draft.',
+        acceptLabel: 'Apply Draft'
+      });
+      if (!confirmed) return;
+    }
+    // A confirmation dialog is asynchronous. Do not apply an older proposal
+    // while a replacement is being generated, or after its language changed.
+    if (scribeGeneratePending) { setScribeNote('A new draft is still generating. Wait for it to finish before applying.'); return; }
+    if (scribe.pendingDraft !== pending || selectedPatient !== pending.patient
+        || scribe.transcript.value !== pending.transcript || !scribeAccess().editable || !languageMatches() || !sourcesReviewed() || !omissionsReviewed() || !vitalsValid() || !manualReviewConfirmed() || !narrativeValid() || (pending.revision || 0)!==revision) {
+      hideScribeReview();
+      setScribeNote('Proposal became stale. Generate a fresh draft before applying.');
+      return;
+    }
+    const reviewedVitals = Object.assign({}, pending.reviewedVitals);
+    hideScribeReview();
+    applyScribeDraft(pending.patient, pending.result, reviewedVitals);
+  }
+  function discardPendingDraft() {
+    if (!scribe.pendingDraft) return;
+    hideScribeReview();
+    setScribeNote('Proposed draft discarded. The SOAP fields are unchanged.');
+    syncScribePanel();
+  }
+  function applyScribeDraft(patient, result, reviewedVitals) {
+    // Only the veterinarian-entered review values replace vital fields.
+    const appliedSoap = SCRIBE.applyReviewedDraft(form, result.apply, reviewedVitals);
+    writeScribeState(draftFor(patient), {
+      transcript: scribe.transcript.value,
+      transcriptAtGenerate: scribe.transcript.value,
+      generatedAt: result.meta.generatedAt,
+      engine: result.meta.engine,
+      soap: appliedSoap,
+      patient: result.meta.patient
+    });
+    // The character counters attached by the validation layer only re-read a
+    // field on an input event, so a programmatic fill would leave them showing
+    // the previous value. Notify the form about the new text and vital values.
+    SCRIBE.SOAP_FIELDS.concat(SCRIBE.VITAL_FIELDS).forEach(name => {
+      const field = form.elements.namedItem(name);
+      if (field) field.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    // Generated text is working state, never a saved one, and never a review:
+    // markChanged() unsets the saved flag AND the acknowledgement checkbox,
+    // exactly as it does for a hand-typed SOAP entry.
+    markChanged();
+    setScribeNote(scribeSummary(result));
+    syncScribePanel();
+  }
+  function scribeSummary(result) {
+    const parts = ['SOAP text and reviewed vital fields filled below. Review, edit and save the draft.'];
+    if (result.missing && result.missing.length) {
+      parts.push('No ' + result.missing.map(name => SOAP_LABELS[name] || name).join(' or ') + ' content was in the transcript, so "' + SCRIBE.NOT_PROVIDED + '" was used.');
+    }
+    if (result.absentVitals && result.absentVitals.length) {
+      parts.push('No candidate ' + result.absentVitals.map(name => VITAL_LABELS[name] || name).join(' or ') + ' was extracted; check the transcript and existing fields.');
+    }
+    if (result.unclassified && result.unclassified.length) {
+      parts.push(result.unclassified.length + ' line(s) could not be placed and were not added — check them in the transcript.');
+    }
+    if (result.dropped && Object.keys(result.dropped).length) {
+      parts.push('Some lines were left out to fit the field limits.');
+    }
+    return parts.join(' ');
+  }
+
+  // ── TRANSCRIPT SOURCES ────────────────────────────────────────────────────
+  const groqRecord=document.getElementById('groq-record'), groqStop=document.getElementById('groq-stop');
+  const groqSend=document.getElementById('groq-send'), groqDiscard=document.getElementById('groq-discard');
+  const groqStatus=document.getElementById('groq-record-status');
+  const groqTimer=document.getElementById('groq-timer');
+  const pendingAudioPanel=document.getElementById('groq-pending-transcript');
+  const pendingAudioText=document.getElementById('groq-pending-text');
+  const pendingAudioInsert=document.getElementById('groq-insert-transcript');
+  let audioStartedAt=null, audioClock=null;
+  function paintAudioTimer() {
+    if (groqTimer && audioStartedAt !== null) groqTimer.textContent=formatRecTime((performance.now()-audioStartedAt)/1000);
+  }
+  function stopAudioClock() {
+    if (audioClock !== null) { clearInterval(audioClock); audioClock=null; }
+    paintAudioTimer();
+  }
+  let audioTake=null, recorder=null, audioStream=null, audioChunks=[];
+  let audioRequestPending=false, audioSending=false;
+  // Conservative fallback when the authenticated limit check is unavailable.
+  let AUDIO_UPLOAD_LIMIT=1024*1024, AUDIO_STOP_LIMIT=Math.floor(AUDIO_UPLOAD_LIMIT*0.85), audioLimitVerified=false, audioDraftLimit=3500;
+  function audioLimitLabel(bytes) { return (bytes/(1024*1024)).toFixed(2).replace(/\.?0+$/, '') + ' MiB'; }
+  async function refreshAudioLimit() {
+    const controller=new AbortController(), timeout=setTimeout(()=>controller.abort(),10000);
+    try {
+      const response=await fetch('/api/ai/doctor-scribe-audio-limits',{credentials:'same-origin',headers:{Accept:'application/json'},signal:controller.signal});
+      const data=await response.json();
+      const value=data?.data?.max_audio_bytes;
+      if (!response.ok || !Number.isSafeInteger(value) || value<0 || value>10*1024*1024) throw new Error('limit');
+      AUDIO_UPLOAD_LIMIT=value; audioLimitVerified=true; audioDraftLimit=data?.data?.transcript_max_chars===30000 ? 30000 : (data?.data?.draft_max_chars===8000 ? 8000 : 3500);
+    } catch (_) { AUDIO_UPLOAD_LIMIT=1024*1024; audioLimitVerified=false; audioDraftLimit=3500; }
+    finally { clearTimeout(timeout); }
+    AUDIO_STOP_LIMIT=Math.floor(AUDIO_UPLOAD_LIMIT*0.85);
+  }
+  const groqDownload=document.createElement('button');
+  groqDownload.className='btn-secondary'; groqDownload.type='button'; groqDownload.textContent='Download recording'; groqDownload.hidden=true;
+  groqDiscard?.insertAdjacentElement('afterend',groqDownload);
+  groqDownload.addEventListener('click',()=>{
+    if(!audioTake) return;
+    const url=URL.createObjectURL(audioTake.blob), link=document.createElement('a');
+    link.href=url; link.download='consultation-recording.'+(audioTake.blob.type.includes('mp4')?'mp4':audioTake.blob.type.includes('ogg')?'ogg':'webm');
+    link.click(); setTimeout(()=>URL.revokeObjectURL(url),1000);
+    groqStatus.textContent='Download requested. Check the saved file before discarding this recording. Keep it in approved private storage.';
+  });
+  window.addEventListener('beforeunload',event=>{
+    if(recorder || audioTake || audioRequestPending || audioSending) { event.preventDefault(); event.returnValue=''; }
+  });
+  function releaseAudio() {
+    stopAudioClock();
+    if(audioStream) audioStream.getTracks().forEach(track=>track.stop());
+    audioStream=null;
+  }
+  function audioBelongsToPatient(take,patient) {
+    const id=String(patient?.appointmentId ?? '');
+    return !!take && /^\d+$/.test(id) && id===String(take.appointmentId);
+  }
+  function clearPendingAudioDisplay() {
+    if (pendingAudioPanel) pendingAudioPanel.hidden=true;
+    if (pendingAudioText) pendingAudioText.value='';
+  }
+  function discardAudio() { audioTake=null; clearPendingAudioDisplay(); audioStartedAt=null; if (groqTimer) { groqTimer.hidden=true; groqTimer.textContent='00:00'; } groqDownload.hidden=true; if(groqSend) groqSend.hidden=true; if(groqDiscard) groqDiscard.hidden=true; if(groqRecord) groqRecord.disabled=false; }
+  function insertPendingAudioTranscript() {
+    const take=audioTake;
+    if (!take || typeof take.pendingTranscript!=='string' || !take.pendingTranscript) return;
+    if (!audioBelongsToPatient(take,selectedPatient) || !scribeAccess().editable) {
+      clearPendingAudioDisplay();
+      groqStatus.textContent='Transcription and recording retained in this tab. Return to the original active consultation to review them.';
+      return;
+    }
+    const chunk=take.pendingTranscript.trim(), current=scribe.transcript.value;
+    const combined=(current ? current.replace(/\s+$/, '')+' ' : '')+chunk;
+    if (combined.length>audioDraftLimit) {
+      if (pendingAudioText) pendingAudioText.value=take.pendingTranscript;
+      if (pendingAudioPanel) pendingAudioPanel.hidden=false;
+      groqStatus.textContent='Transcription retained below; it was not inserted because the transcript would exceed the limit. Copy it safely or shorten the existing text, then select Insert transcription. No new provider request is needed.';
+      return;
+    }
+    appendDictation(take.pendingTranscript); revealScribeTranscript(false);
+    take.pendingTranscript=null; take.transcribed=true; clearPendingAudioDisplay();
+    groqStatus.textContent='Transcription added. Review it against the recording. Audio remains in this tab; download it if needed, then discard it before recording again or leaving.';
+  }
+  pendingAudioInsert?.addEventListener('click',insertPendingAudioTranscript);
+  groqRecord?.addEventListener('click',async()=>{
+    if(!selectedPatient || !scribeAccess().editable || recorder || audioTake || audioRequestPending) return;
+    if(rec.state===REC.RECORDING || rec.state===REC.REQUESTING) { groqStatus.textContent='Stop browser dictation before recording.'; return; }
+    if(!navigator.mediaDevices?.getUserMedia || !window.MediaRecorder) { groqStatus.textContent='Recording is not supported in this browser.'; return; }
+    const patient=selectedPatient;
+    try {
+      audioRequestPending=true; groqRecord.disabled=true; groqStatus.textContent='Checking the recording size limit…';
+      await refreshAudioLimit();
+      if (AUDIO_UPLOAD_LIMIT<131072) { groqRecord.disabled=false; groqStatus.textContent='The server upload limit is too small for recording. Contact the administrator or enter the transcript manually.'; return; }
+      if(selectedPatient!==patient || !scribeAccess().editable) { groqRecord.disabled=false; return; }
+      audioStream=await navigator.mediaDevices.getUserMedia({audio:true});
+      if(selectedPatient!==patient || !scribeAccess().editable) { releaseAudio(); groqRecord.disabled=false; return; }
+      const type=['audio/webm;codecs=opus','audio/ogg;codecs=opus','audio/mp4'].find(t=>MediaRecorder.isTypeSupported(t));
+      if(!type) { releaseAudio(); groqRecord.disabled=false; groqStatus.textContent='No supported audio format is available in this browser.'; return; }
+      audioChunks=[]; recorder=new MediaRecorder(audioStream,{mimeType:type,audioBitsPerSecond:32000});
+      const current=recorder;
+      let bytes=0, stopReason='';
+      current.ondataavailable=e=>{
+        if(e.data && e.data.size) { audioChunks.push(e.data); bytes+=e.data.size; }
+        if(bytes>=AUDIO_STOP_LIMIT && current.state==='recording') {
+          stopReason='Recording stopped near the upload size limit. Captured audio retained.'; current.stop();
+        }
+      };
+      current.onerror=()=>{
+        stopReason='Recording interrupted. Review the captured audio; the end may be incomplete.';
+        groqStatus.textContent=stopReason;
+        if(current.state!=='inactive') { try { current.stop(); } catch (_) {} }
+      };
+      audioStream.getAudioTracks().forEach(track=>track.addEventListener('ended',()=>{
+        if(current.state==='recording') { stopReason='Microphone disconnected. Captured audio retained; the end may be incomplete.'; current.stop(); }
+      }));
+      current.onstop=()=>{
+        releaseAudio(); recorder=null; groqStop.hidden=true; groqRecord.disabled=false;
+        const blob=new Blob(audioChunks,{type:current.mimeType}); audioChunks=[];
+        if(!blob.size) { groqStatus.textContent='No audio was captured. Record again or enter the transcript manually.'; return; }
+        audioTake={blob,patient,appointmentId:patient.appointmentId}; groqRecord.disabled=true; groqSend.hidden=false; groqDiscard.hidden=false; groqDownload.hidden=false;
+        groqSend.disabled=blob.size>AUDIO_UPLOAD_LIMIT;
+        groqStatus.textContent=(stopReason || 'Recording ready.')+(blob.size>AUDIO_UPLOAD_LIMIT ? ' Too large to upload. Download and verify the audio before discarding; use an approved tool to split it.' : ' Send for transcription, download, or discard. Audio is held only in this tab; download before closing.');
+      };
+      current.start(1000); audioStartedAt=performance.now(); if (groqTimer) { groqTimer.hidden=false; paintAudioTimer(); } audioClock=setInterval(paintAudioTimer,1000); groqStop.hidden=false; groqStatus.textContent='Recording… stop when finished. Stops near '+audioLimitLabel(AUDIO_STOP_LIMIT)+' to protect the '+audioLimitLabel(AUDIO_UPLOAD_LIMIT)+(audioLimitVerified?' server upload limit.':' fallback limit; server limit could not be checked.')+' Keep this tab open.';
+    } catch (_) {releaseAudio(); recorder=null; groqStop.hidden=true; groqRecord.disabled=false; groqStatus.textContent='Microphone access failed or was denied.';}
+    finally { audioRequestPending=false; }
+  });
+  groqStop?.addEventListener('click',()=>{if(recorder && recorder.state==='recording') recorder.stop();});
+  groqDiscard?.addEventListener('click',()=>{if(audioSending || !window.confirm('Discard this recording and any transcription awaiting insertion? Anything not saved or copied will be permanently lost.')) return; discardAudio(); groqStatus.textContent='Recording discarded.';});
+  groqSend?.addEventListener('click',async()=>{
+    const take=audioTake;
+    if(!take || !audioBelongsToPatient(take,selectedPatient) || !scribeAccess().editable) {groqStatus.textContent='Recording retained. Return to its active consultation to send, or download or discard it.'; return;}
+    if(audioSending || take.transcribed || take.pendingTranscript || take.blob.size>AUDIO_UPLOAD_LIMIT) return;
+    audioSending=true; groqSend.disabled=true; groqDiscard.disabled=true;
+    const controller=new AbortController(), timeout=setTimeout(()=>controller.abort(),120000);
+    try {
+      const csrfResponse=await fetch('/api/auth/csrf',{signal:controller.signal,credentials:'same-origin',headers:{Accept:'application/json'}});
+      const csrfData=await csrfResponse.json(); const token=csrfData?.data?.csrf_token;
+      if(!csrfResponse.ok || !token) throw new Error('session');
+      const body=new FormData(); body.append('appointment_id',String(take.appointmentId)); body.append('audio',take.blob,'recording');
+      const response=await fetch('/api/ai/doctor-scribe-audio',{signal:controller.signal,method:'POST',credentials:'same-origin',headers:{Accept:'application/json','X-CSRF-TOKEN':token},body});
+      const data=await response.json().catch(()=>null);
+      if(!response.ok || (typeof data?.data?.transcript!=='string' || !data.data.transcript.trim())) {groqStatus.textContent=(response.status===413 || response.status===422) ? 'The server could not accept this recording. Recording retained; try a shorter recording or contact the administrator.' : 'Transcription unavailable. Recording retained for retry or discard.'; return;}
+      if (audioTake!==take) { groqStatus.textContent='The recording changed while transcription was running; the response could not be matched.'; return; }
+      take.pendingTranscript=data.data.transcript; groqSend.hidden=true;
+      insertPendingAudioTranscript();
+    } catch (_) {groqStatus.textContent='Could not reach transcription service. Recording retained for retry or discard.';}
+    finally {clearTimeout(timeout); audioSending=false; groqSend.disabled=false; groqDiscard.disabled=false;}
+  });
+  const punctuationButton=document.getElementById('scribe-punctuation');
+  const punctuationReview=document.getElementById('scribe-punctuation-review');
+  const punctuationText=document.getElementById('scribe-punctuation-suggestion');
+  let pendingPunctuation=null;
+  function clearPunctuation() {
+    pendingPunctuation=null;
+    if (punctuationReview) punctuationReview.hidden=true;
+    if (punctuationText) punctuationText.value='';
+  }
+  function scribePunctuationFailureMessage(response) {
+    const code=response?.raw?.code;
+    if (response?.status===429 && !code) return 'Too many Scribe requests. Wait a moment and try again. Your original transcript is unchanged.';
+    const messages={
+      privacy_contact_detected:'Possible email or Philippine mobile number detected. The transcript was not sent for punctuation. Remove contact details and review other identifiers.',
+      punctuation_changed_source:'The suggestion changed or omitted source text, so it was not applied. Review the original transcript and try again.',
+      punctuation_exceeds_limit:'The suggestion would exceed the transcript limit, so it was not applied. The original transcript is unchanged.',
+      rate_limit:'The sentence-break service is at its usage limit. Your original transcript is unchanged; try again later.',
+      timeout:'The sentence-break service took too long. Your original transcript is unchanged; try again.',
+      transport:'The sentence-break service could not be reached. Your original transcript is unchanged; try again.',
+      invalid_json:'The sentence-break service returned an unreadable response. Your original transcript is unchanged; try again.',
+      invalid_schema:'The sentence-break service returned an unreadable response. Your original transcript is unchanged; try again.',
+      http_error:'The sentence-break service returned an error. Your original transcript is unchanged; try again later.',
+      configuration:'The sentence-break service is not configured. Your original transcript is unchanged.',
+      safety_refusal:'The sentence-break service could not process this transcript. Your original transcript is unchanged.',
+      empty_response:'The sentence-break service returned no text. Your original transcript is unchanged; try again.',
+      clinical_blocked:'Sentence-break suggestions are not available with the current clinical settings. Your original transcript is unchanged.',
+      privacy_blocked:'Sentence-break suggestions are not available with the current privacy settings. Your original transcript is unchanged.'
+    };
+    return messages[code] || 'Sentence-break suggestions are unavailable. Your original transcript is unchanged; review it and try again.';
+  }
+  punctuationButton?.addEventListener('click', async () => {
+    if (!selectedPatient || !scribeAccess().editable || !scribe.transcript || !window.VHSAuth) return;
+    if (rec.state === REC.RECORDING || rec.state === REC.REQUESTING) { setScribeNote('Stop dictation before requesting sentence breaks.'); return; }
+    const patient=selectedPatient, source=scribe.transcript.value, appointmentId=patient.appointmentId;
+    if (source.trim().length < 12 || source.length > 30000) { setScribeNote('Enter a transcript of 12 to 30,000 characters first.'); return; }
+    clearPunctuation(); punctuationButton.disabled=true; setScribeNote('Suggesting sentence breaks for your review…');
+    try {
+      const response=await window.VHSAuth.send('ai/doctor-scribe',{appointment_id:Number(appointmentId),transcript:source,mode:'punctuation'});
+      if (selectedPatient!==patient || scribe.transcript.value!==source || !scribeAccess().editable) { setScribeNote('The transcript changed. Request a new suggestion.'); return; }
+      const suggestion=response?.data?.suggestion;
+      if (!response?.ok || typeof suggestion!=='string') {
+        setScribeNote(scribePunctuationFailureMessage(response)); return;
+      }
+      pendingPunctuation={patient,source,suggestion}; punctuationText.value=suggestion; punctuationReview.hidden=false;
+      setScribeNote('Review the suggestion against the original transcript before using it.');
+    } catch (_) { setScribeNote('Could not reach the drafting service. Review and edit the original transcript.'); }
+    finally { punctuationButton.disabled=false; }
+  });
+  document.getElementById('scribe-punctuation-discard')?.addEventListener('click',clearPunctuation);
+  document.getElementById('scribe-punctuation-apply')?.addEventListener('click',() => {
+    if (!pendingPunctuation || selectedPatient!==pendingPunctuation.patient || scribe.transcript.value!==pendingPunctuation.source || !scribeAccess().editable) {
+      clearPunctuation(); setScribeNote('The transcript changed. Request a new suggestion.'); return;
+    }
+    const suggestion=pendingPunctuation.suggestion;
+    clearPunctuation(); setTranscriptText(suggestion,true);
+    setScribeNote('Reviewed transcript updated. Check it again before generating the SOAP draft.');
+  });
+  // Typed/pasted text, a local .txt file, and — later — recorded audio. All
+  // three end up in the same textarea, so the generator has one input.
+  // keepVisible keeps the box open for a paste — the Doctor is looking at it
+  // and must not have it collapse the moment they press Ctrl+V.
+  function setTranscriptText(text, keepVisible) {
+    if (!keepVisible) revealScribeTranscript(false);
+    scribe.transcript.value = String(text == null ? '' : text);
+    scribe.transcript.dispatchEvent(new Event('input', { bubbles: true }));
+  }
+  // Anything that would discard transcript content asks first. Not shown for an
+  // empty box — there is nothing to lose.
+  function replaceTranscript(label, apply) {
+    if (!scribe.transcript.value.trim()) { apply(); return; }
+    confirmAction({
+      title: 'Replace current transcript?',
+      message: 'Your existing transcript text' + (label ? ' (' + label + ')' : '') + ' will be replaced.',
+      acceptLabel: 'Replace'
+    }).then(confirmed => { if (confirmed) apply(); });
+  }
+  function readTranscriptFile(file) {
+    if (!file) return;
+    const name = file.name || 'this file';
+    // Extension is the check the Doctor can see; the MIME type is a courtesy.
+    // Neither decides anything beyond "plain text file".
+    if (!/\.txt$/i.test(name) && file.type !== 'text/plain') {
+      setScribeNote('Upload a plain .txt transcript — "' + name + '" is not supported.');
+      return;
+    }
+    if (file.size > TRANSCRIPT_FILE_MAX_BYTES) {
+      setScribeNote('"' + name + '" is larger than 128 KB. Split the transcript into a smaller .txt file.');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      const text = String(reader.result || '');
+      if (text.length > TRANSCRIPT_STORAGE_MAX_CHARS) {
+        setScribeNote('"' + name + '" holds more than ' + TRANSCRIPT_STORAGE_MAX_CHARS + ' characters. Split it into a smaller file.');
+        return;
+      }
+      replaceTranscript(name, () => setTranscriptText(text));
+    };
+    reader.onerror = () => setScribeNote('"' + name + '" could not be read. Try again with a plain .txt file.');
+    reader.readAsText(file);
+  }
+
+  if (scribe.panel && SCRIBE) {
+    // Real capture: Start asks the browser for the microphone, Stop ends the take,
+    // and the clip waits in memory until the Doctor processes or discards it.
+    // Nothing is generated automatically — the Doctor sees the recording first.
+    if (scribe.disclaimer) scribe.disclaimer.textContent = SCRIBE.recording.message;
+    scribe.record.addEventListener('click', startScribeRecording);
+    if (scribe.stop) scribe.stop.addEventListener('click', stopScribeRecording);
+    // Review-before-apply: Apply writes the proposal into the fields (with an
+    // overwrite confirmation when fields hold content); Discard drops it.
+    // Neither path ever saves — Save Draft remains the only persistence.
+    if (scribe.reviewApply) scribe.reviewApply.addEventListener('click', applyPendingDraft);
+    if (scribe.reviewDiscard) scribe.reviewDiscard.addEventListener('click', discardPendingDraft);
+    scribe.paste.addEventListener('click', () => {
+      const open = scribe.wrap.hidden;
+      scribe.wrap.hidden = !open;
+      scribe.paste.setAttribute('aria-expanded', String(open));
+      if (open) scribe.transcript.focus();
+    });
+    // Pasting over real notes must not silently discard them. Confirmed pastes
+    // replace the transcript exactly like an upload — one helper, one status —
+    // so the dialog title and the box can never disagree.
+    scribe.transcript.addEventListener('paste', event => {
+      const text = (event.clipboardData || window.clipboardData || {}).getData('text') || '';
+      if (!scribe.transcript.value.trim()) {
+        if (text.length > TRANSCRIPT_STORAGE_MAX_CHARS) {
+          event.preventDefault(); setScribeNote('Pasted text is over 30,000 characters. The transcript was not inserted; split it into smaller files.');
+        }
+        return;
+      }
+      event.preventDefault();
+      if (!text) return;
+      // The box's maxlength no longer bounds this path: we assign the value.
+      if (text.length > TRANSCRIPT_STORAGE_MAX_CHARS) {
+        setScribeNote('Pasted text is over ' + TRANSCRIPT_STORAGE_MAX_CHARS + ' characters. Paste a shorter transcript.');
+        return;
+      }
+      replaceTranscript('pasted text', () => setTranscriptText(text, true));
+    });
+    if (scribe.upload && scribe.file) {
+      scribe.upload.addEventListener('click', () => scribe.file.click());
+      scribe.file.addEventListener('change', () => {
+        const file = scribe.file.files && scribe.file.files[0];
+        scribe.file.value = ''; // let the same file be picked again
+        readTranscriptFile(file);
+      });
+    }
+    document.getElementById('scribe-download-transcript')?.addEventListener('click', () => {
+      if (!selectedPatient || !scribeAccess().editable || !scribe.transcript.value) {
+        setScribeNote('Open an active consultation with a transcript before downloading.'); return;
+      }
+      // Explicit doctor action only: no transcript leaves the browser here.
+      const url=URL.createObjectURL(new Blob([scribe.transcript.value], {type:'text/plain;charset=utf-8'}));
+      const link=document.createElement('a'); link.href=url; link.download='consultation-transcript.txt';
+      document.body.appendChild(link); link.click(); link.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      setScribeNote('Transcript downloaded. Store the unencrypted file in an approved private location.');
+    });
+    scribe.generate.addEventListener('click', requestScribeGenerate);
+    if (scribe.draftLanguage) {
+      // A display preference is not a clinical edit and must not clear the doctor's review acknowledgement.
+      scribe.draftLanguage.addEventListener('input', event => event.stopPropagation());
+      scribe.draftLanguage.addEventListener('change', () => { clearScribeRetry(); if (scribe.pendingDraft) setScribeNote('Language changed. Generate a new draft before applying.'); });
+    }
+    if (scribeRetryButton) scribeRetryButton.addEventListener('click', () => {
+      if (!scribeRetry || selectedPatient!==scribeRetry.patient || scribe.transcript.value!==scribeRetry.transcript || !scribeAccess().editable) { clearScribeRetry(); setScribeNote('The consultation or transcript changed. Generate a new draft.'); return; }
+      const token=scribeRetry.token; scribeRetryButton.hidden=true; runScribeGenerate(token);
+    });
+    // A proposal is bound to the exact transcript displayed when it was
+    // generated. Editing or appending dictation invalidates the preview.
+    scribe.transcript.addEventListener('input', () => {
+      clearScribeRetry();
+      if (scribe.pendingDraft && scribe.pendingDraft.transcript !== scribe.transcript.value) {
+        hideScribeReview();
+        setScribeNote('Transcript changed. Generate a fresh SOAP proposal before applying.');
+      }
+    });
+    // Transcript edits are handled by the ONE form-level input listener below
+    // (the textarea lives inside the consultation form, like every other
+    // field), so there is no second edit path to keep in step.
+    setScribeNote(SCRIBE_HINT);
+  }
+  // Reads a row's controls back into the flat PART record the draft stores.
+  // data-part is the single source of truth for every structured control, so
+  // adding a control never means touching the capture code again.
+  function readMedicineRow(row) {
+    const values = emptyMedicine();
+    row.querySelectorAll('[data-part]').forEach(control => { values[control.dataset.part] = control.value; });
+    row.querySelectorAll('[data-field]').forEach(control => { values[control.dataset.field] = control.value; });
+    return values;
+  }
+
+  function addMedicine(values = emptyMedicine()) {
+    const row = element('fieldset', '', 'medicine-row');
+    const sequence = ++medicineSequence;
+    const idFor = key => `medicine-${sequence}-${key}`;
+    const text = (className, id, placeholder, maxLength) => {
+      const input = element('input', '', `form-input ${className}`.trim());
+      input.type = 'text';
+      input.id = id;
+      input.maxLength = maxLength;
+      input.placeholder = placeholder;
+      input.autocomplete = 'off';
+      return input;
+    };
+    const option = (value, label) => new Option(label, value);
+
+    // ── Medicine ───────────────────────────────────────────────────────────
+    const medicineGroup = element('div');
+    const medicineLabel = element('label', 'Medicine', 'form-label');
+    const medicineInput = text('', idFor('medicine'), 'e.g. Amoxicillin 250mg', MEDICINE_LIMITS.medicine);
+    medicineInput.dataset.field = 'medicine';
+    medicineInput.value = values.medicine || '';
+    medicineLabel.htmlFor = medicineInput.id;
+    medicineGroup.append(medicineLabel, medicineInput);
+
+    // ── Dosage: amount + unit (custom unit as the escape hatch) ────────────
+    const dosageGroup = element('div', '', 'medicine-dosage');
+    const dosageLabel = element('label', 'Dosage', 'form-label');
+    const dosageControls = element('div', '', 'medicine-controls');
+    const dosageValue = text('medicine-amount', idFor('dosage'), '1', 10);
+    dosageValue.dataset.part = 'dosageValue';
+    dosageValue.value = values.dosageValue || '';
+    dosageValue.inputMode = 'decimal';
+    dosageValue.setAttribute('aria-label', 'Dosage amount');
+    const dosageUnit = element('select', '', 'form-input medicine-select');
+    dosageUnit.id = idFor('dosageUnit');
+    dosageUnit.dataset.part = 'dosageUnit';
+    dosageUnit.append(option(CHOOSE_UNIT, 'Unit…'));
+    DOSAGE_UNITS.forEach(unit => dosageUnit.append(option(unit, unit)));
+    dosageUnit.append(option('custom', 'Other / Custom'));
+    dosageUnit.value = values.dosageUnit || CHOOSE_UNIT;
+    const dosageCustom = text('medicine-custom', idFor('dosageCustom'), 'custom unit', 20);
+    dosageCustom.dataset.part = 'dosageCustom';
+    dosageCustom.value = values.dosageCustom || '';
+    dosageCustom.setAttribute('aria-label', 'Custom dosage unit');
+    dosageCustom.hidden = dosageUnit.value !== 'custom';
+    dosageControls.append(dosageValue, dosageUnit, dosageCustom);
+    dosageLabel.htmlFor = dosageValue.id;
+    dosageGroup.append(dosageLabel, dosageControls);
+
+    // ── Frequency: pattern + optional interval / custom text ───────────────
+    const frequencyGroup = element('div', '', 'medicine-frequency');
+    const frequencyLabel = element('label', 'Frequency', 'form-label');
+    const frequencyControls = element('div', '', 'medicine-controls');
+    const frequencyPattern = element('select', '', 'form-input medicine-select');
+    frequencyPattern.id = idFor('frequency');
+    frequencyPattern.dataset.part = 'frequencyPattern';
+    frequencyPattern.append(option(CHOOSE_PATTERN, 'Choose…'));
+    FREQUENCY_PATTERNS.forEach(([value, label]) => frequencyPattern.append(option(value, label)));
+    frequencyPattern.value = values.frequencyPattern || CHOOSE_PATTERN;
+    const frequencyEvery = text('medicine-amount', idFor('frequencyEvery'), '8', 3);
+    frequencyEvery.dataset.part = 'frequencyEvery';
+    frequencyEvery.value = values.frequencyEvery || '';
+    frequencyEvery.inputMode = 'numeric';
+    frequencyEvery.setAttribute('aria-label', 'Frequency interval');
+    frequencyEvery.hidden = !INTERVAL_PATTERNS.has(frequencyPattern.value);
+    const frequencyCustom = text('medicine-custom', idFor('frequencyCustom'), 'e.g. twice weekly, with food', MEDICINE_LIMITS.frequency);
+    frequencyCustom.dataset.part = 'frequencyCustom';
+    frequencyCustom.value = values.frequencyCustom || '';
+    frequencyCustom.setAttribute('aria-label', 'Custom frequency');
+    frequencyCustom.hidden = frequencyPattern.value !== 'custom';
+    frequencyControls.append(frequencyPattern, frequencyEvery, frequencyCustom);
+    frequencyLabel.htmlFor = frequencyPattern.id;
+    frequencyGroup.append(frequencyLabel, frequencyControls);
+
+    // ── Duration: whole days ────────────────────────────────────────────────
+    const durationGroup = element('div', '', 'medicine-duration');
+    const durationLabel = element('label', 'Duration', 'form-label');
+    const durationControls = element('div', '', 'medicine-controls');
+    const durationInput = text('medicine-amount', idFor('duration'), '7', 3);
+    durationInput.dataset.field = 'duration';
+    durationInput.value = values.duration || '';
+    durationInput.inputMode = 'numeric';
+    durationControls.append(durationInput, element('span', 'days', 'medicine-suffix'));
+    durationLabel.htmlFor = durationInput.id;
+    durationGroup.append(durationLabel, durationControls);
+
+    // ── Owner instructions: free text, unchanged in spirit ──────────────────
+    const instructionGroup = element('div', '', 'medicine-instructions');
+    const instructionLabel = element('label', 'Instructions for the owner', 'form-label');
+    const instructionInput = element('textarea', '', 'form-input');
+    instructionInput.id = idFor('instructions');
+    instructionInput.dataset.field = 'instructions';
+    instructionInput.value = values.instructions || '';
+    instructionInput.maxLength = MEDICINE_LIMITS.instructions;
+    instructionInput.rows = 2;
+    instructionInput.placeholder = 'e.g. give with food';
+    instructionLabel.htmlFor = instructionInput.id;
+    instructionGroup.append(instructionLabel, instructionInput);
+
+    // Dependent controls appear only once their option is chosen, so a custom
+    // unit or a custom schedule can never be typed without the option that
+    // gives it meaning.
+    const syncDependent = () => {
+      dosageCustom.hidden = dosageUnit.value !== 'custom';
+      if (dosageUnit.value !== 'custom') dosageCustom.value = '';
+      frequencyEvery.hidden = !INTERVAL_PATTERNS.has(frequencyPattern.value);
+      if (!INTERVAL_PATTERNS.has(frequencyPattern.value)) frequencyEvery.value = '';
+      frequencyCustom.hidden = frequencyPattern.value !== 'custom';
+      if (frequencyPattern.value !== 'custom') frequencyCustom.value = '';
+    };
+    dosageUnit.addEventListener('change', syncDependent);
+    frequencyPattern.addEventListener('change', syncDependent);
+
+    row.append(medicineGroup, dosageGroup, frequencyGroup, durationGroup, instructionGroup);
+    const remove = element('button', 'Remove', 'btn-secondary btn-small');
+    remove.type = 'button';
+    remove.setAttribute('aria-label', 'Remove these medicine instructions');
+    remove.addEventListener('click', () => {
+      row.remove();
+      markChanged();
+      document.getElementById('add-medicine').focus();
+    });
+    row.append(remove);
+    document.getElementById('medicine-list').append(row);
+    return row;
+  }
+  // ── VACCINATION ROWS ───────────────────────────────────────────────────────
+  // Structured clinical rows for vaccines given during THIS visit. The backend
+  // stores them on vaccination_records keyed by consultation/pet/
+  // veterinarian, and requires administeredDate to equal the visit date —
+  // enforced here for an honest immediate message, and again server-side.
+  const VACCINE_LIMITS = { vaccineName: 150, batchNo: 100, notes: 500 };
+  let vaccinationSequence = 0;
+  function emptyVaccination() {
+    return { vaccineName: '', administeredDate: '', nextDueDate: '', batchNo: '', notes: '' };
+  }
+  function readVaccinationRow(row) {
+    const values = {};
+    row.querySelectorAll('[data-vfield]').forEach(control => { values[control.dataset.vfield] = control.value; });
+    return values;
+  }
+  function addVaccinationRow(values) {
+    const row = element('fieldset', '', 'medicine-row vaccination-row');
+    const sequence = ++vaccinationSequence;
+    const idFor = key => `vaccine-${sequence}-${key}`;
+    const v = values || emptyVaccination();
+    const text = (className, id, placeholder, maxLength) => {
+      const input = element('input', '', `form-input ${className}`.trim());
+      input.type = 'text';
+      input.id = id;
+      input.maxLength = maxLength;
+      input.placeholder = placeholder;
+      input.autocomplete = 'off';
+      return input;
+    };
+    const dateGroup = (id, label, value) => {
+      const input = element('input', '', 'form-input');
+      input.type = 'date';
+      input.id = id;
+      input.value = value || '';
+      const group = element('div');
+      const lbl = element('label', label, 'form-label');
+      lbl.htmlFor = id;
+      group.append(lbl, input);
+      return { group, input };
+    };
+
+    const nameGroup = element('div');
+    const nameLabel = element('label', 'Vaccine', 'form-label');
+    const nameInput = text('', idFor('name'), 'e.g. Rabies', VACCINE_LIMITS.vaccineName);
+    nameInput.dataset.vfield = 'vaccineName';
+    nameInput.value = v.vaccineName || '';
+    nameLabel.htmlFor = nameInput.id;
+    nameGroup.append(nameLabel, nameInput);
+
+    const given = dateGroup(idFor('given'), 'Given on (visit date)', v.administeredDate);
+    given.input.dataset.vfield = 'administeredDate';
+    const due = dateGroup(idFor('due'), 'Next due (optional)', v.nextDueDate);
+    due.input.dataset.vfield = 'nextDueDate';
+
+    const batchGroup = element('div');
+    const batchLabel = element('label', 'Batch no. (optional)', 'form-label');
+    const batchInput = text('', idFor('batch'), 'e.g. RB-2026-014', VACCINE_LIMITS.batchNo);
+    batchInput.dataset.vfield = 'batchNo';
+    batchInput.value = v.batchNo || '';
+    batchLabel.htmlFor = batchInput.id;
+    batchGroup.append(batchLabel, batchInput);
+
+    const notesGroup = element('div');
+    const notesLabel = element('label', 'Notes (optional)', 'form-label');
+    const notesInput = element('textarea', '', 'form-input');
+    notesInput.id = idFor('notes');
+    notesInput.dataset.vfield = 'notes';
+    notesInput.value = v.notes || '';
+    notesInput.maxLength = VACCINE_LIMITS.notes;
+    notesInput.rows = 2;
+    notesLabel.htmlFor = notesInput.id;
+    notesGroup.append(notesLabel, notesInput);
+
+    row.append(nameGroup, given.group, due.group, batchGroup, notesGroup);
+    const remove = element('button', 'Remove', 'btn-secondary btn-small');
+    remove.type = 'button';
+    remove.setAttribute('aria-label', 'Remove this vaccination record');
+    remove.addEventListener('click', () => {
+      row.remove();
+      markChanged();
+      document.getElementById('add-vaccination').focus();
+    });
+    row.append(remove);
+    document.getElementById('vaccination-list').append(row);
+    return row;
+  }
+
+  // Restores the working draft into the mounted form controls. Used by
+  // selectPatient AND by the server-hydration path below, so a re-opened
+  // consultation always renders exactly what the draft holds.
+  function renderDraftIntoForm(patient) {
+    const draft = draftFor(patient);
+    fields.forEach(name => { form.elements.namedItem(name).value = draft.fields[name] || ''; });
+    document.getElementById('medicine-list').replaceChildren();
+    (draft.medicines && draft.medicines.length ? draft.medicines : [emptyMedicine()]).forEach(addMedicine);
+    form.querySelectorAll('[name="labs"]').forEach(input => { input.checked = (draft.labs || []).includes(input.value); });
+    document.getElementById('vaccination-list').replaceChildren();
+    (draft.vaccinations || []).forEach(addVaccinationRow);
+    document.getElementById('reviewed').checked = draft.reviewed;
+    document.dispatchEvent(new Event('doctor:fields-restored'));
+  }
+
+  // ── CONSULTATION PAYLOAD (server contract) ─────────────────────────────────
+  // The draft's structured rows become the flat rows PATCH
+  // /api/consultations/{id} expects: composed dosage/frequency strings for
+  // prescriptions, checkbox selections as lab requests, and vaccination rows
+  // validated against the backend's visit-date rule BEFORE the request, so
+  // the doctor gets an immediate honest message instead of a 422 round-trip.
+  function buildConsultationPayload(patient) {
+    const draft = draftFor(patient);
+    const vaccinations = (draft.vaccinations || [])
+      .filter(row => String(row.vaccineName || '').trim())
+      .map(row => ({
+        vaccineName: String(row.vaccineName).trim(),
+        administeredDate: String(row.administeredDate || '').trim(),
+        nextDueDate: String(row.nextDueDate || '').trim() || null,
+        batchNo: String(row.batchNo || '').trim() || null,
+        notes: String(row.notes || '').trim() || null
+      }));
+    for (const row of vaccinations) {
+      if (!row.administeredDate) {
+        return { error: `Set the date "${row.vaccineName}" was administered (the visit date).` };
+      }
+      if (row.administeredDate !== patient.date) {
+        return { error: `"${row.vaccineName}" must be dated the visit date (${patient.date}).` };
+      }
+      if (row.nextDueDate && row.nextDueDate < row.administeredDate) {
+        return { error: `The next-due date for "${row.vaccineName}" cannot be earlier than the administered date.` };
+      }
+    }
+    return {
+      payload: {
+        expected_revision: draft.clinicalRevision,
+        soap: {
+          subjective: draft.fields.subjective || '',
+          objective: draft.fields.exam || '',
+          assessment: draft.fields.assessment || '',
+          plan: draft.fields.plan || '',
+          weight: draft.fields.weight || '',
+          temperature: draft.fields.temperature || '',
+          heartRate: draft.fields.heartRate || ''
+        },
+        prescriptions: draft.medicines
+          .filter(m => String(m.medicine || '').trim())
+          .map(m => ({
+            medicine: String(m.medicine).trim(),
+            dosage: dosageText(m),
+            frequency: frequencyText(m),
+            duration: String(m.duration || '').trim() || null,
+            instructions: String(m.instructions || '').trim() || null
+          })),
+        labRequests: draft.labs.map(name => ({ test: name, notes: null })),
+        vaccinations: vaccinations
+      }
+    };
+  }
+
+  // ── SERVER-TRUTH CONSULTATION ADOPTION ─────────────────────────────────────
+  // Whenever a patient with a live or finished consultation is opened, the
+  // ONE server record for this appointment is fetched and, when the local
+  // draft holds no unsaved edits, becomes the working draft — so a reload or
+  // a patient switch re-opens exactly what was last saved, never a stale
+  // device copy. The Scribe transcript is browser-local by design and is
+  // never touched here.
+  const _consultationSyncFlight = {};
+  async function _syncConsultationFromServer(patient) {
+    if (!window.VHSReads || !patient || !patient.appointmentId) return;
+    const sync = workingState(patient);
+    if (sync.ready && statusFor(patient) === 'in_consultation') return;
+    if (_consultationSyncFlight[patient.appointmentId]) return;
+    _consultationSyncFlight[patient.appointmentId] = true;
+    try {
+      const res = await window.VHSReads.consultationForAppointment(patient.appointmentId);
+      if (!selectedPatient || selectedPatient.id !== patient.id) return; // selection moved on
+      if (!res.ok || !res.data || !res.data.consultation) {
+        sync.failed=true;
+        if (workingStatus) workingStatus.textContent='Could not load the consultation. Retry before editing.';
+        if (workingRetry) workingRetry.hidden=false;
+        return;
+      }
+      const c = res.data.consultation;
+      const draft = draftFor(patient);
+      draft.consultationId = c.consultationId || draft.consultationId || null;
+      draft.clinicalRevision = c.revision;
+      if (c.startedAt && !draft.startedAt) draft.startedAt = c.startedAt;
+      if (c.status === 'completed') {
+        draft.completedAt = c.completedAt || draft.completedAt;
+        draft.durationMinutes = c.duration != null ? c.duration : draft.durationMinutes;
+        _adoptConsultationSnapshot(draft, c);
+        draft.saved = true;
+      } else {
+        const result=await workingStore.load(draft.consultationId);
+        if (!selectedPatient || selectedPatient.id !== patient.id) return;
+        if (!result.ok) {
+          sync.failed=true;
+          if (workingStatus) workingStatus.textContent='Could not load the working draft. Retry before editing.';
+          if (workingRetry) workingRetry.hidden=false;
+          return;
+        }
+        if (result.draft) {
+          const saved=result.draft;
+          if (!saved || typeof saved !== 'object' || Array.isArray(saved)
+              || (saved.fields && (typeof saved.fields !== 'object' || Array.isArray(saved.fields)))
+              || ['medicines','labs','vaccinations'].some(key => saved[key] != null && !Array.isArray(saved[key]))) {
+            sync.failed=true;
+            if (workingStatus) workingStatus.textContent='The working draft could not be read safely. Contact the clinic administrator.';
+            return;
+          }
+          Object.assign(draft, saved);
+          draft.consultationId=c.consultationId;
+          if (saved.clinicalRevision == null) draft.clinicalRevision=c.revision;
+        } else {
+          _adoptConsultationSnapshot(draft, c);
+          draft.saved=true;
+        }
+      }
+      sync.ready=true; sync.failed=false;
+      form.inert=false;
+      renderDraftIntoForm(patient);
+      if (scribe.transcript) scribe.transcript.value=scribeState(draft).transcript;
+      if (scribe.wrap) scribe.wrap.hidden=!scribeState(draft).transcript;
+      restoreScribeRetry(patient);
+      document.getElementById('draft-state').textContent = draft.saved ? 'Saved to clinic record' : 'Unsaved draft';
+      if (workingRetry) workingRetry.hidden=true;
+      let legacy=null;
+      try { legacy=window.SharedMockClinical && window.SharedMockClinical.getConsultationDraft
+        ? window.SharedMockClinical.getConsultationDraft(String(patient.id)) : null; } catch (_) { /* leave old data untouched */ }
+      sync.legacy=legacy;
+      if (workingRecover) workingRecover.hidden=!legacy || !!(c.status !== 'in_consultation');
+      if (workingStatus) workingStatus.textContent=legacy
+        ? 'Working draft loaded. An older browser draft remains on this device and was not automatically imported; contact the clinic administrator about recovery.'
+        : 'Working draft loaded from the clinic server.';
+      syncScribePanel();
+      // Timer/complete-button state can depend on the adopted start time.
+      renderContext(patient);
+    } catch (_) {
+      sync.failed=true;
+      if (selectedPatient && selectedPatient.id === patient.id) {
+        if (workingStatus) workingStatus.textContent='Could not load the working draft. Retry before editing.';
+        if (workingRetry) workingRetry.hidden=false;
+      }
+    } finally {
+      _consultationSyncFlight[patient.appointmentId] = false;
+    }
+  }
+  let clinicalConflict = null;
+  async function showClinicalConflict(patient) {
+    if (!patient || selectedPatient !== patient) return;
+    const draft=draftFor(patient);
+    const result=await window.VHSAuth.send('consultations/'+encodeURIComponent(draft.consultationId));
+    if (!result.ok || !result.data || !result.data.consultation || selectedPatient !== patient) return;
+    const latest=result.data.consultation;
+    const panel=document.getElementById('clinical-conflict');
+    const content=document.getElementById('clinical-conflict-latest');
+    const compared=document.getElementById('clinical-conflict-compared');
+    if (!panel || !content || !compared) return;
+    clinicalConflict={patient,revision:latest.revision};
+    content.textContent=JSON.stringify({status:latest.status,SOAP:latest.soap,prescriptions:latest.prescriptions,labRequests:latest.labRequests,vaccinations:latest.vaccinations},null,2);
+    compared.disabled=latest.status === 'completed';
+    panel.hidden=false;
+  }
+  const clinicalCompared=document.getElementById('clinical-conflict-compared');
+  if (clinicalCompared) clinicalCompared.addEventListener('click', () => {
+    if (!clinicalConflict || selectedPatient !== clinicalConflict.patient) return;
+    const draft=draftFor(selectedPatient);
+    draft.clinicalRevision=clinicalConflict.revision;
+    draft.reviewed=false;draft.saved=false;
+    document.getElementById('reviewed').checked=false;
+    persistDraft(selectedPatient,draft);
+    document.getElementById('clinical-conflict').hidden=true;clinicalConflict=null;
+    if (saveStatus) saveStatus.textContent='Your draft is kept. Finish merging the changes and review it before saving.';
+  });
+  if (workingRetry) workingRetry.addEventListener('click', async () => {
+    if (!selectedPatient) return;
+    const patient=selectedPatient; const draft=draftFor(patient);
+    workingRetry.hidden=true;
+    if (draft.consultationId && workingStore.state(draft.consultationId).dirty) {
+      await workingStore.flush(draft.consultationId);
+    } else {
+      workingState(patient).ready=false;
+      form.inert=true;
+      await _syncConsultationFromServer(patient);
+    }
+  });
+  if (workingRecover) workingRecover.addEventListener('click', async () => {
+    if (!selectedPatient) return;
+    const patient=selectedPatient; const sync=workingState(patient); const legacy=sync.legacy;
+    if (!legacy || !sync.ready || statusFor(patient) !== 'in_consultation') return;
+    const confirmed=await confirmAction({title:'Review older browser draft?',
+      message:'This replaces the current working fields. Older drafts may have been created under another account or environment. Check the patient and every field before saving to the clinic record. The old browser copy will be kept.',
+      acceptLabel:'Review older draft'});
+    if (!confirmed || selectedPatient !== patient || !sync.ready) return;
+    if (typeof legacy !== 'object' || Array.isArray(legacy)
+        || (legacy.fields && (typeof legacy.fields !== 'object' || Array.isArray(legacy.fields)))
+        || ['medicines','labs','vaccinations'].some(key => legacy[key] != null && !Array.isArray(legacy[key]))) {
+      if (workingStatus) workingStatus.textContent='The older browser draft could not be read safely. It remains on this device.';
+      return;
+    }
+    const draft=draftFor(patient); const consultationId=draft.consultationId;
+    const allowed=['fields','medicines','labs','vaccinations','scribe'];
+    allowed.forEach(key => { if (Object.prototype.hasOwnProperty.call(legacy,key)) draft[key]=legacy[key]; });
+    draft.consultationId=consultationId; draft.saved=false; draft.reviewed=false;
+    renderDraftIntoForm(patient);
+    if (scribe.transcript) scribe.transcript.value=scribeState(draft).transcript;
+    if (scribe.wrap) scribe.wrap.hidden=!scribeState(draft).transcript;
+    persistDraft(patient,draft);
+    document.getElementById('draft-state').textContent='Unsaved draft';
+    syncScribePanel();
+  });
+  function _draftHasContent(draft) {
+    if (!draft) return false;
+    if (Object.values(draft.fields || {}).some(value => String(value || '').trim())) return true;
+    if ((draft.medicines || []).some(m => String(m.medicine || '').trim())) return true;
+    if ((draft.labs || []).length) return true;
+    return (draft.vaccinations || []).some(v => String(v.vaccineName || '').trim());
+  }
+  function _adoptConsultationSnapshot(draft, c) {
+    const s = (c && c.soap) || {};
+    draft.fields = {
+      subjective: s.subjective || '',
+      exam: s.objective || '',
+      assessment: s.assessment || '',
+      plan: s.plan || '',
+      weight: s.weight || '',
+      temperature: s.temperature || '',
+      heartRate: s.heartRate || ''
+    };
+    draft.medicines = ((c && c.prescriptions) || []).map(p => ({
+      medicine: p.medicine || '',
+      // Structured controls round-trip through the composed strings: the
+      // custom unit/pattern carry the server's flat dosage/frequency text
+      // back into the parts exactly (dosageText/frequencyText re-compose
+      // them unchanged on the next save).
+      dosageValue: '', dosageUnit: 'custom', dosageCustom: p.dosage || '',
+      frequencyPattern: 'custom', frequencyCustom: p.frequency || '',
+      duration: p.duration || '', instructions: p.instructions || ''
+    }));
+    if (!draft.medicines.length) draft.medicines = [emptyMedicine()];
+    draft.labs = ((c && c.labRequests) || []).map(l => l.test).filter(Boolean);
+    draft.vaccinations = ((c && c.vaccinations) || []).map(v => ({
+      vaccineName: v.vaccineName || '',
+      administeredDate: v.administeredDate || '',
+      nextDueDate: v.nextDueDate || '',
+      batchNo: v.batchNo || '',
+      notes: v.notes || ''
+    }));
+  }
+
+  // Text is assigned through textContent so record strings are never HTML.
+  function element(tag, text, className) {
+    const node = document.createElement(tag);
+    if (text) node.textContent = text;
+    if (className) node.className = className;
+    return node;
+  }
+  function selectPatient(patient, moveFocus = true) {
+    if (selectedPatient && patient !== selectedPatient) {
+      if (recorder || audioRequestPending || audioSending || (audioTake && !audioBelongsToPatient(audioTake,patient))) {
+        groqStatus.textContent='Stop and transcribe, or download and explicitly discard the recording before changing patients.';
+        return;
+      }
+    }
+    captureDraft();
+    hideScribeRetry();
+    selectedPatient = patient;
+    const durationApproval=document.getElementById('duration-sample-approved');
+    if(durationApproval){durationApproval.checked=false;durationApproval.disabled=patient.isTest===true || statusFor(patient)==='completed';}
+    if (audioTake && audioTake.pendingTranscript && audioBelongsToPatient(audioTake,patient) && pendingAudioText && pendingAudioPanel) { pendingAudioText.value=audioTake.pendingTranscript; pendingAudioPanel.hidden=false; }
+    const needsLoad = statusFor(patient) === 'in_consultation' || statusFor(patient) === 'completed';
+    form.inert = needsLoad && !workingState(patient).ready;
+    if (workingStatus) workingStatus.textContent = form.inert ? 'Loading the clinic working draft…' : '';
+    if (workingRetry) workingRetry.hidden=true;
+    if (workingRecover) workingRecover.hidden=true;
+    // A pending proposal belongs to the patient it was generated for; it is
+    // dropped on switch rather than allowed to cross patients.
+    hideScribeReview();
+    const draft = draftFor(patient);
+    renderDraftIntoForm(patient);
+    const _completeBtn = document.getElementById('complete-consultation');
+    _completeBtn.disabled = statusFor(patient) !== 'in_consultation';
+    // Completed patients keep the finished state visible on the primary button.
+    if (statusFor(patient) === 'completed') {
+      _completeBtn.textContent = 'Consultation Completed';
+      _completeBtn.classList.add('btn-completed');
+    } else {
+      _completeBtn.textContent = 'Complete Consultation';
+      _completeBtn.classList.remove('btn-completed');
+    }
+    document.getElementById('ai-summary').textContent = patient.aiSummary;
+    // AI Scribe restores from the same draft record: the transcript, the last
+    // generated snapshot, and a lifecycle-appropriate enabled/read-only state.
+    // The confirmation dialog is stateless and always settles itself, so
+    // switching patients never leaves one open.
+    if (scribe.transcript) {
+      const scribeDraftState = scribeState(draft);
+      scribe.transcript.value = scribeDraftState.transcript;
+      // Notes are only shown when there are notes to show — no clutter.
+      scribe.wrap.hidden = !scribeDraftState.transcript;
+      if (scribe.paste) scribe.paste.setAttribute('aria-expanded', String(!scribe.wrap.hidden));
+    }
+    syncScribePanel();
+    if (workingState(patient).ready) restoreScribeRetry(patient);
+    // The recorder's live line belongs to the patient on screen. The switch
+    // guards guarantee no dictation carries over, so the message must not either.
+    if (scribe.recStatus) {
+      scribe.recStatus.textContent = SCRIBE.getRecordingStatus({ state: rec.state }).label;
+    }
+    renderContext(patient);
+    // renderContext keeps patient-context visible for a real patient; when
+    // patient is null it hides the block and clears every context node.
+    const timerLine = document.getElementById('context-timer');
+    if (statusFor(patient) === 'in_consultation' && draft.startedAt) {
+      const startClock = new Date(draft.startedAt).toLocaleTimeString('en-GB', { hour: 'numeric', minute: '2-digit' });
+      timerLine.hidden = false;
+      timerLine.replaceChildren(
+        element('span', STATUS_LABELS.in_consultation, `appt-status in_consultation`),
+        element('span', ` · Started ${startClock} · `),
+        element('span', formatElapsed(draft.startedAt), 'timer-value')
+      );
+      timerLine.querySelector('.timer-value').dataset.elapsedFor = patient.id;
+    } else {
+      timerLine.hidden = true;
+      timerLine.replaceChildren();
+    }
+    document.getElementById('draft-state').textContent = draft.saved ? 'Saved to clinic record' : 'Unsaved draft';
+    document.getElementById('save-status').textContent = '';
+    // Live consultation or finished record → the ONE server consultation for
+    // this appointment is the draft's authority (see
+    // _syncConsultationFromServer): a reload or patient switch re-opens
+    // exactly what was last saved, never a stale device copy.
+    if (statusFor(patient) === 'in_consultation' || statusFor(patient) === 'completed') {
+      _syncConsultationFromServer(patient);
+    }
+    queue.querySelectorAll('.queue-row').forEach(row => row.setAttribute('aria-pressed', String(row.dataset.patientId === patient.id)));
+    const name = element('h3', patient.name);
+    const details = element('dl', '', 'pet-details');
+    for (const [label, value] of [['Species', patient.species], ['Breed', patient.breed], ['Age', patient.age], ['Owner', patient.owner]]) {
+      const pair = element('div');
+      pair.append(element('dt', label), element('dd', value));
+      details.append(pair);
+    }
+    const refLine = patient.referenceNo ? ` · Ref ${patient.referenceNo}` : '';
+    record.replaceChildren(name, element('p', `${patient.dateDisplay} · ${patient.time} · ${svcLabel(patient.service)}${refLine}`), details, element('p', patient.reason, 'visit-reason'), element('h3', 'Clinical history'));
+    if (patient.history.length) {
+      const history = element('ol', '', 'history');
+      history.tabIndex = 0;
+      history.setAttribute('aria-label', `${patient.name} clinical history`);
+      patient.history.forEach(entry => {
+        const item = element('li');
+        const date = element('time', new Date(`${entry.date}T12:00:00`).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }));
+        date.dateTime = entry.date;
+        item.append(date, element('strong', entry.title), element('p', entry.note));
+        history.append(item);
+      });
+      record.append(history);
+    } else {
+      record.append(element('p', 'No previous vaccinations or veterinary notes recorded.', 'helper'));
+    }
+    renderRecordActions(patient);
+    // READ INTEGRATION: real clinical history replaces the EMR fixture merge.
+    // Real appointments carry no visits[], so pull this pet's consultation
+    // notes from the Doctor-scoped endpoint and patch the history section.
+    record.dataset.historyFor = patient.id;
+    _loadPatientHistory(patient, record);
+    if (moveFocus) {
+      document.getElementById('record-heading').focus({ preventScroll: true });
+      if (window.matchMedia('(max-width: 1000px)').matches) document.getElementById('record-heading').scrollIntoView({ block: 'start' });
+    }
+  }
+  // GET /api/consultations?history_for_appointment_id=… (Doctor-only,
+  // assignment-scoped) — real completed-consultation history for the selected
+  // patient, with structured SOAP / prescriptions / lab requests /
+  // vaccinations. Silent on failure: the synchronous render already shows the
+  // honest "No previous vaccinations or veterinary notes recorded."
+  // fallback, and a stale response never overwrites a newer selection.
+  async function _loadPatientHistory(patient, recordEl) {
+    if (!window.VHSReads || !patient.appointmentId) return;
+    const res = await window.VHSReads.appointmentHistory(patient.appointmentId);
+    // dataset stores a STRING; real appointment ids are NUMBERS. A strict
+    // !== between '42' and 42 is always true, which made this guard silently
+    // drop every server-loaded history response — the EMR kept showing the
+    // empty-state helper forever. Compare normalized strings.
+    if (String(recordEl.dataset.historyFor) !== String(patient.id)) return; // selection moved on
+    if (!res.ok) return;
+    const rows = (res.data && res.data.history) || [];
+    const entries = rows
+      .filter(h => h && h.date)
+      .map(h => {
+        const parts = [];
+        if (h.soap && h.soap.assessment) parts.push(String(h.soap.assessment));
+        if (Array.isArray(h.prescriptions) && h.prescriptions.length) {
+          parts.push('Prescribed: ' + h.prescriptions.map(p => p.medicine).join(', ') + '.');
+        }
+        if (Array.isArray(h.labRequests) && h.labRequests.length) {
+          parts.push('Labs: ' + h.labRequests.map(l => l.test).join(', ') + '.');
+        }
+        if (Array.isArray(h.vaccinations) && h.vaccinations.length) {
+          parts.push('Vaccinated: ' + h.vaccinations.map(v => v.vaccineName).join(', ') + '.');
+        }
+        return {
+          date: String(h.date).slice(0, 10),
+          title: (h.service || 'Consultation') + (h.veterinarian ? ' · ' + h.veterinarian : ''),
+          note: parts.join(' ') || 'No clinical notes recorded.'
+        };
+      });
+    if (!entries.length) return;
+    const history = element('ol', '', 'history');
+    history.tabIndex = 0;
+    history.setAttribute('aria-label', `${patient.name} clinical history`);
+    entries.forEach(entry => {
+      const item = element('li');
+      const date = element('time', new Date(`${entry.date}T12:00:00`).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }));
+      date.dateTime = entry.date;
+      item.append(date, element('strong', entry.title), element('p', entry.note));
+      history.append(item);
+    });
+    const old = recordEl.querySelector('.history, .helper');
+    if (old) old.replaceWith(history); else recordEl.append(history);
+  }
+  // One status-driven action beside the EMR; the EMR itself stays read-only.
+  // Context must only ever reflect a patient that came from the current
+  // server-scoped queue. It is NEVER driven from a draft, a draft restore,
+  // localStorage, or a fixture — no stale 'Luna' can survive a fresh login.
+  function renderContext(patient) {
+    const nameEl = document.getElementById('context-name');
+    const apptEl = document.getElementById('context-appointment');
+    const timerEl = document.getElementById('context-timer');
+    if (!patient) {
+      document.getElementById('patient-context').hidden = true;
+      if (nameEl) nameEl.textContent = '';
+      if (apptEl) apptEl.textContent = '';
+      if (timerEl) timerEl.replaceChildren();
+      return;
+    }
+    nameEl.textContent = patient.name;
+    apptEl.textContent = `${patient.species} · ${patient.breed} · ${patient.dateDisplay}, ${patient.time} · ${svcLabel(patient.service)}`;
+    // The elapsed timer is the one draft-derived line in the context block:
+    // it needs this patient's consultation start time. Everything else here
+    // comes from the server-scoped queue only.
+    const draft = draftFor(patient);
+    const timerLine = document.getElementById('context-timer');
+    if (statusFor(patient) === 'in_consultation' && draft.startedAt) {
+      const startClock = new Date(draft.startedAt).toLocaleTimeString('en-GB', { hour: 'numeric', minute: '2-digit' });
+      timerEl.hidden = false;
+      timerEl.replaceChildren(
+        element('span', STATUS_LABELS.in_consultation, `appt-status in_consultation`),
+        element('span', ` · Started ${startClock} · `),
+        element('span', formatElapsed(draft.startedAt), 'timer-value')
+      );
+      timerEl.querySelector('.timer-value').dataset.elapsedFor = patient.id;
+    } else {
+      timerEl.hidden = true;
+      timerEl.replaceChildren();
+    }
+  }
+
+  function renderRecordActions(patient) {
+    const wrap = document.getElementById('record-actions');
+    wrap.replaceChildren();
+    const status = statusFor(patient);
+    if (status === 'checked_in') {
+      const start = element('button', 'Start Consultation', 'btn-primary');
+      start.type = 'button';
+      start.addEventListener('click', () => startConsultation(patient));
+      wrap.append(start);
+    } else if (status === 'in_consultation') {
+      const cont = element('button', 'Continue Consultation', 'btn-primary');
+      cont.type = 'button';
+      cont.addEventListener('click', () => {
+        // Drafts are session memory; the shared record outlives a reload. If
+        // the store already reads in_consultation but this draft has no
+        // status, adopt the lifecycle here — otherwise Continue opens the form
+        // and Complete is permanently blocked with "start first", with no
+        // Start button left to press.
+        const draft = draftFor(patient);
+        // The status now comes from the shared store, so there is nothing to
+        // adopt here: if the store says in_consultation, statusFor() agrees and
+        // Complete is reachable. The draft only needs its start timestamp.
+        if (!draft.startedAt) {
+          const store = window.SharedMockAppointments;
+          const rec = store && patient.appointmentId ? store.byId(patient.appointmentId) : null;
+          draft.startedAt = (rec && rec.consultationStartedAt) || new Date().toISOString();
+          persistDraft(patient, draft);
+        }
+        renderRecordActions(patient);
+        navigate('notes');
+      });
+      wrap.append(cont);
+    } else if (status === 'completed') {
+      const view = element('button', 'View Clinical Document', 'btn-secondary');
+      view.type = 'button';
+      view.addEventListener('click', () => openPreview(patient));
+      wrap.append(view);
+    }
+  }
+  // Clinic-list rows modeled on the Clerk appointments table: one compact
+  // row per appointment for scanning and selection; the single contextual
+  // consultation action lives beside the selected patient's EMR.
+  function renderQueueRow(patient) {
+    const row = element('tr', '', `queue-row ${patient.severity.toLowerCase()}`);
+    row.tabIndex = 0;
+    row.dataset.patientId = patient.id;
+    const status = statusFor(patient);
+    row.setAttribute('aria-pressed', String(selectedPatient && selectedPatient.id === patient.id));
+    row.setAttribute('aria-label', `${patient.time}, ${patient.name}, owner ${patient.owner}, ${patient.service}, triage ${patient.severity}, ${STATUS_LABELS[status]}. Select to open record.`);
+    const badgeCell = element('td');
+    badgeCell.append(element('span', patient.severity, `severity ${patient.severity.toLowerCase()}`));
+    const statusCell = element('td');
+    statusCell.append(element('span', STATUS_LABELS[status], `appt-status ${status}`));
+    row.append(
+      element('td', patient.time, 'q-time'),
+      element('td', patient.name, 'q-name'),
+      element('td', patient.owner, 'q-owner'),
+      element('td', patient.service, 'q-service'),
+      badgeCell,
+      statusCell
+    );
+    const activate = async () => {
+      // Switching patients while audio is live, or while an unprocessed clip is
+      // in memory, is confirmed first: patient A's audio must never end up
+      // under patient B.
+      if (String(patient.id) !== String(selectedPatient && selectedPatient.id)) {
+        const proceed = await confirmPatientSwitchForRecording();
+        if (!proceed) return;
+      }
+      selectPatient(patient);
+    };
+    row.addEventListener('click', activate);
+    row.addEventListener('keydown', event => {
+      if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        activate();
+      }
+    });
+    return row;
+  }
+  function renderQueue() {
+    if (!patients.length) {
+      queue.replaceChildren();
+      const empty = element('tr');
+      const cell = element('td', 'No patients scheduled for today.', 'queue-empty');
+      cell.colSpan = 6;
+      empty.append(cell);
+      queue.append(empty);
+      return;
+    }
+    queue.replaceChildren(...patients.map(renderQueueRow));
+  }
+  // Boot is async now (server reads): show an honest loading row —
+  // _bootQueueFromServer() at the end of this file replaces it with the real
+  // queue or the empty state once the GETs settle.
+  queue.innerHTML = '<tr><td colspan="6" class="queue-empty">Loading today\u2019s patients\u2026</td></tr>';
+  // Start is an explicit action, never a side effect of selecting a patient.
+  // Only checked-in patients may start; upcoming patients cannot.
+  // Phase (clinical E2E): the transition is a REAL server action — POST
+  // /api/consultations { appointment_id } creates (or resumes, without
+  // duplicates) the ONE consultation row for this appointment, stamps
+  // started_at, and moves the appointment to in_consultation inside the same
+  // backend transaction. The local store is only updated after the API
+  // accepts (VHSWrites mirrors the confirmed record).
+  async function startConsultation(patient) {
+    const draft = draftFor(patient);
+    if (statusFor(patient) !== 'checked_in') return;
+    const saveStatus = document.getElementById('save-status');
+    if (!window.VHSWrites || !patient.appointmentId) {
+      if (saveStatus) saveStatus.textContent = 'Cannot start: the consultation service is unavailable.';
+      return;
+    }
+    if (saveStatus) saveStatus.textContent = 'Starting consultation…';
+    const result = await window.VHSWrites.startConsultationSession(patient.appointmentId);
+    if (!result.ok) {
+      // The server refused (invalid transition, wrong doctor, 404 demo row).
+      // Nothing is stamped locally — every other portal keeps the old status.
+      if (saveStatus) {
+        saveStatus.textContent = result.notInDatabase
+          ? 'This appointment is not in the clinic schedule. Nothing was changed.'
+          : (result.message || 'Could not start the consultation. Nothing was changed.');
+      }
+      return;
+    }
+    const consultation = result.consultation || {};
+    if (window.AuditLog) window.AuditLog.add({ actor: { actorType: 'Doctor', actorId: VETERINARIAN.id, actorName: VETERINARIAN.name }, action: 'consultation_started', entityType: 'appointment', entityId: patient.appointmentId, referenceNo: patient.referenceNo || '', description: VETERINARIAN.name + ' started consultation for ' + patient.name });
+    captureDraft();
+    // Server-authoritative consultation id + start timestamp.
+    draft.consultationId = consultation.consultationId || null;
+    draft.clinicalRevision = consultation.revision;
+    draft.startedAt = consultation.startedAt || new Date().toISOString();
+    draft.completedAt = null;
+    draft.durationMinutes = null;
+    draft.updatedAt = draft.startedAt;
+    persistDraft(patient, draft);
+    renderQueue();
+    selectPatient(patient);
+    if (saveStatus) saveStatus.textContent = `Consultation started for ${patient.name}. Timer is running.`;
+    navigate('notes');
+  }
+  // One tick updates every visible elapsed readout; state is derived from
+  // startedAt, so navigation never pauses or restarts the timer.
+  function tickTimers() {
+    const now = new Date();
+    patients.forEach(patient => {
+      const draft = draftFor(patient);
+      if (statusFor(patient) !== 'in_consultation' || !draft.startedAt) return;
+      const elapsed = formatElapsed(draft.startedAt, now);
+      document.querySelectorAll(`[data-elapsed-for="${patient.id}"]`).forEach(node => { node.textContent = elapsed; });
+    });
+  }
+  setInterval(tickTimers, 1000);
+  // Header/meta date: same REAL local date the queue filters on (not the
+  // first patient's date, no crash when today's list is empty). Recomputed on
+  // every render because the queue boots asynchronously — a value computed
+  // once at script load would keep reporting "0 appointments" forever.
+  function renderQueueMeta() {
+    const meta = document.getElementById('queue-meta');
+    if (!meta) return;
+    const todayDisplay = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+    const countLine = patients.length === 1 ? '1 appointment' : `${patients.length} appointments`;
+    meta.textContent = `${todayDisplay} · ${countLine}`;
+  }
+  renderQueueMeta();
+  form.addEventListener('input', event => {
+    if(event.target.id==='duration-sample-approved')return; // Operational approval is separate from clinical edits.
+    if (event.target.id === 'reviewed') {
+      captureDraft();
+      { const d = draftFor(selectedPatient); d.saved = false; persistDraft(selectedPatient, d); }
+      document.getElementById('draft-state').textContent = 'Unsaved draft';
+      document.getElementById('save-status').textContent = '';
+    } else {
+      // Every other input — a SOAP field, a vital, a prescription row or the
+      // Scribe transcript — is a draft edit: the saved flag and the review
+      // acknowledgement both drop, and the Scribe indicator catches up so an
+      // edited generated draft reads "Unsaved changes".
+      markChanged();
+      syncScribePanel();
+    }
+  });
+  document.getElementById('add-medicine').addEventListener('click', () => {
+    const row = addMedicine();
+    markChanged();
+    row.querySelector('input').focus();
+  });
+  document.getElementById('add-vaccination').addEventListener('click', () => {
+    const row = addVaccinationRow();
+    markChanged();
+    row.querySelector('input').focus();
+  });
+  form.addEventListener('submit', async event => {
+    event.preventDefault();
+    // Invalid vitals/duration/limits block the save, not just the visual.
+    if (window.doctorValidateClinical && !window.doctorValidateClinical()) {
+      // A blocked save still has to say WHICH control is wrong. The gate has
+      // already marked it and moved focus there; this only chooses the wording,
+      // preferring the specific prescription message over the generic one.
+      const rx = window.doctorFirstPrescriptionIssue && window.doctorFirstPrescriptionIssue();
+      document.getElementById('save-status').textContent = rx
+        ? rx.message
+        : 'Fix the highlighted clinical fields before saving.';
+      return;
+    }
+    captureDraft();
+    const status = document.getElementById('save-status');
+    const workingId = selectedPatient && draftFor(selectedPatient).consultationId;
+    if (!workingId || !(await workingStore.flush(workingId))) {
+      status.textContent = 'The working draft could not be saved. Keep this page open and retry.';
+      return;
+    }
+    // Hidden fields still belong to this draft. Reveal their view before focusing
+    // a validation error so browser validation never targets an invisible input.
+    const invalid = Array.from(form.elements).find(input => input.willValidate && !input.validity.valid);
+    if (invalid) {
+      const view = invalid.closest('[data-panel]').dataset.panel;
+      history.replaceState(null, '', `#${view}`);
+      showView(view, false);
+      invalid.reportValidity();
+      return;
+    }
+    const partial = window.doctorFirstPrescriptionIssue && window.doctorFirstPrescriptionIssue();
+    if (partial) {
+      history.replaceState(null, '', '#orders');
+      showView('orders', false);
+      status.textContent = partial.message;
+      if (partial.field) partial.field.focus();
+      return;
+    }
+    if (!document.getElementById('reviewed').checked) {
+      status.textContent = 'Review the consultation draft and check the acknowledgement before saving.';
+      document.getElementById('reviewed').focus();
+      return;
+    }
+    // ── REAL SERVER SAVE (PATCH /api/consultations/{id}) ────────────────
+    // SOAP, prescriptions, lab requests and vaccinations persist to the
+    // clinic record; "saved" is only ever claimed after the server confirms
+    // persistence. A refusal keeps the draft unsaved and shows the real
+    // validation message — never a local-only success.
+    const draft = draftFor(selectedPatient);
+    if (!draft.consultationId) {
+      status.textContent = 'No consultation session is open for this patient. Start the consultation first.';
+      return;
+    }
+    const built = buildConsultationPayload(selectedPatient);
+    if (built.error) { status.textContent = built.error; return; }
+    const savedGeneration = workingStore.state(draft.consultationId).generation;
+    status.textContent = 'Saving consultation…';
+    const saved = await window.VHSWrites.saveConsultation(draft.consultationId, built.payload);
+    if (!saved.ok) {
+      if (saved.status === 409) await showClinicalConflict(selectedPatient);
+      status.textContent = saved.message || 'The consultation could not be saved. Nothing was changed.';
+      return;
+    }
+    draft.clinicalRevision = saved.consultation.revision;
+    if (workingStore.state(draft.consultationId).generation !== savedGeneration) {
+      persistDraft(selectedPatient, draft);
+      status.textContent = 'Earlier changes were saved to the clinic record; newer edits still need review and saving.';
+      return;
+    }
+    draft.saved = true;
+    draft.updatedAt = new Date().toISOString();
+    persistDraft(selectedPatient, draft);
+    document.getElementById('draft-state').textContent = 'Saved to clinic record';
+    syncScribePanel(); // the Scribe pill moves to "Saved draft"
+    status.textContent = 'Consultation saved to the clinic record.';
+  });
+  // Complete ends the lifecycle: stop the timer, record end time + duration.
+  // TODO(BACKEND): Finalize through the consultation API; the backend then
+  // releases the record to Clerk/Admin and the owner's account.
+  document.getElementById('complete-consultation').addEventListener('click', async () => {
+    const completionPatient=selectedPatient;
+    const draft = draftFor(completionPatient);
+    const status = document.getElementById('save-status');
+    // TODO(BACKEND): Validate the completion transition server-side.
+    if (statusFor(selectedPatient) === 'completed') { status.textContent = 'This consultation is already completed.'; return; }
+    if (statusFor(selectedPatient) !== 'in_consultation') { status.textContent = 'Start the consultation before completing it.'; return; }
+    // Recording is not a lifecycle action, and an open microphone cannot be
+    // carried into a finalized record. Stop it first — no guard is weakened.
+    if (rec.state === REC.RECORDING || rec.state === REC.REQUESTING || recorder || audioTake || audioRequestPending || audioSending) {
+      status.textContent = 'Stop and transcribe, or download and discard pending audio before completing the consultation.';
+      return;
+    }
+    // Nothing invalid may reach a finalized record.
+    if (window.doctorValidateClinical && !window.doctorValidateClinical()) {
+      const rx = window.doctorFirstPrescriptionIssue && window.doctorFirstPrescriptionIssue();
+      status.textContent = rx ? rx.message : 'Fix the highlighted clinical fields before completing the consultation.';
+      return;
+    }
+    captureDraft();
+    // REVIEW ACKNOWLEDGEMENT — completion is blocked until the Doctor has
+    // explicitly confirmed the review, exactly like Save Draft. Prescriptions
+    // and lab requests stay optional; only the acknowledgement gates the
+    // finalization (the backend transition remains authoritative either way).
+    if (!document.getElementById('reviewed').checked) {
+      status.textContent = 'Check "I have reviewed this consultation draft." before completing the consultation.';
+      document.getElementById('reviewed').focus();
+      return;
+    }
+    const incomplete = window.doctorFirstPrescriptionIssue && window.doctorFirstPrescriptionIssue();
+    if (incomplete) {
+      history.replaceState(null, '', '#orders');
+      showView('orders', false);
+      status.textContent = incomplete.message;
+      if (incomplete.field) incomplete.field.focus();
+      return;
+    }
+    // Every existing guard above has passed; ONLY now is the Doctor asked,
+    // because completion is irreversible and locks the record. Cancelling
+    // leaves the consultation exactly as it was — still in consultation, still
+    // editable, nothing stamped.
+    const confirmed = await confirmAction({
+      title: 'Complete consultation?',
+      message: 'Once completed, this consultation will become read-only. Make sure the SOAP notes, prescriptions, and lab requests have been reviewed.',
+      acceptLabel: 'Complete Consultation'
+    });
+    if (!confirmed) { status.textContent = 'Completion cancelled. The consultation is unchanged.'; return; }
+    if (selectedPatient!==completionPatient) { status.textContent='The selected patient changed. Review the consultation again before completing.'; return; }
+    // The Doctor can edit while the dialog was open, so the guards are re-run
+    // rather than trusted: the record must still be finalizable at the moment
+    // it actually completes.
+    if (statusFor(selectedPatient) !== 'in_consultation') { status.textContent = 'Start the consultation before completing it.'; return; }
+    if (!document.getElementById('reviewed').checked) {
+      status.textContent = 'Check "I have reviewed this consultation draft." before completing the consultation.';
+      document.getElementById('reviewed').focus();
+      return;
+    }
+    if (window.doctorValidateClinical && !window.doctorValidateClinical()) {
+      const rx = window.doctorFirstPrescriptionIssue && window.doctorFirstPrescriptionIssue();
+      status.textContent = rx ? rx.message : 'Fix the highlighted clinical fields before completing the consultation.';
+      return;
+    }
+    // Confirmation may outlive a newly started recording. Preserve it and stop
+    // finalization rather than discarding captured or pending audio.
+    if (rec.state === REC.RECORDING || rec.state === REC.REQUESTING || recorder || audioTake || audioRequestPending || audioSending) {
+      status.textContent='Recording or transcription is pending. Stop and review it before completing.';
+      return;
+    }
+    // Phase 5/clinical E2E: finalization is REAL and server-authoritative.
+    // 1) The current clinical state is SAVED first (PATCH
+    //    /api/consultations/{id}) — nothing un-saved may be finalized.
+    // 2) POST /api/consultations/{id}/complete then completes the
+    //    consultation AND the appointment in one backend transaction, which
+    //    also fans out the client-facing documents. A refusal finalizes
+    //    nothing and stamps nothing.
+    status.textContent = 'Finalizing consultation…';
+    const liveDraft = draftFor(selectedPatient);
+    if (!liveDraft.consultationId) {
+      status.textContent = 'No consultation session is open for this patient. Nothing was changed.';
+      return;
+    }
+    const finalGeneration=workingStore.state(liveDraft.consultationId).generation;
+    const finalBuilt = buildConsultationPayload(completionPatient);
+    if (finalBuilt.error) { status.textContent = finalBuilt.error; return; }
+    if (!(await workingStore.flush(liveDraft.consultationId))) {
+      status.textContent = 'The working draft could not be saved. Keep this page open and retry.';
+      return;
+    }
+    if (selectedPatient!==completionPatient || statusFor(completionPatient)!=='in_consultation'
+        || workingStore.state(liveDraft.consultationId).generation!==finalGeneration
+        || !document.getElementById('reviewed').checked || rec.state === REC.RECORDING || rec.state === REC.REQUESTING || recorder || audioTake || audioRequestPending || audioSending) {
+      status.textContent='The patient, draft, review or recording changed while saving. Review the current draft before completing.';
+      return;
+    }
+    form.inert=true;
+    const finalSave = await window.VHSWrites.saveConsultation(liveDraft.consultationId, finalBuilt.payload);
+    if (!finalSave.ok) {
+      if (finalSave.status === 409) await showClinicalConflict(completionPatient);
+      form.inert=false;
+      status.textContent = finalSave.message || 'The consultation could not be saved, so nothing was finalized.';
+      syncScribePanel();
+      return;
+    }
+    liveDraft.clinicalRevision = finalSave.consultation.revision;
+    liveDraft.saved = true;
+    persistDraft(completionPatient, liveDraft);
+    const completionGeneration=workingStore.state(liveDraft.consultationId).generation;
+    if (!(await workingStore.flush(liveDraft.consultationId))) {
+      form.inert=false;
+      status.textContent='The working draft could not be saved. Keep this page open and retry.';
+      return;
+    }
+    if (selectedPatient!==completionPatient || statusFor(completionPatient)!=='in_consultation'
+        || workingStore.state(liveDraft.consultationId).generation!==completionGeneration
+        || !document.getElementById('reviewed').checked || rec.state === REC.RECORDING || rec.state === REC.REQUESTING || recorder || audioTake || audioRequestPending || audioSending) {
+      form.inert=false;
+      status.textContent='The original consultation was saved, but changes require review before finalization.';
+      return;
+    }
+    const completion = await window.VHSWrites.completeConsultationSession(liveDraft.consultationId, {expected_revision:liveDraft.clinicalRevision, reviewed:true, duration_sample_approved:document.getElementById('duration-sample-approved')?.checked===true});
+    form.inert=false;
+    if (!completion.ok) {
+      if (completion.status === 409) await showClinicalConflict(completionPatient);
+      status.textContent = completion.notInDatabase
+        ? 'This appointment is no longer in the schedule. Nothing was changed.'
+        : (completion.message || 'This consultation was already finalized or cannot be completed right now. Nothing was changed.');
+      syncScribePanel();
+      return;
+    }
+    if (selectedPatient!==completionPatient) {
+      const completed=completion.consultation || {};
+      draft.completedAt=completed.completedAt || new Date().toISOString();
+      draft.durationMinutes=completed.duration ?? durationBetween(draft.startedAt,draft.completedAt);
+      draft.saved=true;draft.updatedAt=draft.completedAt;
+      persistDraft(completionPatient,draft);renderQueue();syncScribePanel();
+      status.textContent='The original consultation was completed. The current patient was not changed.';
+      return;
+    }
+    if (window.AuditLog) window.AuditLog.add({ actor: { actorType: 'Doctor', actorId: VETERINARIAN.id, actorName: VETERINARIAN.name }, action: 'consultation_completed', entityType: 'appointment', entityId: selectedPatient.appointmentId, referenceNo: selectedPatient.referenceNo || '', description: VETERINARIAN.name + ' completed consultation for ' + selectedPatient.name });
+    // Server-authoritative completion stamps (completion.consultation comes
+    // straight from the finalized backend record).
+    const _sc = completion.consultation || {};
+    draft.completedAt = _sc.completedAt || new Date().toISOString();
+    draft.durationMinutes = _sc.duration != null ? _sc.duration : durationBetween(draft.startedAt, draft.completedAt);
+    draft.saved = true;
+    draft.updatedAt = draft.completedAt;
+    persistDraft(selectedPatient, draft);
+    // Client-facing documents (summary / prescription / lab request) are
+    // fanned out SERVER-side inside the completion transaction — the
+    // frontend demo document store is deliberately NOT written anymore.
+    // Immediate terminal state: the primary button becomes a non-interactive
+    // confirmation (no second completion attempt); View Clinical Document
+    // remains available in the record actions.
+    // TODO(BACKEND): Restore document delivery action when backend
+    // document/release workflow exists.
+    const _completeBtn = document.getElementById('complete-consultation');
+    _completeBtn.textContent = 'Consultation Completed';
+    _completeBtn.disabled = true;
+    _completeBtn.classList.add('btn-completed');
+    renderQueue();
+    renderHeader(currentView);
+    renderRecordActions(selectedPatient);
+    // EMR HISTORY REFRESH — the backend's history mode includes THIS
+    // appointment's consultation once the appointment is completed, so the
+    // freshly finalized visit is immediately available. Re-pulling it here
+    // (instead of waiting for a reload or a patient switch) makes the EMR
+    // history panel show the just-completed consultation right away. The
+    // dataset guard keeps a stale response from overwriting a newer
+    // selection, exactly like the initial load.
+    const _historyRecord = document.getElementById('patient-record');
+    // String-normalized: dataset is a string, appointment ids are numbers
+    // (see the matching guard inside _loadPatientHistory).
+    if (_historyRecord && String(_historyRecord.dataset.historyFor) === String(selectedPatient.id)) {
+      _loadPatientHistory(selectedPatient, _historyRecord);
+    }
+    syncScribePanel(); // completion is Doctor-controlled; the Scribe goes read-only
+    const timerLine = document.getElementById('context-timer');
+    timerLine.hidden = true;
+    timerLine.replaceChildren();
+    document.getElementById('draft-state').textContent = 'Saved to clinic record';
+    status.textContent = `Consultation completed for ${selectedPatient.name}. Duration: ${draft.durationMinutes} min. The record and client documents are saved to the clinic system.`;
+  });
+  // Structured consultation object built from the appointment record plus the
+  // captured draft — the same shape a consultation endpoint would receive.
+  // TODO(BACKEND): POST/PUT this object to the consultation API when the
+  // veterinarian finalizes a record; the backend then exposes it to
+  // Clerk/Admin and the pet owner's account.
+  function buildConsultation(patient) {
+    const draft = captureAndReturnDraft(patient);
+    const soapEntries = (value) => value && value.trim() ? value.trim() : '';
+    // Structured consultation record — the shape the backend consultation
+    // endpoint will receive. TODO(BACKEND): POST/PUT this object; the API
+    // owns appointmentId/patientId/veterinarianId joins and persistence.
+    return {
+      appointmentId: patient.id,
+      patientId: patient.id,
+      veterinarianId: VETERINARIAN.id,
+      patient: { name: patient.name, species: patient.species, breed: patient.breed, age: patient.age, owner: patient.owner },
+      appointment: { date: patient.date, dateDisplay: patient.dateDisplay, time: patient.time, service: patient.service, reason: patient.reason },
+      status: statusFor(patient),
+      startedAt: draft.startedAt,
+      completedAt: draft.completedAt,
+      duration: draft.durationMinutes,
+      soap: {
+        subjective: soapEntries(draft.fields.subjective),
+        weight: soapEntries(draft.fields.weight), temperature: soapEntries(draft.fields.temperature), heartRate: soapEntries(draft.fields.heartRate),
+        objective: soapEntries(draft.fields.exam),
+        assessment: soapEntries(draft.fields.assessment),
+        plan: soapEntries(draft.fields.plan)
+      },
+      // The structured controls are flattened here, once, into the flat strings the
+      // document store and the printed prescription have always consumed —
+      // dosageText/frequencyText turn the parts back into "1 tablet" and
+      // "every 8 hours", so nothing downstream needed to change.
+      prescriptions: draft.medicines.filter(m => m.medicine.trim()).map(m => ({
+        medicine: m.medicine.trim(),
+        dosage: dosageText(m),
+        frequency: frequencyText(m),
+        duration: String(m.duration || '').trim(),
+        instructions: String(m.instructions || '').trim(),
+      })),
+      labRequests: draft.labs.map(name => ({ test: name, notes: '' })),
+      veterinarian: { name: VETERINARIAN.name, role: VETERINARIAN.clinicalTitle || VETERINARIAN.role },
+      createdAt: draft.createdAt,
+      updatedAt: draft.updatedAt
+    };
+  }
+  function captureAndReturnDraft(patient) {
+    captureDraft();
+    return draftFor(patient);
+  }
+  // Print-style clinical record, mirroring the User Portal's print document
+  // system (letterhead, bordered info grid, zebra table, signature block).
+  // TODO(BACKEND): The consultation object feeds server-side PDF generation;
+  // keep this renderer a pure function of the data model.
+  function renderConsultationDocument(c) {
+    const body = document.getElementById('document-preview-body');
+    body.replaceChildren();
+    const letterhead = element('div', '', 'print-letterhead');
+    const lhRow = element('div', '', 'print-letterhead-row');
+    const logo = element('img');
+    logo.src = '../web-page/image/vhs-assets/vhs-logo.png';
+    logo.alt = 'VHS logo';
+    logo.className = 'print-logo';
+    const clinicName = element('p', 'VHS Animal Wellness Center', 'print-clinic-name');
+    lhRow.append(logo, clinicName);
+    const clinicDetails = element('div');
+    ['834 Aurora Boulevard cor Driod Street, Kaunlaran, Cubao, Quezon City', '0917 108 4174 · vhs.animalwellness@gmail.com'].forEach(line => clinicDetails.append(element('p', line, 'print-clinic-detail')));
+    letterhead.append(lhRow, clinicDetails);
+
+    const title = element('h3', 'Clinical Consultation Record', 'print-doc-title');
+    const meta = element('div', '', 'print-meta-row');
+    meta.append(
+      element('span', `Reference: ${c.appointmentId}`),
+      element('span', `Generated: ${new Date().toLocaleString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: 'numeric', minute: '2-digit' })}`)
+    );
+
+    const patientSection = element('section', '', 'print-section');
+    patientSection.append(element('h4', 'Patient Information', 'print-section-title'));
+    const patientGrid = element('div', '', 'print-info-grid');
+    [['Name', c.patient.name], ['Species', c.patient.species], ['Breed', c.patient.breed], ['Age', c.patient.age], ['Owner', c.patient.owner]].forEach(([label, value]) => {
+      const item = element('div', '', 'print-info-item');
+      item.append(element('span', label, 'print-info-label'), element('span', value || '—', 'print-info-value'));
+      patientGrid.append(item);
+    });
+    patientSection.append(patientGrid);
+
+    const apptSection = element('section', '', 'print-section');
+    apptSection.append(element('h4', 'Appointment Information', 'print-section-title'));
+    const apptGrid = element('div', '', 'print-info-grid');
+    const timeFmt = iso => new Date(iso).toLocaleTimeString('en-GB', { hour: 'numeric', minute: '2-digit' });
+    const consultationLine = c.status === 'completed' && c.completedAt
+      ? `Started ${timeFmt(c.startedAt)} · Completed ${timeFmt(c.completedAt)} · Duration ${c.duration ?? '—'} min`
+      : c.startedAt
+        ? `Ongoing · started ${timeFmt(c.startedAt)}`
+        : 'Not started';
+    [['Date & time', `${c.appointment.dateDisplay}, ${c.appointment.time}`], ['Service', svcLabel(c.appointment.service)], ['Reason for visit', c.appointment.reason], ['Consultation', consultationLine]].forEach(([label, value]) => {
+      const item = element('div', '', 'print-info-item');
+      item.append(element('span', label, 'print-info-label'), element('span', value || '—', 'print-info-value'));
+      apptGrid.append(item);
+    });
+    apptSection.append(apptGrid);
+
+    const soapSection = element('section', '', 'print-section');
+    soapSection.append(element('h4', 'SOAP Notes', 'print-section-title'));
+    const objectiveParts = [c.soap.weight && `Weight: ${c.soap.weight} kg`, c.soap.temperature && `Temperature: ${c.soap.temperature} °C`, c.soap.heartRate && `Heart rate: ${c.soap.heartRate} bpm`].filter(Boolean);
+    [['Subjective', c.soap.subjective], ['Objective', objectiveParts, c.soap.objective], ['Assessment', c.soap.assessment], ['Plan', c.soap.plan]].forEach(([label, parts, note]) => {
+      const block = element('div', '', 'print-soap-block');
+      block.append(element('span', label, 'print-soap-label'));
+      if (Array.isArray(parts) && parts.length) {
+        const vitals = element('p', parts.join(' · '), 'print-soap-text');
+        block.append(vitals);
+      }
+      const text = Array.isArray(parts) ? note : parts;
+      block.append(element('p', text || 'Not recorded.', 'print-soap-text'));
+      soapSection.append(block);
+    });
+
+    const rxSection = element('section', '', 'print-section');
+    rxSection.append(element('h4', 'Prescriptions', 'print-section-title'));
+    if (c.prescriptions.length) {
+      const table = element('table', '', 'print-table');
+      const head = element('thead');
+      const headRow = element('tr');
+      ['Medicine', 'Dosage', 'Frequency', 'Duration', 'Instructions'].forEach(label => headRow.append(element('th', label)));
+      head.append(headRow);
+      const tbody = element('tbody');
+      c.prescriptions.forEach(rx => {
+        const row = element('tr');
+        [rx.medicine, rx.dosage, rx.frequency, rx.duration, rx.instructions].forEach(value => row.append(element('td', value || '—')));
+        tbody.append(row);
+      });
+      table.append(head, tbody);
+      rxSection.append(table);
+    } else {
+      rxSection.append(element('p', 'No prescriptions recorded.', 'print-empty'));
+    }
+
+    const labSection = element('section', '', 'print-section');
+    labSection.append(element('h4', 'Lab Requests', 'print-section-title'));
+    if (c.labRequests.length) {
+      c.labRequests.forEach(lab => {
+        const item = element('div', '', 'print-lab-item');
+        item.append(element('span', lab.test, 'print-soap-label'), element('span', lab.notes || '', 'print-soap-text'));
+        labSection.append(item);
+      });
+    } else {
+      labSection.append(element('p', 'No lab requests recorded.', 'print-empty'));
+    }
+
+    const footer = element('div', '', 'print-footer');
+    const vetBlock = element('div', '', 'print-sig-block');
+    vetBlock.append(element('div', '', 'print-sig-line'), element('p', c.veterinarian.name, 'print-sig-label'), element('p', 'Attending Veterinarian', 'print-sig-sub'));
+    const ownerBlock = element('div', '', 'print-sig-block');
+    ownerBlock.append(element('div', '', 'print-sig-line'), element('p', c.patient.owner, 'print-sig-label'), element('p', 'Pet Owner', 'print-sig-sub'));
+    footer.append(vetBlock, ownerBlock);
+
+    const notice = element('p', 'This document is a preview of the consultation record. Confidential — for clinic and pet owner use only.', 'print-notice');
+
+    body.append(letterhead, title, meta, patientSection, apptSection, soapSection, rxSection, labSection, footer, notice);
+  }
+  function openPreview(patient = selectedPatient) {
+    if (!patient) return;
+    // Preview must never render invalid clinical data.
+    if (window.doctorValidateClinical && !window.doctorValidateClinical()) {
+      const rx = window.doctorFirstPrescriptionIssue && window.doctorFirstPrescriptionIssue();
+      document.getElementById('save-status').textContent = rx
+        ? rx.message
+        : 'Fix the highlighted clinical fields before previewing the document.';
+      return;
+    }
+    const consultation = buildConsultation(patient);
+    renderConsultationDocument(consultation);
+    document.getElementById('document-preview-overlay').classList.add('show');
+    document.getElementById('preview-close').focus();
+  }
+  function closePreview() {
+    document.getElementById('document-preview-overlay').classList.remove('show');
+    document.getElementById('preview-document').focus();
+  }
+  document.getElementById('locked-start').addEventListener('click', () => {
+    if (selectedPatient) startConsultation(selectedPatient);
+  });
+  document.getElementById('preview-document').addEventListener('click', () => openPreview(selectedPatient));
+  document.getElementById('preview-close').addEventListener('click', closePreview);
+  document.getElementById('preview-done').addEventListener('click', closePreview);
+  document.getElementById('preview-print').addEventListener('click', () => window.print());
+  document.getElementById('document-preview-overlay').addEventListener('click', event => {
+    if (event.target === event.currentTarget) closePreview();
+  });
+  document.addEventListener('keydown', event => {
+    if (event.key === 'Escape' && document.getElementById('document-preview-overlay').classList.contains('show')) closePreview();
+  });
+  // ─── SHARED DOCTOR PROFILE / AVAILABILITY (Phase 2B) ────────────────────
+  // One shared Doctor store (shared/mock-doctors.js) is the single source of
+  // the signed-in doctor's identity + availability: Admin Accounts (account
+  // administration), Admin Doctors (availability) and this portal all read
+  // and write the same record. TODO(BACKEND): the availability select below
+  // becomes PATCH /doctors/:id/availability; identity comes from the
+  // authenticated session instead of doctor(1).
+  function _currentDoctor() {
+    return window.SharedMockDoctors ? window.SharedMockDoctors.currentDoctor() : null;
+  }
+  let _doctorRecord = _currentDoctor(); // re-resolved by _bootQueueFromServer() after roster hydration
+  // Identity display comes from the authenticated session (/api/auth/me);
+  // the mock doctor record only carries domain state (availability, ids).
+  const _authUser = window.VHSAuth ? window.VHSAuth.currentUser() : null;
+  const _display = _authUser
+    ? { name: _authUser.name || _authUser.fullName || '', role: _authUser.role || '' }
+    : null;
+  if (_display) {
+    const greeting = document.getElementById('view-title');
+    if (greeting && _display.name) {
+      greeting.textContent = 'Good morning, ' + _display.name.replace(/^Dr\.?\s*/i, 'Dr. ');
+    }
+    const sidebarName = document.querySelector('.sidebar-user-name');
+    if (sidebarName && _display.name) sidebarName.textContent = _display.name;
+    const sidebarRole = document.querySelector('.sidebar-user-role');
+    if (sidebarRole && _display.role) {
+      sidebarRole.textContent = _display.role === 'Doctor' ? 'Veterinarian' : _display.role;
+    }
+  }
+  // Availability select: Phase 5 writes SERVER-side via PATCH
+  // /doctors/:id/availability, then the confirmed value is mirrored into the
+  // shared store so Admin → Doctor and Doctor → Admin stay in sync via the
+  // same record. On refusal the control reverts — no optimistic local-only
+  // state that the backend never accepted.
+  document.getElementById('availability').addEventListener('change', async event => {
+    const value = event.target.value;
+    const MAP = { 'On-Duty': 'on_duty', 'On Break': 'on_break', 'On Leave': 'on_leave' };
+    const next = MAP[value] || 'on_duty';
+    const status = document.getElementById('availability-status');
+    if (!window.VHSWrites || !_doctorRecord) {
+      if (status) status.textContent = 'Availability service unavailable — change not saved.';
+      return;
+    }
+    const _prevAvail = _doctorRecord.availabilityStatus;
+    const result = await window.VHSWrites.setDoctorAvailability(_doctorRecord.doctorId, next);
+    if (!result.ok) {
+      // Revert the select to the last server-accepted value.
+      const REV = { on_duty: 'On-Duty', on_break: 'On Break', on_leave: 'On Leave' };
+      event.target.value = REV[_prevAvail] || 'On-Duty';
+      if (status) status.textContent = result.notInDatabase
+        ? 'This doctor record is not in the clinic database — change not saved.'
+        : (result.message || 'Could not save availability. Please try again.');
+      return;
+    }
+    if (window.AuditLog) {
+      const _lab = { on_duty: 'On Duty', on_break: 'On Break', on_leave: 'On Leave' };
+      window.AuditLog.add({ actor: { actorType: 'Doctor', actorId: VETERINARIAN.id, actorName: VETERINARIAN.name }, action: 'doctor_availability_changed', entityType: 'doctor', entityId: _doctorRecord.doctorId, description: VETERINARIAN.name + ' set own availability to ' + (_lab[next] || next), metadata: { previous: _lab[_prevAvail] || _prevAvail || '', new: _lab[next] || next } });
+    }
+    const paused = value !== 'On-Duty';
+    if (status) {
+      status.textContent = paused ? 'New assignments paused' : 'Accepting new assignments';
+      status.classList.toggle('assignments-paused', paused);
+    }
+  });
+  // Mobile drawer behaves like the other portals: slide-in panel, dimmed
+  // overlay, animated hamburger, and close on overlay click or Escape.
+  const menu = document.getElementById('menu-toggle');
+  const sidebar = document.getElementById('doctor-sidebar');
+  const overlay = document.getElementById('sidebar-overlay');
+  function openMobileSidebar() {
+    sidebar.classList.add('open');
+    overlay.classList.add('show');
+    menu.classList.add('active');
+    menu.setAttribute('aria-expanded', 'true');
+  }
+  function closeMobileSidebar() {
+    sidebar.classList.remove('open');
+    overlay.classList.remove('show');
+    menu.classList.remove('active');
+    menu.setAttribute('aria-expanded', 'false');
+  }
+  menu.addEventListener('click', () => {
+    if (sidebar.classList.contains('open')) closeMobileSidebar();
+    else openMobileSidebar();
+  });
+  overlay.addEventListener('click', closeMobileSidebar);
+  document.addEventListener('keydown', event => {
+    if (event.key === 'Escape' && sidebar.classList.contains('open')) {
+      closeMobileSidebar();
+      menu.focus();
+    }
+  });
+  document.querySelectorAll('[data-view]').forEach(link => link.addEventListener('click', event => {
+    event.preventDefault();
+    navigate(link.dataset.view);
+  }));
+  document.getElementById('logoutBtn')?.addEventListener('click', async (e) => {
+    e.preventDefault();
+    if (recorder || audioTake || audioRequestPending || audioSending) { groqStatus.textContent='Stop and transcribe, or download and discard pending audio before logging out.'; return; }
+    const confirmed = await confirmAction({
+      title: 'Log out?',
+      message: 'Make sure your consultation work is saved before logging out.',
+      acceptLabel: 'Log out'
+    });
+    if (!confirmed) return;
+    if (!(await workingStore.flushAll())) {
+      if (workingStatus) workingStatus.textContent='Working draft could not be saved. Keep this page open and retry before logging out.';
+      if (workingRetry) workingRetry.hidden=false;
+      return;
+    }
+    try {
+      if (!window.VHSAuth || typeof window.VHSAuth.logout !== 'function') throw new Error();
+      await window.VHSAuth.logout();
+    } catch (e) {
+      if (workingStatus) workingStatus.textContent='Logout could not be confirmed. Reconnect and retry; your working draft is kept.';
+      return;
+    }
+    if (scribeRetryCache) scribeRetryCache.clearAll();
+    const loader = document.createElement('div');
+    loader.style.cssText = 'position:fixed;inset:0;background:#1a0a3e;display:flex;align-items:center;justify-content:center;z-index:99999;';
+    const _paw = '<svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" style="width:32px;height:32px;"><ellipse cx="22" cy="18" rx="8" ry="10"/><ellipse cx="42" cy="18" rx="8" ry="10"/><ellipse cx="10" cy="34" rx="7" ry="9"/><ellipse cx="54" cy="34" rx="7" ry="9"/><path d="M32 36c-10 0-18 7-18 14s4 10 10 10c4 0 6-2 8-6 2 4 4 6 8 6 6 0 10-5 10-10s-8-14-18-14z"/></svg>';
+    loader.innerHTML = `<div style="text-align:center;"><div style="display:flex;gap:0.5rem;justify-content:center;align-items:flex-end;margin-bottom:1.5rem;"><div style="display:inline-block;opacity:0;animation:pawIn 0.4s ease-out forwards;">${_paw}</div><div style="display:inline-block;opacity:0;animation:pawIn 0.4s ease-out forwards;animation-delay:0.25s;">${_paw}</div><div style="display:inline-block;opacity:0;animation:pawIn 0.4s ease-out forwards;animation-delay:0.5s;">${_paw}</div><div style="display:inline-block;opacity:0;animation:pawIn 0.4s ease-out forwards;animation-delay:0.75s;">${_paw}</div></div><div style="color:white;font-size:0.85rem;font-weight:600;letter-spacing:3px;text-transform:uppercase;font-family:inherit;">Logging out</div></div><style>@keyframes pawIn{from{opacity:0;transform:translateY(6px) scale(0.7)}to{opacity:1;transform:translateY(0) scale(1)}}</style>`;
+    document.body.appendChild(loader);
+    setTimeout(() => {
+      window.location.href = '/web-page/index.html';
+    }, 1200);
+  });
+  // Navbar clock in the shared Clerk/Admin format: "Fri, Sep 25, 2026 | 9:14:32 PM".
+  window.addEventListener('hashchange', () => showView(window.location.hash.slice(1)));
+  window.addEventListener('popstate', () => showView(window.location.hash.slice(1)));
+  // The validation gate reveals the panel that owns an invalid field so focus
+  // never lands on a hidden input (no history entry: the gate replaceStates).
+  document.addEventListener('doctor:reveal-panel', event => showView(event.detail, false));
+  document.querySelector('.skip-link').addEventListener('click', event => {
+    event.preventDefault();
+    document.getElementById('view-title').focus();
+  });
+  // Navbar clock in the shared Clerk/Admin format: "Fri, Sep 25, 2026 | 9:14:32 PM".
+  const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  function longDateTime() {
+    const now = new Date();
+    const date = `${DAYS[now.getDay()]}, ${MONTHS[now.getMonth()]} ${now.getDate()}, ${now.getFullYear()}`;
+    return date;
+  }
+  function clockTime(now) {
+    let hours = now.getHours();
+    const minutes = now.getMinutes();
+    const seconds = now.getSeconds();
+    const suffix = hours >= 12 ? 'PM' : 'AM';
+    hours = hours % 12 || 12;
+    return `${hours}:${minutes < 10 ? '0' : ''}${minutes}:${seconds < 10 ? '0' : ''}${seconds} ${suffix}`;
+  }
+  function updateClock() {
+    const now = new Date();
+    document.getElementById('current-date').textContent = longDateTime(now);
+    document.getElementById('current-time').textContent = clockTime(now);
+  }
+  updateClock();
+  setInterval(updateClock, 1000);
+  // ── BOOT: hydrate the real records, then paint the queue ──────────────────
+  // 1. GET /api/doctors → roster (server mode: SharedMockDoctors.currentDoctor()
+  //    resolves the signed-in session user, so identity + availability come
+  //    from THIS veterinarian's real row, not doctor(1)).
+  // 2. GET /api/appointments → today's patients (server-scoped to this vet;
+  //    canceled/no_show excluded). These are the SAME records VHSWrites
+  //    patches — real numeric ids, never apt3xx fixtures.
+  // 3. Restore availability, render the queue, select the first patient.
+  // On failure: honest empty state + a visible message — never the demo schedule.
+  async function _bootQueueFromServer() {
+    const reads = window.VHSReads;
+    if (!reads) {
+      patients.length = 0;
+      renderQueue();
+      const errEl = document.getElementById('selection-status');
+      if (errEl) errEl.textContent = 'Read adapter (shared/api-reads.js) failed to load — cannot reach the clinic server.';
+      return;
+    }
+    const [docRes, apptRes] = await Promise.all([
+      reads.hydrateDoctors(),
+      reads.hydrateAppointments()
+    ]);
+    // Refresh the sidebar after the authoritative session has loaded; the
+    // synchronous cache may have been empty when the page first rendered.
+    const signedIn = window.VHSAuth && await window.VHSAuth.me();
+    const sidebarName = document.querySelector('.sidebar-user-name');
+    if (sidebarName) sidebarName.textContent = signedIn && signedIn.name ? signedIn.name : 'Doctor';
+    const sidebarRole = document.querySelector('.sidebar-user-role');
+    if (sidebarRole) sidebarRole.textContent = signedIn && signedIn.role && signedIn.role !== 'Doctor' ? signedIn.role : 'Veterinarian';
+    // Re-resolve identity at IIFE scope (let-bound for exactly this): staff
+    // name/role from the hydrated roster, availability from the same record.
+    const staff = (window.SharedMockDoctors && window.SharedMockDoctors.currentStaff)
+      ? window.SharedMockDoctors.currentStaff()
+      : VETERINARIAN;
+    if (staff && staff.name) VETERINARIAN = staff;
+    _doctorRecord = _currentDoctor();
+    // Restore availability from the shared record (Admin-set values survive
+    // reload/navigation — Admin → Doctor direction of the shared state).
+    if (window.SharedMockDoctors) {
+      const _fresh = window.SharedMockDoctors.currentDoctor();
+      const REV = { on_duty: 'On-Duty', on_break: 'On Break', on_leave: 'On Leave' };
+      const availSel = document.getElementById('availability');
+      if (availSel && _fresh) {
+        availSel.value = REV[_fresh.availabilityStatus] || 'On-Duty';
+        const paused = availSel.value !== 'On-Duty';
+        const statusEl = document.getElementById('availability-status');
+        statusEl.textContent = paused ? 'New assignments paused' : 'Accepting new assignments';
+        statusEl.classList.toggle('assignments-paused', paused);
+      }
+    }
+    // Server-hydrated store → today's rows (identical mapping to what
+    // renderTodaysScheduleTable/admin loadAppointments consume).
+    const rows = (window.SharedMockAppointments
+      ? window.SharedMockAppointments.todays(DOCTOR_TEST_DATE)
+      : []);
+    patients.length = 0;
+    rows.forEach(a => patients.push(mapAppointment(a)));
+    renderQueue();
+    renderHeader(currentView, false); // refresh greeting counts for the real queue
+    renderQueueMeta();
+    // Empty day → no selection, so context stays hidden (no fixture name
+    // can survive a fresh queue load).
+    selectedPatient = null;
+    renderContext(null);
+    if (patients.length) selectPatient(patients[0], false);
+    // A direct notes/orders URL was initially locked while the queue was loading.
+    // Re-evaluate that same view after the real patient selection arrives.
+    showView(currentView, false);
+    // Honest status messaging — the UI never silently pretends.
+    const statusMsg = document.getElementById('selection-status');
+    if (statusMsg && !apptRes.ok) {
+      statusMsg.textContent = 'Could not load today\u2019s patients \u2014 ' + (apptRes.message || 'request failed.');
+    } else if (statusMsg && docRes.ok && !window.SharedMockDoctors.currentDoctor()) {
+      statusMsg.textContent = 'No veterinarian profile is linked to this account \u2014 contact the clinic admin.';
+    }
+  }
+  _bootQueueFromServer();
+  showView(window.location.hash.slice(1), false);
+})();
+
+// ─── FORM VALIDATION & LIMITS ────────────────────────────────────────────────
+// Single source of truth for every input constraint on the consultation form.
+// Frontend UX only — the consultation endpoint re-validates everything.
+// TODO(BACKEND): mirror these limits server-side.
+//
+// THREE SEPARATE CONCERNS, never mixed:
+//   1. SYNTAX   — "is this well-formed?" (digits only, one decimal point,
+//                 heart rate integer). A format error is always a bug.
+//   2. SANITY   — provisional, non-clinical typo guardrails. These are NOT
+//                 veterinary reference ranges and are never shown as clinical
+//                 thresholds; they only catch keystroke/unit mistakes (5000 kg,
+//                 90 °C). A value inside them is not thereby "normal".
+//   3. LIMITS   — character/number caps on free text and prescription fields.
+(function () {
+  'use strict';
+
+  // (3) Character limits. Applied as hard maxlength + live counter; the gate
+  // re-checks them because maxlength does not constrain programmatic values.
+  var TEXT_LIMITS = { subjective: 2000, exam: 1000, assessment: 800, plan: 1000 };
+
+  // (1a) ENTRY GRAMMAR — which characters may reach the field at all.
+  //
+  // type="number" cannot be relied on: browsers accept "1e5", "-2", "+3" and
+  // trailing decimals, and they silently discard characters that the active
+  // locale's decimal separator cannot express. The vitals are therefore
+  // type="text" with an inputmode hint, and this grammar — not the browser —
+  // decides what may be typed, pasted or dropped.
+  //
+  // intDigits/fracDigits are ENTRY limits, not clinical ranges: they stop a
+  // pasted 40-digit number from filling the box. Whether the resulting value
+  // is plausible is VITAL_SANITY's job, below.
+  var VITAL_GRAMMAR = {
+    weight:       { intDigits: 5, fracDigits: 2 }, // e.g. 123.45 kg
+    temperature:  { intDigits: 2, fracDigits: 1 }, // e.g. 38.6 °C
+    'heart-rate': { intDigits: 3, fracDigits: 0 }  // e.g. 180 bpm — no decimal
+  };
+
+  // (1b) Syntax rules — shape only. No clinical values live here.
+  var VITAL_SYNTAX = {
+    weight:       { integer: false, label: 'Weight' },
+    temperature:  { integer: false, label: 'Temperature' },
+    'heart-rate': { integer: true,  label: 'Heart rate' }
+  };
+
+  // (2) Provisional sanity ranges (typo guardrails, NOT clinical references).
+  // TODO(BACKEND): replace with authoritative species/breed reference ranges
+  // served by the consultation API; do not widen these in the frontend.
+  var VITAL_SANITY = {
+    weight:       { min: 0.1, max: 200 },
+    temperature:  { min: 30,   max: 45 },
+    'heart-rate': { min: 20,   max: 300 }
+  };
+
+  // Prescription duration: whole days, 1–365.
+  var DURATION_RANGE = { min: 1, max: 365 };
+
+  function ensureMessage(field) {
+    var errId = 'err-' + field.id;
+    var msg = document.getElementById(errId);
+    if (!msg) {
+      msg = document.createElement('p');
+      msg.id = errId;
+      msg.className = 'vhs-field-error';
+      msg.style.display = 'none';
+      // A structured row shares ONE flex line between several controls, so a
+      // message inserted straight after a single control would become another
+      // flex sibling and squeeze the inputs into a narrow column. Anchor it
+      // below the whole control line instead.
+      var host = field.closest ? (field.closest('.medicine-controls') || field) : field;
+      host.insertAdjacentElement('afterend', msg);
+    }
+    return msg;
+  }
+  function showErr(field, msgEl, text) {
+    field.setAttribute('aria-invalid', 'true');
+    msgEl.textContent = text;
+    msgEl.style.display = 'block';
+  }
+  function clearErr(field, msgEl) {
+    field.removeAttribute('aria-invalid');
+    msgEl.style.display = 'none';
+  }
+  // (1) Syntax check only: well-formed positive decimal / integer.
+  // Shares acceptsNumeric() with the entry filter so what can be typed and
+  // what counts as valid can never drift apart.
+  function validateVitalSyntax(field) {
+    var rule = VITAL_SYNTAX[field.id];
+    var msg = ensureMessage(field);
+    // Deliberately NOT trimmed: whitespace is not part of the grammar, and
+    // trimming here would let " 4.3" through as a valid entry.
+    var raw = field.value || '';
+    if (!raw) { clearErr(field, msg); return true; } // optional fields stay optional
+    // Trailing "." is rejected here even though the entry filter tolerates it
+    // mid-typing: "4." is a legitimate keystroke on the way to "4.3", but it
+    // is not a value the gate may let through.
+    if (!acceptsNumeric(raw, VITAL_GRAMMAR[field.id]) || raw.endsWith('.')) {
+      showErr(field, msg, rule.label + (rule.integer
+        ? ' must be a whole number (digits only).'
+        : ' must be a number (digits with at most one decimal point).'));
+      return false;
+    }
+    clearErr(field, msg);
+    return true;
+  }
+
+  // Pure predicate: is `next` a value this field accepts? Used by the entry
+  // filter and by the syntax gate, so the two always agree.
+  function acceptsNumeric(next, rule) {
+    if (next === '') return true;
+    if (rule.fracDigits === 0) return new RegExp('^\\d{0,' + rule.intDigits + '}$').test(next);
+    var m = /^(\d*)(?:\.(\d*))?$/.exec(next);
+    if (!m) return false; // letters (e/E), signs (+/-), whitespace, second dot
+    if ((m[1] || '').length > rule.intDigits) return false;
+    if ((m[2] || '').length > rule.fracDigits) return false;
+    if (next.indexOf('.') !== -1 && !m[1]) return false; // a bare "." / ".5" is never a value
+    return true;
+  }
+
+  // Refuse the keystroke; never repair the value afterwards. Deleting the
+  // rejected characters from "1e5" would leave "15" — a DIFFERENT number from
+  // the one that was typed, recorded as if the vet had entered it. So nothing
+  // here writes to field.value: a character the grammar rejects simply never
+  // enters the box, and the caller decides how to report what is still wrong.
+  //
+  // onBad is invoked on every input so the caller can re-check values that
+  // arrived without beforeinput (programmatic assignment, draft restore).
+  function installStrictNumeric(field, rule, onBad) {
+    field.inputMode = rule.fracDigits ? 'decimal' : 'numeric';
+    field.addEventListener('beforeinput', function (e) {
+      if (e.isComposing) return;                       // IME composition: let it finish
+      if (String(e.inputType).indexOf('insert') !== 0) return; // deletions are always allowed
+      var incoming = e.data == null ? '' : e.data;
+      var next = field.value.slice(0, field.selectionStart) + incoming + field.value.slice(field.selectionEnd);
+      if (!acceptsNumeric(next, rule)) e.preventDefault();
+    });
+    field.addEventListener('input', function () { if (onBad) onBad(field); });
+    field.addEventListener('blur', function () { if (onBad) onBad(field); });
+  }
+
+  // The numeric parts of a prescription row obey the same entry rules as the
+  // vitals: an amount may carry one decimal point, an interval and a duration
+  // are whole numbers. "3 days" and "1e2 days" never reach the record.
+  var PRESCRIPTION_GRAMMAR = {
+    dosageValue:    { intDigits: 3, fracDigits: 2 }, // e.g. 1, 2.5
+    frequencyEvery: { intDigits: 3, fracDigits: 0 }, // e.g. 8
+    duration:       { intDigits: 3, fracDigits: 0 }  // whole days
+  };
+
+  // Rows are built dynamically and restored from drafts, so filters are
+  // attached to whichever rows exist now and to any added later. Marking the
+  // field keeps this idempotent when the observer re-scans.
+  function installRowNumerics(row) {
+    Object.keys(PRESCRIPTION_GRAMMAR).forEach(function (part) {
+      var field = row.querySelector('[data-part="' + part + '"]') || row.querySelector('[data-field="' + part + '"]');
+      if (field && !field.dataset.numericInstalled) {
+        field.dataset.numericInstalled = '1';
+        // No onBad callback: the row-level prescription check already owns
+        // this field's messaging, and duplicating it would fight with that.
+        installStrictNumeric(field, PRESCRIPTION_GRAMMAR[part], null);
+      }
+    });
+  }
+
+  // (2) Sanity check only — provisional typo guardrail, never a clinical claim.
+  function validateVitalSanity(field) {
+    var rule = VITAL_SANITY[field.id];
+    if (!rule) return true;
+    var msg = ensureMessage(field);
+    var raw = field.value || '';
+    if (!raw) return true;
+    var num = Number(raw);
+    if (!isFinite(num) || num < rule.min || num > rule.max) {
+      showErr(field, msg, VITAL_SYNTAX[field.id].label + ' looks out of range — enter ' +
+        rule.min + ' to ' + rule.max + '.');
+      return false;
+    }
+    clearErr(field, msg);
+    return true;
+  }
+
+  function validateNumber(field) {
+    return validateVitalSyntax(field) && validateVitalSanity(field);
+  }
+
+  // Prescription duration: whole days within range (min/max attributes alone
+  // never block because the form is novalidate).
+  function validateDuration(input) {
+    var msg = ensureMessage(input);
+    var raw = (input.value || '').trim();
+    if (!raw) { clearErr(input, msg); return true; } // completeness handled elsewhere
+    if (!/^\d{1,3}$/.test(raw)) {
+      showErr(input, msg, 'Enter a valid duration between ' + DURATION_RANGE.min + ' and ' + DURATION_RANGE.max + ' days.');
+      return false;
+    }
+    var num = Number(raw);
+    if (num < DURATION_RANGE.min || num > DURATION_RANGE.max) {
+      showErr(input, msg, 'Enter a valid duration between ' + DURATION_RANGE.min + ' and ' + DURATION_RANGE.max + ' days.');
+      return false;
+    }
+    clearErr(input, msg);
+    return true;
+  }
+
+  // ── PRESCRIPTION ROW VALIDATION ──────────────────────────────────────────
+  // Completion used to emit one generic "complete the medicine, dosage,
+  // frequency, and duration" line and focus whichever box happened to be
+  // empty, which never told the vet what was actually wrong. Every part now
+  // carries its own message and the offending control is marked, so the first
+  // invalid field is also the one that receives focus.
+  //
+  // An entirely empty row is NOT an error — rows start blank and the vet may
+  // leave them unused. A row is only incomplete once any part is filled in.
+  var DURATION_MESSAGE = 'Enter a valid duration between ' + DURATION_RANGE.min + ' and ' + DURATION_RANGE.max + ' days.';
+
+  // The two dropdowns open on a placeholder option ("Unit…" / "Choose…"), stored
+  // as CHOOSE_UNIT / CHOOSE_PATTERN. Those placeholders are NOT vet input: read
+  // as data they made a completely untouched row look filled, which then demanded
+  // a medicine name and blocked Save draft / Complete consultation on every
+  // consultation that prescribed nothing. Strip them here — exactly as
+  // dosageText() and frequencyText() already do when they compose the final
+  // sentence. Everything downstream (medicineRowFilled, the dosage and frequency
+  // checks) then sees the row the vet actually filled in.
+  var PLACEHOLDER_VALUES = { dosageUnit: CHOOSE_UNIT, frequencyPattern: CHOOSE_PATTERN };
+
+  function partValue(row, part) {
+    var el = row.querySelector('[data-part="' + part + '"]');
+    if (!el) return '';
+    var value = String(el.value || '').trim();
+    return value === PLACEHOLDER_VALUES[part] ? '' : value;
+  }
+  function fieldValue(row, field) {
+    var el = row.querySelector('[data-field="' + field + '"]');
+    return el ? String(el.value || '').trim() : '';
+  }
+  function medicineRowFilled(m) {
+    return !!(m.medicine || m.dosageValue || m.dosageUnit || m.dosageCustom ||
+      m.frequencyPattern || m.frequencyEvery || m.frequencyCustom || m.duration);
+  }
+
+  // Returns the first problem in document order as { message, field }, or null
+  // when the row is empty or entirely well-formed.
+  function prescriptionRowIssue(row) {
+    var m = {
+      medicine: fieldValue(row, 'medicine'),
+      dosageValue: partValue(row, 'dosageValue'),
+      dosageUnit: partValue(row, 'dosageUnit'),
+      dosageCustom: partValue(row, 'dosageCustom'),
+      frequencyPattern: partValue(row, 'frequencyPattern'),
+      frequencyEvery: partValue(row, 'frequencyEvery'),
+      frequencyCustom: partValue(row, 'frequencyCustom'),
+      duration: fieldValue(row, 'duration'),
+    };
+    if (!medicineRowFilled(m)) return null; // untouched row
+
+    var control = part => row.querySelector('[data-part="' + part + '"]');
+    var hasDosage = !!(m.dosageValue || m.dosageUnit || m.dosageCustom);
+    var hasFrequency = !!(m.frequencyPattern || m.frequencyEvery || m.frequencyCustom);
+
+    if (!m.medicine) return { message: 'Enter the medicine name.', field: row.querySelector('[data-field="medicine"]') };
+    if (!m.dosageValue) return { message: 'Enter a dosage amount.', field: control('dosageValue') };
+    if (!m.dosageUnit) return { message: 'Choose or enter a dosage unit.', field: control('dosageUnit') };
+    if (m.dosageUnit === 'custom' && !m.dosageCustom) {
+      return { message: 'Enter the custom dosage unit.', field: control('dosageCustom') };
+    }
+    if (!hasFrequency) return { message: 'Enter a frequency.', field: control('frequencyPattern') };
+    if (INTERVAL_PATTERNS.has(m.frequencyPattern) && !m.frequencyEvery) {
+      return { message: 'Enter how many.', field: control('frequencyEvery') };
+    }
+    if (m.frequencyPattern === 'custom' && !m.frequencyCustom) {
+      return { message: 'Enter the dosing frequency.', field: control('frequencyCustom') };
+    }
+    if (!m.duration) return { message: 'Enter how many days the medicine is for.', field: row.querySelector('[data-field="duration"]') };
+
+    // Everything is filled — now shape and range.
+    if (!/^\d{1,3}(\.\d{1,2})?$/.test(m.dosageValue)) {
+      return { message: 'Enter the dosage amount as a number, for example 1 or 2.5.', field: control('dosageValue') };
+    }
+    if (!/^\d{1,3}$/.test(m.duration) || Number(m.duration) < DURATION_RANGE.min || Number(m.duration) > DURATION_RANGE.max) {
+      return { message: DURATION_MESSAGE, field: row.querySelector('[data-field="duration"]') };
+    }
+    if (INTERVAL_PATTERNS.has(m.frequencyPattern)) {
+      if (!/^\d{1,3}$/.test(m.frequencyEvery) || Number(m.frequencyEvery) < 1) {
+        return { message: 'Enter a whole number greater than 0.', field: control('frequencyEvery') };
+      }
+    }
+    if (fieldValue(row, 'medicine').length > MEDICINE_LIMITS.medicine) {
+      return { message: 'Medicine is limited to ' + MEDICINE_LIMITS.medicine + ' characters.', field: row.querySelector('[data-field="medicine"]') };
+    }
+    if (fieldValue(row, 'instructions').length > MEDICINE_LIMITS.instructions) {
+      return { message: 'Owner instructions are limited to ' + MEDICINE_LIMITS.instructions + ' characters.', field: row.querySelector('[data-field="instructions"]') };
+    }
+    return null;
+  }
+
+  // Marks every offending part so the whole row shows what needs attention,
+  // while still returning the FIRST one so focus lands somewhere sensible.
+  function clearPrescriptionErrors(row) {
+    Array.prototype.forEach.call(row.querySelectorAll('[data-part],[data-field]'), function (el) {
+      clearErr(el, ensureMessage(el));
+    });
+  }
+  function markPrescriptionError(row, issue) {
+    if (issue && issue.field) showErr(issue.field, ensureMessage(issue.field), issue.message);
+  }
+
+  // Exposed because the Save / Preview / Complete handlers live in the portal
+  // IIFE and must reach the same verdict the gate uses.
+  window.doctorFirstPrescriptionIssue = function () {
+    var rows = Array.prototype.slice.call(document.querySelectorAll('.medicine-row'));
+    rows.forEach(clearPrescriptionErrors);
+    var first = null;
+    rows.forEach(function (row) {
+      var issue = prescriptionRowIssue(row);
+      if (issue && !first) first = issue;
+      markPrescriptionError(row, issue);
+    });
+    return first;
+  };
+
+  // SOAP text limits — maxlength covers typing/paste; this covers values that
+  // were set programmatically (draft restore) and bypassed maxlength.
+  function validateTextLimit(field) {
+    var limit = TEXT_LIMITS[field.id];
+    if (!limit) return true;
+    var msg = ensureMessage(field);
+    if ((field.value || '').length > limit) {
+      showErr(field, msg, 'This field is limited to ' + limit + ' characters.');
+      return false;
+    }
+    clearErr(field, msg);
+    return true;
+  }
+
+  // Reveal the panel that owns the field so focus never lands on a hidden input.
+  function revealField(field) {
+    var panel = field.closest ? field.closest('[data-panel]') : null;
+    var name = panel ? panel.getAttribute('data-panel') : null;
+    if (name) {
+      history.replaceState(null, '', '#' + name);
+      document.dispatchEvent(new CustomEvent('doctor:reveal-panel', { detail: name }));
+    }
+  }
+
+  // THE GATE. Save draft, Preview and Complete all call this first: an invalid
+  // value blocks the action, reveals the field and moves focus to it.
+  window.doctorValidateClinical = function () {
+    var firstBad = null;
+    var fail = function (ok, field) {
+      if (!ok && !firstBad) firstBad = field;
+      return ok;
+    };
+    Object.keys(VITAL_SYNTAX).forEach(function (id) {
+      var field = document.getElementById(id);
+      if (field) fail(validateNumber(field), field);
+    });
+    Object.keys(TEXT_LIMITS).forEach(function (id) {
+      var field = document.getElementById(id);
+      if (field) fail(validateTextLimit(field), field);
+    });
+    Array.prototype.forEach.call(document.querySelectorAll('.medicine-row'), function (row) {
+      var dur = row.querySelector('[data-field="duration"]');
+      if (dur) fail(validateDuration(dur), dur);
+    });
+    // Prescription completeness/range, with field-level messages and focus on
+    // the first offending control.
+    var rx = window.doctorFirstPrescriptionIssue();
+    if (rx && !firstBad) firstBad = rx.field;
+    if (!firstBad) return true;
+    revealField(firstBad);
+    try { firstBad.focus(); } catch (e) {}
+    return false;
+  };
+
+  var form = document.getElementById('consultation-form');
+  if (!form) return;
+
+  // Clear a prescription error as soon as the vet fixes the control, rather
+  // than making them press Save again to discover it. Rows that are not
+  // currently showing an error are skipped, so ordinary typing costs nothing.
+  ['input', 'change'].forEach(function (type) {
+    document.addEventListener(type, function (e) {
+      var row = e.target.closest ? e.target.closest('.medicine-row') : null;
+      if (!row || !row.querySelector('[aria-invalid="true"]')) return;
+      window.doctorFirstPrescriptionIssue();
+    });
+  });
+
+  // Character counters + hard maxlength on the SOAP textareas.
+  Object.keys(TEXT_LIMITS).forEach(function (id) {
+    var field = document.getElementById(id);
+    if (!field) return;
+    field.maxLength = TEXT_LIMITS[id];
+    var counter = document.createElement('span');
+    counter.className = 'vhs-char-counter';
+    counter.setAttribute('aria-live', 'polite');
+    var update = function () { counter.textContent = field.value.length + '/' + TEXT_LIMITS[id]; };
+    field.insertAdjacentElement('afterend', counter);
+    field.addEventListener('input', update);
+    document.addEventListener('doctor:fields-restored', update);
+    update();
+  });
+
+  // Vitals: refuse characters the grammar rejects, validate near the field, and
+  // let the gate (doctorValidateClinical) block the three actions.
+  Object.keys(VITAL_SYNTAX).forEach(function (id) {
+    var field = document.getElementById(id);
+    if (!field) return;
+    var rule = VITAL_GRAMMAR[id];
+    installStrictNumeric(field, rule, function () {
+      // Re-check only when the field is already flagged or holds something the
+      // grammar rejects; otherwise ordinary typing does no validation work.
+      if (!acceptsNumeric(field.value, rule) || field.getAttribute('aria-invalid')) validateNumber(field);
+    });
+  });
+
+  // Prescription numeric parts, for rows present now and any added later.
+  Array.prototype.forEach.call(document.querySelectorAll('.medicine-row'), installRowNumerics);
+  var medicineList = document.getElementById('medicine-list');
+  if (medicineList) {
+    new MutationObserver(function () {
+      Array.prototype.forEach.call(document.querySelectorAll('.medicine-row'), installRowNumerics);
+    }).observe(medicineList, { childList: true });
+  }
+
+  // Prescription rows are built by the portal script (addMedicine), which sets
+  // their maxlength and the strict numeric entry filters at construction time
+  // — so no MutationObserver pass is needed to keep late-created or
+  // draft-restored rows compliant. What remains here is the validation that
+  // runs when the gate fires: duration shape/range plus the row-level
+  // completeness rules in doctorFirstPrescriptionIssue().
+})();

@@ -1,0 +1,8 @@
+<?php
+require __DIR__.'/../vendor/autoload.php';$app=require __DIR__.'/../bootstrap/app.php';$app->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap();
+$part='The owner reports that the fictional dog has been coughing for several days and is still drinking water. The veterinarian observed that the dog was alert during the examination. The veterinarian said the cause was uncertain and advised a follow-up next week. ';
+$text=str_repeat($part,16);$g=new App\Services\AI\AiGateway(new App\Services\AI\Providers\GeminiProvider());$g->startScribeDeadline(90);$start=microtime(true);
+$trace=[];$inventory=(new App\Services\AI\ScribeChunkedInventory($g,static function(array $item) use (&$trace){$trace[]=$item;}))->extract($text,800);
+$reconstructed=($inventory['ok']??false)?implode('',array_column($inventory['chunks'],'text')):null;
+$summary=(new App\Services\AI\ScribeEvidenceSummary($g))->generate($inventory);
+echo json_encode(['characters'=>mb_strlen($text),'bytes'=>strlen($text),'duration_seconds'=>round(microtime(true)-$start,2),'inventory_ok'=>$inventory['ok']??false,'inventory_complete'=>$inventory['complete']??false,'chunks'=>isset($inventory['chunks'])?count($inventory['chunks']):null,'statuses'=>isset($inventory['chunks'])?array_count_values(array_column($inventory['chunks'],'status')):[],'provider_trace'=>$trace,'failures'=>array_values(array_filter(array_map(static fn($chunk)=>$chunk['failure']??null,$inventory['chunks']??[]))),'original_preserved'=>$reconstructed===$text,'summary_code'=>$summary['code']??null,'draft_produced'=>is_array($summary['draft']??null),'coverage'=>$summary['draftCoverage']??null],JSON_UNESCAPED_UNICODE)."\n";

@@ -1,0 +1,168 @@
+{
+  "kind": "vetti-answer-fixtures",
+  "notes": "Fixtures for Vetti answer/render contract. Valid = accepted by the validator. Invalid = rejected by validation. These are spec/fixtures, not real Gemini output.",
+  "validator": {
+    "text": "string when present",
+    "state": "required, must be a known Vetti mascot state",
+    "suggestions": "array of non-empty strings when present",
+    "action": "null/undefined/'' or one of the whitelisted action names only",
+    "payload": "structured keys typed as the existing renderer reads them"
+  },
+  "whitelist": ["openPetForm", "openBooking", "openReschedule", "openCancel"],
+  "states": ["idle","greeting","listening","thinking","success","excited","reminder","concerned","apology","error","add_pet","booking","pet_profile"],
+  "valid": [
+    {
+      "id": "vetti-answer-01-text-only",
+      "description": "Text-only response",
+      "answer": {
+        "id": "clinic-info",
+        "state": "idle",
+        "text": "Our clinic is open Monday to Saturday, 8:00 AM to 5:00 PM.",
+        "suggestions": ["Show my pets", "What services do you offer?"]
+      }
+    },
+    {
+      "id": "vetti-answer-02-suggestions",
+      "description": "Suggestions",
+      "answer": {
+        "id": "services",
+        "state": "idle",
+        "text": "We group services into a few categories.",
+        "suggestions": ["Show all service categories", "Book an appointment"]
+      }
+    },
+    {
+      "id": "vetti-answer-03-openBooking",
+      "description": "openBooking action",
+      "answer": {
+        "id": "booking",
+        "state": "booking",
+        "text": "Sure — let me help you book that visit.",
+        "action": "openBooking",
+        "appointments": true
+      }
+    },
+    {
+      "id": "vetti-answer-04-openReschedule",
+      "description": "openReschedule action",
+      "answer": {
+        "id": "appointment_actions",
+        "state": "idle",
+        "text": "I can help move that visit to another time.",
+        "action": "openReschedule",
+        "appointment": { "appointmentId": "apt306", "service": "Vaccination" }
+      }
+    },
+    {
+      "id": "vetti-answer-05-openCancel",
+      "description": "openCancel action",
+      "answer": {
+        "id": "appointment_actions",
+        "state": "idle",
+        "text": "I can help cancel that visit if you need to.",
+        "action": "openCancel",
+        "appointment": { "appointmentId": "apt306", "service": "Vaccination" }
+      }
+    },
+    {
+      "id": "vetti-answer-06-openPetForm",
+      "description": "openPetForm action",
+      "answer": {
+        "id": "pets",
+        "state": "add_pet",
+        "text": "Let's add that pet first.",
+        "action": "openPetForm"
+      }
+    },
+    {
+      "id": "vetti-answer-07-safety-refusal",
+      "description": "Safety refusal / appointment guidance",
+      "answer": {
+        "id": "health-guidance",
+        "state": "concerned",
+        "text": "I am not a veterinarian, so I cannot diagnose Luna or tell you how to treat her. If she is showing worrying symptoms, please contact us or bring her in, and we can help you book a visit.",
+        "suggestions": ["Book an appointment", "Show my appointments"]
+      }
+    },
+    {
+      "id": "vetti-answer-08-fallback-style",
+      "description": "Fallback-style answer",
+      "answer": {
+        "id": "unmatched",
+        "state": "apology",
+        "text": "I did not quite catch that. I can help with your pets, appointments, documents and services — try one of the suggestions below.",
+        "suggestions": ["Show my pets", "Show my appointments"]
+      }
+    }
+  ],
+  "invalid": [
+    {
+      "id": "vetti-answer-09-unsupported-action",
+      "description": "Unsupported action",
+      "answer": {
+        "id": "booking",
+        "state": "booking",
+        "text": "Opening booking.",
+        "action": "openAdminPanel"
+      }
+    },
+    {
+      "id": "vetti-answer-10-non-string-text",
+      "description": "Non-string text",
+      "answer": {
+        "id": "clinic-info",
+        "state": "idle",
+        "text": 123
+      }
+    },
+    {
+      "id": "vetti-answer-11-invalid-state",
+      "description": "Invalid state",
+      "answer": {
+        "id": "clinic-info",
+        "state": "robot-mode",
+        "text": "Hello."
+      }
+    },
+    {
+      "id": "vetti-answer-12-malformed-suggestions",
+      "description": "Malformed suggestions",
+      "answer": {
+        "id": "services",
+        "state": "idle",
+        "text": "Here.",
+        "suggestions": "Open the pets page"
+      }
+    },
+    {
+      "id": "vetti-answer-13-malformed-suggestion-content",
+      "description": "Malformed suggestions content",
+      "answer": {
+        "id": "services",
+        "state": "idle",
+        "text": "Here.",
+        "suggestions": ["Open pets", ""]
+      }
+    },
+    {
+      "id": "vetti-answer-14-empty-non-renderable",
+      "description": "Empty/non-renderable response",
+      "answer": {
+        "id": "clinic-info",
+        "state": "idle",
+        "text": ""
+      }
+    },
+    {
+      "id": "vetti-answer-15-wrong-payload-type",
+      "description": "Wrong payload type",
+      "answer": {
+        "id": "booking",
+        "state": "booking",
+        "text": "Opening booking.",
+        "action": "openBooking",
+        "appointments": "yes"
+      }
+    }
+  ]
+}

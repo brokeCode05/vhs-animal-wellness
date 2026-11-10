@@ -1,0 +1,11 @@
+'use strict';
+const assert=require('assert'),fs=require('fs'),vm=require('vm');
+const source=fs.readFileSync('public/user/user-script.js','utf8');
+const fmt=source.slice(source.indexOf('function _publicServicePrice('),source.indexOf('async function _renderServiceCardsFromCatalog()'));
+const start=source.indexOf('var _bookingPriceRequest = 0;'),end=source.indexOf('function openBookModal(',start);
+const make=(value,label)=>({value,textContent:label,getAttribute:k=>k==='data-service-label'?label:null});
+let options=[make('','Choose'),make('cat_grooming','Cat Grooming'),make('vaccination','Vaccination')];
+options.forEach(o=>{o.attrs={};o.setAttribute=(k,v)=>o.attrs[k]=v;});
+let sandbox={console,fetch:async()=>({ok:true,json:async()=>({success:true,data:{services:[{active:true,value:'cat_grooming',publicPricingType:'starting',publicPriceMin:'500'},{active:true,value:'vaccination',publicPricingType:'contact'}]}})})};
+vm.runInNewContext(fmt+source.slice(start,end),sandbox);
+(async()=>{await sandbox._refreshBookingPublicPrices({options});assert.equal(options[1].textContent,'Cat Grooming (Starts at ₱500.00)');assert.equal(options[2].textContent,'Vaccination (Contact us for pricing)');assert.equal(options[1].value,'cat_grooming');assert.equal(options[1].attrs['data-public-price'],'Starts at ₱500.00');assert.ok(source.includes("getAttribute('data-public-price')"));assert.ok(source.includes('Loading pricing…'));sandbox.fetch=async()=>{throw Error('unavailable')}; options[1].textContent='Cat Grooming (Loading pricing…)';await sandbox._refreshBookingPublicPrices({options});assert.equal(options[1].textContent,'Cat Grooming (Contact us for pricing)');console.log('PASS: booking labels use public pricing, preserve service values and fail safely.');})().catch(e=>{console.error(e);process.exitCode=1});

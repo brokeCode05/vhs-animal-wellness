@@ -1,0 +1,42 @@
+'use strict';
+// Real User Vetti controller, fake same-origin fetch; no private data leaves browser.
+const fs=require('fs'),path=require('path'),vm=require('vm'),assert=require('assert/strict');
+const root=path.resolve(__dirname,'..'),read=p=>fs.readFileSync(path.join(root,p),'utf8');
+const calls=[];
+const w={VHS_SEMANTIC_VETTI:true,location:{pathname:'/user/index.html'},setTimeout,clearTimeout,fetch:async (url,opts)=>{
+  calls.push({url,body:opts&&opts.body});
+  if(url==='/api/auth/csrf')return{ok:true,json:async()=>({data:{csrf_token:'test-csrf'}})};
+  if(url==='/api/ai/semantic-vetti')return{ok:true,json:async()=>({success:true,data:{mode:'semantic',kind:'information',text:'The clinic can confirm fees.',state:'idle'}})};
+  throw Error('unexpected network request '+url);
+}};w.window=w;
+const context={window:w,Date,Promise,setTimeout,clearTimeout};
+for(const f of ['public/shared/appointment-contract.js','public/user/vetti-state.js','public/user/vetti-ai.js'])vm.runInNewContext(read(f),context,{filename:f});
+const ctx={pets:[],hasPets:false,services:[],appointments:{upcoming:[],past:[]},suggestionsWithPet:[],suggestionsNoPet:[],responseLanguage:'en'};
+(async()=>{
+  w.VettiAI.recordTurn('user','What services do you offer?');
+  w.VettiAI.recordTurn('vetti','Grooming and consultation are listed.');
+  await w.VettiAI.ask('How much is it?',ctx);
+  const req=calls.find(x=>x.url==='/api/ai/semantic-vetti');
+  assert.ok(req,'backend request should be made');
+  const body=JSON.parse(req.body);
+  assert.ok(!Object.hasOwn(body,'context_topic'),'Topic context is stored and verified by Laravel');
+  assert.ok(/^chat_/.test(body.conversation_id));
+  assert.equal(body.message,'How much is it?');
+  assert.ok(!Object.hasOwn(body,'conversation'));
+  assert.ok(!Object.hasOwn(body,'pets'));
+  assert.ok(!JSON.stringify(body).includes('Grooming and consultation are listed.'));
+  const previous=body.conversation_id;
+  w.VettiAI.clearHistory();
+  w.VettiAI.recordTurn('user','What are your clinic hours?');
+  await w.VettiAI.ask('How much is it?',ctx);
+  const reqs=calls.filter(x=>x.url==='/api/ai/semantic-vetti');
+  assert.equal(reqs.length,2);
+  const next=JSON.parse(reqs[1].body);
+  assert.notEqual(next.conversation_id,previous,'new conversation must rotate the key');
+  assert.ok(!Object.hasOwn(next,'conversation'),'new chat does not upload the old history');
+  const pub=read('public/web-page/public-vetti.js');
+  assert.match(pub,/conversation_id: conversationId/);
+  assert.match(pub,/conversationId = freshContextId\(\)/);
+  assert.ok(!pub.includes('conversation: thread'), 'public browser must not upload chat history');
+  console.log('PASS: 12 browser privacy, context and reset assertions');
+})().catch(e=>{console.error(e);process.exitCode=1});

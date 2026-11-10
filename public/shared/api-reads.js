@@ -1,0 +1,382 @@
+/**
+ * VHS Read Adapter — read-only Laravel API access for boot-time portal loads.
+ *
+ * Counterpart to shared/api-writes.js (VHSWrites). Every function here is a
+ * GET: it never mutates server state. Portals call the hydrate*() helpers to
+ * replace the demo stores (SharedMockAppointments / SharedMockUsers /
+ * SharedMockDoctors) with the SAME canonical records that VHSWrites operates
+ * on, so rendered rows always carry real Laravel numeric IDs.
+ *
+ * Failure contract: hydrate helpers NEVER fall back to demo data. A failed
+ * request hydrates the store with an empty list and reports { ok:false } so
+ * the portal can render an honest empty state + error message instead of
+ * silently showing mock records that do not exist in the database.
+ *
+ * Same-origin, session-cookie authenticated (auth/session-auth.js).
+ */
+window.VHSReads = (function () {
+  'use strict';
+
+  var API_BASE = '../api/';
+  var Contract = window.AppointmentContract || null;
+
+  function messageOf(fallback) {
+    var args = Array.prototype.slice.call(arguments, 1);
+    for (var i = 0; i < args.length; i++) {
+      if (args[i] && typeof args[i].message === 'string' && args[i].message.trim()) {
+        return args[i].message;
+      }
+    }
+    return fallback;
+  }
+
+  /** GET api/<path>; resolves { ok, status, data, message }. */
+  function get(path) {
+    return fetch(API_BASE + path, {
+      method: 'GET',
+      credentials: 'same-origin',
+      headers: { Accept: 'application/json' },
+    })
+      .then(function (res) {
+        return res
+          .json()
+          .catch(function () { return null; })
+          .then(function (body) {
+            if (res.status === 401 || res.status === 419) {
+              return { ok: false, status: res.status, data: null, unauthorized: true,
+                message: 'Your session has expired. Please sign in again.' };
+            }
+            if (res.status === 403) {
+              return { ok: false, status: 403, data: null,
+                message: (body && body.message) || 'You do not have access to these records.' };
+            }
+            if (!res.ok) {
+              return { ok: false, status: res.status, data: null,
+                message: (body && body.message) || 'Could not load records from the clinic server.' };
+            }
+            return { ok: true, status: res.status, data: (body && body.data) || {}, message: (body && body.message) || '' };
+          });
+      })
+      .catch(function () {
+        return { ok: false, status: 0, data: null, offline: true,
+          message: 'Could not reach the clinic server. Check your connection and try again.' };
+      });
+  }
+
+  /** Presenter row -> canonical appointment record (same as VHSWrites). */
+  function toCanonical(row) {
+    if (!row) return null;
+    var rec = Contract ? Contract.fromLegacy(row) : Object.assign({}, row);
+    if (rec && !rec.referenceNo && row.reference_no) rec.referenceNo = row.reference_no;
+    return rec;
+  }
+
+  // ── Raw endpoints ────────────────────────────────────────────────────────
+
+  /** GET /api/appointments — role-scoped server-side (Admin=all, Doctor=assigned, User=own). */
+  function appointments() {
+    return get('appointments').then(function (r) {
+      if (!r.ok) return r;
+      var rows = (r.data && r.data.appointments) || [];
+      var list = rows.map(toCanonical).filter(Boolean);
+      return { ok: true, status: r.status, message: r.message, data: { appointments: list, raw: rows } };
+    });
+  }
+
+  /** GET /api/users — Admin only. */
+  function users() {
+    return get('users').then(function (r) {
+      if (!r.ok) return r;
+      return { ok: true, status: r.status, message: r.message, data: { users: (r.data && r.data.users) || [] } };
+    });
+  }
+
+  /** GET /api/users/{user}/pets — Admin (any owner) / User (own). */
+  function petsOfUser(userId) {
+    if (!userId) {
+      return Promise.resolve({ ok: false, status: 0, data: null, message: 'No client selected.' });
+    }
+    return get('users/' + encodeURIComponent(userId) + '/pets').then(function (r) {
+      if (!r.ok) return r;
+      return { ok: true, status: r.status, message: r.message, data: { pets: (r.data && r.data.pets) || [] } };
+    });
+  }
+
+  /** GET /api/users/me/pets — signed-in owner's pets. */
+  function myPets() {
+    return get('users/me/pets').then(function (r) {
+      if (!r.ok) return r;
+      return { ok: true, status: r.status, message: r.message, data: { pets: (r.data && r.data.pets) || [] } };
+    });
+  }
+
+  /** GET /api/doctors — directory (+ inactive records for Admin). */
+  function doctors() {
+    return get('doctors').then(function (r) {
+      if (!r.ok) return r;
+      return { ok: true, status: r.status, message: r.message, data: { doctors: (r.data && r.data.doctors) || [] } };
+    });
+  }
+
+  /** GET /api/consultations?history_for_appointment_id= — Doctor-only EMR continuity. */
+  function appointmentHistory(appointmentId) {
+    if (!appointmentId) {
+      return Promise.resolve({ ok: false, status: 0, data: null, message: 'No appointment selected.' });
+    }
+    return get('consultations?history_for_appointment_id=' + encodeURIComponent(appointmentId)).then(function (r) {
+      if (!r.ok) return r;
+      return { ok: true, status: r.status, message: r.message,
+        data: { history: (r.data && r.data.history) || [] } };
+    });
+  }
+
+  /** GET /api/consultations?appointment_id= — the Doctor's consultation
+   *  session for ONE appointment (null when none exists yet). */
+  function consultationForAppointment(appointmentId) {
+    if (!appointmentId) {
+      return Promise.resolve({ ok: false, status: 0, data: null, message: 'No appointment selected.' });
+    }
+    return get('consultations?appointment_id=' + encodeURIComponent(appointmentId)).then(function (r) {
+      if (!r.ok) return r;
+      var list = (r.data && r.data.consultations) || [];
+      return { ok: true, status: r.status, message: r.message,
+        data: { consultation: list.length ? list[0] : null } };
+    });
+  }
+
+  // ── Store hydration (the boot-time read path) ────────────────────────────
+
+  /**
+   * Fetch appointments and replace SharedMockAppointments with server truth.
+   * On failure hydrates an EMPTY list (never demo seeds) so no mock ID can
+   * reach a write action; caller receives { ok:false, message }.
+   * Single-flight: concurrent boot callers (Admin boot + loadAppointments)
+   * share ONE request instead of racing duplicate GETs.
+   */
+  var _appointmentsFlight = null;
+  function hydrateAppointments(opts) {
+    var store = window.SharedMockAppointments;
+    if (_appointmentsFlight) return _appointmentsFlight;
+    _appointmentsFlight = appointments().then(function (r) {
+      if (!store) return r;
+      if (!r.ok) {
+        store.replaceWithServer([]); // honest empty state, no mock fallback
+        // Settled with an EMPTY store, so the same event fires here as on
+        // success: dashboard stat cards recount to the honest zero instead of
+        // holding their pre-hydration "—" forever.
+        if (document.dispatchEvent) {
+          try {
+            document.dispatchEvent(new CustomEvent('vhs:appointments-loaded', { detail: { count: 0, failed: true } }));
+          } catch (e) { /* CustomEvent unsupported */ }
+        }
+        return r;
+      }
+      store.replaceWithServer(r.data.appointments, opts || {});
+      if (document.dispatchEvent) {
+        try {
+          document.dispatchEvent(new CustomEvent('vhs:appointments-loaded', { detail: { count: r.data.appointments.length } }));
+        } catch (e) { /* CustomEvent unsupported */ }
+      }
+      return r;
+    }).finally(function () { _appointmentsFlight = null; });
+    return _appointmentsFlight;
+  }
+
+  /** Fetch all clients + their pets; replace SharedMockUsers with server truth. */
+  var _clientsFlight = null;
+  function hydrateClients() {
+    var store = window.SharedMockUsers;
+    if (_clientsFlight) return _clientsFlight;
+    _clientsFlight = users().then(function (uRes) {
+      if (!uRes.ok) {
+        window.VHSAdminPetCountsIncomplete = true;
+        if (store) store.replaceWithServer([], []);
+        // Same settlement rule as the appointments hydration above: an honest
+        // empty store still announces itself so the dashboard cards show 0.
+        if (document.dispatchEvent) {
+          try {
+            document.dispatchEvent(new CustomEvent('vhs:clients-loaded', { detail: { users: 0, pets: 0, failed: true } }));
+          } catch (e) { /* CustomEvent unsupported */ }
+        }
+        return uRes;
+      }
+      var userList = uRes.data.users;
+      return Promise.all(userList.map(function (u) {
+        var ownerId = (u && (u.userId || u.id));
+        return petsOfUser(ownerId).then(function (pRes) {
+          return { ownerId: ownerId, pets: pRes.ok ? pRes.data.pets : [], ok: pRes.ok };
+        });
+      })).then(function (petBatches) {
+        var allPets = [];
+        petBatches.forEach(function (b) { allPets = allPets.concat(b.pets); });
+        var incomplete = petBatches.some(function (b) { return !b.ok; });
+        window.VHSAdminPetCountsIncomplete = incomplete;
+        if (store) store.replaceWithServer(userList, allPets);
+        if (document.dispatchEvent) {
+          try {
+            document.dispatchEvent(new CustomEvent('vhs:clients-loaded', { detail: { users: userList.length, pets: allPets.length } }));
+          } catch (e) { /* CustomEvent unsupported */ }
+        }
+        return { ok: !incomplete, status: uRes.status, message: incomplete ? 'Some pet records could not be loaded; counts may be incomplete. Refresh or try again.' : uRes.message,
+          data: { users: userList, pets: allPets } };
+      });
+    }).finally(function () { _clientsFlight = null; });
+    return _clientsFlight;
+  }
+
+  /** Fetch one owner's pets (e.g. the signed-in User) and hydrate the store.
+   *  opts.ownerId re-points the store identity boundary at the real owner.
+   *
+   *  PETS-SETTLED SEAM: hydration is async and first paint can race it, so
+   *  every outcome settles `vhs:pets-loaded` and releases whenPetsSettled()
+   *  waiters — success AND honest empty alike. Consumers (Vetti's welcome /
+   *  zero-pet decision) wait for server truth instead of guessing against a
+   *  store that has not loaded yet. Failure paths that hydrate OUTSIDE this
+   *  function must call markPetsSettled() so waiters are never stranded. */
+  var _petsSettled = false;
+  var _petsWaiters = [];
+
+  function petsSettled() { return _petsSettled; }
+
+  function whenPetsSettled(cb) {
+    if (typeof cb !== 'function') return;
+    if (_petsSettled) { cb(); return; }
+    _petsWaiters.push(cb);
+  }
+
+  function markPetsSettled() {
+    if (_petsSettled) return;
+    _petsSettled = true;
+    if (document.dispatchEvent) {
+      try {
+        document.dispatchEvent(new CustomEvent('vhs:pets-loaded', { detail: { settled: true } }));
+      } catch (e) { /* CustomEvent unsupported */ }
+    }
+    var waiters = _petsWaiters.slice();
+    _petsWaiters = [];
+    waiters.forEach(function (fn) {
+      try { fn(); } catch (e) { /* one waiter must not block the rest */ }
+    });
+  }
+
+  function hydrateMyPets(owner, opts) {
+    var store = window.SharedMockUsers;
+    var settle = function () { markPetsSettled(); return; };
+    return myPets().then(function (r) {
+      if (store) {
+        if (!r.ok) store.replaceWithServer(owner ? [owner] : [], [], opts || {});
+        else store.replaceWithServer(owner ? [owner] : [], r.data.pets, opts || {});
+      }
+      settle();
+      return r;
+    }, function (e) {
+      // Rejected transport: settle into an honest empty state (never demo
+      // seeds) so waiting UIs unblock with "no pets" instead of a 4s stall,
+      // then keep the rejection contract for the caller.
+      if (store) store.replaceWithServer(owner ? [owner] : [], [], opts || {});
+      settle();
+      throw e;
+    });
+  }
+
+  /** Fetch the doctor directory; replace SharedMockDoctors with server truth. */
+  function hydrateDoctors() {
+    var store = window.SharedMockDoctors;
+    return doctors().then(function (r) {
+      if (!store) return r;
+      if (!r.ok) {
+        store.replaceWithServer([]);
+        return r;
+      }
+      store.replaceWithServer(r.data.doctors);
+      if (document.dispatchEvent) {
+        try {
+          document.dispatchEvent(new CustomEvent('vhs:doctors-loaded', { detail: { count: r.data.doctors.length } }));
+        } catch (e) { /* CustomEvent unsupported */ }
+      }
+      return r;
+    });
+  }
+
+  /**
+   * GET /api/documents — finalized client-facing documents (consultation
+   * summary / prescription / lab request). The backend scopes by role:
+   * a User receives ONLY their own documents, a Doctor their patients'.
+   */
+  function documents() {
+    return get('documents');
+  }
+
+  /**
+   * GET /api/pets/:pet/vaccinations — structured vaccination records for one
+   * pet (vaccine, administered date, next due, batch, veterinarian), only
+   * from completed consultations. Backend authorizes owner/Admin only.
+   */
+  function petVaccinations(petId) {
+    return get('pets/' + encodeURIComponent(petId) + '/vaccinations');
+  }
+
+  /**
+   * Replace SharedDocuments with server truth (GET /api/documents), the same
+   * pattern as hydrateAppointments. Failure contract: on ANY failure the
+   * store is replaced with an EMPTY list — the localStorage demo seed must
+   * never masquerade as a signed-in owner's records.
+   */
+  function hydrateDocuments() {
+    var store = window.SharedDocuments;
+    return documents().then(function (r) {
+      if (store && typeof store.replaceWithServer === 'function') {
+        store.replaceWithServer(r.ok ? (r.data.documents || []) : []);
+      }
+      return r;
+    });
+  }
+
+  /**
+   * GET /api/availability — REAL, resource-aware slot availability for one
+   * date, evaluated by the backend with the SAME capacity rules the booking
+   * endpoint enforces (On Duty doctor pool per exact slot, per-service
+   * capacity for non-doctor services, same-day past slots excluded).
+   *   params: { date, service?, serviceId?, doctorId?, excludeId? }
+   *   data.slots         : ['09:00', ...]        bookable HH:MM starts
+   *   data.display_slots : ['9:00 AM', ...]      same slots as 12h labels
+   *   data.slot_details  : per-slot { time, available, past, used, capacity, conflict }
+   * doctorId scopes the answer to one doctor's own conflicts (Admin's
+   * explicit doctor dropdown); excludeId lets a reschedule ignore the
+   * appointment's OWN currently held slot.
+   */
+  function availability(params) {
+    var p = params || {};
+    var q = [];
+    if (p.date) q.push('date=' + encodeURIComponent(p.date));
+    if (p.service) q.push('service=' + encodeURIComponent(p.service));
+    if (p.serviceId) q.push('service_id=' + encodeURIComponent(p.serviceId));
+    if (p.preferredTime) q.push('preferred_time=' + encodeURIComponent(p.preferredTime));
+    if (p.doctorId) q.push('doctor_id=' + encodeURIComponent(p.doctorId));
+    if (p.excludeId) q.push('exclude_id=' + encodeURIComponent(p.excludeId));
+    return get('availability' + (q.length ? '?' + q.join('&') : ''));
+  }
+
+  return {
+    get: get,
+    availability: availability,
+    appointments: appointments,
+    users: users,
+    petsOfUser: petsOfUser,
+    myPets: myPets,
+    doctors: doctors,
+    appointmentHistory: appointmentHistory,
+    consultationForAppointment: consultationForAppointment,
+    documents: documents,
+    petVaccinations: petVaccinations,
+    hydrateAppointments: hydrateAppointments,
+    hydrateClients: hydrateClients,
+    hydrateMyPets: hydrateMyPets,
+    hydrateDoctors: hydrateDoctors,
+    hydrateDocuments: hydrateDocuments,
+    petsSettled: petsSettled,
+    whenPetsSettled: whenPetsSettled,
+    markPetsSettled: markPetsSettled,
+    messageOf: messageOf,
+  };
+})();

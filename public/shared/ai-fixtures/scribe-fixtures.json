@@ -1,0 +1,201 @@
+{
+  "kind": "scribe-fixture-data",
+  "notes": "Transcript -> structured output fixtures. These are spec/fixtures used with the existing adapter normals and validation rules. Not real provider output.",
+  "requestShape": {
+    "transcript": "string",
+    "appointmentId": "string",
+    "petId": "string",
+    "patient": { "appointmentId": "string", "petId": "string", "name": "string?", "species": "string?" }
+  },
+  "outputShape": {
+    "subjective": "string|null",
+    "objective": {
+      "weightKg": "number|null",
+      "temperatureC": "number|null",
+      "heartRateBpm": "number|null",
+      "findings": "string|null"
+    },
+    "assessment": "string|null",
+    "plan": "string|null",
+    "uncertainties": "string[]"
+  },
+  "fixtures": [
+    {
+      "id": "scribe-fixture-01-vitals",
+      "description": "Normal case with vitals",
+      "request": {
+        "transcript": "Owner reports Luna has been less active and drinking more water for about two days. Luna weighs 3.8 kg, temperature is 39.2°C, heart rate 130 bpm, mild dehydration noted.",
+        "appointmentId": "apt902",
+        "petId": "4",
+        "patient": { "appointmentId": "apt902", "petId": "4", "name": "Luna", "species": "Cat" }
+      },
+      "output": {
+        "subjective": "Owner reports Luna has been less active and drinking more water for about two days.",
+        "objective": { "weightKg": 3.8, "temperatureC": 39.2, "heartRateBpm": 130, "findings": "Mild dehydration noted." },
+        "assessment": null,
+        "plan": null,
+        "uncertainties": []
+      }
+    },
+    {
+      "id": "scribe-fixture-02-missing-vitals",
+      "description": "Missing vitals",
+      "request": {
+        "transcript": "Bruno has been coughing for a week. No vitals recorded.",
+        "appointmentId": "apt902",
+        "petId": "4",
+        "patient": { "appointmentId": "apt902", "petId": "4", "name": "Bruno", "species": "Dog" }
+      },
+      "output": {
+        "subjective": "Bruno has been coughing for a week.",
+        "objective": { "weightKg": null, "temperatureC": null, "heartRateBpm": null, "findings": null },
+        "assessment": "",
+        "plan": "",
+        "uncertainties": []
+      }
+    },
+    {
+      "id": "scribe-fixture-03-owner-suggests-diagnosis-vet-does-not-confirm",
+      "description": "Owner suggests diagnosis; vet does not confirm",
+      "request": {
+        "transcript": "Owner thinks Bruno might have kennel cough. Vet does not confirm kennel cough and only notes coughing for a week.",
+        "appointmentId": "apt902",
+        "petId": "4",
+        "patient": { "appointmentId": "apt902", "petId": "4", "name": "Bruno", "species": "Dog" }
+      },
+      "output": {
+        "subjective": "Owner thinks Bruno might have kennel cough.",
+        "objective": { "weightKg": null, "temperatureC": null, "heartRateBpm": null, "findings": "Coughing for a week." },
+        "assessment": null,
+        "plan": null,
+        "uncertainties": ["Owner suggests kennel cough but vet does not confirm."]
+      }
+    },
+    {
+      "id": "scribe-fixture-04-prescription-dosage",
+      "description": "Explicit prescription/dosage",
+      "request": {
+        "transcript": "Vet prescribes amoxicillin 250 mg three times a day for 7 days.",
+        "appointmentId": "apt902",
+        "petId": "4",
+        "patient": { "appointmentId": "apt902", "petId": "4", "name": "Bruno", "species": "Dog" }
+      },
+      "output": {
+        "subjective": null,
+        "objective": { "weightKg": null, "temperatureC": null, "heartRateBpm": null, "findings": null },
+        "assessment": null,
+        "plan": "Amoxicillin 250 mg three times a day for 7 days.",
+        "uncertainties": []
+      }
+    },
+    {
+      "id": "scribe-fixture-05-corrected-vital",
+      "description": "Corrected vital value",
+      "request": {
+        "transcript": "Initial temperature 39.1°C, rechecked at 39.4°C.",
+        "appointmentId": "apt902",
+        "petId": "4",
+        "patient": { "appointmentId": "apt902", "petId": "4", "name": "Bruno", "species": "Dog" }
+      },
+      "output": {
+        "subjective": null,
+        "objective": { "weightKg": null, "temperatureC": 39.4, "heartRateBpm": null, "findings": null },
+        "assessment": null,
+        "plan": null,
+        "uncertainties": []
+      }
+    },
+    {
+      "id": "scribe-fixture-06-uncertain-statement",
+      "description": "Uncertain statement",
+      "request": {
+        "transcript": "Vet is not sure if Luna's cough is infectious; will keep the plan simple.",
+        "appointmentId": "apt902",
+        "petId": "4",
+        "patient": { "appointmentId": "apt902", "petId": "4", "name": "Luna", "species": "Cat" }
+      },
+      "output": {
+        "subjective": null,
+        "objective": { "weightKg": null, "temperatureC": null, "heartRateBpm": null, "findings": null },
+        "assessment": null,
+        "plan": "Keep the plan simple.",
+        "uncertainties": ["Vet is not sure if Luna's cough is infectious."]
+      }
+    },
+    {
+      "id": "scribe-fixture-07-malformed-provider-response",
+      "description": "Malformed/incomplete provider response",
+      "request": {
+        "transcript": "Luna is lethargic. Vet saw dehydration.",
+        "appointmentId": "apt902",
+        "petId": "4",
+        "patient": { "appointmentId": "apt902", "petId": "4", "name": "Luna", "species": "Cat" }
+      },
+      "output": {
+        "subjective": "Luna is lethargic.",
+        "objective": { "weightKg": null, "temperatureC": null, "heartRateBpm": null, "findings": "Vet saw dehydration." },
+        "assessment": null,
+        "plan": null,
+        "uncertainties": []
+      }
+    },
+    {
+      "id": "scribe-fixture-08-bad-vital-shape-validation",
+      "description": "Invalid vital type/range case: what should be rejected if the validator enforces types",
+      "request": {
+        "transcript": "Bruno weighs 3.8 kg, temperature 39.2°C, heart rate 125 bpm, underweight noted.",
+        "appointmentId": "apt902",
+        "petId": "4",
+        "patient": { "appointmentId": "apt902", "petId": "4", "name": "Bruno", "species": "Dog" }
+      },
+      "output": {
+        "subjective": "Bruno is underweight.",
+        "objective": {
+          "weightKg": 3.8,
+          "temperatureC": 39.2,
+          "heartRateBpm": 125,
+          "findings": "Underweight noted."
+        },
+        "assessment": null,
+        "plan": null,
+        "uncertainties": []
+      }
+    }
+  ],
+  "negative": [
+    {
+      "id": "scribe-negative-01-does-not-invent-medication",
+      "description": "Model must not add a medication not dictated or stated",
+      "request": {
+        "transcript": "Bruno has a cough and is lethargic.",
+        "appointmentId": "apt902",
+        "petId": "4",
+        "patient": { "appointmentId": "apt902", "petId": "4", "name": "Bruno", "species": "Dog" }
+      },
+      "expected": {
+        "subjective": "Bruno has a cough and is lethargic.",
+        "objective": { "weightKg": null, "temperatureC": null, "heartRateBpm": null, "findings": null },
+        "assessment": null,
+        "plan": null,
+        "uncertainties": []
+      }
+    },
+    {
+      "id": "scribe-negative-02-does-not-confirm-owner-suggested-diagnosis",
+      "description": "Model must not confirm an owner diagnosis",
+      "request": {
+        "transcript": "Owner thinks Bruno has diabetes. Vet only notes reduced appetite.",
+        "appointmentId": "apt902",
+        "petId": "4",
+        "patient": { "appointmentId": "apt902", "petId": "4", "name": "Bruno", "species": "Dog" }
+      },
+      "expected": {
+        "subjective": "Owner thinks Bruno has diabetes. Reduced appetite noted.",
+        "objective": { "weightKg": null, "temperatureC": null, "heartRateBpm": null, "findings": null },
+        "assessment": null,
+        "plan": null,
+        "uncertainties": ["Owner suggests diabetes; no confirm in transcript."]
+      }
+    }
+  ]
+}
